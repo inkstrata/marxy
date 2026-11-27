@@ -1,0 +1,67 @@
+verify-turn: slot a, dead-code, pnpm verify --tier changed (2026-11-24T16:05:40-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\dead-code
+65 files changed against master; unit suites: desktop, core, theme, scripts; browser files: 138
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\dead-code-2026-11-25T00-05-41
+
+PASS    install        0.4s      
+PASS    typecheck      12.4s     
+PASS    lint           2.4s      
+PASS    check          11.8s     10 pass, 0 fail
+PASS    golden         1.8s      
+PASS    fidelity       14.8s     
+PASS    licences       0.9s      
+PASS    unit-core      226.6s    4234 pass, 0 fail, 3 skip
+PASS    unit-theme     49.4s     305 pass, 0 fail
+FAIL    unit-scripts   49.4s     242 pass, 1 fail
+PASS    unit-desktop   235.3s    1279 pass, 0 fail, 1 skip
+FAIL    browser        3228.6s   1282 pass, 1 fail, 4 skip
+
+step          result  wall     tests
+------------  ------  -------  -------------------------
+install       pass    0.4s
+typecheck     pass    12.4s
+lint          pass    2.4s
+check         pass    11.8s    10 pass, 0 fail
+golden        pass    1.8s
+fidelity      pass    14.8s
+licences      pass    0.9s
+unit-core     pass    226.6s   4234 pass, 0 fail, 3 skip
+unit-theme    pass    49.4s    305 pass, 0 fail
+unit-scripts  FAIL    49.4s    242 pass, 1 fail
+unit-desktop  pass    235.3s   1279 pass, 0 fail, 1 skip
+browser       FAIL    3228.6s  1282 pass, 1 fail, 4 skip
+------------  ------  -------  -------------------------
+total                 3833.8s
+
+--- unit-scripts (C:\Users\<user>\AppData\Local\Temp\marxy-verify\dead-code-2026-11-25T00-05-41\10-unit-scripts.log)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\dead-code-2026-11-25T00-05-41\12-browser.log)
+      at file:///C:/Dev/reader/worktrees/dead-code/apps/desktop/test/frame-fonts.test.mjs:223:12
+      at async withFrame (file:///C:/Dev/reader/worktrees/dead-code/apps/desktop/test/support/frame.mjs:35:5)
+      at async TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/dead-code/apps/desktop/test/frame-fonts.test.mjs:212:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'Its tables only',
+    expected: 'The bytes',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+verify changed: 10/12 steps passed; failed: unit-scripts, browser; rerun with --from unit-scripts
+[ELIFECYCLE] Command failed with exit code 1.
+verify-turn: exit 1 (2026-11-24T17:09:35-08:00)

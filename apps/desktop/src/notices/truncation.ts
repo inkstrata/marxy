@@ -1,4 +1,4 @@
-// Truncation notice for never-closed HTML islands (docs/design/13-trust.md §The unclosed-element case).
+// Truncation notice for never-closed HTML islands.
 
 import type { Buffer } from '@marxy/core';
 import { lineOf } from '@marxy/core';

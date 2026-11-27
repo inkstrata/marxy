@@ -1,4 +1,4 @@
-// One way a document reaches the page (MARXY-193): startApp + the memory shell + the mounted palette in
+// One way a document reaches the page: startApp + the memory shell + the mounted palette in
 // Playwright WebKit. Opening through `handle.open`, through the palette UI, many times in a row, onto a
 // byte offset and onto a read error all go through the same path, and each is checked here.
 import { strict as assert } from 'node:assert';
@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { contentHash } from '@marxy/core';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { fileURLToPath } from 'node:url';
@@ -162,16 +162,18 @@ test('a read error naming markup is shown as text', () =>
   withApp(async (page) => {
     const seen = await page.evaluate(async () => {
       await window.__h.open('/r/<b>x</b>.md');
+      // The failed open is the floor's card in the pane, in place of the article.
+      const card = document.querySelector('[data-marxy-failed] .marxy-fcard');
       return {
-        text: document.getElementById('doc').textContent,
-        bold: document.querySelector('#doc b'),
+        text: card?.textContent ?? '',
+        bold: document.querySelector('[data-marxy-failed] b, #doc b') !== null,
         path: window.__h.currentPath(),
         counts: window.__h.debugCounts(),
       };
     });
-    assert.ok(seen.text.includes('<b>x</b>'), seen.text);
-    assert.equal(seen.bold, null);
-    assert.equal(seen.path, null, 'a failed open does not keep the last document as current');
+    assert.ok(seen.text.includes('/r/<b>x</b>.md'), seen.text);
+    assert.equal(seen.bold, false);
+    assert.equal(seen.path, '/r/<b>x</b>.md', 'a failed open names the file it tried, not the last document');
     assert.deepEqual(seen.counts, { typesetters: 0, resizeObservers: 0 });
   }));
 
@@ -197,10 +199,11 @@ test('open with `at` inside B\'s third heading lands on that heading after types
     assert.equal(await page.evaluate(() => window.__h.sourceHarness().byteOffset), firstHeading);
   }));
 
-test('open with `at` on a source-default file lands on that offset, not byte 0', () =>
-  withApp(async (page) => {
+test('open with `at` on a code file lands on that line in Read, and Source opens on it, not at byte 0', () =>
+  withApp(async (page, mod) => {
     await page.evaluate((at) => window.__h.open('/r/D.rs', { at }), markerOffset);
+    await page.waitForSelector('#doc pre code');
+    await page.keyboard.press(`${mod}+KeyE`);
     await page.waitForFunction(() => document.querySelector('#marxy-source .cm-editor'));
-    const at = await page.evaluate(() => window.__h.sourceHarness()?.byteOffset);
-    assert.equal(at, markerOffset);
+    assert.equal(await page.evaluate(() => window.__h.sourceHarness()?.byteOffset), markerOffset);
   }));

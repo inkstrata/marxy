@@ -1,0 +1,131 @@
+/* The Studio's Tone, Type and Page tabs. Colours only from tokens; the tone pad's field, its
+   dots, the swatches and the hue strip show the engine's own colours, which are data. */
+
+/* ---- Tone ---- */
+.marxy-studio-tone-padcol { display: flex; gap: 8px; flex: none; }
+.marxy-studio-tone-pad {
+  position: relative;
+  width: 128px;
+  height: 128px;
+  flex: none;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px var(--marxy-frame-hair-2);
+  cursor: crosshair;
+  touch-action: none;
+  outline: none;
+}
+.marxy-studio-tone-pad:focus-visible { box-shadow: 0 0 0 2px var(--marxy-color-accent); }
+.marxy-studio-tone-field { display: block; width: 128px; height: 128px; border-radius: 6px; }
+.marxy-studio-tone-puck {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--marxy-color-text), 0 0 0 3.5px var(--marxy-color-bg);
+  pointer-events: none;
+}
+.marxy-studio-tone-pad[data-marxy-held] .marxy-studio-tone-puck { width: 18px; height: 18px; margin: -9px 0 0 -9px; }
+.marxy-studio-tone-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  padding: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--marxy-color-rule-strong);
+}
+.marxy-studio .marxy-studio-tone-dot { border: 0; }
+.marxy-studio-tone-dot:hover { box-shadow: 0 0 0 2px var(--marxy-color-accent); }
+.marxy-studio-tone-axis {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 92px;
+  height: 128px;
+  font-size: calc(10.5 * var(--marxy-c));
+  color: var(--marxy-color-text-faint);
+}
+.marxy-studio-tone-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  transform: translateY(-50%);
+  line-height: 1.2;
+  color: var(--marxy-color-text-secondary);
+}
+.marxy-studio-tone-bandmark { flex: none; width: 10px; border-top: 1px dashed var(--marxy-color-text-faint); margin-left: -6px; }
+
+.marxy-studio-tone-col { min-width: 250px; max-width: 320px; }
+.marxy-studio-tone-words { color: var(--marxy-color-text-strong); font-weight: 600; }
+.marxy-studio-tone-chips { display: grid; grid-template-columns: repeat(3, auto); gap: 3px 4px; justify-content: start; margin-top: 2px; }
+.marxy-studio-tone-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px 2px 4px;
+  border-radius: 5px;
+  color: var(--marxy-color-text-secondary);
+  font-size: calc(12 * var(--marxy-c));
+}
+.marxy-studio-tone-chip:hover { background: var(--marxy-frame-chrome); }
+.marxy-studio-tone-chip[aria-pressed="true"] { color: var(--marxy-color-text-strong); box-shadow: inset 0 0 0 1px var(--marxy-color-accent); }
+.marxy-studio-tone-swatch { width: 11px; height: 11px; border-radius: 50%; box-shadow: 0 0 0 1px var(--marxy-color-rule-strong); }
+
+.marxy-studio-tone-dials { min-width: 400px; }
+.marxy-studio-tone-hue { position: relative; height: 22px; display: flex; align-items: center; cursor: ew-resize; touch-action: none; outline: none; width: 240px; }
+.marxy-studio-tone-hue:focus-visible .marxy-studio-tone-strip { box-shadow: 0 0 0 2px var(--marxy-color-accent); }
+.marxy-studio-tone-strip { display: block; width: 240px; height: 14px; border-radius: 7px; box-shadow: 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-studio-tone-hue-mark {
+  position: absolute;
+  top: 1px;
+  width: 6px;
+  height: 20px;
+  margin-left: -3px;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1.5px var(--marxy-color-text), 0 0 0 3px var(--marxy-color-bg);
+  pointer-events: none;
+}
+
+/* ---- Type ---- */
+.marxy-studio-type-facecol { min-width: 0; flex: none; }
+.marxy-studio-type-faces { display: grid; grid-template-columns: repeat(3, 116px); gap: 3px 6px; }
+.marxy-studio-type-dials { min-width: 0; flex: 1 1 250px; max-width: 340px; }
+.marxy-studio-type-dials .marxy-studio-dial { grid-template-columns: 4.5em minmax(70px, 1fr) auto; }
+.marxy-studio-type-dials .marxy-studio-row { grid-template-columns: 4.5em minmax(0, 1fr); }
+.marxy-studio-type-dials .marxy-studio-dial-v { min-width: 3.5em; }
+.marxy-studio-type-select { width: 100%; min-width: 0; }
+.marxy-studio-type-face {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 2px 8px 3px;
+  border-radius: 5px;
+  text-align: left;
+  line-height: 1.2;
+}
+.marxy-studio-type-face:hover { background: var(--marxy-frame-chrome); }
+.marxy-studio-type-face[aria-checked="true"] { box-shadow: inset 0 0 0 1px var(--marxy-color-accent); background: var(--marxy-frame-chrome); }
+.marxy-studio-type-facename { font-size: calc(14 * var(--marxy-c)); color: var(--marxy-color-text-strong); white-space: nowrap; }
+.marxy-studio-type-facenote { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: calc(10.5 * var(--marxy-c)); color: var(--marxy-color-text-faint); white-space: nowrap; }
+.marxy-studio-type-select {
+  padding: 2px 4px;
+  border: 1px solid var(--marxy-color-edge);
+  border-radius: 5px;
+  background: var(--marxy-color-bg);
+  color: var(--marxy-color-text);
+  font: inherit;
+}
+.marxy-studio-type-narrow { min-width: 0; }
+.marxy-studio-type-narrow .marxy-studio-row { grid-template-columns: 5.5em auto; }
+
+/* ---- Page ---- */
+.marxy-studio-page-measure { min-width: 280px; flex: 1 1 280px; max-width: 400px; }
+.marxy-studio-page-col .marxy-seg button, .marxy-studio-type-narrow .marxy-seg button { white-space: nowrap; }
+.marxy-studio-page-col .marxy-studio-row { grid-template-columns: auto auto; justify-content: start; }
+.marxy-studio-page-note { margin: 0; max-width: 250px; color: var(--marxy-color-text-faint); font-size: calc(11 * var(--marxy-c)); line-height: 1.35; }
+.marxy-studio-page-figs { font-family: var(--marxy-font-text); font-size: calc(15 * var(--marxy-c)); color: var(--marxy-color-text-strong); }

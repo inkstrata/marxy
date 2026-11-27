@@ -1,6 +1,6 @@
-// Default verbs by selection kind: the one place verbs are ordered (ADR-0054, docs/design/03 §Default verbs, C-06).
+// Default verbs by selection kind: the one place verbs are ordered.
 // `Mod+C` and `Mod+Shift+C` read these tables, never a string prefix of a command id, and the palette's
-// chord hints and the verb menu (C-13) read the same ones.
+// chord hints and the verb menu read the same ones.
 
 import type { Block, Document, ListItem, Node } from '@marxy/core';
 import type { AppContext, Command } from '../commands/registry.ts';
@@ -85,7 +85,7 @@ export function verbKindOf(sel: Selection, doc: Document): VerbKind | null {
 /** Command ids in menu order. Ids not (yet) registered are skipped. The one place verbs are ordered. */
 export const MENU_ORDER: Readonly<Record<VerbKind, readonly string[]>> = {
   text: ['selection.copy-rich', 'selection.copy-plain', 'selection.copy-markdown'],
-  code: ['op.copy-code-clean', 'op.copy-command', 'op.copy-source', 'op.copy-rich', 'view.jump-to-source'],
+  code: ['op.copy-code-clean', 'op.copy-command', 'view.read-part', 'op.copy-source', 'op.copy-rich', 'view.jump-to-source'],
   table: [
     'op.copy-table-tsv',
     'op.copy-table-csv',
@@ -111,11 +111,11 @@ export const MENU_ORDER: Readonly<Record<VerbKind, readonly string[]>> = {
 
 /**
  * Mod+C candidates; the first registered and applicable wins. Clipboard-only ids: a verb that changes the
- * buffer is never a default (ADR-0054 §3, and `verbs.test.ts` runs each over the corpus to hold it).
+ * buffer is never a default (and `verbs.test.ts` runs each over the corpus to hold it).
  *
- * `inline` names `op.copy-source`, as design 03 does, and C-07's copy-source refuses an inline node (a
+ * `inline` names `op.copy-source`, and copy-source refuses an inline node (a
  * partial span has no block bytes of its own). So no default applies to an inline selection today and
- * Mod+C stays the webview's own; the row is kept so the table reads as design 03 does.
+ * Mod+C stays the webview's own; the row is kept so the table lists every selection kind.
  */
 export const COPY_DEFAULT: Readonly<Record<VerbKind, readonly string[]>> = {
   text: ['selection.copy-rich'],
@@ -174,8 +174,26 @@ export function markdownCopy(ctx: AppContext, registered: readonly Command[]): C
 }
 
 /**
+ * The verbs the verb bar draws over a part, in order, with the word for each; a gap goes before the last. `section`: only on
+ * a section. The Enter menu lists the same ones after its operations, so the two name the same verbs.
+ */
+export const BAR_VERBS: readonly (readonly [id: string, word: string, only?: 'section'])[] = [
+  ['cursor.copy', 'copy'],
+  ['cursor.copy-cite', 'cite'],
+  ['depths.xray', 'x-ray'],
+  ['cursor.edit', 'edit'],
+  ['depths.fold', 'fold', 'section'],
+  ['depths.focus', 'only this', 'section'],
+  ['cursor.tick', 'tick'],
+  ['cursor.source', 'source'],
+  ['tray.collect', 'collect'],
+  ['note.write', 'note'],
+  ['cursor.menu', 'all'],
+];
+
+/**
  * The verbs the selection in `ctx` offers, in menu order: the ids of `MENU_ORDER` for its kind that are
- * registered and applicable. The verb menu (C-13), the palette's chord hints and the chords read this and
+ * registered and applicable. The verb menu, the palette's chord hints and the chords read this and
  * the two defaults above, so the order is written once.
  */
 export function menuVerbs(ctx: AppContext, registered: readonly Command[]): Command[] {

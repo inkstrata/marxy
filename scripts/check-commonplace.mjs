@@ -1,4 +1,4 @@
-// The Commonplace (MARXY-256): every piece is sourced, carries a visible colophon, and is ours to ship.
+// The Commonplace: every piece is sourced, carries a visible colophon, and is ours to ship.
 // The rights rule lives in apps/desktop/src/commonplace/README.md; this is its machine half. It derives
 // public-domain status from the years in each piece's front matter rather than trusting a label.
 // The translation licence and the note that front matter is not shown live in INFO.md.

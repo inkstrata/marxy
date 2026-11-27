@@ -1,0 +1,1 @@
+{"before":"[Ǆ]: /u \"\"\n\n\n[FF][] end\n\nx [^a b]\n[ss]: /u \"t\"\n===\n> x ] [^A  B]\n> [ss]: /u (t)\n[σ]: <>\nx [a  b]\n\n\n\ttext [ [t][ß]\n\n","after":"[Ǆ]: /u \"\"\n\n\n[FF][] end\n\nx [^a b]\n[ss]: /u \"t\"\n===\n> x ] [^A  B]\n> [ss]: /u (t)\n[σ]: <>\nx [ǅ]\n\n\n\ttext [ [t][ß]\n\n","kind":"region"}

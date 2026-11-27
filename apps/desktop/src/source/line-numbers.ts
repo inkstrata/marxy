@@ -1,11 +1,11 @@
-// Source gutter defaults and the remembered toggle (config.toml `line_numbers`, L-06.1) (reader-artifacts handbook §04).
+// Source gutter defaults and the remembered toggle (config.toml `line_numbers`).
 
-import { fileTypeForExtension } from '@marxy/core/src/index-model/file-types.ts';
+import { fileTypeForExtension } from '@marxy/core/src/kind/registry.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { extensionOf } from './default-mode.ts';
 
 export function defaultLineNumbersForPath(path: string): boolean {
-  // A scratch document is Markdown until it is named (sourceWraps, the metrics, the kind chip), so it has no gutter, as a saved .md has none (F-108).
+  // A scratch document is Markdown until it is named (sourceWraps, the metrics, the kind chip), so it has no gutter, as a saved .md has none.
   if (isUntitled(path)) return false;
   // The Markdown and text families read as prose, so no gutter; a name with no extension keeps it.
   const kind = fileTypeForExtension(extensionOf(path).slice(1))?.kind;

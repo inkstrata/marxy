@@ -1,6 +1,6 @@
-// A transform chain (W-21, ADR-0065 item 4): an input and an ordered list of transform ids, run by core's
-// `runTransform`. Pure. The result sheet holds one chain and nothing else: no history, no saved pipeline (J-08,
-// J-11). The same input and the same steps always give the same output, and a step that cannot run (an unknown
+// A transform chain: an input and an ordered list of transform ids, run by core's
+// `runTransform`. Pure. The result sheet holds one chain and nothing else: no history, no saved pipeline.
+// The same input and the same steps always give the same output, and a step that cannot run (an unknown
 // id, or one not built yet) keeps the text it was given.
 //
 // `applyToStore` is the one place Apply writes: one splice over one range of the store's bytes, refused (the
@@ -47,7 +47,7 @@ function settled(text: string, kind: TransformKind | undefined, eol: Eol | null)
  * a chain made all at once and one grown a step at a time (the sheet keeps each step's text and runs only the new
  * one) give the same text.
  *
- * `parsed` is the store's parse of the document's text (`DocumentStore.textParse`, F-60.1), handed to every step and
+ * `parsed` is the store's parse of the document's text (`DocumentStore.textParse`), handed to every step and
  * used by core only for a step whose text is exactly the one it parses: the first step of a whole-document chain, or
  * a later one after steps that changed nothing. A step on any other text parses for itself. It is a cache, so it never
  * changes what a step gives.

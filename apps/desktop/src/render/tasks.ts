@@ -1,5 +1,5 @@
-// Task checkbox post-pass (MARXY-43). A click is an operation: it applies through the open document's
-// store, whose subscribers re-render the page (ADR-0037).
+// Task checkbox post-pass. A click is an operation: it applies through the open document's
+// store, whose subscribers re-render the page.
 import { textOf } from '@marxy/core';
 import { toggleTask } from '@marxy/core/src/operations/toggle-task.ts';
 import { nodeFor } from './post.ts';
@@ -16,8 +16,8 @@ export function taskMarkersInstalled(article: HTMLElement): boolean {
 /**
  * The task click, on `article`, once. `context` is read at click time: the open document is its store's
  * snapshot then. The toggle carries `pageVersion()`, the store version the page clicked on was set from
- * (the selection's, B-13), else that snapshot's version (ADR-0037 Amendment 1). Returns what
- * takes it off again, so the article's next view can install its own (B-13); a second install while
+ * (the selection's), else that snapshot's version. Returns what
+ * takes it off again, so the article's next view can install its own; a second install while
  * one is on is a no-op, and so is its undo.
  */
 export function installTaskMarkers(

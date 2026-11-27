@@ -1,4 +1,4 @@
-// A diff in Read (K-09): a .diff or .patch opens in Read, set mono at 16 on 26 exactly as authored. Every `+` line carries
+// A diff in Read: a .diff or .patch opens in Read, set mono at 16 on 26 exactly as authored. Every `+` line carries
 // the added tint and every `-` line the removed one; hunk headers, file headers and `\ No newline at end of file` carry
 // neither; copying gives the file's bytes (the markers in column one, CRLF, no newline at the end); a wrapped row hangs
 // past the marker column; under forced colours added and removed rows differ by border style; Source shows the bytes.
@@ -160,6 +160,9 @@ test('copying a hunk returns its bytes exactly', () =>
       selection.removeAllRanges();
       selection.addRange(range);
     }, { from, to });
+    // A selection made by script is the reader's once its selectionchange has been heard: a drag is recorded at its
+    // pointer-up and a keyboard selection on its next key, neither of which a script makes.
+    await page.waitForFunction(() => window.__marxyHandle.selection.state().selection.kind === 'text');
     const key = await modifier(page);
     await page.keyboard.press(`${key}+KeyC`);
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
@@ -326,7 +329,7 @@ for (const shape of ['many files', 'one hunk']) test(`a diff of ${process.env.MA
     }
   }));
 
-test('a hunk is read by its counts: removed `---` and `-- sql`, added `++x`, a signature untinted, across a piece boundary (K-09 round 1)', () =>
+test('a hunk is read by its counts: removed `---` and `-- sql`, added `++x`, a signature untinted, across a piece boundary', () =>
   withPage(async (page) => {
     const filler = Array.from({ length: 300 }, (_, i) => ` context ${i}`).join('\n');
     const text = `From abc Mon Sep 17 00:00:00 2001\nSubject: [PATCH] x\n---\n a | 2 +-\n\ndiff --git a/a.md b/a.md\n--- a/a.md\n+++ b/a.md\n@@ -1,303 +1,303 @@\n${filler}\n----\n--- a rule\n-- sql comment\n+++x\n++y\n+z\n-- \n2.44.0\n`;

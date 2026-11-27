@@ -1,5 +1,5 @@
 // Hang fractions, in Node: quotes take the whole advance, protrusion takes its thousandths, and
-// a letter with no left code must not move, so a test can fail the story without a browser.
+// a letter with no left code must not move, so a test can fail without a browser.
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { hangFraction } from './hang.ts';

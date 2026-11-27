@@ -1,4 +1,4 @@
-// The Settings page's schema (W-12, ADR-0075): whole against config.ts, and its pure reads, writes and search.
+// The Settings page's schema: whole against config.ts, and its pure reads, writes and search.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -29,7 +29,7 @@ test('every row sits in a category, and a category with no row is not drawn', ()
   for (const row of SETTINGS) assert.ok(ids.includes(row.category), row.key);
   const drawn = drawnCategories().map((c) => c.id);
   assert.ok(!drawn.includes('collections'), 'Collections has no key of config.toml');
-  assert.deepEqual(drawn, ['general', 'appearance', 'reading', 'source', 'types', 'accessibility', 'privacy', 'advanced']);
+  assert.deepEqual(drawn, ['general', 'appearance', 'reading', 'source', 'types', 'accessibility', 'privacy', 'proposals', 'advanced']);
 });
 
 test('a row\'s default is what parseConfig gives for an empty file', () => {
@@ -109,8 +109,13 @@ test('what writeFor writes parses back to the value chosen, for every choice of 
   }
 });
 
-test('the theme choices are the bundled themes the app lists', () => {
-  assert.deepEqual(THEME_OPTIONS.map((o) => o.value), ['', 'ink', 'warm', 'fjord', 'high-contrast']);
+test('the theme choices are the bundled themes the app lists, Ink the unset default', () => {
+  assert.deepEqual(THEME_OPTIONS.map((o) => o.value), ['', 'night-paper', 'midnight', 'black', 'ember', 'fjord', 'polar', 'warm', 'solarized', 'gruvbox', 'rose-pine', 'catppuccin', 'high-contrast']);
+  assert.equal(THEME_OPTIONS.find((o) => o.value === 'night-paper')?.label, 'Night and Paper', 'a pair is named for both its pages in Settings');
+  const row = SETTINGS.find((r) => r.key === 'theme')!;
+  assert.equal(row.defaultLabel, 'Ink');
+  assert.equal(row.read({ ...parseConfig(new TextEncoder().encode('theme = "ink"\n')).config }), '', 'naming Ink is the default');
+  assert.equal(row.read({ ...parseConfig(new TextEncoder().encode('theme = "night-paper"\n')).config }), 'night-paper');
 });
 
 test('search: a word finds a setting by its label, its words or its key; every word must match', () => {

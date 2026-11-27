@@ -1,9 +1,9 @@
-// The derived transcript view's page half (K-12; ADR-0061): a `.jsonl` agent session, in Read, as the conversation it
+// The derived transcript view's page half: a `.jsonl` agent session, in Read, as the conversation it
 // records. Rendered (`view/rendered-view.ts`) mounts it in the pane's article in place of a page, loaded on demand: nothing
-// on the way to first text imports this module (F-111).
+// on the way to first text imports this module.
 //
 // What it promises:
-// - **It never writes** (commitment 3, ADR-0061 item 6). The tree is core's `jsonl-transcript` deriver over the store's
+// - **It never writes** (commitment 3). The tree is core's `jsonl-transcript` deriver over the store's
 //   bytes; folds, filters and the selected turn are view state; no derived range reaches a splice. The app's own selection
 //   never resolves inside it (`selection/view.ts` leaves `[data-marxy-derived]` alone), so no registered operation is
 //   offered on what it shows: its menus hold only verbs that read (Copy, Copy as, Source lines, Jump to source).
@@ -115,7 +115,7 @@ export interface TranscriptView {
   /** Resolves once the whole file is derived and drawn. */
   settled(): Promise<void>;
   /**
-   * The file grew (an agent appended to its log, ADR-0061 item 8): only the new lines are derived and drawn, in slices,
+   * The file grew (an agent appended to its log): only the new lines are derived and drawn, in slices,
    * and the rows already on the page stay (the last, which the new lines may continue, is drawn again in place). False
    * when `next` is not an append of the bytes shown: the caller mounts the view again.
    */
@@ -294,7 +294,7 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
 
   /**
    * The filters on the page: each turn or tool unit a filter hides is `hidden` (no rule of a theme is needed for it), and
-   * one line stands where each run of them was, saying how many (ADR-0061 item 7; the card's filters).
+   * one line stands where each run of them was, saying how many (the card's filters).
    */
   function markRuns(): void {
     for (const el of root.querySelectorAll('.marxy-transcript-hidden-run')) el.remove();
@@ -415,7 +415,7 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
   }
 
   async function copyOutput(tool: DerivedTool): Promise<void> {
-    // The whole output, folded or not, bounded on the page or not (ADR-0061 item 5).
+    // The whole output, folded or not, bounded on the page or not.
     await writeCopy(ctx(), { text: toolOutput(tool) }, `Copied the output of ${tool.orphan ? 'the tool' : toolName(tool)}`);
   }
 
@@ -450,7 +450,7 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
     openVerbMenu(at, ctx(), { registered: [], allActions: () => {}, rows, label: 'Copy as' });
   }
 
-  /** The `turn` and `tool` verbs, in ADR-0061 item 6's order: only verbs that read. */
+  /** The `turn` and `tool` verbs, in their menu order: only verbs that read. */
   function openMenu(target: { turn?: DerivedTurn; tool?: DerivedTool; fold?: HTMLElement }, at: MenuAnchor): void {
     const rows: VerbMenuRow[] = [];
     if (target.tool) {
@@ -491,7 +491,7 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
     return { turn: row?.type === 'turn' ? row : undefined, tool: unit?.type === 'tool' ? unit : undefined, fold, turnEl };
   }
 
-  /** A drag's text as displayed: labels it covered included, an invisible's character not its label (ADR-0061 item 5). */
+  /** A drag's text as displayed: labels it covered included, an invisible's character not its label. */
   function displayedText(range: Range): string {
     const holder = document.createElement('div');
     holder.className = 'marxy-transcript-copy';

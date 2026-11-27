@@ -1,0 +1,32 @@
+verify-turn: slot a, verify-lock, pnpm verify --tier changed (2026-11-25T14:53:21-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\verify-lock
+7 files changed against master; unit suites: scripts; browser files: 0
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\verify-lock-2026-11-25T22-53-22
+
+PASS    install        0.5s      
+PASS    typecheck      15.4s     
+PASS    lint           3.2s      
+PASS    check          15.8s     10 pass, 0 fail
+PASS    golden         2.0s      
+PASS    fidelity       15.4s     
+PASS    licences       1.3s      
+verify: holding place 1 of 2 (--no-lock skips it)
+
+PASS    unit-scripts   29.1s     269 pass, 0 fail
+
+step          result  wall   tests
+------------  ------  -----  ----------------
+install       pass    0.5s
+typecheck     pass    15.4s
+lint          pass    3.2s
+check         pass    15.8s  10 pass, 0 fail
+golden        pass    2.0s
+fidelity      pass    15.4s
+licences      pass    1.3s
+unit-scripts  pass    29.1s  269 pass, 0 fail
+------------  ------  -----  ----------------
+total                 82.7s
+
+verify changed: 8/8 steps passed
+verify-turn: exit 0 (2026-11-25T14:54:45-08:00)

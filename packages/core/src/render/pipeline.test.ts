@@ -1,12 +1,14 @@
-// MARXY-96: island removals carry byte provenance; renderer-pass removals do not.
+// island removals carry byte provenance; renderer-pass removals do not.
 
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { MAX_NESTING_DEPTH } from '../parse/from-mdast.ts';
+import { checkInvariants } from '../parse/invariants.ts';
 import { parseMarkdown } from '../parse/parse.ts';
 import { reparseMarkdown } from '../parse/reparse.ts';
 import { renderDocumentSafeHtml, renderDocumentSafeHtmlInSlices, renderSafeHtml } from './pipeline.ts';
+import { cpuNow } from '../testing/cpu-clock.ts';
 
 const readmePath = new URL('../../../../fixtures/corpus/02-readme-real-world.md', import.meta.url);
 
@@ -31,7 +33,7 @@ test('a renderer-pass image removal has no island src', () => {
   assert.equal(image.url, 'https://example.invalid/x.png');
 });
 
-// MARXY-337: a document nested past the stack degrades to escaped source instead of throwing.
+// a document nested past the stack degrades to escaped source instead of throwing.
 test('a deeply nested document renders as an escaped <pre> rather than throwing a RangeError', () => {
   for (const source of ['>'.repeat(20000) + ' x <b>y</b> & z', '> '.repeat(20000) + 'x']) {
     const result = renderSafeHtml(source);
@@ -43,7 +45,7 @@ test('a deeply nested document renders as an escaped <pre> rather than throwing 
   }
 });
 
-// F-54: past MAX_NESTING_DEPTH levels of quote or list a document is shown as its source and says so.
+// past MAX_NESTING_DEPTH levels of quote or list a document is shown as its source and says so.
 const inlineQuotes = (n: number): string => `${'> '.repeat(n)}word\n`;
 const inlineLists = (n: number): string => `${'- '.repeat(n)}word\n`;
 const indentedLists = (n: number): string => `${Array.from({ length: n }, (_, i) => `${'  '.repeat(i)}- level ${i + 1}`).join('\n')}\n`;
@@ -73,14 +75,14 @@ for (const [name, make] of [['quotes', inlineQuotes], ['lists', inlineLists], ['
 
 test('a 12,000-level list neither throws nor overflows, and does not wait for micromark', () => {
   const source = inlineLists(12000);
-  const started = performance.now();
+  const started = cpuNow();
   // The parse itself, as the app calls it, not only `renderSafeHtml`'s net under it.
   assert.equal(parseMarkdown(source, { file: 'list.md' }).children.length, 1);
   const result = renderSafeHtml(source);
   assert.equal(sourceFallback(result.html), true);
   assert.equal(result.removed[0]?.name, 'document');
   // micromark alone takes seconds for this file; the text scan answers in a few milliseconds.
-  assert.ok(performance.now() - started < 1500, `took ${Math.round(performance.now() - started)} ms`);
+  assert.ok(cpuNow() - started < 1500, `took ${Math.round(cpuNow() - started)} ms`);
 });
 
 test('a 508-quote tower, the hunt\'s, renders as the source', () => {
@@ -118,4 +120,38 @@ test('an edit that makes a document too deep, or shallow again, is parsed right'
   const back = reparseMarkdown(after, deep, shallow);
   assert.equal(sourceFallback(renderDocumentSafeHtml(back).html), false);
   assert.deepEqual(back, parseMarkdown(shallow));
+});
+
+// inline nesting past the cap is set as the text it was written as, so nothing recurses past it.
+const deepestTag = (html: string): number => {
+  let depth = 0;
+  let deepest = 0;
+  for (const m of html.matchAll(/<(\/?)(em|strong|del|a)\b/g)) {
+    depth += m[1] === '/' ? -1 : 1;
+    deepest = Math.max(deepest, depth);
+  }
+  return deepest;
+};
+
+test('thousands of levels of emphasis render: the levels past the cap are text', () => {
+  const sources = [
+    `${'*'.repeat(5000)}a${'*'.repeat(5000)}`,
+    `${'*a '.repeat(1500)}b${' a*'.repeat(1500)}`,
+    `${'~~a '.repeat(1500)}b${' a~~'.repeat(1500)}`,
+    `> ${'_a '.repeat(1500)}b${' a_'.repeat(1500)}`,
+  ];
+  for (const source of sources) {
+    const bytes = new TextEncoder().encode(source);
+    const document = parseMarkdown(bytes);
+    assert.deepEqual(checkInvariants(document, bytes), [], source.slice(0, 12));
+    const { html } = renderDocumentSafeHtml(document);
+    assert.equal(sourceFallback(html), false, source.slice(0, 12));
+    const deepest = deepestTag(html);
+    assert.ok(deepest > 1 && deepest <= MAX_NESTING_DEPTH, `${source.slice(0, 12)}: ${deepest} levels`);
+  }
+});
+
+test(`${MAX_NESTING_DEPTH} levels of emphasis are all emphasis`, () => {
+  const html = renderSafeHtml(`${'*a '.repeat(MAX_NESTING_DEPTH)}b${' a*'.repeat(MAX_NESTING_DEPTH)}`).html;
+  assert.equal(deepestTag(html), MAX_NESTING_DEPTH);
 });

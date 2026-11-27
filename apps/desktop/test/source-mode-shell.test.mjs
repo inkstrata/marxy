@@ -1,4 +1,4 @@
-// Source mode mounted from the real app shell: defaults, Mod+E, startup deferral (MARXY-169).
+// Source mode mounted from the real app shell: defaults, Mod+E, startup deferral.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -7,7 +7,7 @@ import { extname, join } from 'node:path';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { contentHash } from '../../../packages/core/src/buffer/buffer.ts';
 import { forbiddenStaticImportsFromEntry } from '../src/startup/static-import-graph.test.mjs';
 import { fileURLToPath } from 'node:url';
@@ -73,12 +73,21 @@ nodeTest('main.ts static import walk still excludes CodeMirror after app wiring'
   assert.equal(hits.length, 0, hits.map((h) => `${h.from} → ${h.spec}`).join('; '));
 });
 
-test('04-source.rs opens in Source: #marxy-source visible, #doc hidden', async () => {
+test('04-source.rs lands in Read as its code, no editor made; Mod+E shows Source: #marxy-source visible, #doc hidden', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     const rsPath = '/corpus/04-source.rs';
     await boot(page, { [rsPath]: b64(join(corpusDir, '04-source.rs')) }, [rsPath]);
+    const read = await page.evaluate(() => ({
+      docHidden: document.getElementById('doc').hidden,
+      code: Boolean(document.querySelector('#doc pre code')),
+      mode: document.body.dataset.marxyMode,
+      hasEditor: Boolean(document.querySelector('#marxy-source .cm-editor')),
+    }));
+    assert.deepEqual(read, { docHidden: false, code: true, mode: 'rendered', hasEditor: false });
+    await page.keyboard.press(`${modKey}+e`);
+    await page.waitForFunction(() => document.querySelector('#marxy-source .cm-editor'));
     const vis = await page.evaluate(() => ({
       docHidden: document.getElementById('doc').hidden,
       sourceHidden: document.getElementById('marxy-source').hidden,
@@ -158,7 +167,7 @@ test('Mod+E twice without edits keeps buffer hash and reading byte offset', asyn
   }
 });
 
-test('an edit in Source re-renders Rendered from the new buffer (MARXY-198)', async () => {
+test('an edit in Source re-renders Rendered from the new buffer', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -191,7 +200,7 @@ test('an edit in Source re-renders Rendered from the new buffer (MARXY-198)', as
   }
 });
 
-test('opening a second document tears down the first one\'s editor and typesetter (MARXY-198)', async () => {
+test('opening a second document tears down the first one\'s editor and typesetter', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -201,6 +210,7 @@ test('opening a second document tears down the first one\'s editor and typesette
       [first]: b64(join(corpusDir, '04-source.rs')),
       [second]: b64(join(corpusDir, '01-long-technical.md')),
     }, [first]);
+    await page.keyboard.press(`${modKey}+e`);
     await page.waitForFunction(() => document.querySelector('#marxy-source .cm-editor'));
     await page.evaluate((path) => window.__marxyHandle.open(path), second);
     const seen = await page.evaluate(() => ({

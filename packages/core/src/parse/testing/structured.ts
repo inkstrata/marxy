@@ -1,5 +1,5 @@
-// Structured random documents (from B-23's review of #467), shared by the property tests that hold a second way
-// of building a document to the first: the parse in slices (D-15) and the render in slices.
+// Structured random documents, shared by the property tests that hold a second way
+// of building a document to the first: the parse in slices and the render in slices.
 
 /** A small deterministic generator (mulberry32), so a failure names a seed that reproduces it. */
 export function random(seed: number): () => number {
@@ -39,7 +39,7 @@ export function generated(next: () => number): string {
 
 
 /**
- * The cases a second road to the same bytes can get wrong (D-15's oracle): raw inline HTML left open across
+ * The cases a second road to the same bytes can get wrong: raw inline HTML left open across
  * blocks or never closed, a closer with no opener, an element the sanitiser takes to a later end tag,
  * footnotes and link definitions (which reach across the file), fences that never close, and the remote
  * images and scripts whose removals must come in the order a whole render gives them.

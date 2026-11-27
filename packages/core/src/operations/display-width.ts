@@ -1,4 +1,4 @@
-// Display width for GFM table alignment (docs/design/03-selection-and-operations.md step 4). MARXY-43.
+// Display width for GFM table alignment.
 
 const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
 

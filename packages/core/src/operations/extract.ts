@@ -1,4 +1,4 @@
-// Extract verbs (C-09): gather what an agent's answer scatters across a section or the document.
+// Extract verbs: gather what an agent's answer scatters across a section or the document.
 // Clipboard only; each is offered only when the range holds at least one item.
 import type { Document, Heading, Inline, Link, ListItem, Node, Source } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
@@ -66,7 +66,9 @@ const codeBlocksIn = (input: Scope, limit?: number) =>
 function fenced({ info, value }: Block): string {
   const code = value.replace(/\n$/, '');
   if (!FENCE_BLOCKS) return code;
-  const longest = Math.max(0, ...(code.match(/`+/g) ?? []).map((run) => run.length));
+  // A loop, not Math.max(...runs): a minified block has more runs than the engine's argument limit.
+  let longest = 0;
+  for (const [run] of code.matchAll(/`+/g)) if (run.length > longest) longest = run.length;
   const fence = '`'.repeat(Math.max(3, longest + 1));
   return `${fence}${info}\n${code}\n${fence}`;
 }
@@ -102,7 +104,7 @@ export const extractTasks: Operation = {
   canApply: (input) => tasksIn(input, 1).length > 0,
   run(input) {
     const tasks = tasksIn(input);
-    const base = Math.min(...tasks.map((t) => t.depth));
+    const base = tasks.reduce((low, t) => Math.min(low, t.depth), Infinity);
     const lines = tasks.map((t) => `${'  '.repeat(t.depth - base)}- [ ] ${t.text}`.trimEnd());
     return result(input, lines.join('\n'), plural(tasks.length, 'unchecked task', 'unchecked tasks'));
   },

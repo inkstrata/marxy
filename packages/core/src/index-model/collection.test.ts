@@ -1,8 +1,8 @@
-// collection.toml: parse, deny rules, and the byte-faithful append (C-03).
+// collection.toml: parse, deny rules, and the byte-faithful append.
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { COLLECTION_TEMPLATE, appendQuery, appendRoot, denyRulesFor, isIgnored, parseCollection, queryRange } from './index.ts';
+import { COLLECTION_TEMPLATE, appendQuery, appendRoot, denyRulesFor, isIgnored, parseCollection, queryRange, removeRoot } from './index.ts';
 
 const home = '/Users/ian';
 const ctx = { home };
@@ -231,7 +231,7 @@ test('appendRoot fuzz: random prefixes keep their bytes; a second append adds on
   }
 });
 
-// Saved queries (Q-01): [[query]] tables.
+// Saved queries: [[query]] tables.
 const QEXAMPLE = `[[root]]
 path = "/a"
 
@@ -381,7 +381,7 @@ test('appendQuery after appendRoot keeps both, and a roots-only file is untouche
   assert.deepEqual(r.collection.roots, parseCollection(withRoot, ctx).collection.roots);
 });
 
-test('a file with roots and captures yields both; one without captures has none (P-02)', () => {
+test('a file with roots and captures yields both; one without captures has none', () => {
   const r = parseCollection(
     enc('[[root]]\npath = "~/notes"\n\n[[capture]]\nfrom = "~/.claude/plans/*.md"\nto = "~/Notes/plans"\n'),
     ctx,
@@ -394,7 +394,7 @@ test('a file with roots and captures yields both; one without captures has none 
   assert.deepEqual(parseCollection(enc('[[root]]\npath = "/a"\n'), ctx).collection.captures, []);
 });
 
-// --- Q-07: where a saved query lies, for Edit in collection.toml ----------------------------------------------------
+// --- where a saved query lies, for Edit in collection.toml ----------------------------------------------------
 
 const slice = (bytes: Uint8Array, r: { start: number; end: number } | null): string => (r === null ? '(none)' : dec(bytes.slice(r.start, r.end)));
 
@@ -432,4 +432,53 @@ test('a query appended by appendQuery is found at the end by queryRange', () => 
   const range = queryRange(out, 'Big plans');
   assert.equal(range?.start, base.length, 'the table starts where the old file ended');
   assert.equal(slice(out, range), "[[query]]\nname = 'Big plans'\nq = 'kind:report words:>2000'");
+});
+
+test('removeRoot takes out one [[root]] table and its line end, every other byte kept', () => {
+  const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
+  const dec = (b: Uint8Array): string => new TextDecoder().decode(b);
+  const text = '# my folders\n\n[[root]]\npath = "~/notes"\nname = "Notes"\n\n# work\n[[root]]\npath = "/work/docs"\n\n[[query]]\nname = "todo"\nq = "TODO"\n';
+  const out = removeRoot(enc(text), '/home/me/notes', { home: '/home/me' });
+  assert.equal(dec(out), '# my folders\n\n\n# work\n[[root]]\npath = "/work/docs"\n\n[[query]]\nname = "todo"\nq = "TODO"\n');
+  assert.deepEqual(parseCollection(out, { home: '/home/me' }).collection.roots.map((r) => r.path), ['/work/docs']);
+  const same = enc(text);
+  assert.equal(removeRoot(same, '/elsewhere', { home: '/home/me' }), same, 'no table names it: the bytes themselves');
+});
+
+test('removeRoot over generated files: exactly that place goes, every other place and byte stays', () => {
+  // A small deterministic generator: comments, blank lines, queries and roots, in LF or CRLF, some roots named.
+  let seed = 7;
+  const rnd = (n: number): number => ((seed = (seed * 1103515245 + 12345) % 2147483648), seed % n);
+  const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
+  const ctx = { home: '/home/me' };
+  for (let run = 0; run < 200; run++) {
+    const eol = rnd(2) ? '\r\n' : '\n';
+    const parts: string[] = [];
+    const paths: string[] = [];
+    for (let i = 0, n = 1 + rnd(6); i < n; i++) {
+      const kind = rnd(4);
+      if (kind === 0) parts.push(`# note ${i}`);
+      else if (kind === 1) parts.push(`[[query]]${eol}name = "q${i}"${eol}q = "word${i}"`);
+      else {
+        const path = rnd(2) ? `~/p${run}-${i}` : `/abs/p${run}-${i}`;
+        paths.push(path.replace('~', ctx.home));
+        parts.push(`[[root]]${eol}path = "${path}"${rnd(2) ? `${eol}name = "N${i}"` : ''}${rnd(2) ? `  # kept ${i}` : ''}`);
+      }
+    }
+    const text = parts.join(eol + (rnd(2) ? eol : '')) + eol;
+    const bytes = enc(text);
+    const before = parseCollection(bytes, ctx).collection.roots.map((r) => r.path);
+    assert.deepEqual(before, paths, text);
+    for (const gone of paths) {
+      const out = removeRoot(bytes, gone, ctx);
+      const after = parseCollection(out, ctx);
+      assert.deepEqual(after.collection.roots.map((r) => r.path), paths.filter((p) => p !== gone), text);
+      assert.deepEqual(after.collection.queries, parseCollection(bytes, ctx).collection.queries);
+      // What is left is the input with one run of bytes taken out.
+      let head = 0;
+      while (head < out.length && out[head] === bytes[head]) head++;
+      const tail = out.length - head;
+      assert.deepEqual([...out.subarray(head)], [...bytes.subarray(bytes.length - tail)], text);
+    }
+  }
 });

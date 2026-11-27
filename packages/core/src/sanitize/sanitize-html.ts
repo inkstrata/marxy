@@ -1,7 +1,7 @@
 // The sanitiser: HTML in, HTML out, and the only security boundary between a file a stranger wrote
-// and the reader's DOM (ADR-0009). It rebuilds the markup from the allow-list rather than editing
+// and the reader's DOM. It rebuilds the markup from the allow-list rather than editing
 // what it was given, so an element, an attribute or a URL that this code does not understand cannot
-// survive by being unfamiliar. Runs in Node and in a browser (ADR-0020).
+// survive by being unfamiliar. Runs in Node and in a browser.
 //
 // Three properties hold by construction rather than by inspection, because each one was a hole once:
 //
@@ -31,6 +31,38 @@ import {
   RENDERER_CLASSES_WITHOUT_PROVENANCE, VOID_ELEMENTS, type AttributeRule, type ElementRule, type Policy, type ProvenanceNames,
 } from './policy.ts';
 import { sanitizeUrl } from './urls.ts';
+import { own } from '../util/text.ts';
+import { budget } from '../util/budget.ts';
+
+/**
+ * The most removals one pass keeps as records; past it they are counted (`unlisted`), so a million stray tags cost a
+ * count, not a million records. Far above what a real page loses, so no notice made from the records changes.
+ */
+export const SANITIZE_MAX_REMOVALS = 100_000;
+
+/**
+ * The most elements held open at once. An element past it is not written and its contents are kept as text, which
+ * only makes the written tree shallower; a browser's parser stops nesting far sooner (Chromium at 512).
+ */
+export const SANITIZE_MAX_OPEN = 65_536;
+
+/** Where removals are told: an array, or the pass's capped log. */
+interface RemovalSink {
+  push(...items: Removal[]): unknown;
+}
+
+/** The pass's removals: the first `SANITIZE_MAX_REMOVALS` kept, the rest counted. */
+class Removals implements RemovalSink {
+  readonly kept: Removal[] = [];
+  private readonly room = budget(SANITIZE_MAX_REMOVALS);
+  push(...items: Removal[]): void {
+    // A truncation is at most one a pass, and the pipeline and the notices read it, so it is always kept.
+    for (const item of items) if (item.what === 'truncation' || this.room.take()) this.kept.push(item);
+  }
+  get unlisted(): number {
+    return this.room.refused;
+  }
+}
 
 /** One thing the sanitiser took out, so a notice can later say what a document lost and why. */
 export interface Removal {
@@ -40,7 +72,7 @@ export interface Removal {
   readonly on?: string;
   /** The refused value, truncated; absent when the value never mattered. */
   readonly value?: string;
-  /** Full parsed URL on a refused URL attribute, when parsing succeeded (§12). */
+  /** Full parsed URL on a refused URL attribute, when parsing succeeded. */
   readonly url?: string;
   readonly reason: string;
 }
@@ -58,6 +90,8 @@ export interface SanitizeOptions {
 export interface SanitizeResult {
   readonly html: string;
   readonly removed: readonly Removal[];
+  /** Removals past `SANITIZE_MAX_REMOVALS`, counted and not kept. */
+  readonly unlisted: number;
 }
 
 /**
@@ -68,7 +102,7 @@ export interface SanitizeResult {
  */
 export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY, options: SanitizeOptions = {}): SanitizeResult {
   const transparent = new Set(policy.transparent);
-  const removed: Removal[] = [];
+  const removed = new Removals();
   const out = writer(removed);
   const length = input.length;
   let index = 0;
@@ -104,7 +138,7 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY, opt
         continue;
       }
       const name = tag.name.toLowerCase();
-      if (policy.elements[name] !== undefined && !VOID_ELEMENTS.has(name)) out.close(name);
+      if (own(policy.elements, name) !== undefined && !VOID_ELEMENTS.has(name)) out.close(name);
       index = tag.end;
       continue;
     }
@@ -117,7 +151,7 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY, opt
       continue;
     }
     const name = tag.name.toLowerCase();
-    const rule: ElementRule | undefined = policy.elements[name];
+    const rule: ElementRule | undefined = own(policy.elements, name);
 
     if (rule !== undefined) {
       const ownRemoved: Removal[] = [];
@@ -134,7 +168,7 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY, opt
         continue;
       }
       // An element the policy also unwraps (a document's own `span`, which only the renderer's carries a required
-      // marker on; K-20) falls through to that, so the renderer's rule changes nothing a document could write.
+      // marker on) falls through to that, so the renderer's rule changes nothing a document could write.
       if (!unwrapped) {
         removed.push({ what: 'element', name, reason: `${name} lost ${missing.join(', ')}, without which it is not the element it claimed to be` });
         index = removeFrom(input, tag, name, removed);
@@ -154,7 +188,7 @@ export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY, opt
     index = removeFrom(input, tag, name, removed);
   }
 
-  return { html: out.done(), removed };
+  return { html: out.done(), removed: removed.kept, unlisted: removed.unlisted };
 }
 
 /** Where a removed element ends, and what it cost when it never ended. */
@@ -171,12 +205,12 @@ function trimAsciiWhitespace(value: string): string {
   return value.slice(start, end);
 }
 
-function removeFrom(input: string, tag: StartTag, name: string, removed: Removal[]): number {
+function removeFrom(input: string, tag: StartTag, name: string, removed: RemovalSink): number {
   if (selfClosingHonoured(name, tag)) return tag.end;
   const { end, closed } = skipRemoved(input, tag.end, name);
   if (!closed) {
     // Safe, because it is what a browser does with an unclosed raw-text element, but never silent:
-    // the reader lost the rest of the document and a notice has to be able to say so (MARXY-26).
+    // the reader lost the rest of the document and a notice has to be able to say so.
     removed.push({ what: 'truncation', name, reason: `${name} was never closed; everything after it was removed` });
   }
   return end;
@@ -204,20 +238,25 @@ interface Writer {
  * dropped rather than emitted, and a formatting element may not span a block boundary — which is
  * what keeps an unclosed `<a>` from turning the rest of a document into a link to its author's host.
  */
-function writer(removed: Removal[]): Writer {
+function writer(removed: RemovalSink): Writer {
   const open: string[] = [];
+  // Opens refused past `SANITIZE_MAX_OPEN`, by name: their close tags go with them rather than close something written.
+  const dropped = new Map<string, number>();
   // How many of each name are open, so a close tag with no open element is O(1), not a scan.
   const counts = new Map<string, number>();
   const parts: string[] = [];
   const closeOne = (): void => {
     const name = open.pop();
     if (name === undefined) return;
+    // Opens dropped at the cap sat inside the element at its top, so closing that one ends them too.
+    if (open.length < SANITIZE_MAX_OPEN && dropped.size > 0) dropped.clear();
     counts.set(name, (counts.get(name) ?? 1) - 1);
     parts.push(`</${name}>`);
   };
   return {
     text(value) {
-      if (value.length > 0) parts.push(value.replaceAll('<', '&lt;'));
+      // `"` and `>` too: code in text must never read as an attribute to a pass that rewrites the finished HTML by pattern.
+      if (value.length > 0) parts.push(value.replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;'));
     },
     open(name, attributesText) {
       if (BLOCK_ELEMENTS.has(name)) {
@@ -234,11 +273,21 @@ function writer(removed: Removal[]): Writer {
         parts.push(`<${name}${attributesText} />`);
         return;
       }
+      if (open.length >= SANITIZE_MAX_OPEN) {
+        removed.push({ what: 'structure', name, reason: `more than ${SANITIZE_MAX_OPEN} elements open; its tags were dropped and its contents kept` });
+        dropped.set(name, (dropped.get(name) ?? 0) + 1);
+        return;
+      }
       parts.push(`<${name}${attributesText}>`);
       open.push(name);
       counts.set(name, (counts.get(name) ?? 0) + 1);
     },
     close(name) {
+      const over = dropped.get(name) ?? 0;
+      if (over > 0) {
+        dropped.set(name, over - 1);
+        return;
+      }
       // A close tag with nothing open would unbalance the output; a parser ignores it too.
       if ((counts.get(name) ?? 0) === 0) return;
       while (open[open.length - 1] !== name) closeOne();
@@ -259,7 +308,7 @@ interface StartTag {
   readonly end: number;
 }
 
-/** True when the renderer wrote provenance under this pass's secret names (ADR-0023), not forged public ones. */
+/** True when the renderer wrote provenance under this pass's secret names, not forged public ones. */
 function tagCarriesSecretProvenance(tag: StartTag, names?: ProvenanceNames): boolean {
   if (names === undefined) return false;
   for (const attribute of tag.attributes) {
@@ -274,7 +323,7 @@ function attributes(
   rule: ElementRule,
   tag: StartTag,
   policy: Policy,
-  removed: Removal[],
+  removed: RemovalSink,
   options: SanitizeOptions,
 ): { text: string; kept: Set<string> } {
   const rendererOwned = tagCarriesSecretProvenance(tag, options.provenanceNames);
@@ -285,8 +334,8 @@ function attributes(
     const key = attribute.name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    if (rule.forced?.[key] !== undefined) continue;
-    const attributeRule: AttributeRule | undefined = rule.attributes?.[key] ?? policy.globalAttributes[key];
+    if (rule.forced !== undefined && own(rule.forced, key) !== undefined) continue;
+    const attributeRule: AttributeRule | undefined = (rule.attributes === undefined ? undefined : own(rule.attributes, key)) ?? own(policy.globalAttributes, key);
     if (attributeRule === undefined) {
       removed.push({ what: 'attribute', name: key, on: name, value: truncate(attribute.value), reason: `${key} is not in the ${policy.name} allow-list` });
       continue;
@@ -298,7 +347,7 @@ function attributes(
     }
   }
   // Forced attributes are the element's own terms: a checkbox in a document a reader cannot edit is
-  // `disabled` whatever the document said (ADR-0001).
+  // `disabled` whatever the document said.
   for (const [key, value] of Object.entries(rule.forced ?? {})) {
     text += value === true ? ` ${key}` : ` ${key}="${escapeAttribute(value)}"`;
     kept.add(key);
@@ -312,7 +361,7 @@ function attributeValue(
   rule: AttributeRule,
   element: string,
   policy: Policy,
-  removed: Removal[],
+  removed: RemovalSink,
   rendererOwned: boolean,
   remoteAttr: string,
 ): string | null {

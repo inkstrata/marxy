@@ -1,4 +1,4 @@
-// Helpers shared by the D-10 tests: the same file twice, one watch per store, notices per pane, and the
+// Helpers shared by these tests: the same file twice, one watch per store, notices per pane, and the
 // adversarial interleaving. Booted on the shipped skeleton over the memory shell (support/two-pane.mjs),
 // with the stale-write guard of the Tauri shell emulated (`guard: true`).
 import { strict as assert } from 'node:assert';

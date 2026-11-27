@@ -1,5 +1,5 @@
-// J-06: `Transform clipboard: <name>` in the palette reads the pasteboard on that command (types first; a concealed item is
-// refused and nothing is read), runs the transform on its text and opens W-21's sheet with the clipboard as the input.
+// `Transform clipboard: <name>` in the palette reads the pasteboard on that command (types first; a concealed item is
+// refused and nothing is read), runs the transform on its text and opens the sheet with the clipboard as the input.
 // Return writes the result back as one plain-text item; Esc writes nothing. The real app over the memory shell, in WebKit,
 // with real keys (test/support/two-pane.mjs).
 import { strict as assert } from 'node:assert';

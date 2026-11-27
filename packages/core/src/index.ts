@@ -19,6 +19,8 @@ export * from './layout/index.ts';
 export * from './contracts/kinds.ts';
 export { detectKind, KIND_PREFIX_BYTES, KIND_FRONT_MATTER_SCAN_BYTES, KIND_HEAD_BYTES } from './kind/detect.ts';
 export type { DetectInput, DetectResult, KindRule, Reason } from './kind/detect.ts';
+export { FILE_TYPES, UNKNOWN_FILE_TYPE, BINARY_FILE_TYPE, PAGE_VIEWERS, fileTypeOf, fileTypeFor, guessedFromBytes, nameTypeOf, isMarkdownPath, langOf, fenceWord, langOfFence, pageLangOf, parserOf, readsAsPage, contentTypeFor, noteContent, noteSniffed, rowForWord, searchSkipReason, viewerOf, wantsContent } from './kind/registry.ts';
+export type { ContentSignals, FileType, FileTypeRow, FileKind, FileMode, FileParser, FileReading, FileViewer, FileMatch } from './kind/registry.ts';
 
 export { diffLines, splitLines, utf8Length, DEFAULT_MAX_LINES } from './diff/lines.ts';
 export type { DiffOp, DiffLinesOptions } from './diff/lines.ts';

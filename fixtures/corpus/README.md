@@ -104,10 +104,10 @@ Its name does not begin `CHANGELOG`, so the corpus reads it as an article; the t
 ## 33-article-byline.md
 
 Original text written for K-20: a short essay whose YAML front matter names an author (quoted, to exercise the one pair
-of outer quotes the byline drops), a date and a web source with a path and a query, after a title, a description and a
-list of tags, so the byline's rows move ahead of rows the bytes put first. Its opening paragraph is wholly in emphasis
-directly after the title; the description is the dek, so that paragraph stays a paragraph (the key wins). Every name is
-invented; the source is `example.org` (RFC 2606).
+of outer quotes the byline drops) and a date, after a title, a description and a list of tags, so the byline's rows come
+after rows the bytes put first; a web source with a path and a query is the last key. Only the author and the date are
+drawn, under the title. Its opening paragraph is wholly in emphasis directly after the title, so it is the dek under the
+title and byline. Every name is invented; the source is `example.org` (RFC 2606).
 
 ## sections.md and sections-crlf.md
 

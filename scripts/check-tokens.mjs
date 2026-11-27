@@ -1,4 +1,4 @@
-// The theme contract is names, unit kinds and an explaining comment — not default values (ADR-0031).
+// The theme contract is names, unit kinds and an explaining comment — not default values.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -97,9 +97,9 @@ export function differences(actual, expected) {
 }
 
 const FIX = {
-  added: 'revert the new token, or accept it with an ADR and node scripts/check-tokens.mjs --write',
-  removed: 'restore the token, or accept the removal with an ADR and node scripts/check-tokens.mjs --write',
-  're-kinded': 'restore the unit kind, or accept the change with an ADR and node scripts/check-tokens.mjs --write',
+  added: 'revert the new token, or accept it with node scripts/check-tokens.mjs --write',
+  removed: 'restore the token, or accept the removal with node scripts/check-tokens.mjs --write',
+  're-kinded': 'restore the unit kind, or accept the change with node scripts/check-tokens.mjs --write',
   'comment-lost': 'restore the explaining comment on that declaration',
 };
 

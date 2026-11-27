@@ -1,0 +1,102 @@
+/* The Studio's Code, Adapts and File tabs: calm columns across the dock, each filling its
+   height and scrolling on its own when it holds more. Colours only from tokens. */
+
+.marxy-studio-dockbody > .marxy-studio-col { align-self: stretch; min-height: 0; overflow: auto; }
+.marxy-studio-code-say,
+.marxy-studio-code-note,
+.marxy-studio-adapts-note,
+.marxy-studio-file-say,
+.marxy-studio-file-where { margin: 0; max-width: 34em; color: var(--marxy-color-text-secondary); font-size: calc(12 * var(--marxy-c)); line-height: 1.45; }
+.marxy-studio-code-note, .marxy-studio-file-where { color: var(--marxy-color-text-faint); }
+
+/* Code. */
+.marxy-studio-code-langs { display: flex; flex-wrap: wrap; max-width: 300px; }
+.marxy-studio-code-first { flex: 0 0 300px; }
+.marxy-studio-code-eachrow { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 4px; }
+.marxy-studio-code-each > button { white-space: nowrap; }
+.marxy-studio-code-tokcol { flex: 0 0 auto; }
+.marxy-studio-code-toks {
+  display: grid;
+  grid-template-columns: auto auto auto auto auto auto auto auto;
+  column-gap: 10px;
+  row-gap: 3px;
+  align-items: center;
+  font-size: calc(12 * var(--marxy-c));
+}
+.marxy-studio-code-toks > :nth-child(8n + 5) { margin-left: 14px; }
+.marxy-studio-code-sample {
+  justify-self: start;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--marxy-color-code-bg);
+  font-family: var(--marxy-font-mono);
+  font-size: calc(12 * var(--marxy-c));
+  white-space: nowrap;
+}
+.marxy-studio-code-name { color: var(--marxy-color-text-secondary); white-space: nowrap; }
+.marxy-studio-code-ratio { color: var(--marxy-color-text-strong); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.marxy-studio-code-colh { color: var(--marxy-color-text-faint); font-size: calc(10.5 * var(--marxy-c)); text-align: right; }
+.marxy-studio-code-yours { flex: 1 1 260px; min-width: 200px; }
+/* Below the reference width the roles' names go to the samples' tooltips, so the four columns still stand side by side. */
+@media (max-width: 1399px) {
+  .marxy-studio-code-toks { grid-template-columns: auto auto auto auto auto auto; }
+  .marxy-studio-code-name { display: none; }
+  .marxy-studio-code-langs { max-width: 190px; }
+}
+.marxy-studio-code-yours > section { margin: 0; padding: 0; }
+
+/* Adapts. */
+.marxy-studio-adapts-rulescol { flex: 1 1 560px; }
+.marxy-studio-adapts-head { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+.marxy-studio-adapts-head > .marxy-studio-adapts-hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(12 * var(--marxy-c)); }
+.marxy-studio-adapts-rules { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 7px 20px; font-size: calc(12.5 * var(--marxy-c)); line-height: 1.3; }
+.marxy-studio-adapts-rule { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; }
+.marxy-studio-adapts-rule > .marxy-switch { margin-top: 0; }
+/* studio.css takes every button's background away; a switch that is off keeps its track. */
+.marxy-studio :is(.marxy-studio-adapts-rule, .marxy-studio-code-yours) .marxy-switch:not([aria-checked="true"]) { background: var(--marxy-frame-hair-2); }
+.marxy-studio-adapts-label { color: var(--marxy-color-text-strong); }
+.marxy-studio-adapts-off .marxy-studio-adapts-label { color: var(--marxy-color-text-secondary); }
+.marxy-studio-adapts-hint { color: var(--marxy-color-text-faint); }
+.marxy-studio .marxy-studio-adapts-remove { margin-left: 6px; padding: 0; color: var(--marxy-color-link); text-decoration: underline; text-underline-offset: 2px; }
+.marxy-studio-adapts-owncol { flex: 0 1 330px; min-width: 280px; }
+.marxy-studio-adapts-nightcol { flex: 0 0 210px; }
+.marxy-studio-adapts-builder { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--marxy-color-text-secondary); }
+.marxy-studio-adapts-arg { display: inline-flex; align-items: center; gap: 4px; }
+.marxy-studio-adapts-sel,
+.marxy-studio-adapts-in {
+  font: inherit;
+  color: var(--marxy-color-text);
+  background: var(--marxy-color-bg);
+  border: 1px solid var(--marxy-color-rule-strong);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+.marxy-studio-adapts-in[type="number"] { width: 5em; }
+.marxy-studio-adapts-msg { color: var(--marxy-color-text-strong); font-size: calc(12 * var(--marxy-c)); min-height: 1.2em; }
+.marxy-studio-adapts-msg:empty { display: none; }
+
+/* File. */
+.marxy-studio-file-side { flex: 0 0 280px; }
+.marxy-studio-file-side > .marxy-btn { align-self: flex-start; }
+/* The file runs in columns across the dock, so most of it is in view at once; more columns scroll sideways. */
+.marxy-studio-file-text {
+  flex: 1 1 auto;
+  align-self: stretch;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 8px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  column-width: 56ch;
+  column-gap: 32px;
+  column-fill: auto;
+  column-rule: 1px solid var(--marxy-color-rule);
+  white-space: pre-wrap;
+  border-radius: 4px;
+  background: var(--marxy-color-code-bg);
+  color: var(--marxy-color-code-text);
+  font-family: var(--marxy-font-mono);
+  font-size: calc(12 * var(--marxy-c));
+  line-height: 1.45;
+}

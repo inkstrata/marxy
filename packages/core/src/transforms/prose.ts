@@ -1,4 +1,4 @@
-// Shared helpers for the transform library (J-03). Pure: no DOM, no Node built-ins.
+// Shared helpers for the transform library. Pure: no DOM, no Node built-ins.
 //
 // Every transform body works on LF text (the registry's wrapper normalises line endings in and restores
 // them out), and reads structure from the parser, never from a regex over the whole text, so a fenced
@@ -18,7 +18,7 @@ export interface Span {
 }
 
 // The last parse is kept: a transform asks for the document more than once (the spans, then the nodes), and a
-// pipeline runs several steps over one text. The AST is read-only (ADR-0001), so sharing it is safe.
+// pipeline runs several steps over one text. The AST is read-only, so sharing it is safe.
 let last: { text: string; doc: Document } | undefined;
 
 export function parseText(lf: string): Document {
@@ -44,7 +44,7 @@ export function utf8Length(s: string): number {
 }
 
 /**
- * Whether `parsed` may stand in for the parse of `lf` (F-60, F-60.1): it is a parse of exactly this string, the string
+ * Whether `parsed` may stand in for the parse of `lf`: it is a parse of exactly this string, the string
  * has no CR (the parse's offsets are the bytes of the text as it was handed, and a transform reads LF text), and the
  * parse's root ends where the text's UTF-8 bytes do. The last is a cheap guard that a parse made from other bytes,
  * or of another version of the same document, is never taken for this one even if its `text` was labelled wrongly.
@@ -54,7 +54,7 @@ export function parseFits(lf: string, parsed: ParsedText | undefined): parsed is
 }
 
 /**
- * Runs `fn` with `parsed` standing in for the parse of `lf`, when `parsed` fits it (`parseFits`; F-60). The
+ * Runs `fn` with `parsed` standing in for the parse of `lf`, when `parsed` fits it (`parseFits`). The
  * cache the call found is put back afterwards, so what a caller holds never changes what a later call without
  * `parsed` reads. A `parsed` that does not fit is ignored and `fn` parses as it always did.
  */
@@ -127,7 +127,7 @@ export function gapsWithTail(lf: string, doc?: Document): (Span & { tail: string
   let at = 0;
   for (const p of protectedSpans(lf, doc)) {
     // A block nested in a list or quote starts after its container's indent and markers; those bytes are on the
-    // block's own line, so the protected span is widened back to the line start and no caller can touch them (F-51).
+    // block's own line, so the protected span is widened back to the line start and no caller can touch them.
     const start = Math.max(at, lf.lastIndexOf('\n', p.start - 1) + 1);
     if (start > at) gaps.push({ start: at, end: start, tail: lf.slice(start, p.start) });
     at = Math.max(at, p.end);

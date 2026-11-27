@@ -1,5 +1,5 @@
 // The close guard end to end in WebKit, on the memory shell, with no window.__marxyOrigBytes: the
-// app's own baseline decides what is dirty (MARXY-49, MARXY-337).
+// app's own baseline decides what is dirty.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -7,15 +7,16 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const desktopRoot = new URL('..', import.meta.url).pathname;
+const desktopRoot = fileURLToPath(new URL('..', import.meta.url));
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-close-guard-'));
 let server;
 let base;
@@ -70,6 +71,8 @@ async function withPage(fn) {
 
 const calls = (page, method) => page.evaluate((m) => window.__boot.handle.shell.calls.filter((c) => c.method === m).length, method);
 const requestClose = (page) => page.evaluate(() => window.__boot.handle.shell.emitCloseRequested());
+/** The window's go-ahead comes once Marxy's own files are written (app.ts `confirmClose`), a moment after the answer. */
+const closed = (page) => page.waitForFunction(() => window.__boot.handle.shell.calls.some((c) => c.method === 'confirmClose'));
 const noticeButtons = (page) =>
   page.evaluate(() => [...document.querySelectorAll('#marxy-notices .marxy-notice button')].map((b) => b.textContent));
 const clickButton = (page, label) =>
@@ -90,6 +93,7 @@ async function makeDirty(page) {
 test('closing a clean document confirms at once and shows nothing', () =>
   withPage(async (page) => {
     await requestClose(page);
+    await closed(page);
     assert.equal(await calls(page, 'confirmClose'), 1);
     assert.equal(await noticeCount(page), 0);
   }));
@@ -117,8 +121,9 @@ test('Save and close writes, then closes', () =>
     await requestClose(page);
     await clickButton(page, 'Save and close');
     await page.waitForFunction(() => window.__boot.handle.shell.calls.some((c) => c.method === 'confirmClose'));
+    // The close writes Marxy's own files under /data too (positions.json, history.json): only the document counts.
     const documentWrites = await page.evaluate(() =>
-      window.__boot.handle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !/^\/data\/(index|versions)-/.test(String(c.args[0]))).length,
+      window.__boot.handle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !String(c.args[0]).startsWith('/data/')).length,
     );
     assert.equal(documentWrites, 1);
   }));
@@ -139,6 +144,7 @@ test('a second close request while the notice is up closes without saving', () =
     await makeDirty(page);
     await requestClose(page);
     await requestClose(page);
+    await closed(page);
     assert.equal(await calls(page, 'confirmClose'), 1);
   }));
 
@@ -152,6 +158,7 @@ test('a notice cleared by something else does not leave the guard off', () =>
     assert.equal(await noticeCount(page), 1);
     // and a discard that the shell did not act on does not disarm later closes
     await clickButton(page, 'Close without saving');
+    await closed(page);
     assert.equal(await calls(page, 'confirmClose'), 1);
     await requestClose(page);
     assert.equal(await calls(page, 'confirmClose'), 1, 'still dirty: the next close prompts, it does not pass');

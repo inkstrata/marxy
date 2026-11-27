@@ -1,4 +1,4 @@
-// Step 3 of docs/design/04-typeset.md: advances as the engine paints them, read from the real text
+// Step 3: advances as the engine paints them, read from the real text
 // nodes in their native layout. Optical size, the weight offset and kerning are all in the number,
 // which a canvas could not give.
 //
@@ -79,7 +79,7 @@ const SAME_LINE_PX = 6;
 const scratch = new WeakMap<Document, Range>();
 
 /**
- * The one Range every read in this package reuses, per document (B-25). WebKit keeps every Range a
+ * The one Range every read in this package reuses, per document. WebKit keeps every Range a
  * script made registered on its document until the collector frees it, and visits each of them on
  * every DOM mutation: an append, a text split, an insert. A Range made per paragraph, per line and per
  * check left thousands of them waiting for collection while a large document was still mounting and

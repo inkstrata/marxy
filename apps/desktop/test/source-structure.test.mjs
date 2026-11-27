@@ -1,4 +1,4 @@
-// V-01: structural selection and line operations in Source. Node tests over a real CodeMirror state (no DOM):
+// structural selection and line operations in Source. Node tests over a real CodeMirror state (no DOM):
 // the file's bytes go in through `cmDocText` and `lineSeparatorFor`, an operation runs, and the bytes come out
 // through `leaveSourceMode`, the Source fold the app uses, so what is checked is what would be saved.
 import { strict as assert } from 'node:assert';
@@ -40,7 +40,7 @@ function session(bytes, op, sel, path = '/t/a.md', said = []) {
     state = tr.state;
   };
   const target = { get state() { return state; }, dispatch };
-  // A V-02 table tool is `{ table: 'alignTable' }`; the rest are V-01 operations.
+  // A table tool is `{ table: 'alignTable' }`; the rest are operations.
   const ran = typeof op === 'object' ? runTableTool(op.table, target, path, (n) => said.push(n)) : runStructure(op, target, path);
   const out = () => {
     const fold = leaveSourceMode(buffer, state.sliceDoc(0, state.doc.length));
@@ -250,7 +250,7 @@ test('carets on neighbouring lines: join and delete line act once', () => {
   assert.equal(text(session(encoder.encode('a\nb\nc\nd\n'), 'deleteLine', two).bytes), 'c\nd\n');
 });
 
-// ---- V-02: table tools ------------------------------------------------------------------------------------------
+// ---- table tools ------------------------------------------------------------------------------------------
 
 // What each tool does to a table in a file with LF line ends and the caret in `^`, by hand: the CRLF and CR runs,
 // with and without a BOM, with and without a final newline, must be this in their own separator. `^` is removed.
@@ -370,7 +370,7 @@ test('sort leaves the header and alignment rows in place and is one undo step', 
   assert.deepEqual([...r.undo()], [...bytes]);
 });
 
-test('Copy table as CSV is the text of C-07\'s copy-table-csv for the same table, and reads nothing it does not own', () => {
+test('Copy table as CSV is the text of copy-table-csv for the same table, and reads nothing it does not own', () => {
   const src = '| name | note |\n|:--|--:|\n| a,b | "q" |\n| =1+1 | x\\|y |\n| 名 | `c` |\n';
   for (const sep of ['\n', '\r\n']) {
     const { lf, at } = withCaret(src.replace('| a,b', '| ^a,b'));
@@ -395,7 +395,7 @@ test('the table commands are palette-only entries of the Source group, each runs
   assert.match(table.find((e) => e.table === 'sortTableRows').title, /byte order/);
 });
 
-// W-21: Apply on the result sheet is `replaceRange`, one transaction.
+// Apply on the result sheet is `replaceRange`, one transaction.
 
 /** `replaceRange` over [from, to) of a file's text, with `transform` run on the text as the sheet reads it (the file's own separator). */
 function replacing(bytes, from, to, transform, path = '/t/a.md') {
@@ -466,8 +466,13 @@ test('registry: no chord is bound twice, and the new chords do not touch a pane 
     for (const spec of [cmd.key, ...(cmd.keys ?? [])].filter(Boolean)) {
       const chord = registryChord(spec, MAC);
       if (chord === null) continue;
-      // `Esc` is shared by the two commands whose `when`s are never both true (W-03; keys-table.test.mjs proves it).
-      if (chord === 'escape' && ['selection.clear', 'view.fold-workspace'].includes(cmd.id)) continue;
+      // `Esc` is shared by the two commands whose `when`s are never both true (keys-table.test.mjs proves it).
+      // Mod+B is Bold while Source's editor has the keys and the drawer everywhere else (`notInEditor`, pane/keys.ts).
+      if (chord === 'meta-b' && ['source.format-bold', 'view.toggle-drawer'].includes(cmd.id)) continue;
+      // Alt+Up and Alt+Down select a block with the verbs off and move the part with them on (commands/changes.ts, selection-nav.ts): their whens are opposite.
+      // Save reads the patch first on a changes page or with review_changes on, and saves at once otherwise (keys-table.test.mjs SHARED_CHORDS).
+      if (spec === 'Mod+S' && ['changes.save', 'document.save'].includes(cmd.id)) continue;
+      if (/^Alt\+Arrow(Up|Down)$/.test(spec) && /^(selection\.(prev|next)-block|change\.move-(up|down))$/.test(cmd.id)) continue;
       assert.equal(owner.get(chord), undefined, `${spec} is bound by both ${owner.get(chord)} and ${cmd.id}`);
       owner.set(chord, cmd.id);
     }
@@ -478,7 +483,8 @@ test('registry: no chord is bound twice, and the new chords do not touch a pane 
     assert.equal(cmd.global, true, `${entry.id} runs from inside the editor`);
   }
   // A pane chord is `Mod` plus a physical key; none of ours is `Mod+Backslash`, digits or arrows with Alt.
-  const paneKeys = new Set(PANE_CHORDS.map((c) => `meta-${c.ctrl ? 'ctrl-' : ''}${c.shift ? 'shift-' : ''}${c.alt ? 'alt-' : ''}${c.code}`));
+  // A pane chord that stands down in an editor (`notInEditor`: Mod+B is the drawer's outside Source) is not one Source meets.
+  const paneKeys = new Set(PANE_CHORDS.filter((c) => !c.notInEditor).map((c) => `meta-${c.ctrl ? 'ctrl-' : ''}${c.shift ? 'shift-' : ''}${c.alt ? 'alt-' : ''}${c.code}`));
   for (const entry of SOURCE_EDIT_ENTRIES.filter((e) => e.key?.startsWith('Mod'))) {
     const parts = entry.key.split('+');
     const code = parts.at(-1).length === 1 ? `Key${parts.at(-1).toUpperCase()}` : parts.at(-1);
@@ -500,7 +506,7 @@ test('registry: the editor keeps none of the chords the registry binds in Source
   const after = new Set(kept.flatMap((b) => keyBindingChords(b, MAC)));
   const dropped = [...before].filter((c) => !after.has(c) || false).sort();
   // Exactly the defaults that sat on our chords: next occurrence, all occurrences, delete line, toggle comment, and two Mac emacs-style selects (syntax right, char left).
-  // V-08: Italic takes `Mod+I`, which was select parent syntax.
+  // Italic takes `Mod+I`, which was select parent syntax.
   assert.deepEqual(dropped, ['ctrl-shift-arrowright', 'ctrl-shift-b', 'meta-/', 'meta-d', 'meta-i', 'meta-shift-k', 'meta-shift-l']);
   // The expand chord's base binding (cursor by syntax) is still there: only its shift variant went.
   assert.ok(after.has('ctrl-arrowright'));
@@ -643,7 +649,7 @@ browserTest('in Rendered no Source key does anything, and Source gains no elemen
     await page.keyboard.press('Meta+e');
     await page.waitForSelector('#marxy-source .cm-content');
     // The editor's own elements, by class with the generated and state classes left out. Syntax-highlight spans (class-less once the
-    // generated classes go) are text colour, and the grammar attaches after mount (V-14): they may appear between the two readings.
+    // generated classes go) are text colour, and the grammar attaches after mount: they may appear between the two readings.
     const frame = () => page.evaluate(() => [...new Set([...document.querySelectorAll('#marxy-source *')].map((e) => `${e.tagName}.${String(e.className).split(/\s+/).filter((c) => c.startsWith('cm-') && c !== 'cm-focused').join('.')}`))].filter((c) => !/cm-(cursor|selection|layer)/.test(c) && c !== 'SPAN.').sort().join('|'));
     const before = await frame();
     await caretAt(page, 0, 'alpha one', 2);
@@ -671,7 +677,7 @@ browserTest('the find panel\'s field keeps its own keys: the Source chords do no
   });
 });
 
-// ---- V-02 in the running app: the palette commands over a real editor, the Source fold and Save --------------------------
+// ---- in the running app: the palette commands over a real editor, the Source fold and Save --------------------------
 
 const TABLE_DOC = '/r/T.md';
 // CRLF, a BOM and no final newline: the table is the last block of the file.
@@ -803,7 +809,7 @@ browserTest('the table commands are offered in Source and not in Rendered', asyn
   });
 });
 
-// V-02.1: a table tool that finds a table and declines it says so once, as a `refused` notice, and writes nothing.
+// a table tool that finds a table and declines it says so once, as a `refused` notice, and writes nothing.
 const REFUSALS = [
   // The last cell of the caret's row has no closing pipe: a cell after it would read as the row's end.
   { name: 'a last column with no closing pipe', input: 'a | b\n--|--\n1 | ^2\n', tools: ['addTableColumn'], says: /^Column not added: this column's last cell has no closing pipe.* · the file is unchanged · / },

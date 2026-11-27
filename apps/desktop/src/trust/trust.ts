@@ -1,4 +1,5 @@
-// Per-document HTML grants in trust.json (docs/design/13-trust.md §Persistence).
+// Per-document HTML grants in trust.json.
+import { normalizePath } from '@marxy/core/src/index-model/paths.ts';
 
 export const TRUST_FILE_VERSION = 1;
 export const TRUST_LRU_CAP = 2000;
@@ -56,7 +57,9 @@ export function parseTrustFile(bytes: Uint8Array): LoadTrustResult {
   if (raw && typeof raw === 'object') {
     for (const [path, entry] of Object.entries(raw as Record<string, unknown>)) {
       const stored = normalizeEntry(entry);
-      if (stored) documents[path] = stored;
+      // Builds before the shell spelled Windows paths with slashes kept backslash keys; the later grant wins a clash.
+      const key = normalizePath(path);
+      if (stored && !(documents[key] && documents[key].at >= stored.at)) documents[key] = stored;
     }
   }
   const envelopeVersion = version > TRUST_FILE_VERSION ? version : TRUST_FILE_VERSION;

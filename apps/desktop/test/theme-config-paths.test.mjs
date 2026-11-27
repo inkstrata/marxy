@@ -1,4 +1,4 @@
-// Theme directory paths in config.toml: `~` expansion per config location, and TOML escaping (MARXY-337).
+// Theme directory paths in config.toml: `~` expansion per config location, and TOML escaping.
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { parseConfig } from '../../../packages/theme/src/index.ts';

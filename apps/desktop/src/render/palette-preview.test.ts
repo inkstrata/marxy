@@ -1,10 +1,9 @@
-// W-13: what the palette's preview reads, shows and waits for. The pure half of render/palette-preview.ts under Node:
+// what the palette's preview reads, shows and waits for. The pure half of render/palette-preview.ts under Node:
 // the bound on a read, the cut at forty lines, the section of a heading, the transform's 1,400 characters, and the pause
 // that keeps a held arrow key from reading anything. Drawing into the column is the WebKit test's (test/palette-preview.test.mjs).
 import assert from 'node:assert/strict';
 import { mock, test } from 'node:test';
 import type { IndexEntry } from '@marxy/core';
-import { MEASURE_READ_BYTES } from '../library/measure.ts';
 import { LARGE_FILE_BYTES } from '../source/language.ts';
 import {
   commandPreview,
@@ -42,7 +41,6 @@ const entry = (path: string, text: string, extra: Partial<IndexEntry> = {}): Ind
 });
 
 test('the bounds are the shell cap and the large-file limit, not numbers of their own', () => {
-  assert.equal(PREVIEW_READ_BYTES, MEASURE_READ_BYTES, 'one readHead cap for the library and the preview');
   assert.equal(PREVIEW_READ_BYTES, 256 * 1024);
   assert.equal(PREVIEW_MAX_BYTES, LARGE_FILE_BYTES, 'a file Source calls large is not previewed');
   assert.equal(PREVIEW_LINES, 40);
@@ -85,21 +83,18 @@ test('the first forty lines are cut at the line, and one very long line is cut a
   assert.equal(lineCount(''), 0);
 });
 
-test('a Markdown file: its kind, its words, its size, near copies when the library found some', () => {
+test('a Markdown file: its kind, its words, its size', () => {
   const text = '# Plan\n\nOne two three four five.\n\nSix seven.\n';
   const e = entry('/r/plan.md', text, { readerKind: 'report' });
-  const p = filePreview(e, enc.encode(text), 0);
+  const p = filePreview(e, enc.encode(text));
   assert.equal(p.chips[0], 'Report');
   assert.match(p.chips[1]!, /^\d+ words$/);
-  assert.ok(!p.chips.some((c) => /near/.test(c)), 'no chip unless the check found some');
   assert.equal(p.body?.as, 'markdown');
-  assert.equal(filePreview(e, enc.encode(text), 2).chips.at(-1), '2 near copies');
-  assert.equal(filePreview(e, enc.encode(text), 1).chips.at(-1), '1 near copy');
 });
 
 test('a read that stopped short says so: words and lines are a floor, with a plus', () => {
   const e = entry('/r/long.md', '', { size: 400_000 });
-  const p = filePreview(e, enc.encode('alpha beta gamma\n'), 0);
+  const p = filePreview(e, enc.encode('alpha beta gamma\n'));
   assert.match(p.chips[1]!, /^3\+ words$/);
   assert.equal(p.body?.cut, true);
 });
@@ -116,7 +111,11 @@ test('a log is set as a log and code as code in its language; a lines chip, not 
   assert.equal(cp.body?.lang, 'python');
   assert.deepEqual(setAs('/r/a.csv', 'data'), { as: 'code' });
   assert.deepEqual(setAs('/r/a.html', 'html'), { as: 'code', lang: 'html' });
+  assert.deepEqual(setAs('/r/a.html', 'article'), { as: 'code', lang: 'html' });
   assert.deepEqual(setAs('/r/a.txt', 'article'), { as: 'markdown' });
+  assert.deepEqual(setAs('/r/a.txt', 'notes', 'Mon. tide 4.9 m\nTue. tide 5.1 m\n'), { as: 'code' }, 'plain text keeps its lines');
+  assert.deepEqual(setAs('/r/a.txt', 'article', '# Title\n\nSee [the guide](https://example.com).\n'), { as: 'markdown' });
+  assert.deepEqual(setAs('/r/a.md', 'article', 'Mon. tide 4.9 m\n'), { as: 'markdown' }, 'a Markdown file is Markdown');
 });
 
 test('a binary file shows no text, and an empty one says so', () => {

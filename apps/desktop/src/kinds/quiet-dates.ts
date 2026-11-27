@@ -1,4 +1,4 @@
-// The quiet date (K-22): the date of a changelog's version heading, and a notes file's first line when it is only a date, set in
+// The quiet date: the date of a changelog's version heading, and a notes file's first line when it is only a date, set in
 // the secondary colour. A date is a few characters inside a heading's text, which CSS cannot select, so the page paints them as a
 // highlight (`::highlight(marxy-quiet-date)` in the theme, the mechanism Find uses): a Range over the characters that are already
 // there. Nothing is wrapped, nothing is inserted and no text moves, so a copy or a selection reads the file's own words, and

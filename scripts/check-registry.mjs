@@ -59,12 +59,12 @@ export function htmlRouteProblems(r, text, innerHtmlAllowedIn) {
   return htmlRoutes(text).map(
     form =>
       `${r}: ${form} outside innerHtmlAllowedIn${fix(
-        'parsed markup only at sanitised render sites — see docs/design/README.md',
+        'parsed markup only at sanitised render sites, listed in innerHtmlAllowedIn in scripts/registry.json',
       )}`,
   );
 }
 
-/** Registry names must appear literally; assembling them evades the attribute scan (MARXY-229, P12). */
+/** Registry names must appear literally; assembling them evades the attribute scan (P12). */
 export function constructedRegistryNameProblems(rel, text) {
   const problems = [];
   if (/data-marxy-\$\{['"]/.test(text)) {
@@ -75,10 +75,10 @@ export function constructedRegistryNameProblems(rel, text) {
   }
   // `(?<!data-)` so `data-marxy-${'remote'}` is one finding, not also a generic marxy- hit.
   if (/(?<!data-)marxy-\$\{['"]/.test(text)) {
-    problems.push(`${rel}: marxy-* name built with a template literal${fix('use a literal registered class or data attribute')}`);
+    problems.push(`${rel}: marxy-* name built with a template literal${fix('use a literal marxy- class or registered data attribute')}`);
   }
   if (/(?:['"]marxy-['"]\s*\+|['"]marxy-['"]\s*\.concat\s*\()/.test(text)) {
-    problems.push(`${rel}: marxy-* name built by concatenation${fix('use a literal registered class or data attribute')}`);
+    problems.push(`${rel}: marxy-* name built by concatenation${fix('use a literal marxy- class or registered data attribute')}`);
   }
   return problems;
 }
@@ -132,20 +132,18 @@ if (isMain) {
 const reg = registry();
 const staged = process.argv.includes('--staged');
 const src = /\.(m?[jt]sx?|rs|css|html)$/;
-// Design prototypes kept under docs/plan/<round>/ (mock*, galley, studio) are reference HTML, not the app.
-// So are the project's agent skills under .claude/skills/ (a local review page is not shipped).
-const prototype = /\/(marxy-spike|marxy-brainstorm)\/|\/docs\/plan\/[^/]+\/(mock[^/]*|galley|studio)\/|\/\.claude\/skills\//;
-const files = (staged ? changedFiles({ staged: true }).map(f => join(ROOT, f)).filter(f => existsSync(f) && statSync(f).isFile() && !prototype.test(f)) : walk(ROOT, f => !prototype.test(f)))
+const files = (staged ? changedFiles({ staged: true }).map(f => join(ROOT, f)).filter(f => existsSync(f) && statSync(f).isFile()) : walk(ROOT))
   .filter(f => src.test(f) && !/\/scripts\/registry\.json$/.test(f) && !/fixtures\/corpus\//.test(f));
 const problems = [];
 const marks = new Set(reg.marks), events = new Set(reg.events), attrs = new Set(reg.dataAttributes);
 for (const f of files) {
   const r = rel(f); const text = stripForRegistry(readFileSync(f, 'utf8'), f);
   const isTestFile = /\.(test|spec)\.[mc]?[jt]sx?$|\/testing\/|\/test\/|fixtures\//.test(r);
-  for (const m of text.matchAll(/\bmark(?:_from_webview)?\(\s*['"`]([a-z_]+)['"`]/g)) if (!marks.has(m[1])) problems.push(`${r}: mark "${m[1]}" is not in scripts/registry.json${fix('add it to registry.marks in this PR, or use an existing mark')}`);
+  for (const m of text.matchAll(/\bmark(?:_from_webview)?\(\s*['"`]([a-z_]+)['"`]/g)) if (!marks.has(m[1])) problems.push(`${r}: mark "${m[1]}" is not in scripts/registry.json${fix('add it to registry.marks, or use an existing mark')}`);
   for (const m of text.matchAll(/\b(?:emit|listen|once)\(\s*['"`](marxy:[a-z-]+)['"`]/g)) if (!events.has(m[1])) problems.push(`${r}: event "${m[1]}" is not in the registry${fix('add it to registry.events')}`);
-  if (!isTestFile) for (const m of text.matchAll(/\b(data-marxy-[a-z-]+)/g)) if (!attrs.has(m[1])) problems.push(`${r}: attribute "${m[1]}" is not in the registry${fix('use one of ' + [...attrs].join(', ') + ' or add it with an ADR (data-marxy-s/e are contract, ADR-0023)')}`);
-  if (!isTestFile) for (const m of text.matchAll(/class(?:Name)?\s*=\s*["'`]([^"'`]*)["'`]/g)) for (const c of m[1].split(/\s+/).filter(Boolean)) if (!/^(?:marxy-[a-z0-9-]+|language-[A-Za-z0-9#+._-]+|cm-[a-z-]+|katex[a-z-]*)$/.test(c) && /^[a-z]/.test(c) && !c.includes('${')) problems.push(`${r}: class "${c}" must start with "marxy-" (or be a CodeMirror/KaTeX class)${fix('rename to marxy-<thing>')}`);
+  if (!isTestFile) for (const m of text.matchAll(/\b(data-marxy-[a-z-]+)/g)) if (!attrs.has(m[1])) problems.push(`${r}: attribute "${m[1]}" is not in the registry${fix('use one of ' + [...attrs].join(', ') + ' or add it to dataAttributes in scripts/registry.json (data-marxy-s and data-marxy-e carry byte ranges)')}`);
+  // Vendored lab code keeps its own class names; renaming them would fork it.
+  if (!isTestFile && !/\/vendor\//.test(r)) for (const m of text.matchAll(/class(?:Name)?\s*=\s*["'`]([^"'`]*)["'`]/g)) for (const c of m[1].split(/\s+/).filter(Boolean)) if (!/^(?:marxy-[a-z0-9-]+|language-[A-Za-z0-9#+._-]+|cm-[a-z-]+|katex[a-z-]*)$/.test(c) && /^[a-z]/.test(c) && !c.includes('${')) problems.push(`${r}: class "${c}" must start with "marxy-" (or be a CodeMirror/KaTeX class)${fix('rename to marxy-<thing>')}`);
   for (const m of text.matchAll(/--([a-z][a-z0-9-]*)\s*:/g)) if (r.endsWith('.css') && !m[1].startsWith('marxy-') && !m[1].startsWith('lb') && !/^(cm|katex)/.test(m[1])) problems.push(`${r}: custom property "--${m[1]}" must be "--marxy-*" (contract) or a private "--lb"${fix('rename')}`);
   problems.push(...htmlRouteProblems(r, text, reg.innerHtmlAllowedIn));
   if (!isTestFile) problems.push(...constructedRegistryNameProblems(r, text));
@@ -155,7 +153,7 @@ for (const f of files) {
   const tokens = new Set(JSON.parse(readFileSync(join(ROOT, 'packages/theme/tokens.contract.json'), 'utf8')).map(d => d.name));
   const used = new Map();
   const inScope = r => /^(?:apps\/desktop\/src|packages\/[^/]+\/src)\/.*\.(?:[mc]?[jt]sx?|css)$/.test(r) && !/\.(?:test|spec)\.[mc]?[jt]sx?$|\/(?:testing|test)\/|\/tokens\.css$/.test(r);
-  for (const f of walk(ROOT, f => !prototype.test(f))) {
+  for (const f of walk(ROOT)) {
     const r = rel(f);
     if (!inScope(r)) continue;
     const stripped = stripForRegistry(readFileSync(f, 'utf8'), f);

@@ -1,4 +1,4 @@
-// The engine-neutral half of the rag study (MARXY-19): corpus paragraph extraction, the shared
+// The engine-neutral half of the rag study: corpus paragraph extraction, the shared
 // ragged-right item stream, the greedy baseline, and the rag metric definitions. No engine imported
 // here, so both candidate breakers are scored by identical arithmetic over identical input.
 
@@ -201,7 +201,7 @@ let guardRuns = 0;
 export const guardInvocations = () => guardRuns;
 
 /**
- * The guard on the defect that returned this PR: two rows presented as a comparison but pooled over
+ * The guard on the defect that returned: two rows presented as a comparison but pooled over
  * each row's own successes. Every pooled comparison calls this with the paragraph ids it actually
  * scored per label, and it throws unless they are one set. Membership alone cannot catch the defect —
  * each engine's successes are all present in the other's pool — so the ids themselves are compared.

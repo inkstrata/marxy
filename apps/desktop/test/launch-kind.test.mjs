@@ -1,5 +1,5 @@
-// The launch document's kind is on the pane root before the page is first written (K-05a.1), without
-// first text waiting for a read. K-05a decided it just after first text because the deciding reads (the
+// The launch document's kind is on the pane root before the page is first written, without
+// first text waiting for a read. It was decided just after first text because the deciding reads (the
 // `[[kind]]` rules in config.toml and kinds.json) would otherwise sit on the first-text road; a profile that
 // changes the face, size or column then moves the page once after first text. Here the rules come from the
 // pre-paint config read the launch makes anyway, and kinds.json is read beside the document's own read; one

@@ -1,10 +1,10 @@
-// What two panes cost (D-14; docs/research/audit-2026-10/05-performance-audit.md §11.4, ADR-0032).
+// What two panes cost.
 // The assertions here are the ones a slow runner cannot flake: a count of typesetters and observers after
 // twenty split-and-close cycles, one parse and one store for the same file twice, two panes' background
 // passes not starving each other, and the left pane's viewport typeset not run again when the right opens.
 // The numbers (split_open, each pane's typeset_viewport, the longest frame while the second pane opens) are
-// printed and never judged: ADR-0032 puts timing in the nightly record, and the report-back thresholds of
-// 04-phase-d.md D-14 are read by a person. Booted on the shipped skeleton over the memory shell
+// printed and never judged: timing goes in the perf record, and the thresholds of
+// are read by a person. Booted on the shipped skeleton over the memory shell
 // (test/support/two-pane.mjs); the large files are generated here from corpus text and not committed.
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
@@ -190,13 +190,19 @@ test('two panes\' grid snap timers do not starve each other: both panes are put 
   });
 });
 
-/** The article's top-level blocks as the page holds them: tag, ranges, id, and the text length. */
+/**
+ * The article's top-level blocks as the page holds them: tag, ranges, id, and the text length. A note copied into the
+ * margin (proposals/notes-in-place.ts) is left out: it is the page's, holds no bytes, is there only where the pane has
+ * room beside the column (alone, not beside), and comes from idle work that may or may not have run when this is read.
+ */
 const signatureOf = (article) =>
-  [...article.children].map((el) => `${el.tagName}:${el.getAttribute('data-marxy-s')}-${el.getAttribute('data-marxy-e')}:${el.id}:${el.textContent.length}`);
+  [...article.children]
+    .filter((el) => !el.classList.contains('marxy-note-margin'))
+    .map((el) => `${el.tagName}:${el.getAttribute('data-marxy-s')}-${el.getAttribute('data-marxy-e')}:${el.id}:${el.textContent.length}`);
 const contentComplete = (page) =>
   page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'content_complete'), null, { timeout: 60_000 });
 
-test('a large document opened beside another is read in slices and is the page it is when opened alone (D-15)', async () => {
+test('a large document opened beside another is read in slices and is the page it is when opened alone', async () => {
   const body = toText(generateLarge(300 * 1024));
   // The same large file, once with a footnote (the sliced render declines it and renders whole) and once without.
   for (const [name, text] of [['plain', body], ['with a footnote', `${body}\n\nA note.[^n]\n\n[^n]: The note.\n`]]) {
@@ -239,7 +245,7 @@ function taskDocument() {
   return { text, line };
 }
 
-test('a store that changes while the second pane reads it in slices leaves a page that is the store as it is (D-15)', async () => {
+test('a store that changes while the second pane reads it in slices leaves a page that is the store as it is', async () => {
   const { text, line } = taskDocument();
   assert.ok(text.length > 100 * 1024, 'the document is read in slices');
   await withPage(async (page) => {
@@ -284,7 +290,7 @@ test('a store that changes while the second pane reads it in slices leaves a pag
   });
 });
 
-test('closing a pane while its document is read in slices stops the work and leaves nothing on the page (D-15)', async () => {
+test('closing a pane while its document is read in slices stops the work and leaves nothing on the page', async () => {
   const body = toText(generateLarge(1024 * 1024));
   await withPage(async (page) => {
     await bootTwoPanes(page, { files: { '/r/small.md': SMALL, '/r/big.md': body }, open: ['/r/small.md'] });
@@ -299,7 +305,8 @@ test('closing a pane while its document is read in slices stops the work and lea
       };
       const panes = window.__marxyHandle.panes();
       const opening = panes.openIn('other', '/r/big.md').then(() => 'resolved', () => 'rejected');
-      await new Promise((resolve) => setTimeout(resolve, 60));
+      // Until the slices have begun, not a fixed 60 ms: a slower machine starts the read later (3 turns in 60 ms here).
+      for (let i = 0; i < 400 && yields <= 3; i++) await new Promise((resolve) => setTimeout(resolve, 5));
       const closed = panes.panes[1];
       const article = closed.article;
       const yieldsBefore = yields;
@@ -396,10 +403,10 @@ test('records split_open, each pane\'s typeset_viewport and the longest frame fo
     console.log(
       `split_cost ${name} median of ${RUNS}: split_open ms=${m('splitOpen').toFixed(1)} left typeset_viewport ms=${m('leftMs').toFixed(1)} right typeset_viewport ms=${m('right').toFixed(1)} longest frame ms=${m('gap').toFixed(1)} longest frame after the split's own ms=${m('after').toFixed(1)}`,
     );
-    // The card's frame bound (04-phase-d.md D-15, amended 2026-10-11): the longest frame while the second pane
+    // The card's frame bound: the longest frame while the second pane
     // opens within one frame, with two frames as the slow-runner allowance. The frame the split itself lands in
     // counts (it is where an unsliced parse of the large file froze the window), so the 20 KB pair's own
-    // longest frame is printed beside it as the floor. Printed against the medians, never asserted (ADR-0032).
+    // longest frame is printed beside it as the floor. Printed against the medians, never asserted.
     const verdict = (ms) => (ms <= FRAME_MS ? 'within one frame' : ms <= 2 * FRAME_MS ? 'within two frames' : 'over two frames');
     console.log(`split_cost ${name} frame bound: median longest frame ${m('gap').toFixed(1)} ms against ${FRAME_MS.toFixed(1)} ms (one frame) and ${(2 * FRAME_MS).toFixed(1)} ms (two): ${verdict(m('gap'))}`);
     assert.ok(rs.every((r) => Number.isFinite(r.splitOpen) && Number.isFinite(r.right)), `${name}: every run reported split_open and the second pane's typeset_viewport`);

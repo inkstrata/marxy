@@ -1,4 +1,4 @@
-// User theme in the real app harness (docs/design/05-theme.md §App side). MARXY-177.
+// User theme in the real app harness.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -7,7 +7,7 @@ import { extname, join } from 'node:path';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { setTopLevelKey } from '../../../packages/theme/src/config.ts';
 import { fileURLToPath } from 'node:url';
 import { settle } from './settle.mjs';
@@ -55,7 +55,7 @@ function b64(bytes) {
 
 async function boot(page, files, argv) {
   const base = await harnessBase();
-  await routeSkeleton(page, base); // the app's own skeleton: a notice is pinned in view, so a click on it needs no scroll (F-67)
+  await routeSkeleton(page, base); // the app's own skeleton: a notice is pinned in view, so a click on it needs no scroll
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   await page.evaluate(async ({ files, argv }) => {
@@ -134,7 +134,7 @@ test('theme.css change re-applies within 200 ms', async () => {
       const bin = atob(updatedB64);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      window.__marxyHandle.shell.writeFileAtomic('/t/quiet/theme.css', bytes);
+      window.__marxyHandle.shell.plant('/t/quiet/theme.css', bytes);
       const start = performance.now();
       window.__marxyHandle.shell.emit([{ kind: 'modified', path: '/t/quiet/theme.css' }]);
       return start;
@@ -182,7 +182,7 @@ test('opening theme.css lands in Source with Use this theme writing config', asy
   }
 });
 
-test('a contract-2 theme applies; its notice names the unset roles and says the fallbacks are used (ADR-0059 item 9)', async () => {
+test('a contract-2 theme applies; its notice names the unset roles and says the fallbacks are used', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -208,7 +208,26 @@ test('a contract-2 theme applies; its notice names the unset roles and says the 
   }
 });
 
-nodeTest('docs/taste-review/queue.md mentions user-applied theme (MARXY-177)', () => {
-  const queue = readFileSync(join(repoRoot, 'docs', 'taste-review', 'queue.md'), 'utf8');
-  assert.match(queue, /MARXY-177/);
+test('a theme that changes the face size keeps the reader on the block they were reading', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    const text = Array.from({ length: 60 }, (_, i) => `Paragraph ${i} has words enough to fill a line or two of the page, and then a few more words to wrap.`).join('\n\n');
+    await boot(page, { '/docs/plan.md': b64(new TextEncoder().encode(text)) }, ['/docs/plan.md']);
+    await settle(page);
+    const result = await page.evaluate(async (text) => {
+      const view = window.__marxyHandle.panes().focused.view;
+      const target = [...document.querySelectorAll('#doc p')].find((p) => p.textContent.startsWith('Paragraph 30 '));
+      view.restore({ path: '/docs/plan.md', byteOffset: text.indexOf('Paragraph 30 '), fraction: 0, mode: 'rendered' });
+      const before = target.getBoundingClientRect().top;
+      // What a theme does: the face changes, then the typesetter sets every paragraph again.
+      const style = Object.assign(document.createElement('style'), { textContent: '#doc { font-size: 28px !important; }' });
+      document.head.append(style);
+      await view.relayoutForTheme();
+      return { before, after: target.getBoundingClientRect().top };
+    }, text);
+    assert.ok(Math.abs(result.after - result.before) < 24, `the block read moved from ${result.before} to ${result.after} px`);
+  } finally {
+    await browser.close();
+  }
 });

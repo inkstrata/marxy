@@ -1,4 +1,4 @@
-// Fuzzy over path, title and headings; empty query is the MRU stack (ADR-0011, ADR-0012).
+// Fuzzy over path, title and headings; empty query is the MRU stack.
 
 import type { IndexEntry, IndexHit } from '@marxy/core';
 import { foldHitsCounted, type CheckoutKey } from './fold.ts';
@@ -24,7 +24,7 @@ interface MutablePreparedIndex {
   /** path -> index into `rows`. */
   byPath: Map<string, number>;
   /**
-   * Every heading of every row, flat, so `@` walks one array and not documents (W-13.1, W-13.2): the rows that were
+   * Every heading of every row, flat, so `@` walks one array and not documents: the rows that were
    * prepared, in order (`slots`), where each one's headings start in `masks` (`slotStart`, with `headCount` as its end),
    * and one character mask per heading. No object per heading. A replaced or dropped row stays until compaction, marked dead.
    */
@@ -99,7 +99,7 @@ function dropHeads(index: MutablePreparedIndex, row: PreparedRow): void {
   }
 }
 
-/** For tests (W-13.2): the shape of the heading index, to show it holds typed arrays and one slot per row, not one object per heading. */
+/** For tests: the shape of the heading index, to show it holds typed arrays and one slot per row, not one object per heading. */
 export function headingIndexShape(prepared: PreparedIndex): { slots: number; headings: number; masks: Uint32Array; slotStart: Uint32Array } {
   const index = prepared as MutablePreparedIndex;
   return { slots: index.slots.length, headings: index.headCount, masks: index.masks, slotStart: index.slotStart };
@@ -194,13 +194,13 @@ export function jumpForHit(
 }
 
 /**
- * Where a root stands in the palette's scope (C-10): 0 is the current repository, then the declared
+ * Where a root stands in the palette's scope: 0 is the current repository, then the declared
  * folders in file order, then the recent roots; a root outside the scope ranks after all of them.
  */
 export type RootRank = (root: string) => number;
 
 /**
- * Folds the copies of a document that checkouts of one repository each hold (C-15). `keyOf` is the
+ * Folds the copies of a document that checkouts of one repository each hold. `keyOf` is the
  * index service's side-table; `currentCheckout` is the checkout of the open document, whose copy wins.
  */
 export interface FoldCopies {
@@ -232,10 +232,12 @@ export function paletteResults(
     fold?: FoldCopies;
     /** The open document's path: what `#` lists the headings of. */
     currentPath?: string | null;
+    /** Keeps only the files it accepts, after scoring, so the capped lists fill with files it takes. */
+    accept?: (entry: IndexEntry) => boolean;
   },
 ): readonly IndexHit[] {
   const prepared = options?.prepared ?? prepareIndex(entries);
-  // `@` and `#` ask for headings, not documents: their own pass, never the fuzzy scorer's (W-13).
+  // `@` and `#` ask for headings, not documents: their own pass, never the fuzzy scorer's.
   const sections = sectionQuery(query);
   if (sections !== null) {
     return sectionResults(sections, prepared, session, {
@@ -245,7 +247,7 @@ export function paletteResults(
       fold: options?.fold,
     });
   }
-  return searchPrepared(query, prepared, session, options?.limit ?? DEFAULT_LIMIT, options?.rootRank, options?.fold);
+  return searchPrepared(query, prepared, session, options?.limit ?? DEFAULT_LIMIT, options?.rootRank, options?.fold, options?.accept);
 }
 
 /** Headings listed for an `@` or `#` query. */
@@ -308,7 +310,7 @@ export function sectionResults(
     orderOf = (row) => at.get(row.entry.path)!;
   }
   if (query.scope === 'everywhere' && needle !== '') {
-    // W-13.1: from the heading index, not the documents. A heading missing one of the needle's characters is passed
+    // from the heading index, not the documents. A heading missing one of the needle's characters is passed
     // by one mask test, and a keystroke that extends the last query looks only at the last query's matches.
     const index = prepared as MutablePreparedIndex;
     const want = charMask(needle);
@@ -375,18 +377,64 @@ export function searchPrepared(
   limit = DEFAULT_LIMIT,
   rootRank?: RootRank,
   fold?: FoldCopies,
+  accept?: (entry: IndexEntry) => boolean,
 ): readonly IndexHit[] {
   const needle = query.trim().normalize('NFC').toLowerCase();
   // The empty state is the reader's own pinned and recent paths: never folded.
   if (needle.length === 0) return emptyHits(prepared, session, limit);
-  if (fold === undefined) return searchRows(needle, prepared, session, limit, rootRank);
-  const wide = searchRows(needle, prepared, session, limit * FOLD_HEADROOM, rootRank);
+  if (fold === undefined) return searchRows(needle, prepared, session, limit, rootRank, accept);
+  const wide = searchRows(needle, prepared, session, limit * FOLD_HEADROOM, rootRank, accept);
   // A query that spells out a checkout's folder name (`b/agents`) lists that checkout's copies.
   const named = new Set(needle.split(/[\s/]+/).filter((part) => part !== ''));
   const { hits, dropped } = foldHitsCounted(wide, fold.keyOf, fold.currentCheckout, named);
   const shown = hits.slice(0, limit);
   fold.folded?.(dropped.slice(0, limit).reduce((sum, n) => sum + n, 0));
   return shown;
+}
+
+/** The last kind scan per prepared index. */
+const acceptedCache = new WeakMap<PreparedIndex, { version: number; key: string; found: IndexEntry[] }>();
+
+/**
+ * Every file `accept` takes, for a query with nothing to match but a kind: the current root first, then what the
+ * reader opened most recently, then the newest. Folded like a search.
+ */
+export function acceptedHits(
+  prepared: PreparedIndex,
+  session: PaletteSession,
+  limit: number,
+  rootRank: RootRank | undefined,
+  fold: FoldCopies | undefined,
+  accept: (entry: IndexEntry) => boolean,
+  /** Names what `accept` takes: the scan is kept for this key while the index stays as it is. */
+  key: string,
+  named: ReadonlySet<string> = new Set(),
+): readonly IndexHit[] {
+  let kept = acceptedCache.get(prepared);
+  if (kept === undefined || kept.version !== prepared.version || kept.key !== key) {
+    const found: IndexEntry[] = [];
+    for (const row of prepared.rows) if (row.live && accept(row.entry)) found.push(row.entry);
+    kept = { version: prepared.version, key, found };
+    acceptedCache.set(prepared, kept);
+  }
+  const used = new Map<string, number>();
+  for (let i = 0; i < session.mru.length; i++) used.set(session.mru[i]!, i);
+  const rankOf: RootRank = rootRank ?? ((root) => (root === session.currentRoot ? 0 : (session.recentRoots.indexOf(root) + 1 || 1_000)));
+  const top = topKHits(fold === undefined ? limit : limit * FOLD_HEADROOM, (a, b) => {
+    const ar = rankOf(a.entry.root);
+    const br = rankOf(b.entry.root);
+    if (ar !== br) return ar - br;
+    const au = used.get(a.entry.path) ?? Infinity;
+    const bu = used.get(b.entry.path) ?? Infinity;
+    if (au !== bu) return au - bu;
+    return b.entry.mtimeMs - a.entry.mtimeMs || (a.entry.path < b.entry.path ? -1 : 1);
+  });
+  for (const entry of kept.found) top.push({ entry, score: 0 });
+  const wide = top.values();
+  if (fold === undefined) return wide;
+  const { hits, dropped } = foldHitsCounted(wide, fold.keyOf, fold.currentCheckout, named);
+  fold.folded?.(dropped.slice(0, limit).reduce((sum, n) => sum + n, 0));
+  return hits.slice(0, limit);
 }
 
 /** The best `limit` rows for a normalised, non-empty needle, current root first. */
@@ -396,8 +444,8 @@ function searchRows(
   session: PaletteSession,
   limit: number,
   rootRank: RootRank | undefined,
+  accept?: (entry: IndexEntry) => boolean,
 ): readonly IndexHit[] {
-
   const byPath = new Map<string, number>();
   for (let i = 0; i < session.mru.length; i++) byPath.set(session.mru[i]!, i);
 
@@ -438,6 +486,8 @@ function searchRows(
     const hit = scoreRow(row, needle, byPath, now, prior);
     if (hit === undefined) return false;
     if (hit === CANDIDATE_ONLY) return true;
+    // Still a candidate: the cache belongs to the query's text, whatever kind it was narrowed to.
+    if (accept !== undefined && !accept(row.entry)) return true;
     if (isCurrent(row.entry.root)) current.push(hit);
     else later.push(hit);
     return true;
@@ -655,7 +705,7 @@ function compareHits(a: IndexHit, b: IndexHit): number {
 
 /**
  * PERF: subsequence scorer with an exact-substring fast path. Allocations stay off the
- * per-character loop so a 20k index stays inside the 16 ms keystroke budget (ADR-0013).
+ * per-character loop so a 20k index stays inside the 16 ms keystroke budget.
  */
 export function fuzzyScore(hay: string, needle: string): number {
   const score = matchScore(hay, needle);

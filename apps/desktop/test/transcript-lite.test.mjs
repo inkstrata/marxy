@@ -1,8 +1,8 @@
-// A JSONL session in Read (K-12; ADR-0061), the part of it on the pull-request path (`test:lite`): commitment 5, a large
+// A JSONL session in Read, the quick part of it: commitment 5, a large
 // session's first turn painted before the deriver reaches the end of the file, and an append to it deriving and drawing
 // only the new lines; commitment 4, a flagged character in a row drawn in a later slice (a reply, an image's words, a
 // link's title) shown as its marker like one in the first screen; commitment 3, reading, folding, filtering, copying and
-// switching modes write nothing. transcript-jsonl.test.mjs holds the rest, nightly. WebKit, over the shipped skeleton and
+// switching modes write nothing. transcript-jsonl.test.mjs holds the rest. WebKit, over the shipped skeleton and
 // the memory shell.
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';

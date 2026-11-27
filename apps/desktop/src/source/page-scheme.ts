@@ -2,7 +2,7 @@
 
 /**
  * Whether the page is light: the root's `color-scheme` when it says (a dark-only theme such as Fjord stays dark under
- * the light variant, H-05), else the variant (ADR-0024; dark is the default).
+ * the light variant), else the variant (dark is the default).
  */
 export function isLightVariant(): boolean {
   if (typeof document === 'undefined') return false;

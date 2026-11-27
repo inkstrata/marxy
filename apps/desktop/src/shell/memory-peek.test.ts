@@ -1,4 +1,4 @@
-// `peekFile` and `exists` on the memory shell (F-33): the blind look the store's stale-write check and the
+// `peekFile` and `exists` on the memory shell: the blind look the store's stale-write check and the
 // watch use on Tauri. The app-harness call record is fixed, so a peek is recorded exactly as the `readFile` the
 // app made before this shell had one (live reload, the index, a link's look), and `exists` leaves nothing, as
 // `hasFile` does. Bytes are compared as bytes: the shell passes them through (the fidelity gate scans this folder).
@@ -39,4 +39,9 @@ test('exists is true for a file and for a folder with a file under it, false oth
   assert.deepEqual(shell.calls, []);
   shell.remove('/r/a.md');
   assert.equal(await shell.exists('/r/a.md'), false);
+});
+
+test('a file over the open ceiling is refused with the code Tauri gives it', async () => {
+  const shell = createMemoryShell({}, { sparse: { '/r/disk.img': { size: 300 * 1024 * 1024, byteAt: () => 0 } } });
+  await assert.rejects(shell.readFile('/r/disk.img'), (e: { code?: string; message: string }) => e.code === 'refused' && /too large to open/.test(e.message));
 });

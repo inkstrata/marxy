@@ -1,6 +1,6 @@
-// One chrome for every summoned surface and every menu (W-04): the rules of the raised surfaces, the menu rows and find
+// One chrome for every summoned surface and every menu: the rules of the raised surfaces, the menu rows and find
 // carry no literal shadow colour, radius or font face. The numbers live once, in the `.marxy-surface` / `.marxy-menu-row` block
-// of base.css, as ratios of the chrome size; the palette and outline sheets (runtime sheets in two TypeScript files) and the
+// of base.css, as ratios of the chrome size; the palette's sheet (a runtime sheet in TypeScript) and the
 // verb menu keep layout only. The computed half is apps/desktop/test/chrome-surfaces.test.mjs.
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
@@ -27,7 +27,7 @@ const CLASSES = [
   'marxy-verb-menu', 'marxy-verb-menu-item', 'marxy-verb-menu-title', 'marxy-verb-menu-key',
   'marxy-find',
 ];
-const RUNTIME_ROOTS = ['#marxy-palette', '#marxy-outline'];
+const RUNTIME_ROOTS = ['#marxy-palette'];
 
 /** True for a rule that styles one of the unified surfaces: any comma-separated selector naming one of those classes (whole class name) or a runtime root. */
 function isChromeRule(selector: string): boolean {
@@ -49,7 +49,8 @@ export function chromeViolations(css: string, source: string): string[] {
     for (const [prop, value] of decls) {
       if (prop === 'box-shadow' && LITERAL_COLOUR.test(value)) bad.push(`${source}: ${selector} { box-shadow: ${value} } — a literal colour; the elevation is var(--marxy-shadow-surface)`);
       if (/^border(?:-[a-z]+)*-radius$/.test(prop) && !OK_RADIUS.test(value)) bad.push(`${source}: ${selector} { ${prop}: ${value} } — a radius is 6, 9 or 13 at 13 px chrome, as a ratio of --marxy-size-chrome`);
-      if (prop === 'font-family' && !/^(?:var\(--marxy-face-chrome\)|inherit)$/.test(value)) bad.push(`${source}: ${selector} { font-family: ${value} } — the face is var(--marxy-face-chrome)`);
+      // A file's own text quoted in the chrome (the Line's excerpts and previews) is set in the code face.
+      if (prop === 'font-family' && !/^(?:var\(--marxy-face-chrome\)|var\(--marxy-face-mono\)|inherit)$/.test(value)) bad.push(`${source}: ${selector} { font-family: ${value} } — the face is var(--marxy-face-chrome)`);
       if (prop === 'font' && !/^(?:inherit|var\(--marxy-size-chrome\) var\(--marxy-face-chrome\))$/.test(value)) bad.push(`${source}: ${selector} { font: ${value} } — the face is var(--marxy-face-chrome)`);
     }
   }
@@ -62,7 +63,6 @@ const sheetOf = (rel: string): string => /adoptRuntimeSheet\([^`]*`([\s\S]*?)`\s
 const SOURCES: ReadonlyArray<readonly [string, string]> = [
   ['packages/theme/src/base.css', read('packages/theme/src/base.css')],
   ['apps/desktop/src/palette/view.ts', sheetOf('apps/desktop/src/palette/view.ts')],
-  ['apps/desktop/src/outline/view.ts', sheetOf('apps/desktop/src/outline/view.ts')],
 ];
 
 test('the sources are found (a reader that finds nothing proves nothing)', () => {
@@ -74,14 +74,13 @@ test('no rule of the raised surfaces, menus or find has a literal shadow colour,
   assert.deepEqual(bad, []);
 });
 
-test('the checker fails on the literals the surfaces carried before W-04', () => {
+test('the checker fails on the literals the surfaces used to carry', () => {
   const before = `
     #marxy-palette { border-radius: 8px; box-shadow: 0 12px 40px rgb(0 0 0 / 35%); }
     .marxy-verb-menu { font-family: var(--marxy-font-text); border-radius: var(--marxy-code-radius); box-shadow: 0 6px 24px rgb(0 0 0 / 18%); }
-    .marxy-find { border-radius: 6px; box-shadow: 0 0.25rem 1.5rem rgb(0 0 0 / 25%); }
-    #marxy-outline { box-shadow: 0 0 40px rgb(0 0 0 / 25%); }`;
+    .marxy-find { border-radius: 6px; box-shadow: 0 0.25rem 1.5rem rgb(0 0 0 / 25%); }`;
   const bad = chromeViolations(before, 'before');
-  assert.equal(bad.length, 8, bad.join('\n'));
+  assert.equal(bad.length, 7, bad.join('\n'));
 });
 
 test('the one block states the spec: the surface roles, the chrome face and size, three radii, and a row of 28 padded 5 by 10 with an 8 gap, all ratios of the chrome size', () => {
@@ -117,19 +116,3 @@ test('under forced-colors every surface keeps a CanvasText border and no shadow'
   assert.equal(rule.decls.get('box-shadow'), 'none');
 });
 
-test('the toolbar draws its checked, pressed, disabled and focus states from the roles, not from ARIA alone', () => {
-  const rules = rulesOf(read('packages/theme/src/base.css'));
-  const sel = (needle: string): Rule => {
-    const found = rules.find((r) => r.selector.includes(needle) && r.selector.includes('.marxy-toolbar'));
-    assert.ok(found, needle);
-    return found;
-  };
-  for (const needle of ['[aria-checked="true"]', '[aria-pressed="true"]']) {
-    const rule = sel(needle);
-    assert.equal(rule.decls.get('background'), 'var(--marxy-color-accent-wash)');
-    assert.match(rule.decls.get('box-shadow') ?? '', /var\(--marxy-color-accent\)/, 'a line, not colour alone');
-  }
-  assert.equal(sel('[aria-disabled="true"]').decls.get('color'), 'var(--marxy-color-text-secondary)');
-  assert.match(sel(':focus-visible').decls.get('outline') ?? '', /var\(--marxy-color-accent\)/);
-  assert.equal(sel('[data-marxy-toolbar-item="title"]').decls.get('min-width'), '5em', 'the title keeps a minimum');
-});

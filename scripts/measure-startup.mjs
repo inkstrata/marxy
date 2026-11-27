@@ -1,12 +1,12 @@
 // Startup measurement of the packaged desktop app, writing results/perf-startup.json. A record, never a
-// gate (ADR-0032): the nightly `startup-macos` job runs it and keeps the file (A-03).
-// CI (ADR-0022 Amendment 1): `cold_start_first_text_ms` is launch 1 only, `warm_start_first_text_ms`
-// is the median of launches 2..N. Reference (Amendment 2): a round is k ≥ 5 certified cold launches,
+// gate: a person runs it by hand against a built binary.
+// `cold_start_first_text_ms` is launch 1 only, `warm_start_first_text_ms`
+// is the median of launches 2..N. A round is k ≥ 5 certified cold launches,
 // `cold_start_first_text_ms` is their median, and no warm launch enters that statistic. The raw
 // sample is never sorted.
 //
-// Every launch keeps every `MARK` line it printed, not only `first_text` (05-performance-audit.md
-// §4.1, §12 point 7): a launch that never paints, as on a locked screen, still yields the shell's
+// Every launch keeps every `MARK` line it printed, not only `first_text`: a launch that never paints, as
+// on a locked screen, still yields the shell's
 // stages and says `no_paint`. A round fails only when no launch produced a single mark, which is a
 // round with no sample; a launch without first text is recorded, not failed. Skips when the binary
 // is missing unless MARXY_PERF_REQUIRED=1.
@@ -16,9 +16,9 @@ import { fileURLToPath } from 'node:url';
 
 export const RUNS_N = 9; // one cold launch and eight warm ones: the warm median needs at least 8
 export const MIN_WARM_RUNS = 8;
-export const MIN_COLD_LAUNCHES = 5; // reference round (ADR-0022 Amendment 2); k may be larger, never smaller
+export const MIN_COLD_LAUNCHES = 5; // reference round; k may be larger, never smaller
 // WebKitGTK's first run under Xvfb was measured at 30.7 s between main_start and script_start
-// (MARXY-13); the old 15 s cap killed every launch that paid it and silently dropped the sample.
+// the old 15 s cap killed every launch that paid it and silently dropped the sample.
 export const LAUNCH_TIMEOUT_MS = 60_000;
 export const SETTLE_MS = 2000;
 // Idle after the cold-making step, before the launch: long enough for a kill and a drop-caches /
@@ -28,13 +28,13 @@ export const COLD_IDLE_MS = 2000;
 // the procedure earns. Nothing evicts the page cache: a drop-caches launch would be colder than any
 // reader's, which is a third quantity to misname. Nor does this script own the whole job: the
 // desktop build step runs the CLI smoke check, which launches the app several times seconds before
-// launch 1, so on CI the webview framework is warm before the "cold" launch starts. When that
+// launch 1, so after a build the webview framework is warm before the "cold" launch starts. When that
 // happens `cold_warm_ratio` falls below 1 and the number is not a cold start at all. A genuinely
-// cold round is MARXY-69's reference procedure; this string exists so no reader of the record has to
+// cold round is the reference procedure; this string exists so no reader of the record has to
 // guess which of the two they are holding.
 export const COLD_PROCEDURE = 'process-cold only: launch 1 is the first launch of this binary by this script, with no marxy process running when it starts. Earlier steps in the same job may have launched the app already — the desktop build step runs the CLI smoke check — so the webview framework may be warm; cold_warm_ratio below 1 means it was. The runner\'s page, dyld and font caches are left as they are, so this is neither a reader\'s cold start nor a drop-caches one.';
 
-// Reference-tier labels (Amendment 2). Stated no more strongly than the step earned: a password-less
+// Reference-tier labels. Stated no more strongly than the step earned: a password-less
 // purge is named; everything else is "process-cold only", never implied drop-caches.
 export const PROCESS_COLD_ONLY = 'process-cold only';
 
@@ -83,6 +83,7 @@ export function perfRecord(summary, { envClass, runnerClass, coldProcedure = COL
     launches,
     marks_median: marksMedian(launches),
     no_paint_launches: launches.filter(l => l.no_paint).length,
+    ...sourceSplit(launches),
     platform: process.platform,
     env_class: envClass,
     runner_class: runnerClass,
@@ -110,6 +111,24 @@ export function parseMarks(out, t0) {
 export function marksMedian(launches) {
   const names = [...new Set(launches.flatMap(l => Object.keys(l.marks ?? {})))];
   return Object.fromEntries(names.map(n => [n, median(launches.map(l => l.marks?.[n]).filter(v => typeof v === 'number'))]));
+}
+
+/**
+ * True when the launch's `first_text` was timed by a frame, not an engine paint (`source=frame` on its
+ * `painted` line): WebView2 had already emitted its one paint entry before the render. That time can be
+ * about one frame earlier than the paint it stands for. The CLI smoke never passes such a launch as a
+ * paint; this harness keeps it, and says how many there were.
+ */
+export const frameSourced = launch => /\bsource=frame\b/.test(launch.mark_details?.painted ?? '');
+
+/** How many launches were frame-sourced, and the first_text median of each source. */
+export function sourceSplit(launches) {
+  const ms = pick => median(launches.filter(l => typeof l.ms === 'number' && pick(l)).map(l => l.ms));
+  return {
+    frame_sourced_launches: launches.filter(l => typeof l.ms === 'number' && frameSourced(l)).length,
+    first_text_median_paint_ms: ms(l => !frameSourced(l)),
+    first_text_median_frame_ms: ms(frameSourced),
+  };
 }
 
 /**
@@ -195,7 +214,7 @@ function referenceRecordProblems(record) {
 }
 
 export function findBinary() {
-  // MARXY_BIN names the binary explicitly (CI builds with `--profile ci`, docs/hygiene.md §CI); the
+  // MARXY_BIN names the binary explicitly (a build made with `--profile ci`); the
   // release path stays the default for a person running this by hand.
   return [process.env.MARXY_BIN, `${root}apps/desktop/src-tauri/target/ci/marxy`, `${root}apps/desktop/src-tauri/target/release/marxy`, `${root}apps/desktop/src-tauri/target/release/marxy.exe`].filter(Boolean).find(existsSync);
 }
@@ -274,6 +293,7 @@ export function referencePerfRecord(launches, { envClass, runnerClass, coldProce
     launches,
     marks_median: marksMedian(launches),
     no_paint_launches: launches.filter(l => l.no_paint).length,
+    ...sourceSplit(launches),
     platform: process.platform,
     env_class: envClass,
     runner_class: runnerClass,
@@ -309,7 +329,7 @@ const hasDbusRunSession = () => process.platform === 'linux' && spawnSync('sh', 
 // A headless Linux launch needs three things it does not get for free, and the third is why seven
 // launches in eight used to be thrown away. A virtual display: xvfb-run's own default screen is
 // 8-bit, and WebKitGTK wants 24-bit colour with its DMABUF and compositing paths off — the same
-// switches the MARXY-13 smoke check uses. And **a D-Bus session bus**: without one, the GTK/WebKit
+// switches the smoke check uses. And **a D-Bus session bus**: without one, the GTK/WebKit
 // startup path blocks for about 30 s before the webview runs a single line of script (measured:
 // 30.9 s with no bus, 0.9 s with one, on the same runner and commit). Every reader's desktop has a
 // session bus, so a measurement taken without one is mostly a timeout, not this application.
@@ -394,6 +414,7 @@ export const SELFTEST_CASE_NAMES = [
   'cold: running marxy processes are killed as part of the step',
   'cold: sudo is never invoked without -n',
   'no_paint: launches that never paint keep the shell stages, say no_paint, and are a sample',
+  'source: launches timed by a frame are counted and their first_text median is kept apart from paint launches',
   'sample: a round in which no launch printed a mark, or every launch went to a running instance, is rejected',
 ];
 
@@ -533,7 +554,7 @@ async function selftest() {
     `sudo invocations: ${JSON.stringify(sudoArgs)}`,
   );
 
-  // 05-performance-audit.md §4.1: on a locked screen every mark up to render arrives, then no_paint.
+  // On a locked screen every mark up to render arrives, then no_paint.
   const locked = parseMarks(['MARK main_start 5000', 'MARK script_start 5384', 'MARK render 5623 blocks=83', 'MARK no_paint 8126 deadline_ms=2500'].join('\n'), 5000);
   const unpainted = [1, 2, 3, 4, 5].map(index => ({ index, ms: null, ok: false, exit_code: 1, stderr_tail: '', marks: locked.marks, mark_details: locked.details, no_paint: 'no_paint' in locked.marks }));
   const lockedRecord = referencePerfRecord(unpainted, { envClass: 'reference', runnerClass: 'darwin-arm64', coldProcedure: PROCESS_COLD_ONLY });
@@ -553,8 +574,21 @@ async function selftest() {
     noSampleProblems(silent).some(p => /none of 3 launches printed a MARK line/.test(p))
       && noSampleProblems(handedOff).some(p => /already running .*or crashed right after main_start/.test(p))
       && noSampleProblems([...handedOff, unpainted[0]]).length === 0,
-    SELFTEST_CASE_NAMES[16],
+    SELFTEST_CASE_NAMES[17],
     `silent: ${noSampleProblems(silent).join('; ') || 'none'}; handed off: ${noSampleProblems(handedOff).join('; ') || 'none'}`,
+  );
+
+  const mixed = [
+    { index: 1, ms: 700, mark_details: { painted: 'frames=3 since_render_ms=60 signal=first-contentful-paint source=paint' } },
+    { index: 2, ms: 760, mark_details: { painted: 'frames=3 since_render_ms=70 signal=frames-only source=frame fcp_before_ms=210' } },
+    { index: 3, ms: 800, mark_details: {} },
+  ];
+  const split = sourceSplit(mixed);
+  report(
+    split.frame_sourced_launches === 1 && split.first_text_median_frame_ms === 760 && split.first_text_median_paint_ms === 750
+      && perfRecord(summarise(mixed), { envClass: 'ci', runnerClass: 'x', launches: mixed }).frame_sourced_launches === 1,
+    SELFTEST_CASE_NAMES[16],
+    JSON.stringify(split),
   );
 
   if (bad) { console.error(`measure-startup selftest failed: ${bad} case(s)`); process.exit(1); }
@@ -589,10 +623,11 @@ if (isMain) {
     console.log(`cold start (launch 1) ${record.cold_start_first_text_ms} ms; warm start (median of launches 2..${record.runs_n}) ${record.warm_start_first_text_ms} ms over ${record.warm_runs_n} launches; cold/warm ${record.cold_warm_ratio}× (${envClass} mode${runnerClass ? `, ${runnerClass}` : ''})`);
   }
   console.log(`cold procedure: ${record.cold_procedure}`);
+  console.log(`${record.frame_sourced_launches} of ${record.launches.length} launch(es) were frame-sourced (first_text by frame, not paint): median ${record.first_text_median_frame_ms ?? 'n/a'} ms vs ${record.first_text_median_paint_ms ?? 'n/a'} ms by paint`);
   console.log(`marks (median ms since spawn): ${Object.entries(record.marks_median).map(([k, v]) => `${k}=${v}`).join(' ')}; ${record.no_paint_launches} launch(es) said no_paint; written to ${RESULT_PATH}`);
   // No sample at all, or a record whose names do not mean what they say, is a failure: a script that
   // exits 0 having written an empty sample is how a measurement disappears unnoticed. A slow number,
-  // or a launch that never painted, is not (ADR-0032).
+  // or a launch that never painted, is not.
   const problems = [...noSampleProblems(record.launches), ...recordProblems(record)];
   if (problems.length) { console.error('measure-startup failed:\n - ' + problems.join('\n - ')); process.exit(1); }
 }

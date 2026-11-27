@@ -1,22 +1,29 @@
-// The window's panes as the composition root builds them (D-01): the first pane adopted from the page,
+// The window's panes as the composition root builds them: the first pane adopted from the page,
 // and for each pane a view on its own article and an open path that shows documents in it, through
-// the window's one store registry. Later stories append their pane wiring here, one line each.
+// the window's one store registry. Pane wiring is added here, one line each.
 
 import type { AppShell } from '../app-types.ts';
 import type { AppContext } from '../commands/registry.ts';
 import { createOpenPath, type OpenPath, type OpenPathDeps } from '../document/open.ts';
 import { oneWatchPerStore, watchDocument } from '../document/live-reload.ts';
-import { createStoreRegistry } from '../document/registry.ts';
+import { releaseEntriesNotShown } from '../document/entries.ts';
+import { createStoreRegistry, type StoreRegistry } from '../document/registry.ts';
 import type { DocumentStore } from '../document/store.ts';
-import { createUntitledNamer, documentName } from '../document/untitled.ts';
+import { createUntitledNamer, documentName, isUntitled } from '../document/untitled.ts';
+import { isArchiveEntry } from '../document/entries.ts';
+import { onEncodingChoice } from '../document/encoding.ts';
 import { installVersionRecorder } from '../versions/recorder.ts';
 import { buildAppContext } from '../selection/bind.ts';
 import type { RenderedSelection } from '../selection/view.ts';
 import { createRenderedView, type RenderedView, type RenderedViewDeps, type ViewHost } from '../view/rendered-view.ts';
+import { setSourceChosen } from '../read-as/source-choice.ts';
+import { landsInRead } from '../source/default-mode.ts';
 import { createDivider } from './divider.ts';
 import { adoptFirstPane, type PaneParts, type Slot } from './dom.ts';
+import { followAnyDocument } from './any-document.ts';
 import { createPaneSet, type Pane, type PaneContent, type PaneSet } from './pane-set.ts';
 import { installScroll } from './scroll.ts';
+import { installLookPainter } from '../look/paint.ts';
 
 export { MAX_PANES, type Pane, type PaneContent, type PaneSet } from './pane-set.ts';
 export { idsForSlot, type Slot } from './dom.ts';
@@ -39,7 +46,7 @@ export interface PanesDeps {
 /**
  * The first pane's view starts on the window's scroller (`installScroll` moves it to its section while
  * a second pane is shown) and keeps `data-marxy-mode` on <body>, as the one view always has; a second
- * pane scrolls in its own section and carries its own mode (D-11 moves the first pane's).
+ * pane scrolls in its own section and carries its own mode.
  */
 function hostFor(parts: PaneParts, slot: Slot): ViewHost {
   return slot === 0
@@ -51,16 +58,40 @@ function hostFor(parts: PaneParts, slot: Slot): ViewHost {
 export type AppPanes = PaneSet<AppPane> & {
   debugCounts(): { typesetters: number; resizeObservers: number };
   /**
-   * Shows `bytes` as a scratch document (E-13): in the other pane when two are open (D's rule), else the
+   * Shows `bytes` as a scratch document: in the other pane when two are open (D's rule), else the
    * focused one. Asks first over unsaved edits there, as any open does: the pane then comes back before the reader has
    * answered, and `onLanded` runs only if the answer opens the scratch. The pane, or null when refused.
    */
-  openScratch(bytes: Uint8Array, opts?: { readonly label?: string; readonly saveIn?: string; readonly onLanded?: () => void }): Promise<Pane<AppPane> | null>;
+  openScratch(
+    bytes: Uint8Array,
+    opts?: { readonly label?: string; readonly saveIn?: string; readonly onLanded?: () => void; readonly beside?: boolean; readonly onPath?: (path: string) => void },
+  ): Promise<Pane<AppPane> | null>;
+  /** `cb` runs when any pane's document opens, changes or closes, whichever code path opened it. */
+  onAnyDocumentChange(cb: () => void): () => void;
+  /** One store per open document, shared by the panes and by the left section's staged files (left/held.ts). */
+  readonly stores: StoreRegistry;
 };
+
+/** Stores kept open for tabs the reader left: three, and none over 16 MB, so a long session holds a bounded few. */
+const WARM_STORES = 3;
+const WARM_MAX_BYTES = 16 * 1024 * 1024;
 
 export function createPanes(deps: PanesDeps): AppPanes {
   const { shell } = deps;
-  const stores = createStoreRegistry();
+  /** Stores whose folder could not be watched: nothing would tell a warm one its file changed. */
+  const unwatched = new WeakSet<DocumentStore>();
+  const stores = createStoreRegistry({
+    onClosed: (path) => shell.forgetRead?.(path),
+    warm: {
+      limit: WARM_STORES,
+      keeps(store) {
+        const snap = store.snapshot();
+        return !snap.dirty && store.conflict() === null && !unwatched.has(store) && !isUntitled(snap.path) && !isArchiveEntry(snap.path) && snap.buffer.bytes.length <= WARM_MAX_BYTES;
+      },
+    },
+  });
+  // A store kept for a file read under another encoding would show the old reading.
+  const offEncoding = onEncodingChoice((path) => void stores.drop(path));
   /** Scratch paths for this window: never one twice, so two scratch documents never share a history. */
   const untitled = createUntitledNamer();
   /** Every view made and not yet destroyed: a pane that went without its view going shows up here. */
@@ -69,13 +100,13 @@ export function createPanes(deps: PanesDeps): AppPanes {
   /** Set once the set exists: the first pane's content is made while it is built. */
   let set: PaneSet<AppPane> | null = null;
 
-  /** The panes that show `store`, left to right: the views its one watch reloads (D-10). */
+  /** The panes that show `store`, left to right: the views its one watch reloads. */
   const showing = (store: DocumentStore): AppPane[] =>
     (set?.panes ?? []).filter((pane) => pane.content.store() === store).map((pane) => pane.content);
   const viewsOver = (store: DocumentStore): RenderedView[] => showing(store).map((pane) => pane.view);
 
   /**
-   * One watch per store, the window's and not a pane's (D-10): the store is reloaded once however many panes
+   * One watch per store, the window's and not a pane's: the store is reloaded once however many panes
    * show it, each pane is put at its own place, and a change is asked of every pane's Source before it is
    * adopted. Its work runs on every view's queue of the store, left to right, so it cannot interleave with an
    * open or a mode switch in either; it is not re-entered through a queue (`follow` does not queue).
@@ -101,6 +132,13 @@ export function createPanes(deps: PanesDeps): AppPanes {
         for (const pane of showing(store)) deps.selection()?.forArticle(pane.view.host.article)?.afterRender();
         await focused?.content.refreshTitle();
       },
+      unseen: () => stores.markUnseen(store),
+      watching(ok) {
+        if (ok) return void unwatched.delete(store);
+        unwatched.add(store);
+        // Kept before its watch failed: read on return.
+        stores.markUnseen(store);
+      },
       changed(path) {
         void deps.open.index.rootFor(path).then((root) => deps.open.index.refresh(root));
       },
@@ -111,7 +149,7 @@ export function createPanes(deps: PanesDeps): AppPanes {
     let openPath: OpenPath | null = null;
     let self: AppPane | null = null;
     // The command context is the first pane's; a second pane's task click edits its own store, never the
-    // focused one's. The selection is the window's one, told about this pane's page (D-06).
+    // focused one's. The selection is the window's one, told about this pane's page.
     const selection = (): RenderedSelection | null => deps.selection()?.forArticle(parts.article) ?? null;
     const context =
       slot === 0
@@ -123,6 +161,10 @@ export function createPanes(deps: PanesDeps): AppPanes {
       selection,
       context,
       refreshTitle: () => openPath?.refreshTitle() ?? Promise.resolve(),
+      // Code put in Source by the reader opens there again; put back in Read, it lands as code does.
+      modeChosen: (path, mode) => {
+        if (landsInRead(path)) setSourceChosen(path, mode === 'source');
+      },
     });
     live.add(view);
     openPath = createOpenPath({
@@ -142,8 +184,7 @@ export function createPanes(deps: PanesDeps): AppPanes {
       selection,
       pieces: slot === 0 ? deps.open.pieces : null,
       sliced: () => set !== null && set.panes.length > 1,
-      // The window title is the focused pane's document: a pane opening beside it does not take it (D-06
-      // carries the rest of focus).
+      // The window title is the focused pane's document: a pane opening beside it does not take it.
       ownsTitle: () => set === null || set.focused.content === self,
     });
     const path = openPath;
@@ -166,12 +207,18 @@ export function createPanes(deps: PanesDeps): AppPanes {
     mark: (name, data) => void shell.mark(name, Date.now(), data),
   });
   set = panes;
-  // Local versions (V-06, ADR-0072): each store the panes open is followed, and a copy kept at its open, before each save and
-  // before each outside change, after first text. Here and not in app.ts, which the composition-root gate holds under 300 lines.
+  // Local versions: each store the panes open is followed, and a copy kept before each save and before each
+  // outside change, after first text; none at its open. Here and not in app.ts, which the composition-root gate holds under 300 lines.
   const versions = installVersionRecorder({ shell, panes, rootFor: (path) => deps.open.index.rootFor(path), ready: deps.view.measure.ready });
   const destroyPanes = panes.destroy;
   installScroll(panes);
+  // Each pane painted from the look engine with its own context, once looks are on.
+  const looks = installLookPainter(panes, { shell, ready: deps.view.measure.ready });
   panes.onSplit((m) => createDivider(panes, m).destroy);
+  // An archive's entry no pane shows has no tab left (the frame drops it): its bytes go.
+  panes.onChange((e) => {
+    if (e.kind === 'open' || e.kind === 'close') releaseEntriesNotShown(panes.panes.map((pane) => pane.path()));
+  });
   // Focus moves the window title to the focused pane's document.
   panes.onChange((e) => {
     if (e.kind !== 'focus') return;
@@ -181,15 +228,22 @@ export function createPanes(deps: PanesDeps): AppPanes {
   });
   return Object.assign(panes, {
     destroy() {
+      offEncoding();
+      stores.clearWarm();
+      looks.stop();
       void versions?.stop();
       destroyPanes();
     },
-    openScratch(bytes: Uint8Array, opts?: { readonly label?: string; readonly saveIn?: string; readonly onLanded?: () => void }) {
-      return panes.openIn(panes.panes.length > 1 ? 'other' : 'focused', untitled.next(), {
+    openScratch(bytes: Uint8Array, opts?: Parameters<AppPanes['openScratch']>[1]) {
+      const path = untitled.next();
+      opts?.onPath?.(path);
+      return panes.openIn(opts?.beside || panes.panes.length > 1 ? 'other' : 'focused', path, {
         scratch: { bytes, label: opts?.label, saveIn: opts?.saveIn },
         onLanded: opts?.onLanded,
       });
     },
+    stores,
+    onAnyDocumentChange: (cb: () => void) => followAnyDocument(panes, cb),
     debugCounts() {
       let typesetters = 0;
       let resizeObservers = 0;

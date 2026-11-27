@@ -1,4 +1,4 @@
-// Pure source-map helpers: section byte ranges and block lookup (docs/design/03-selection-and-operations.md).
+// Pure source-map helpers: section byte ranges and block lookup.
 
 import type { Block, Document, Heading, Inline, Node, Source } from '../contracts/ast.ts';
 import { lineStartAt } from './line-starts.ts';
@@ -24,21 +24,54 @@ function isBlock(node: Node): node is Block {
   return BLOCK_TYPES.has(node.type as Block['type']);
 }
 
-function isTopLevelHeading(doc: Document, heading: Heading): boolean {
-  return doc.children.some(
-    (block) =>
-      block.type === 'heading' &&
-      block.src.start === heading.src.start &&
-      block.src.end === heading.src.end,
-  );
+interface TopSection {
+  /** The heading's own end, to tell it from a nested heading that starts at the same byte. */
+  readonly headingEnd: number;
+  readonly end: number;
 }
 
-/** Direct child of `doc` whose range contains `heading`. */
-function topLevelEnclosingBlock(doc: Document, heading: Heading): Block {
+/**
+ * Every top-level heading's section end, by the heading's start, found in one pass with a stack. Fold-all asks
+ * for every heading's section, and a scan of the blocks per heading made that quadratic: 100,000 headings took
+ * 18 ms a call. Kept per document while its children are the same array.
+ */
+const topSectionsOf = new WeakMap<Document, { readonly children: readonly Block[]; readonly length: number; readonly ends: Map<number, TopSection> }>();
+
+function topSections(doc: Document): Map<number, TopSection> {
+  const cached = topSectionsOf.get(doc);
+  if (cached !== undefined && cached.children === doc.children && cached.length === doc.children.length) return cached.ends;
+  const ends = new Map<number, TopSection>();
+  const open: Heading[] = [];
   for (const block of doc.children) {
-    if (heading.src.start >= block.src.start && heading.src.end <= block.src.end) return block;
+    if (block.type !== 'heading') continue;
+    while (open.length > 0 && open[open.length - 1]!.level >= block.level) {
+      const closed = open.pop()!;
+      ends.set(closed.src.start, { headingEnd: closed.src.end, end: block.src.start });
+    }
+    open.push(block);
   }
-  return heading;
+  for (const heading of open) ends.set(heading.src.start, { headingEnd: heading.src.end, end: doc.src.end });
+  topSectionsOf.set(doc, { children: doc.children, length: doc.children.length, ends });
+  return ends;
+}
+
+/** Direct child of `doc` whose range contains `heading`, else the heading itself. */
+function topLevelEnclosingBlock(doc: Document, heading: Heading): Block {
+  const blocks = doc.children;
+  let lo = 0;
+  let hi = blocks.length - 1;
+  // The last block that starts at or before the heading.
+  let found = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (blocks[mid]!.src.start <= heading.src.start) {
+      found = mid;
+      lo = mid + 1;
+    } else hi = mid - 1;
+  }
+  const block = blocks[found];
+  // Siblings neither overlap nor go back (invariants.ts), so no other block can hold it.
+  return block !== undefined && heading.src.end <= block.src.end ? block : heading;
 }
 
 function forEachBlockInOrder(node: Node, visit: (block: Block) => boolean | void): boolean {
@@ -75,22 +108,13 @@ function nextHeadingBoundary(doc: Document, start: number, level: Heading['level
 
 /**
  * The byte range of everything under `heading` until the next heading of equal or higher
- * rank, or the end of the document (§03). Nested headings are bounded by their enclosing
+ * rank, or the end of the document. Nested headings are bounded by their enclosing
  * top-level block as well as by headings of equal or higher rank inside that block.
  */
 export function sectionRange(doc: Document, heading: Heading): Source {
   const start = heading.src.start;
-  if (isTopLevelHeading(doc, heading)) {
-    let end = doc.src.end;
-    for (const block of doc.children) {
-      if (block.src.start <= start) continue;
-      if (block.type === 'heading' && block.level <= heading.level) {
-        end = block.src.start;
-        break;
-      }
-    }
-    return { file: heading.src.file, start, end };
-  }
+  const top = topSections(doc).get(start);
+  if (top !== undefined && top.headingEnd === heading.src.end) return { file: heading.src.file, start, end: top.end };
   const scope = topLevelEnclosingBlock(doc, heading);
   const end = nextHeadingBoundary(doc, start, heading.level, scope);
   return { file: heading.src.file, start, end };

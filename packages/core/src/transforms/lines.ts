@@ -1,5 +1,5 @@
-// The Lines group (J-03): whole-text line operations. They see the text with its own line endings (`raw`), and a
-// line carries its ending with it when it moves, so a file that mixes LF, CRLF and CR keeps each line's own (ADR-0004).
+// The Lines group: whole-text line operations. They see the text with its own line endings (`raw`), and a
+// line carries its ending with it when it moves, so a file that mixes LF, CRLF and CR keeps each line's own.
 // A blank line is a line like any other (sorted, de-duplicated, reversed) unless said.
 import type { TransformDef } from './types.ts';
 

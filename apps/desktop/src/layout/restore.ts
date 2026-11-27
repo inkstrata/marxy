@@ -1,6 +1,6 @@
-// Remember the layout, and restore it at launch (D-12; ADR-0057; 07 §4.6, §6.5).
+// Remember the layout, and restore it at launch.
 //
-// layout.json (`{ version, columns: [{ path, mode }], ratio, focused }`) is written beside positions.json
+// layout.json (`{ version, columns: [{ path, mode }], ratio, focused, tabs }`) is written beside positions.json
 // as the panes change, and read again here. Restoring never gets in the way of reading: the first pane's
 // document is opened first, through the launch's own first-text path, at the place positions.json keeps for
 // it; the second pane is opened after that. A column whose file is gone or cannot be read is left out and
@@ -10,9 +10,10 @@
 // Positions are per path, and with one file in both panes only one pane writes its place: `writerFor`.
 
 import { basename } from '@marxy/core/src/index-model/paths.ts';
-import { LAYOUT_FILE_VERSION, type LayoutColumn, type LayoutEnvelope } from '@marxy/core/src/layout/index.ts';
+import { LAYOUT_FILE_VERSION, layoutTabs, type LayoutColumn, type LayoutEnvelope } from '@marxy/core/src/layout/index.ts';
 import type { AppShell } from '../app-types.ts';
 import { isUntitled } from '../document/untitled.ts';
+import { isArchiveEntry } from '../document/entries.ts';
 import { layoutLeftOut } from '../notices/config-copy.ts';
 import { notify } from '../notices/index.ts';
 import { canShowTwoColumns } from '../pane/fit.ts';
@@ -32,18 +33,58 @@ export function writerFor(panes: Pick<AppPanes, 'panes' | 'focused'>, path: stri
   return panes.panes.find((pane) => pane.path() === path) ?? null;
 }
 
-/** The layout the panes are in now: the columns that show a document, the ratio and the focused column. */
-function layoutOf(panes: Pick<AppPanes, 'panes' | 'focused' | 'ratio'>): LayoutEnvelope {
+/**
+ * The window's row of tabs as the layout keeps it: its files in order, put back at launch. The frame
+ * gives it once mounted (frame/row-layout.ts); without one, the row is what the panes show.
+ */
+export interface LayoutRow {
+  /** The row's files, in order: no scratch, bundled page or archive entry. */
+  paths(): readonly string[];
+  /** Puts `paths` in the row in this order, ahead of any tab not among them. */
+  restore(paths: readonly string[]): void;
+  /** `cb` hears a change of the row (a tab opened, closed or moved). Returns the off switch. */
+  onChange(cb: () => void): () => void;
+}
+
+/** The layout the panes are in now: the columns that show a document, the ratio, the focused column and the row. */
+function layoutOf(panes: Pick<AppPanes, 'panes' | 'focused' | 'ratio'>, row: LayoutRow | null): LayoutEnvelope {
   const columns: LayoutColumn[] = [];
   let focused = 0;
   for (const pane of panes.panes) {
     const path = pane.path();
-    // A scratch document is never kept: layout.json names files, and a scratch is not one (E-13).
-    if (path === null || isUntitled(path)) continue;
+    // A scratch document is never kept: layout.json names files, and a scratch is not one; nor is an archive's entry.
+    if (path === null || isUntitled(path) || isArchiveEntry(path)) continue;
     if (pane === panes.focused) focused = columns.length;
     columns.push({ path, mode: pane.view.mode });
   }
-  return { version: LAYOUT_FILE_VERSION, columns, ratio: panes.ratio, focused };
+  return { version: LAYOUT_FILE_VERSION, columns, ratio: panes.ratio, focused, tabs: layoutTabs(row?.paths(), columns) };
+}
+
+/**
+ * The reader restores what layout.json names, and only that: each column and tab is told to the shell as opened before
+ * its probe, so the shell's scope after a restart is what the reader is shown again, never everything in history.
+ */
+async function restored(shell: Pick<AppShell, 'markOpened'>, path: string): Promise<void> {
+  await shell.markOpened?.(path).catch(() => undefined);
+}
+
+/** The saved row put back: the tabs no pane shows are probed after first text, and one gone from disk is left out quietly. */
+async function restoreRow(shell: Pick<AppShell, 'readHead' | 'markOpened'>, row: LayoutRow | null, saved: LayoutEnvelope): Promise<void> {
+  if (!row || saved.tabs.length === 0) return;
+  const open = new Set(row.paths());
+  const alive = await Promise.all(
+    saved.tabs.map(async (path) => {
+      if (open.has(path)) return true;
+      try {
+        await restored(shell, path);
+        await shell.readHead(path, 1);
+        return true;
+      } catch {
+        return false;
+      }
+    }),
+  );
+  row.restore(saved.tabs.filter((_, i) => alive[i]));
 }
 
 export interface LayoutKeeper {
@@ -52,13 +93,13 @@ export interface LayoutKeeper {
    * restored whole) waits for the reader to change the layout first, so the file is untouched until then.
    */
   start(armed: boolean): void;
-  /** While held, a change of layout is not written (a pane given back by a narrow window, F-106); released, it is caught up. */
+  /** While held, a change of layout is not written (a pane given back by a narrow window); released, it is caught up. */
   hold(on: boolean): void;
   stop(): void;
 }
 
-/** Notes the layout on every pane change (open, close, focus, ratio) and each pane's mode change. */
-export function createLayoutKeeper(panes: AppPanes, persistence: ReadingPersistence): LayoutKeeper {
+/** Notes the layout on every pane change (open, close, focus, ratio), each pane's mode change and each change of the row. */
+export function createLayoutKeeper(panes: AppPanes, persistence: ReadingPersistence, rowOf: () => LayoutRow | null = () => null): LayoutKeeper {
   const offs: (() => void)[] = [];
   let stopped = false;
   let held = false;
@@ -71,12 +112,13 @@ export function createLayoutKeeper(panes: AppPanes, persistence: ReadingPersiste
     hold,
     start(armed) {
       if (stopped) return;
-      const baseline = JSON.stringify(layoutOf(panes));
+      const row = rowOf();
+      const baseline = JSON.stringify(layoutOf(panes, row));
       let on = armed;
       let last = '';
       const note = (): void => {
         if (held) return;
-        const now = layoutOf(panes);
+        const now = layoutOf(panes, row);
         const json = JSON.stringify(now);
         if (!on) {
           if (json === baseline) return;
@@ -88,10 +130,11 @@ export function createLayoutKeeper(panes: AppPanes, persistence: ReadingPersiste
       };
       catchUp = note;
       offs.push(panes.onChange(note));
-      // A pane's section carries its own mode (D-11); there is no other event for a mode change.
+      if (row) offs.push(row.onChange(note));
+      // A pane's section carries its own mode; there is no other event for a mode change.
       const main = panes.panes[0]?.host.parentElement;
       if (main) {
-        // The window narrowed below two columns gives a pane back, and the split returns with the room (F-106).
+        // The window narrowed below two columns gives a pane back, and the split returns with the room.
         offs.push(keepTwoColumns(panes, main, { hold }));
         const observer = new MutationObserver(note);
         observer.observe(main, { subtree: true, attributes: true, attributeFilter: ['data-marxy-mode'] });
@@ -112,11 +155,12 @@ interface Survey {
 }
 
 /** Which saved columns can still be read, by their first byte (a file's whole read is the pane's, later). */
-async function survey(shell: Pick<AppShell, 'readHead'>, columns: readonly LayoutColumn[]): Promise<Survey> {
+async function survey(shell: Pick<AppShell, 'readHead' | 'markOpened'>, columns: readonly LayoutColumn[]): Promise<Survey> {
   const alive: { column: LayoutColumn; index: number }[] = [];
   const notices: string[] = [];
   for (const [index, column] of columns.entries()) {
     try {
+      await restored(shell, column.path);
       await shell.readHead(column.path, 1);
       alive.push({ column, index });
     } catch (error) {
@@ -138,6 +182,8 @@ export interface LaunchDeps {
   /** The launch's first open: `OpenPath.boot` (first text, the stored place, the frontispiece with no document). */
   boot(argv: readonly string[]): Promise<void>;
   readonly argv: readonly string[];
+  /** The window's row, to put the saved one back into. */
+  readonly row?: () => LayoutRow | null;
 }
 
 /** `column`'s mode in `pane`, when it is not that already. */
@@ -162,6 +208,7 @@ export async function launch(d: LaunchDeps): Promise<{ readonly rest: Promise<vo
   const tell = (notices: readonly string[]): void => {
     for (const text of notices) notify({ kind: 'refused', text });
   };
+  const putRow = (saved: LayoutEnvelope): Promise<void> => restoreRow(shell, d.row?.() ?? null, saved);
 
   if (file) {
     await d.boot(args);
@@ -173,18 +220,21 @@ export async function launch(d: LaunchDeps): Promise<{ readonly rest: Promise<vo
       const whole = alive.length === 2 && !narrow;
       if (whole) {
         const [left, right] = alive.map((a) => a.column) as [LayoutColumn, LayoutColumn];
-        if (saved.focused === 0) {
+        // An argument the other column already shows stays in its own column, so the focused one keeps its document.
+        const argAt = file === (saved.focused === 0 ? right : left).path ? 1 - saved.focused : saved.focused;
+        if (argAt === 0) {
           await panes.openIn('other', right.path);
           await inMode(panes.panes[1], right);
         } else {
-          // The argument goes in the focused (right) pane, the left keeps its document.
+          // The argument goes in the right pane, the left keeps its document.
           await panes.openIn('other', file);
           await panes.openIn(0, left.path);
           await inMode(panes.panes[0], left);
         }
         panes.setRatio(clampToMain(main, saved.ratio));
-        panes.focus(panes.panes[saved.focused] ?? panes.panes[0]!);
+        panes.focus(panes.panes[argAt] ?? panes.panes[0]!);
       }
+      await putRow(saved);
       tell(notices);
       keeper.start(notices.length === 0 && !narrow);
     })();
@@ -215,7 +265,7 @@ export async function launch(d: LaunchDeps): Promise<{ readonly rest: Promise<vo
   if (at < 0) {
     await d.boot(args);
     return {
-      rest: Promise.resolve().then(() => {
+      rest: putRow(saved).then(() => {
         tell(notices);
         keeper.start(false);
       }),
@@ -236,6 +286,7 @@ export async function launch(d: LaunchDeps): Promise<{ readonly rest: Promise<vo
       panes.setRatio(clampToMain(main, saved.ratio));
       panes.focus(panes.panes[saved.focused] ?? panes.panes[0]!);
     }
+    await putRow(saved);
     tell(notices);
     keeper.start(notices.length === 0 && !narrow);
   })();

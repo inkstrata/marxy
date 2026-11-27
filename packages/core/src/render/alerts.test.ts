@@ -1,4 +1,4 @@
-// GitHub alert blockquotes: run-in label, no marker text, no decorative colour (MARXY-234).
+// GitHub alert blockquotes: run-in label, no marker text, no decorative colour.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';

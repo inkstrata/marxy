@@ -1,0 +1,16 @@
+/* Audio and video: the line, the waveform over the player, the player, and the facts-only card. */
+.marxy-mediapage { height: 100%; overflow-y: auto; outline: none; }
+.marxy-media { max-width: 1040px; margin: 0 auto; padding: 56px 32px 64px; font-family: var(--marxy-face-chrome); font-size: calc(14 * var(--marxy-c)); line-height: 20px; color: var(--marxy-color-text); }
+.marxy-media-line { margin: 0 0 14px; font-size: calc(13.5 * var(--marxy-c)); color: var(--marxy-color-text-faint); }
+.marxy-media-player { display: block; width: 100%; }
+video.marxy-media-player { max-height: 62vh; border-radius: 6px; background: #000; }
+audio.marxy-media-player { margin: 10px 0 0; }
+.marxy-media-wave { position: relative; height: 120px; border-radius: 8px; background: var(--marxy-frame-chrome); box-shadow: inset 0 0 0 1px var(--marxy-frame-hair); overflow: hidden; cursor: pointer; }
+.marxy-media-wave canvas { display: block; width: 100%; height: 120px; }
+.marxy-media-head { position: absolute; top: 0; bottom: 0; left: 0; width: 1.5px; background: var(--marxy-color-text-strong); pointer-events: none; }
+.marxy-media-foot { max-width: 860px; margin: 16px 0 0; font-size: calc(13.5 * var(--marxy-c)); line-height: 20px; color: var(--marxy-color-text-secondary); }
+.marxy-media-noplay { max-width: 640px; margin: 6px 0 0; padding: 28px 30px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-media-kicker { margin: 0 0 6px; font-size: calc(11.5 * var(--marxy-c)); font-weight: 600; line-height: 1; letter-spacing: 0.08em; text-transform: uppercase; color: var(--marxy-color-text-faint); }
+.marxy-media-title { margin: 0 0 10px; font-family: var(--marxy-face-chrome); font-size: calc(21 * var(--marxy-c)); font-weight: 650; line-height: 28px; letter-spacing: normal; color: var(--marxy-color-text-strong); }
+.marxy-media-said { margin: 0 0 16px; font-size: calc(14.5 * var(--marxy-c)); line-height: 22px; color: var(--marxy-color-text); }
+.marxy-media-acts { display: flex; flex-wrap: wrap; gap: 8px; }

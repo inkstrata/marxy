@@ -1,10 +1,10 @@
-// The desktop mutation checks (A-10): run a suite with a named mutation switched on in product code and
+// The desktop mutation checks: run a suite with a named mutation switched on in product code and
 // pass only when the tests that guard it fail by name and nothing else does.
 //
 // Before this, `test` re-ran the four palette files with the mutation on and asserted the exit status
-// was 1 (`( MARXY_86_MUTATION=… ; test $? -eq 1 )`). Status 1 is also what a syntax error, a crashed
+// was 1 (`( SWITCH=… ; test $? -eq 1 )`). Status 1 is also what a syntax error, a crashed
 // file or an unrelated failing test gives, so the check passed for reasons that had nothing to do with
-// the mutation, and its ✖ lines sat in every green run of `test` (audit 04 §3, point 1). Here the TAP
+// the mutation, and its ✖ lines sat in every green run of `test`. Here the TAP
 // stream is read test by test: every named test must fail, the named skips must skip, every other test
 // must pass, and a file that cannot load is a failure because it is not a named test.
 //
@@ -14,13 +14,13 @@ import { fileURLToPath } from 'node:url';
 
 const desktop = fileURLToPath(new URL('..', import.meta.url));
 
-/** The mutation that empties `searchPrepared`'s body (MARXY-86). */
+/** The mutation that empties `searchPrepared`'s body. */
 export const SEARCH_PREPARED_BODY_MUTATION = 'search-prepared-body';
 
 /**
  * Each mutation: the source patch the loader (scripts/mutation-hooks.mjs) applies to one product file as
  * the child run loads it, the files to run, and the tests it must turn red. The patch lives here, on the
- * test side: product code carries no switch and reads no environment variable for it (B-16).
+ * test side: product code carries no switch and reads no environment variable for it.
  * `find` must occur exactly once in `file`, or the child run fails to load it.
  */
 export const MUTATIONS = [

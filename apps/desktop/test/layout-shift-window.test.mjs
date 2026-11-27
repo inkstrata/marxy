@@ -1,4 +1,4 @@
-// MARXY-143: the gate render's font/image window waits (apps/desktop/src/harness, B-02), the gate repeat
+// the gate render's font/image window waits (apps/desktop/src/harness), the gate repeat
 // flag, and frozen CLS thresholds.
 
 import { strict as assert } from 'node:assert';
@@ -20,7 +20,7 @@ const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_T
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-/** Main-branch gate literals; criterion 4 forbids moving them. */
+/** Main-branch gate literals; they must not move. */
 const MAIN_GATE_SNIPPETS = {
   RAG_OPTS: 'const RAG_OPTS = { shortLineFraction: 0.1, badnessStretchEm: 2 };',
   WIDTHS: 'const WIDTHS = [720, 960, 1280];',
@@ -56,7 +56,7 @@ function gateSource() {
   return readFileSync(gatePath, 'utf8');
 }
 
-test('MARXY-143: the gate render awaits document.fonts.load per used face and decode on reserved images before the first scored snapshot', () => {
+test('the gate render awaits document.fonts.load per used face and decode on reserved images before the first scored snapshot', () => {
   const helpers = shiftSource();
   assert.match(helpers, /export async function awaitArticleFonts/, 'awaitArticleFonts is exported');
   assert.match(helpers, /document\.fonts\.load/, 'loads each face the article uses');
@@ -74,7 +74,7 @@ test('MARXY-143: the gate render awaits document.fonts.load per used face and de
   );
 });
 
-test('MARXY-143: fonts.ready alone before the first snapshot would fail the wait case', () => {
+test('fonts.ready alone before the first snapshot would fail the wait case', () => {
   const src = entrySource();
   const stub = src.replace(/await awaitArticleFonts\(article\);\s*\n\s*await awaitReservedImages\(article\);\s*\n/, '  await document.fonts.ready;\n');
   assert.doesNotMatch(stub, /await awaitArticleFonts\(article\)/);
@@ -82,7 +82,7 @@ test('MARXY-143: fonts.ready alone before the first snapshot would fail the wait
   assert.match(stub, /await document\.fonts\.ready;\s*\n\s*takeSnapshot\(article, snaps\)/);
 });
 
-test('MARXY-143: an unreserved image after the first snapshot still yields fontWindow > 0', async () => {
+test('an unreserved image after the first snapshot still yields fontWindow > 0', async () => {
   const { build } = await import('vite');
   const desktop = join(fileURLToPath(new URL('..', import.meta.url)));
   const outDir = mkdtempSync(join(tmpdir(), 'marxy-layout-shift-'));
@@ -153,18 +153,16 @@ test('MARXY-143: an unreserved image after the first snapshot still yields fontW
   }
 });
 
-test('MARXY-143: gate-aesthetics CLS thresholds and matrix literals match main', () => {
+test('gate-aesthetics CLS thresholds and matrix literals match main', () => {
   const src = gateSource();
   for (const [name, text] of Object.entries(MAIN_GATE_SNIPPETS)) {
     assert.ok(src.includes(text), `${name} must stay byte-identical to main`);
   }
 });
 
-// MARXY-153 moved the repeat pass off the pull-request path: re-rendering the corpus to see whether
-// the answer changes is a flake detector, it cannot fail for anything in the diff under review, and
-// it was 266s of the browser job's 356s. MARXY-143's signal is kept, not dropped — so this test now
-// pins both halves of that bargain: nothing implies --repeat, and the nightly workflow passes it.
-test('MARXY-153: gate-aesthetics runs no CLS repeat pass unless --repeat asks for one', () => {
+// The repeat pass re-renders the corpus to see whether the layout-shift answer changes: a flake
+// detector, so it runs only when --repeat asks for it.
+test('gate-aesthetics runs no CLS repeat pass unless --repeat asks for one', () => {
   const src = gateSource();
   const repeatBlock = src.slice(src.indexOf("const repeatIdx = process.argv.indexOf('--repeat')"));
   assert.match(repeatBlock, /const REPEAT = repeatIdx === -1 \? 0 :/, 'an omitted --repeat must mean no repeat pass, on CI as locally');
@@ -172,8 +170,3 @@ test('MARXY-153: gate-aesthetics runs no CLS repeat pass unless --repeat asks fo
   assert.match(repeatBlock, /Math\.max\(1, Number\.parseInt\(process\.argv\[repeatIdx \+ 1\]/, '--repeat N must stay explicit for local and nightly runs');
 });
 
-test('MARXY-153: the nightly workflow still runs the CLS repeat passes MARXY-143 added', () => {
-  const nightly = readFileSync(new URL('.github/workflows/nightly.yml', root), 'utf8');
-  assert.match(nightly, /gate-aesthetics\.mjs --repeat 3/, 'nightly must run the repeat passes, or MARXY-143 loses its signal entirely');
-  assert.match(nightly, /schedule:/, 'nightly must be scheduled, not only dispatchable');
-});

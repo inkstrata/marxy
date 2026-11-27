@@ -1,4 +1,4 @@
-// *Show as* (ADR-0060 item 9, K-04): the kind a reader chose for one file, kept in `kinds.json` in Marxy's
+// *Show as*: the kind a reader chose for one file, kept in `kinds.json` in Marxy's
 // data directory beside `positions.json`, and the one function that feeds a file's choices to `detectKind`.
 //
 // `kinds.json` holds a kind and nothing else: path -> kind, under a version. It is the reader's choice, never
@@ -35,7 +35,7 @@ export function emptyKindsEnvelope(): KindsEnvelope {
 
 /**
  * Lexically resolves `.`, `..` and empty segments (`/a//b/./../c` is `/a/c`); null when a `..` would climb
- * above the root. The way P-02 resolves a capture path, so one path has one spelling.
+ * above the root. The way a capture path is resolved, so one path has one spelling.
  */
 function resolveDots(path: string): string | null {
   const drive = /^[A-Za-z]:/.exec(path)?.[0] ?? '';
@@ -53,7 +53,7 @@ function resolveDots(path: string): string | null {
 
 /**
  * The key a path is kept and matched under: slashes normalised, `.`, `..` and `//` resolved, Unicode composed
- * (NFC) and lower-cased, on every platform (P-02's `fold`): macOS and Windows volumes ignore case and an
+ * (NFC) and lower-cased, on every platform (`fold`): macOS and Windows volumes ignore case and an
  * accent may be composed or not, so one file must not have two keys. A path that climbs above its root is
  * kept as normalised, never guessed at.
  */
@@ -152,7 +152,7 @@ export function folderKindGlob(folder: string, home: string): string {
 }
 
 /**
- * The `read` of the first rule whose glob matches `path` (ADR-0060 item 7: a rule's `read = true` opens the file in Read,
+ * The `read` of the first rule whose glob matches `path` (a rule's `read = true` opens the file in Read,
  * `false` in Source, above the kind's default mode), matched as `detectFileKind` matches rules: the path folded, each
  * glob folded, a rule naming no kind skipped, the first match the one. Undefined when no rule matches or it says nothing.
  */
@@ -173,8 +173,8 @@ export interface FileKindInput extends Omit<DetectInput, 'showAs' | 'rules'> {
 }
 
 /**
- * What a file is read as, from everything the reader decided (item 9): the file's own *show as* beats a
- * rule, a rule beats detection, always. Rules match the way P-02's paths are compared: `.`, `..` and `//`
+ * What a file is read as, from everything the reader decided: the file's own *show as* beats a
+ * rule, a rule beats detection, always. Rules match the way paths are compared: `.`, `..` and `//`
  * resolved, Unicode composed, case ignored, so `~/Notes/**` matches `~/notes/a.md`. `detectKind` matches
  * case-sensitively, so it is handed the folded path and folded globs; the reasons it returns are mapped back
  * to the reader's own spelling of the path and the rule's glob.

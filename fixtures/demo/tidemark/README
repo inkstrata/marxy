@@ -1,0 +1,10 @@
+tidemark
+========
+
+A small index that sits next to the files it names.
+
+    cargo install tidemark
+    tidemark index ~/notes
+
+It writes nothing outside the folder you give it. See docs/config.md for the
+settings and CHANGELOG.md for what changed.

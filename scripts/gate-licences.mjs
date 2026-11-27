@@ -1,8 +1,8 @@
-// Licence audit (ADR-0006): resolves the licence of every package in pnpm-lock.yaml, every crate in
+// Licence audit: resolves the licence of every package in pnpm-lock.yaml, every crate in
 // apps/desktop/src-tauri/Cargo.lock, and every allow-listed grammar and hyphenation pattern, and
-// fails on copyleft or on a licence it cannot determine. ADR-0006 forbids copyleft anywhere in the
+// fails on copyleft or on a licence it cannot determine. The project forbids copyleft anywhere in the
 // tree, which includes the Rust crates linked into the shipped binary, not just node_modules.
-// CI runs it twice (MARXY-65): before the Rust build (allow-list fallback) and after, with
+// CI runs it twice: before the Rust build (allow-list fallback) and after, with
 // --require-registry, so a stale record cannot hide behind an empty cargo cache.
 // Its own pass/fail logic is checked against fixtures on every run (see selfCheck).
 import assert from 'node:assert/strict';
@@ -18,10 +18,10 @@ const ALLOWLISTS = join(ROOT, 'scripts/allowlists');
 const PERMISSIVE = new Set([
   'MIT', 'MIT-0', 'ISC', '0BSD', 'BSD-2-Clause', 'BSD-3-Clause', 'Apache-2.0', 'MPL-2.0',
   'Unlicense', 'CC0-1.0', 'BlueOak-1.0.0', 'Python-2.0', 'PSF-2.0', 'OFL-1.1', 'Zlib',
-  'FSFAP', 'LicenseRef-TextMate-Bundle', 'Unicode-3.0', 'BSL-1.0',
+  'FSFAP', 'LicenseRef-TextMate-Bundle', 'Unicode-3.0', 'Unicode-DFS-2016', 'BSL-1.0',
 ]);
 
-/** Copyleft and non-commercial families ADR-0006 forbids outright, reported as such. */
+/** Copyleft and non-commercial families the project forbids outright, reported as such. */
 const COPYLEFT = /\b(AGPL|GPL|LGPL|SSPL|EUPL|OSL|CDDL|CPAL|LPPL|MS-RL|QPL|SISSL|CC-BY-NC|CC-BY-SA)\b/i;
 
 /**
@@ -229,7 +229,7 @@ const CRATE_RECORD_SHAPE = '{ "match": "name@version", "licence": <SPDX expressi
  * True when a licence passes only because we elect a permissive branch of a disjunction whose other
  * branches are copyleft, as `r-efi`'s `MIT OR Apache-2.0 OR LGPL-2.1-or-later` does. Electing the
  * MIT branch is legitimate, but it is a choice the project is making rather than a crate that is
- * simply permissive, so the gate names it instead of swallowing it (the rule itself: MARXY-58).
+ * simply permissive, so the gate names it instead of swallowing it.
  */
 export function isElectedOverCopyleft(expression) {
   return classifyLicence(expression) === 'permissive' && COPYLEFT.test(expression);
@@ -245,7 +245,7 @@ export function isElectedOverCopyleft(expression) {
  * Records are matched on the exact `name@version` key, never by pattern: two versions of one crate
  * can carry different licence text, a version bump has to be re-audited rather than inherited, and
  * a pattern is a way for one record to vouch for crates nobody looked at.
- * `requireRegistry` is the post-build mode (MARXY-65): when the local cache holds a registry
+ * `requireRegistry` is the post-build mode: when the local cache holds a registry
  * crate, its licence is re-read from that copy and a recorded allow-list row that disagrees fails
  * by name. Crates Cargo.lock lists for other targets but this host never fetched stay on the
  * pre-build allow-list path, because the matrix build does not populate the whole lockfile tree.
@@ -299,7 +299,7 @@ export function auditCrates({ crates, registry, recorded, workspace, requireRegi
  * `{ "match": "*", "licence": "MIT" }` record silently vouches for the whole tree and the gate
  * still prints a crate count and exits 0, which is worse than no gate, because it is believed.
  * The second CI run, after the desktop build, passes --require-registry so the crates are
- * actually re-read (MARXY-65).
+ * actually re-read.
  */
 export function auditCrateRecords(label, recorded, crates) {
   const failures = [];
@@ -356,7 +356,8 @@ export function auditAllowlist(label, allowlist) {
   const failures = [];
   const entries = allowlist?.languages;
   if (!Array.isArray(entries) || entries.length === 0) return [`${label}: no entries`];
-  const forbidden = new Set(allowlist.forbiddenGrammars ?? []);
+  // `unlicensedGrammars`: Shiki ships them, but no licence for them could be found, so they are kept out like copyleft.
+  const forbidden = new Set([...(allowlist.forbiddenGrammars ?? []), ...(allowlist.unlicensedGrammars ?? [])]);
   for (const entry of entries) {
     const id = entry?.id ?? JSON.stringify(entry);
     if (typeof entry !== 'object' || !entry.id) { failures.push(`${label}: ${id} is not an entry with an id`); continue; }
@@ -385,7 +386,7 @@ export function parseGateOptions(argv) {
 }
 
 /**
- * Proves the gate fails in the cases ADR-0006 exists to catch, without any of them ever entering
+ * Proves the gate fails in the cases it exists to catch, without any of them ever entering
  * the real lockfile: a GPL dependency, a licence-less dependency, an unrecognised licence, a
  * grammar with no licence recorded, and a GPL grammar. Throws on the first case that misbehaves.
  */
@@ -512,7 +513,7 @@ export function selfCheck() {
       recorded: [cleanRecord],
     }).failures.some((f) => /disagrees with the registry copy/.test(f)));
   // The same stale record is invisible when the cache is empty, which is every pre-build CI run.
-  // That is why the post-build run exists: without it, a PR can rewrite the allow-list and pass.
+  // That is why the post-build run exists: without it, a change can rewrite the allow-list and pass.
   check('a disagreeing record is invisible with an empty cache (why the post-build run exists)',
     auditCrates({
       crates: [cleanCrate], workspace, registry: new Map(),
@@ -708,7 +709,7 @@ function main() {
     + `${patterns.languages.length} hyphenation patterns)`);
   // How each crate licence was resolved, because a run that re-read nothing must not be able to
   // look like a run that re-read everything. The pre-build CI run reports 0 re-read and believes
-  // the records; the post-build run must re-read them (MARXY-65).
+  // the records; the post-build run must re-read them.
   console.log(`crate licences: ${from('cargo cache')} re-read from the local cargo cache, `
     + `${from('recorded')} taken as recorded in scripts/allowlists/crate-licences.json and `
     + `re-read by nothing on this run, ${from('workspace')} from the workspace manifest`);

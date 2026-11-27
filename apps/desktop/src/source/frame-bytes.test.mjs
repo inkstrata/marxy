@@ -1,4 +1,4 @@
-// The byte offset of the caret after edits (V-05): always the offset a full encode gives, and a key press at the caret
+// The byte offset of the caret after edits: always the offset a full encode gives, and a key press at the caret
 // costs the size of the change and of the caret's move, not the length of the text before it.
 
 import { test } from 'node:test';
@@ -86,7 +86,7 @@ test('a change that spans the last answer drops it, and the count starts again f
   assert.equal(cursor.offsetAt(state, 4), exact(state, 4, 3));
 });
 
-// Multi-change ChangeSets (F-71): several ranges replaced in one transaction, the way multi-cursor typing, replace-all and a
+// Multi-change ChangeSets: several ranges replaced in one transaction, the way multi-cursor typing, replace-all and a
 // paste over several selections do. Each answer is checked against a full TextEncoder count of the text before the caret.
 const fullCount = (state, pos, bom) => new TextEncoder().encode(state.sliceDoc(0, pos)).length + bom;
 

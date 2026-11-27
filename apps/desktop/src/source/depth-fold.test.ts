@@ -1,4 +1,4 @@
-// The depth lens (K-10a), over a real CodeMirror state with no DOM: which ranges fold at each depth, what each fold
+// The depth lens, over a real CodeMirror state with no DOM: which ranges fold at each depth, what each fold
 // says it hides, that nothing changes the document, and where the lens is not offered.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';

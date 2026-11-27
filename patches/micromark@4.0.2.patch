@@ -1,0 +1,191 @@
+diff --git a/dev/lib/initialize/text.js b/dev/lib/initialize/text.js
+index 7192e70a0972e808d779999e57153bf3ed7bfc3a..3e8ae8a20654f9ef043ecba1a8052816c781c249 100644
+--- a/dev/lib/initialize/text.js
++++ b/dev/lib/initialize/text.js
+@@ -113,30 +113,30 @@ function createResolver(extraResolver) {
+ 
+   /** @type {Resolver} */
+   function resolveAllText(events, context) {
+-    let index = -1
+-    /** @type {number | undefined} */
+-    let enter
+-
+-    // A rather boring computation (to merge adjacent `data` events) which
+-    // improves mm performance by 29%.
+-    while (++index <= events.length) {
+-      if (enter === undefined) {
+-        if (events[index] && events[index][1].type === types.data) {
+-          enter = index
+-          index++
+-        }
+-      } else if (!events[index] || events[index][1].type !== types.data) {
+-        // Don’t do anything if there is one data token.
+-        if (index !== enter + 2) {
+-          events[enter][1].end = events[index - 1][1].end
+-          events.splice(enter + 2, index - enter - 2)
+-          index = enter + 2
+-        }
+-
+-        enter = undefined
++    // Merge adjacent `data` events in one pass: a splice per run is quadratic on a long paragraph.
++    let read = 0
++    let write = 0
++
++    while (read < events.length) {
++      const event = events[read]
++
++      if (event[1].type === types.data) {
++        const exit = events[read + 1]
++        let end = read + 2
++
++        while (end < events.length && events[end][1].type === types.data) end++
++
++        if (end !== read + 2) event[1].end = events[end - 1][1].end
++        events[write++] = event
++        events[write++] = exit
++        read = end
++      } else {
++        events[write++] = event
++        read++
+       }
+     }
+ 
++    events.length = write
+     return extraResolver ? extraResolver(events, context) : events
+   }
+ }
+@@ -153,6 +153,9 @@ function createResolver(extraResolver) {
+  * @type {Resolver}
+  */
+ function resolveAllLineSuffixes(events, context) {
++  // Inserted after the walk, in one pass: a splice per line is quadratic on a long paragraph.
++  /** @type {Array<[number, Event, Event]>} */
++  const inserts = []
+   let eventIndex = 0 // Skip first.
+ 
+   while (++eventIndex <= events.length) {
+@@ -226,13 +229,7 @@ function resolveAllLineSuffixes(events, context) {
+         if (data.start.offset === data.end.offset) {
+           Object.assign(data, token)
+         } else {
+-          events.splice(
+-            eventIndex,
+-            0,
+-            ['enter', token, context],
+-            ['exit', token, context]
+-          )
+-          eventIndex += 2
++          inserts.push([eventIndex, ['enter', token, context], ['exit', token, context]])
+         }
+       }
+ 
+@@ -240,5 +237,17 @@ function resolveAllLineSuffixes(events, context) {
+     }
+   }
+ 
++  if (inserts.length === 0) return events
++  const old = events.slice()
++  events.length = 0
++  let from = 0
++
++  for (const [at, enter, exit] of inserts) {
++    for (let k = from; k < at; k++) events.push(old[k])
++    events.push(enter, exit)
++    from = at
++  }
++
++  for (let k = from; k < old.length; k++) events.push(old[k])
+   return events
+ }
+diff --git a/lib/initialize/text.js b/lib/initialize/text.js
+index b9383cb721b95c68bd0e684da6cbf441ed82b8eb..0cd4af4ae1f8ae563d2fd1cb946fb10b6643d7e0 100644
+--- a/lib/initialize/text.js
++++ b/lib/initialize/text.js
+@@ -104,28 +104,30 @@ function createResolver(extraResolver) {
+ 
+   /** @type {Resolver} */
+   function resolveAllText(events, context) {
+-    let index = -1;
+-    /** @type {number | undefined} */
+-    let enter;
+-
+-    // A rather boring computation (to merge adjacent `data` events) which
+-    // improves mm performance by 29%.
+-    while (++index <= events.length) {
+-      if (enter === undefined) {
+-        if (events[index] && events[index][1].type === "data") {
+-          enter = index;
+-          index++;
+-        }
+-      } else if (!events[index] || events[index][1].type !== "data") {
+-        // Don’t do anything if there is one data token.
+-        if (index !== enter + 2) {
+-          events[enter][1].end = events[index - 1][1].end;
+-          events.splice(enter + 2, index - enter - 2);
+-          index = enter + 2;
+-        }
+-        enter = undefined;
++    // Merge adjacent `data` events in one pass: a splice per run is quadratic on a long paragraph.
++    let read = 0;
++    let write = 0;
++
++    while (read < events.length) {
++      const event = events[read];
++
++      if (event[1].type === "data") {
++        const exit = events[read + 1];
++        let end = read + 2;
++
++        while (end < events.length && events[end][1].type === "data") end++;
++
++        if (end !== read + 2) event[1].end = events[end - 1][1].end;
++        events[write++] = event;
++        events[write++] = exit;
++        read = end;
++      } else {
++        events[write++] = event;
++        read++;
+       }
+     }
++
++    events.length = write;
+     return extraResolver ? extraResolver(events, context) : events;
+   }
+ }
+@@ -142,6 +144,9 @@ function createResolver(extraResolver) {
+  * @type {Resolver}
+  */
+ function resolveAllLineSuffixes(events, context) {
++  // Inserted after the walk, in one pass: a splice per line is quadratic on a long paragraph.
++  /** @type {Array<[number, Event, Event]>} */
++  const inserts = [];
+   let eventIndex = 0; // Skip first.
+ 
+   while (++eventIndex <= events.length) {
+@@ -201,12 +206,24 @@ function resolveAllLineSuffixes(events, context) {
+         if (data.start.offset === data.end.offset) {
+           Object.assign(data, token);
+         } else {
+-          events.splice(eventIndex, 0, ['enter', token, context], ['exit', token, context]);
+-          eventIndex += 2;
++          inserts.push([eventIndex, ['enter', token, context], ['exit', token, context]]);
+         }
+       }
+       eventIndex++;
+     }
+   }
++
++  if (inserts.length === 0) return events;
++  const old = events.slice();
++  events.length = 0;
++  let from = 0;
++
++  for (const [at, enter, exit] of inserts) {
++    for (let k = from; k < at; k++) events.push(old[k]);
++    events.push(enter, exit);
++    from = at;
++  }
++
++  for (let k = from; k < old.length; k++) events.push(old[k]);
+   return events;
+ }

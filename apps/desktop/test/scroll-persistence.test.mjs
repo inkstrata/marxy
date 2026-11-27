@@ -1,19 +1,20 @@
-// Scrolling in Rendered records the reading position without a flush (A-13 step 6): WebKit fires the
+// Scrolling in Rendered records the reading position without a flush: WebKit fires the
 // viewport scroll at the Document, so the listener has to be there.
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { createServer } from 'vite';
+import { createServer } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const longMd = readFileSync(join(repoRoot, 'fixtures', 'corpus', '01-long-technical.md'));
 const quietToml = readFileSync(join(repoRoot, 'fixtures', 'themes', 'quiet', 'theme.toml'));
 const quietCss = readFileSync(join(repoRoot, 'fixtures', 'themes', 'quiet', 'theme.css'));
@@ -80,7 +81,11 @@ test('a burst of scroll events in one frame is sampled once', async () => {
     const frames = await page.evaluate(async () => {
       let n = 0;
       const raf = window.requestAnimationFrame.bind(window);
-      window.requestAnimationFrame = (cb) => { n += 1; return raf(cb); };
+      // The persistence's frames only: other listeners on the page (the minimap) sample a scroll on frames of their own.
+      window.requestAnimationFrame = (cb) => {
+        if (new Error().stack?.includes('reading-persistence')) n += 1;
+        return raf(cb);
+      };
       for (let i = 0; i < 50; i++) document.dispatchEvent(new Event('scroll'));
       await new Promise((r) => setTimeout(r, 100));
       window.requestAnimationFrame = raf;
@@ -109,7 +114,7 @@ test('pagehide flushes the pending position at once', async () => {
   }
 });
 
-test('quitting right after a scroll, before the debounce has written, keeps the place (the B-14 review)', async () => {
+test('quitting right after a scroll, before the debounce has written, keeps the place', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
@@ -148,7 +153,7 @@ async function appPage(browser) {
   return page;
 }
 
-test('a second startApp in one page leaves none of the first instance\'s persistence, store or watches running (the B-14 and B-15 reviews)', async () => {
+test('a second startApp in one page leaves none of the first instance\'s persistence, store or watches running', async () => {
   const browser = await launchWebkit();
   try {
     const page = await appPage(browser);
@@ -189,7 +194,8 @@ test('a second startApp in one page leaves none of the first instance\'s persist
       const firstWroteEarly = writes(first) > 0;
       // The second launch names no document: the engine reports a page's first contentful paint once, so a
       // second document launch in one page would wait for a paint entry that never comes. With no
-      // document it reaches `ready` at once, and its persistence is not loaded: any write now is the first's.
+      // document it reaches `ready` at once. It reads its own history.json and positions.json (so its quit cannot write
+      // over them) through its own shell, and listens for pagehide itself: a write on the first shell now is the first's.
       const second = await window.marxyApp.start({}, [], {});
       await second.ready;
       // The first instance's store takes no more transitions.
@@ -218,7 +224,7 @@ test('a second startApp in one page leaves none of the first instance\'s persist
     }, { b64: longMd.toString('base64'), theme: { toml: quietToml.toString('base64'), css: quietCss.toString('base64') } });
     assert.equal(seen.listenersAfterFirst, 1);
     assert.equal(seen.firstWroteEarly, false, 'the first instance\'s write was still pending when the second started');
-    assert.equal(seen.listenersAfterSecond, 0, 'the first instance\'s pagehide listener is gone');
+    assert.equal(seen.listenersAfterSecond, 1, 'the first instance\'s pagehide listener is gone; the one left is the second\'s');
     assert.equal(seen.staleWrites, 0, 'the first instance wrote positions.json after it was replaced');
     assert.equal(seen.firstDocumentAfter, null, 'the first instance\'s document store is closed');
     assert.equal(seen.storeRefused, true, 'a closed store refuses a transition');

@@ -1,4 +1,4 @@
-// Code highlighting post-pass and theme mapping (MARXY-164).
+// Code highlighting post-pass and theme mapping.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { fileURLToPath } from 'node:url';
 
@@ -60,24 +60,28 @@ test('highlight.ts builds trusted DOM only (no innerHTML on code)', () => {
   assert.match(src, /replaceChildren/);
 });
 
-test('03-ai-plan.md fences gain per-scope coloured spans after idle highlight', async () => {
-  const docPath = '/corpus/03-ai-plan.md';
-  const files = { [docPath]: b64(join(corpusDir, '03-ai-plan.md')) };
+// 03-ai-plan.md's json fence reads as a tree (data fences are read on their own, render/parts.ts), so the
+// coloured fence is 02-readme-real-world.md's ts one.
+test('02-readme-real-world.md fences gain per-scope coloured spans after idle highlight', async () => {
+  const docPath = '/corpus/02-readme-real-world.md';
+  const files = { [docPath]: b64(join(corpusDir, '02-readme-real-world.md')) };
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await boot(page, files, [docPath]);
     await waitForHighlight(page);
+    // The idle highlighter takes the fences in turn: the sh fence above it can be done first.
+    await page.waitForFunction(() => document.querySelector('code.language-ts[data-marxy-done="highlight"]'), null, { timeout: 15_000 }).catch(() => {});
     const sample = await page.evaluate(() => {
-      const code = document.querySelector('code.language-json');
+      const code = document.querySelector('code.language-ts');
       if (!code) return null;
-      const span = code.querySelector('.marxy-tok-string'); // restrained palette (ADR-0033): strings keep a colour, punctuation does not
+      const span = code.querySelector('.marxy-tok-string'); // restrained palette: strings keep a colour, punctuation does not
       if (!span) return null;
       const color = getComputedStyle(span).color;
       const base = getComputedStyle(code).color;
       return { className: span.className, colored: color !== base && color !== 'rgba(0, 0, 0, 0)' && color !== '' };
     });
-    assert.ok(sample, 'expected a highlighted json fence in 03-ai-plan.md');
+    assert.ok(sample, 'expected a highlighted ts fence in 02-readme-real-world.md');
     assert.ok(sample.colored, `span ${sample.className} should resolve to a theme token colour`);
   } finally {
     await browser.close();

@@ -1,0 +1,30 @@
+﻿✔ Source: a save that makes a mixed-ending file uniform, then Mod+Z, writes no byte the reader did not edit (3090.8974ms)
+✔ Source: a save that makes a uniform file mixed, then Mod+Z, writes no byte the reader did not edit (2067.0794ms)
+✔ Source: Mod+Z after an undo in Rendered adds no byte (plain) (2419.1705ms)
+✔ Source: Mod+Z after an undo in Rendered adds no byte (stray bytes that join) (2590.8143ms)
+✔ Source: a Rendered redo, then Mod+Z in Source, adds no byte (2313.8165ms)
+✔ Block editor: an edit at both ends of a mixed-ending block (CRLF first) rewrites no unedited ending (1754.9722ms)
+✔ Block editor: an edit at both ends of a mixed-ending block (lone CR first) rewrites no unedited ending (1614.5277ms)
+✔ Block editor: an edit at both ends of a mixed-ending block (CRLF first, a lone CR inside) rewrites no unedited ending (1639.1227ms)
+✔ Block editor: a line break typed in a mixed-ending block follows its first ending; the other endings stay (1537.8832ms)
+✔ Source: a keystroke typed in the same task as Mod+S is kept and saved next (an edit before the save) (2623.7212ms)
+✔ Source: a keystroke typed in the same task as Mod+S is kept and saved next (no edit before the save) (2696.5671ms)
+✔ Source: a keystroke typed in the same task as Mod+S is kept and saved next (a stray byte in the file) (2624.9087ms)
+✔ Source: a keystroke typed in the same task as Mod+S is kept and saved next (a mixed-ending file made uniform) (2514.9567ms)
+✔ Block editor: deleting only the CR of a CRLF of a mixed-ending block is written, and nothing else moves (1615.0049ms)
+✔ Block editor: deleting only the CR of a CRLF beside a bare LF of a mixed-ending block is written, and nothing else moves (1545.9122ms)
+✔ Block editor: deleting only a lone CR inside a line of a mixed-ending block is written, and nothing else moves (1616.997ms)
+✔ Source: keys typed while Mod+E's fold waits are kept in Rendered and saved next (an edit before) (2597.073ms)
+✔ Source: keys typed while Mod+E's fold waits are kept in Rendered and saved next (no edit before) (2622.7489ms)
+✔ Source: keys typed while Mod+E's fold waits are kept in Rendered and saved next (a stray byte in the file) (2553.5982ms)
+✔ Source: a key typed while Mod+E's title refreshes is kept in Rendered too (3016.2183ms)
+✔ Source: a key typed while Mod+S's title refreshes does not cancel the save (an LF file) (3863.9812ms)
+✔ Source: a key typed while Mod+S's title refreshes does not cancel the save (a CRLF file with a stray byte) (3829.1411ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 53620.9604

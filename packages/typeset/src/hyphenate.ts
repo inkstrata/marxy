@@ -1,4 +1,4 @@
-// Allow-listed hyphenation (ADR-0006, docs/design/04-typeset.md §Hyphenation): TeX patterns for
+// Allow-listed hyphenation: TeX patterns for
 // en-us and en-gb only, chosen by the nearest lang, and never inside code, URLs, or digit-words.
 
 import type { Piece, Token } from './runs.ts';
@@ -23,7 +23,7 @@ export function resolvePattern(lang: string): PatternId | null {
 
 /**
  * Words the hyphenator must not see: too short, carrying digits, or a URL. A code span is already
- * one unbreakable piece (runs.ts); this is the rest of §Hyphenation.
+ * one unbreakable piece (runs.ts); this covers the rest.
  */
 export function skipHyphenation(word: string): boolean {
   if (URL.test(word) || WWW.test(word)) return true;

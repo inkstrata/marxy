@@ -1,4 +1,4 @@
-// The Extract group (J-03): the output is new text made from the input. Code blocks, tasks and links go through
+// The Extract group: the output is new text made from the input. Code blocks, tasks and links go through
 // E's extract operations (so their rules, including the refusal of deceptive characters, stay in one place).
 import type { CodeBlock } from '../contracts/ast.ts';
 import { copyCommand, hasDeceptiveCharacters } from '../operations/copy-command.ts';
@@ -7,6 +7,7 @@ import { clipboardOf, gapsOf, nodesOf, parseText } from './prose.ts';
 import { tablesAs } from './convert.ts';
 import { copyTableCsv } from '../operations/copy-table.ts';
 import type { TransformDef } from './types.ts';
+import { trimEndOf, withoutClosingHashes } from '../util/text.ts';
 
 const of = (op: typeof extractTasks) => (lf: string): string => clipboardOf(op, parseText(lf), lf) ?? '';
 
@@ -31,12 +32,12 @@ export const xCommands: TransformDef = {
         continue;
       }
       // A console block with prompts yields its commands (output left out); a plain shell block is all commands.
-      const commands = clipboardOf(copyCommand, doc, lf, node) ?? node.value.replace(/\n+$/, '');
+      const commands = clipboardOf(copyCommand, doc, lf, node) ?? trimEndOf(node.value, '\n');
       if (commands.trim() !== '') parts.push(commands);
     }
     if (parts.length === 0 && skipped === 0) return '';
     const note = skipped > 0 ? `# ${skipped} block${skipped === 1 ? '' : 's'} left out: invisible or direction-changing characters\n` : '';
-    return `set -euo pipefail\n\n${note}${parts.join('\n\n')}`.replace(/\n+$/, '');
+    return trimEndOf(`set -euo pipefail\n\n${note}${parts.join('\n\n')}`, '\n');
   },
 };
 
@@ -50,17 +51,22 @@ function proseLines(lf: string, keep: (line: string) => boolean): string[] {
 export const xQuestions: TransformDef = {
   id: 'x-questions',
   kind: 'derive',
-  run: (lf) => proseLines(lf, (l) => /\?\s*$/.test(l)).map((l) => l.replace(/^(\s*)[*+]\s+/, '$1- ').replace(/\s+$/, '')).join('\n'),
+  run: (lf) => proseLines(lf, (l) => /\?\s*$/.test(l)).map((l) => l.replace(/^(\s*)[*+]\s+/, '$1- ').trimEnd()).join('\n'),
 };
 
 /**
  * The paths the prose of `lf` names: backticked, with a slash and an extension (`src/a.ts`, `./b/c.md`, `~/x/y.toml`), unique,
  * in order of first mention. Code and front matter are not read. A bare `README.md` is not a mention (no slash). Called by
- * `x-paths` below and by the desktop inspector's Links tab (W-09).
+ * `x-paths` below and by the desktop inspector's Links tab.
  */
 export function pathMentions(lf: string): string[] {
+  return pathMentionsIn(proseLines(lf, () => true));
+}
+
+/** `pathMentions` over lines already chosen: a text that is not Markdown has no code to leave out, and is not parsed. */
+export function pathMentionsIn(lines: Iterable<string>): string[] {
   const found: string[] = [];
-  for (const line of proseLines(lf, () => true)) {
+  for (const line of lines) {
     for (const m of line.matchAll(/`([~.\w-]*\/[\w./-]+\.\w{1,6})`/g)) found.push(m[1]!);
   }
   return [...new Set(found)];
@@ -80,9 +86,9 @@ export const xHeadings: TransformDef = {
     return nodesOf(lf, doc, ['heading'])
       .map(({ node, span }) => {
         const level = (node as { level: number }).level;
-        const raw = lf.slice(span.start, span.end).replace(/\n+$/, '');
+        const raw = trimEndOf(lf.slice(span.start, span.end), '\n');
         // ATX: drop the marks and any closing run; setext: the first line is the text.
-        const text = raw.startsWith('#') ? raw.replace(/^#{1,6}[ \t]*/, '').replace(/[ \t]+#+[ \t]*$/, '') : raw.split('\n')[0]!;
+        const text = raw.startsWith('#') ? withoutClosingHashes(raw.replace(/^#{1,6}[ \t]*/, '')) : raw.split('\n')[0]!;
         return `${'  '.repeat(level - 1)}- ${text.trim()}`;
       })
       .join('\n');

@@ -1,6 +1,7 @@
-// What a clipboard payload is (E-14, ADR-0065). Pure: no DOM, no Node built-ins, no clipboard read
+// What a clipboard payload is. Pure: no DOM, no Node built-ins, no clipboard read
 // (the shell reads; this only looks at what it was handed). The same payload always gives the same
 // answer and the same bytes.
+import { withoutTrailingBreaks } from '../util/text.ts';
 
 export interface ClipboardPayload {
   readonly text?: string;
@@ -29,7 +30,7 @@ const TABLE_DELIMITER = /^[ \t]*\|?[ \t]*:?-+:?[ \t]*(?:\|[ \t]*:?-+:?[ \t]*)+\|
 const INLINE_MARKS = [/\*\*[^*\n]+\*\*/g, /`[^`\n]+`/g, /\[[^\]\n]+\]\([^)\n]+\)/g];
 const BLOCK_ELEMENT = /<(?:p|div|h[1-6]|ul|ol|li|table|pre|blockquote|br)(?=[\s/>])/i;
 
-/** The heuristic of E-14: a fence, an ATX heading, two list lines, a GFM delimiter row, or two inline marks. */
+/** The heuristic: a fence, an ATX heading, two list lines, a GFM delimiter row, or two inline marks. */
 export function looksLikeMarkdown(text: string): boolean {
   if (FENCE_LINE.test(text) || ATX_HEADING.test(text) || TABLE_DELIMITER.test(text)) return true;
   if ((text.match(LIST_LINE) ?? []).length >= 2) return true;
@@ -61,7 +62,7 @@ export function classifyClipboard(payload: ClipboardPayload): Classified {
   if (hasText && looksLikeMarkdown(text)) return { kind: 'markdown', markdown: text };
   if (hasHtml && BLOCK_ELEMENT.test(html)) return { kind: 'html' };
   if (hasText && isJsonContainer(text)) {
-    const body = text.replace(/(?:\r?\n)+$/, '');
+    const body = withoutTrailingBreaks(text);
     const fence = fenceFor(body);
     return { kind: 'json', markdown: `${fence}json\n${body}\n${fence}\n` };
   }

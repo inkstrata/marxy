@@ -1,4 +1,4 @@
-// Indexing is a summoned job after first paint, never chrome at rest (ADR-0012, ADR-0013).
+// Indexing is a summoned job after first paint, never chrome at rest.
 
 /**
  * When and how the index is allowed to run. Importing this module does no I/O: a walk starts

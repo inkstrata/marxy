@@ -1,7 +1,17 @@
 * text=auto eol=lf
 fixtures/corpus/** -text
+# Detection fixtures are exact bytes: marks, UTF-16, CR and binaries.
+fixtures/detect/** -text
+# RTF fixtures are as WordPad writes them, CRLF and all: the page maps back to those bytes.
+fixtures/rtf/** -text
+# Image fixtures for the decoders and image_facts are exact bytes.
+apps/desktop/src-tauri/tests/fixtures/** -text
+# The demo's archives are exact bytes.
+fixtures/demo/archives/** -text
+# A PDF's offsets name its bytes.
+*.pdf -text
 # Nothing under fonts/ gets line-ending conversion (a licence is verbatim, and IBM Plex's is CRLF),
-# but only font bytes are binary, so READMEs and licences show a normal diff (MARXY-66).
+# but only font bytes are binary, so READMEs and licences show a normal diff.
 fonts/** -text
 # -eol undoes the * rule: binary does not unset eol, and eol must not apply to a font.
 *.ttf binary -eol
@@ -9,4 +19,25 @@ fonts/** -text
 *.woff binary -eol
 *.woff2 binary -eol
 *.png binary
-docs/plan/jira-issues.csv -text
+# The demo's images and files with no reading are exact bytes.
+fixtures/demo/images/** -text
+fixtures/demo/downloads/** -text
+fixtures/demo/cache/** -text
+# The demo's databases and workbooks are exact bytes.
+fixtures/demo/data/*.sqlite* -text
+fixtures/demo/data/*.db -text
+fixtures/demo/sheets/** -text
+# A message is its bytes: CRLF as it travels.
+fixtures/demo/mail/** -text
+# The demo's shortcuts are exact bytes.
+fixtures/demo/shortcuts/** -text
+# The demo's fonts and media are exact bytes.
+fixtures/demo/fonts/** -text
+fixtures/demo/media/** -text
+# Text in another encoding is exact bytes: a BOM, CRLF and bytes above 7F.
+fixtures/demo/encodings/** -text
+# The picture samples are exact bytes.
+fixtures/pictures/** -text
+# The program samples are exact bytes.
+fixtures/programs/*.exe -text
+fixtures/programs/*.dll -text

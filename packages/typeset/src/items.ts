@@ -1,5 +1,5 @@
 // What the measure step knows about each token, in token order: the input of the ragged breaker (ragged.ts).
-// The justif/core item stream that used to live here is gone (B-17); justif now supplies hyphenation
+// The justif/core item stream that used to live here is gone; justif now supplies hyphenation
 // patterns and the hanging-punctuation tables only.
 
 /** What the measure step knows about each token, in token order. */

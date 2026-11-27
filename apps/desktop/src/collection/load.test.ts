@@ -1,4 +1,4 @@
-// collection.toml into the index (C-10), over the memory shell: the file, its notice, `~`, file order.
+// collection.toml into the index, over the memory shell: the file, its notice, `~`, file order.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createIndexService } from '../index/service.ts';
@@ -146,7 +146,7 @@ function leakHarness() {
   return { shell, index, feed, session, search };
 }
 
-test('a deny glob holds through the repository that contains a declared folder (C-10 review)', async () => {
+test('a deny glob holds through the repository that contains a declared folder', async () => {
   const h = leakHarness();
   await h.index.ensureFor('/c/README.md');
   const collection = startCollection({
@@ -164,7 +164,7 @@ test('a deny glob holds through the repository that contains a declared folder (
   collection.stop();
 });
 
-test('a deny glob holds through a recent root that contains a declared folder (C-10 review)', async () => {
+test('a deny glob holds through a recent root that contains a declared folder', async () => {
   const h = leakHarness();
   const collection = startCollection({
     shell: h.shell,
@@ -181,7 +181,7 @@ test('a deny glob holds through a recent root that contains a declared folder (C
   collection.stop();
 });
 
-test('a declared / or C:/ is skipped and the one notice says so (C-10 review)', async () => {
+test('a declared / or C:/ is skipped and the one notice says so', async () => {
   const h = harness('[[root]]\npath = "/"\n\n[[root]]\npath = "C:/"\n\n[[root]]\npath = "/a"\n');
   const collection = await h.start();
   await collection.loaded;
@@ -194,7 +194,7 @@ test('a declared / or C:/ is skipped and the one notice says so (C-10 review)', 
   collection.stop();
 });
 
-test('collection.toml broken mid-run keeps the last good folders, with one notice (C-10 review)', async () => {
+test('collection.toml broken mid-run keeps the last good folders, with one notice', async () => {
   const h = harness('[[root]]\npath = "/a"\n');
   const collection = await h.start();
   await collection.loaded;
@@ -209,7 +209,50 @@ test('collection.toml broken mid-run keeps the last good folders, with one notic
   collection.stop();
 });
 
-test('adding a glob to collection.toml mid-run hides a file through every root, with no restart (C-10 review 2)', async () => {
+test('collection.toml unreadable on a watch event keeps the declared folders and the saved queries, said once', async () => {
+  const h = harness('[[root]]\npath = "/a"\n\n[[query]]\nname = "n"\nq = "notes"\n');
+  const collection = await h.start();
+  await collection.loaded;
+  assert.deepEqual(h.index.roots(), ['/c', '/a']);
+  assert.equal(collection.queries().length, 1);
+  const read = h.shell.readFile;
+  h.shell.readFile = async (path) => {
+    if (path === '/collection.toml') throw Object.assign(new Error('/collection.toml: used by another process (os error 32)'), { code: 'io' });
+    return read(path);
+  };
+  for (let i = 0; i < 2; i++) {
+    h.shell.emit([{ kind: 'modified', path: '/collection.toml' }]);
+    await collection.settled();
+  }
+  assert.deepEqual(h.index.roots(), ['/c', '/a'], 'the declared folder stays');
+  assert.equal(collection.queries().length, 1, 'the saved query stays');
+  assert.equal(h.notices.length, 1, JSON.stringify(h.notices));
+  assert.match(h.notices[0]!, /collection\.toml could not be read/);
+  // Readable again: it follows the file, and a later failure is said again.
+  h.shell.readFile = read;
+  await h.shell.writeFileAtomic('/collection.toml', enc('[[root]]\npath = "/b"\n'));
+  h.shell.emit([{ kind: 'modified', path: '/collection.toml' }]);
+  await collection.settled();
+  assert.deepEqual(h.index.roots(), ['/c', '/b']);
+  collection.stop();
+});
+
+test('collection.toml unreadable at launch holds no folders and says so', async () => {
+  const h = harness('[[root]]\npath = "/a"\n');
+  const read = h.shell.readFile;
+  h.shell.readFile = async (path) => {
+    if (path === '/collection.toml') throw Object.assign(new Error('/collection.toml: Access is denied. (os error 5)'), { code: 'io' });
+    return read(path);
+  };
+  const collection = await h.start();
+  await collection.loaded;
+  assert.deepEqual(h.index.roots(), ['/c']);
+  assert.equal(h.notices.length, 1, JSON.stringify(h.notices));
+  assert.match(h.notices[0]!, /collection\.toml could not be read · .*Access is denied/);
+  collection.stop();
+});
+
+test('adding a glob to collection.toml mid-run hides a file through every root, with no restart', async () => {
   // No declared folder to wait on: the reload is applied the moment it is read, before any re-walk.
   const h = harness('');
   await h.shell.writeFileAtomic('/c/drafts/plan.md', enc('# Plan notes\n'));
@@ -223,7 +266,7 @@ test('adding a glob to collection.toml mid-run hides a file through every root, 
   collection.stop();
 });
 
-// --- Q-07: the saved queries, and the one writer of a new one -------------------------------------------------------
+// --- the saved queries, and the one writer of a new one -------------------------------------------------------
 
 const dec = (b: Uint8Array) => new TextDecoder('utf-8', { ignoreBOM: true }).decode(b);
 /** A reader's file: a CRLF, commented one with a key Marxy does not know and a line that is not canonical. */

@@ -1,11 +1,11 @@
-// Copy as (J-04, ADR-0065 item 1): the targets a reader can copy a selection, a block or a document as. This file
+// Copy as: the targets a reader can copy a selection, a block or a document as. This file
 // is the one place that names them. Each target takes the same input (the markdown bytes, the plain text and the
 // rich text of what is selected, each read only when a target needs it) and gives back the text to put on the
 // pasteboard, with HTML beside it for rich text. Pure: no clipboard, no document change.
 //
-// Five targets go through the transform library (J-03): JSON string, Quote with source, Slack, Jira wiki. A target
+// Five targets go through the transform library: JSON string, Quote with source, Slack, Jira wiki. A target
 // whose transform is not built (`NOT_YET`) is not offered, so the list is whatever the registry can run and
-// J-03.1 adds its rows with no change here.
+// New rows are added with no change here.
 import type { Heading } from '../contracts/ast.ts';
 import type { Operation, OperationInput } from '../contracts/operation.ts';
 import { createBuffer, textOf } from '../buffer/buffer.ts';
@@ -33,7 +33,7 @@ export interface CopyAsInput {
   /** The document's path, or undefined for a scratch document (nothing to link to). */
   readonly path?: string;
   /**
-   * A parse the caller already holds of the markdown (F-60). The targets that run a transform hand it on; it is used
+   * A parse the caller already holds of the markdown. The targets that run a transform hand it on; it is used
    * only when the transform reads exactly this text, and never changes what a target gives.
    */
   readonly parsed?: ParsedText;
@@ -88,7 +88,7 @@ const DEFINITIONS: readonly { readonly id: string; readonly name: string; readon
     build(i, r) {
       const md = stripBom(i.markdown());
       const eol = eolOf(md);
-      const quoted = r.run('quote', md, ctxOf(i)).replace(/\s+$/, '');
+      const quoted = r.run('quote', md, ctxOf(i)).trimEnd();
       const source = i.path === undefined ? `— ${label(i.title)}` : `— [${label(i.title)}](${destination(i.path)})`;
       return { text: `${quoted}${eol}${eol}${source}${eol}` };
     },
@@ -134,11 +134,11 @@ export function copyAsFromOperation(input: OperationInput, ref: { readonly path?
 /**
  * Inputs for markdown text that has no block of its own in a parsed document, a Source selection: the text is
  * parsed as a document of its own for plain and rich text, or `ref.parsed` is used when it is the parse of exactly
- * this text (F-60); the markdown is the text, byte for byte.
+ * this text; the markdown is the text, byte for byte.
  */
 export function copyAsFromText(text: string, ref: { readonly path?: string; readonly title?: string; readonly parsed?: ParsedText } = {}): CopyAsInput {
   let whole: OperationInput | null = null;
-  // A parse of exactly this text, in an LF text with no byte-order mark, is the document this would build (F-60).
+  // A parse of exactly this text, in an LF text with no byte-order mark, is the document this would build.
   const held = !text.startsWith(BOM) && parseFits(text, ref.parsed) ? ref.parsed : undefined;
   const parsed = (): OperationInput => {
     if (whole === null) {

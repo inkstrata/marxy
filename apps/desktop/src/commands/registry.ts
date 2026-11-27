@@ -1,4 +1,4 @@
-// Command registry: palette and keyboard share one list (docs/design/03-selection-and-operations.md, MARXY-42).
+// Command registry: palette and keyboard share one list.
 import type { Buffer, Operation, OperationInput } from '@marxy/core';
 import type { Shell } from '@marxy/shell-api';
 import type { Selection } from '../selection/selection.ts';
@@ -10,25 +10,25 @@ import type { NoticeKind } from '../notices/index.ts';
 export interface AppContext {
   /**
    * `clipboardWrite` is the fallback where the shell has no native pasteboard; `writeCopy` writes through
-   * `clipboardWriteItem` (J-04). `readFile` and `configPaths` let Copy as read `copy_format`. `clipboardTypes` and
-   * `clipboardRead` are for a paste, and only a paste (J-05, ADR-0065 §3).
+   * `clipboardWriteItem`. `readFile` and `configPaths` let Copy as read `copy_format`. `clipboardTypes` and
+   * `clipboardRead` are for a paste, and only a paste.
    */
   readonly shell: Pick<Shell, 'clipboardWrite'> &
     Partial<Pick<Shell, 'clipboardWriteItem' | 'clipboardTypes' | 'clipboardRead' | 'readFile' | 'configPaths'>>;
   readonly selection: Selection;
-  /** The open document's store (ADR-0037), or null: operations, undo and save are its transitions. */
+  /** The open document's store, or null: operations, undo and save are its transitions. */
   readonly document: DocumentStore | null;
   operationInput(): OperationInput | null;
   /**
-   * The selection's own input, then its widened ones: a cell's table, a task paragraph's item (C-06).
+   * The selection's own input, then its widened ones: a cell's table, a task paragraph's item.
    * An operation runs on the first it accepts. Absent in a context with no selection runtime.
    */
   operationInputs?(): readonly OperationInput[];
-  /** The page the selection was made on and the bytes it was rendered from (B-13): a drag's copies read it. */
+  /** The page the selection was made on and the bytes it was rendered from: a drag's copies read it. */
   renderedPage?(): { readonly article: HTMLElement; readonly buffer: Buffer; readonly version: number } | null;
   closePalette(): void;
   /**
-   * Says `text` in the focused pane (U-02). `kind` is what the news is (`done` fades; `refused` and `error` stay until
+   * Says `text` in the focused pane. `kind` is what the news is (`done` fades; `refused` and `error` stay until
    * dismissed); with none it is `info`, or `done` when `transient`; `fades` lets an `info` fade and stay a Note.
    */
   showNotice(text: string, opts?: { transient?: boolean; fades?: boolean; kind?: NoticeKind }): void;
@@ -53,6 +53,10 @@ export interface Command {
   when(ctx: AppContext): boolean;
   /** Why the command is not offered now, when that is worth saying where its button is drawn (the strip's title); null when it is offered or there is nothing to say. */
   unavailable?(ctx: AppContext): string | null;
+  /** Set on a palette row for a command asked for by name that cannot run now: why, said dimmed on the row. */
+  readonly unavailableNow?: string;
+  /** Quiet words at the end of its row in the verb menu, where a chord goes: what the selection is now ("terminal session"). */
+  detail?(ctx: AppContext): string | null;
   run(ctx: AppContext): Promise<void>;
 }
 

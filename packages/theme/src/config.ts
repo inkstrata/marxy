@@ -1,9 +1,11 @@
-// Config.toml parsing and byte-preserving top-level edits (docs/design/11-config-and-storage.md). MARXY-47 adds setTopLevelKey.
+// Config.toml parsing and byte-preserving top-level edits.
 
 import { parse } from 'smol-toml';
+import { SYNTAX_ROLES, type LangOverrides, type SyntaxRole } from './lang-palettes.ts';
+import { parseProposals, PROPOSAL_DEFAULTS, type ProposalId, type Proposals } from './proposals.ts';
 
 /**
- * A reader's `[[kind]]` rule (ADR-0060 item 9, K-04). Structurally the same as core's `KindRule`
+ * A reader's `[[kind]]` rule. Structurally the same as core's `KindRule`
  * (theme imports nothing from another package, so the shape is restated, not imported): `glob` is
  * absolute (or opens with `**`), `~` expanded and lexically resolved, and `is` is one of the kinds.
  */
@@ -14,7 +16,7 @@ export interface KindRule {
 }
 
 /**
- * The fourteen kinds of ADR-0060, in `KINDS`' order. Restated because theme cannot import core;
+ * The fourteen kinds, in `KINDS`' order. Restated because theme cannot import core;
  * `config.test.ts` reads `packages/core/src/contracts/kinds.ts` and holds the two equal.
  */
 export const KIND_NAMES: readonly string[] = [
@@ -25,9 +27,25 @@ export const KIND_NAMES: readonly string[] = [
 /** A placeholder ceiling on `[[kind]]` rules; more warn and are dropped. */
 export const MAX_KIND_RULES = 200;
 
+/**
+ * A reader's `[[command]]`: a program Transform runs over the file or a part when the reader asks, its
+ * output shown before and after. `run` is the program and then its arguments as the reader wrote them; nothing splits a
+ * string into them. `prints`: the output is something to read (`wc`), not the text changed, so there is nothing to apply.
+ */
+export interface ReaderCommand {
+  readonly name: string;
+  readonly run: readonly [string, ...string[]];
+  readonly prints: boolean;
+}
+
+/** A placeholder ceiling on `[[command]]` tables; more warn and are dropped. */
+export const MAX_COMMANDS = 50;
+
+const COMMAND_KEYS = new Set(['name', 'run', 'prints']);
+
 const KIND_KEYS = new Set(['glob', 'is', 'read']);
 
-/** Most tools a kind's strip shows (K-07, mock-v2 03-content-modes). */
+/** Most tools a kind's strip shows. */
 export const MAX_STRIP_TOOLS = 4;
 
 /**
@@ -57,39 +75,60 @@ export interface Config {
   readonly theme: string | null;
   readonly variant: 'dark' | 'light' | 'auto';
   readonly size: number;
-  /** The reader's chrome size in px (ADR-0059 item 6), 11–26; `null` when unset or refused: the theme's value stands. */
+  /** The reader's chrome size in px, 11–26; `null` when unset or refused: the theme's value stands. */
   readonly chromeSize: number | null;
-  /** More contrast (W-22): `system` follows the system's Increase contrast, `more` and `normal` set it whatever the system says. */
+  /** More contrast: `system` follows the system's Increase contrast, `more` and `normal` set it whatever the system says. */
   readonly contrast: 'system' | 'more' | 'normal';
-  /** `true` draws the little translucency there is (find fills, the toolbar and tab fades) solid, on its own (W-22). */
+  /** `true` draws the little translucency there is (find fills, the toolbar and tab fades) solid, on its own. */
   readonly reduceTransparency: boolean;
   readonly measure: number;
-  /** `measure` is in the file with a valid number: it then applies to every kind, over a kind's own (W-12). Absent, each kind keeps its own. */
+  /** `measure` is in the file with a valid number: it then applies to every kind, over a kind's own. Absent, each kind keeps its own. */
   readonly measureSet: boolean;
   readonly typeset: boolean;
   /** `undefined` when the key is absent or invalid: the per-path default stands (numbers on for code files). */
   readonly lineNumbers: boolean | undefined;
-  /** `undefined` when the key is absent or invalid: whitespace marks are off (V-08). */
+  /** `undefined` when the key is absent or invalid: whitespace marks are off. */
   readonly showWhitespace: boolean | undefined;
-  /** `undefined` when the key is absent or invalid: the guide is on for code and off for prose (V-08). */
+  /** `undefined` when the key is absent or invalid: the guide is on for code and off for prose. */
   readonly columnGuide: boolean | undefined;
   readonly externalEditor: string | null;
-  readonly resident: boolean;
-  /** The Copy as row that is first and chosen by Enter (J-04): one of `COPY_FORMATS`. A target not built yet still parses; the menu falls back to Markdown. */
+  /** The Copy as row that is first and chosen by Enter: one of `COPY_FORMATS`. A target not built yet still parses; the menu falls back to Markdown. */
   readonly copyFormat: string;
-  /** Local versions (ADR-0072, V-06): copies of the files you read and save, kept in Marxy's data folder. `false` keeps no new ones. */
+  /** Local versions: a copy of a file before Marxy saves over it or an outside change replaces it (never on open), kept in Marxy's data folder. `false` keeps no new ones. */
   readonly versions: boolean;
+  /** How many earlier copies of each file are kept (the Versions panel's Backup): one of `VERSION_COPIES`. */
+  readonly versionCopies: number;
+  /** The page's single keys and the verb bar: `false` leaves the keys to do nothing and draws no bar; chords are unaffected. */
+  readonly verbs: boolean;
+  /** Read the patch before saving: Mod+S first opens the changes page, and saves from it. */
+  readonly reviewChanges: boolean;
   readonly linuxWeightOffset: number | null;
   /** Valid `[[kind]]` rules in file order; the first that matches a path wins (detectKind's job). */
   readonly kindRules: readonly KindRule[];
-  /** `[strip]` (K-07): per kind, the tool ids to show in the strip, in order; a kind not named keeps its own row. Ids are known and at most four. */
+  /** `[strip]`: per kind, the tool ids to show in the strip, in order; a kind not named keeps its own row. Ids are known and at most four. */
   readonly strip: Readonly<Record<string, readonly string[]>>;
+  /** The proposals, each on or off (`proposals.ts`); `proposalsNamed` is what the file itself says, for the next write. */
+  readonly proposals: Proposals;
+  readonly proposalsNamed: Readonly<Partial<Record<ProposalId, boolean>>>;
+  /** Valid `[[command]]` tables in file order, each with a name of its own. */
+  readonly commands: readonly ReaderCommand[];
+  /** `[syntax]`: colour by language and the language's accent, each on unless the file says false, and the reader's colours by language. */
+  readonly syntax: SyntaxConfig;
+}
+
+export interface SyntaxConfig {
+  readonly byLanguage: boolean;
+  readonly accent: boolean;
+  /** `[syntax.<lang>]`: role to `#rrggbb` or `#rgb`, as the reader wrote them. */
+  readonly langs: LangOverrides;
 }
 
 export interface ParseConfigResult {
   readonly config: Config;
   readonly unknownKeys: readonly string[];
   readonly warnings: readonly string[];
+  /** The TOML parser's own words when the file is not valid TOML (then `config` is the defaults). */
+  readonly parseError?: string;
 }
 
 const DEFAULTS: Config = {
@@ -106,17 +145,23 @@ const DEFAULTS: Config = {
   showWhitespace: undefined,
   columnGuide: undefined,
   externalEditor: null,
-  resident: false,
   copyFormat: 'markdown',
   versions: true,
+  versionCopies: 20,
+  verbs: true,
+  reviewChanges: false,
   linuxWeightOffset: null,
   kindRules: [],
   strip: {},
+  proposals: PROPOSAL_DEFAULTS,
+  proposalsNamed: {},
+  commands: [],
+  syntax: { byLanguage: true, accent: true, langs: {} },
 };
 
 /**
  * Every top-level key `parseConfig` understands. `settings-schema.ts` holds one row per entry (a test fails for a key without one), so
- * a key added here is added to the Settings page in the same change (W-12, ADR-0075).
+ * a key added here is added to the Settings page in the same change.
  */
 export const KNOWN_KEYS: readonly string[] = [
   'theme',
@@ -131,20 +176,27 @@ export const KNOWN_KEYS: readonly string[] = [
   'show_whitespace',
   'column_guide',
   'external_editor',
-  'resident',
   'copy_format',
   'versions',
+  'version_copies',
+  'verbs',
+  'review_changes',
   'linux',
   'kind',
   'strip',
+  'proposals',
+  'command',
+  'syntax',
 ];
 
 const KNOWN = new Set(KNOWN_KEYS);
 
-/** The ids `copy_format` takes: the Copy as targets of ADR-0065 item 1 (`apps/desktop/test/copy-as.test.mjs` holds this list equal to core's). */
+/** The ids `copy_format` takes: the Copy as targets (`apps/desktop/test/copy-as.test.mjs` holds this list equal to core's). */
 export const COPY_FORMATS: readonly string[] = ['markdown', 'plain', 'rich', 'html', 'slack', 'jira', 'json-string', 'quote'];
+/** The choices of `version_copies`: the Versions panel's segmented 5, 20, 100. */
+export const VERSION_COPIES: readonly number[] = [5, 20, 100];
 
-/** The reader's chrome size range in px: 200 % of 13 at most (WCAG 1.4.4), ADR-0059 item 6. */
+/** The reader's chrome size range in px: 200 % of 13 at most (WCAG 1.4.4). */
 export const CHROME_SIZE_MIN = 11;
 export const CHROME_SIZE_MAX = 26;
 
@@ -163,9 +215,9 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
   if (text.trim() !== '') {
     try {
       raw = parse(text) as Record<string, unknown>;
-    } catch {
+    } catch (e) {
       warnings.push(UNPARSEABLE);
-      return { config: DEFAULTS, unknownKeys: [], warnings };
+      return { config: DEFAULTS, unknownKeys: [], warnings, parseError: e instanceof Error ? e.message : String(e) };
     }
   }
   const unknownKeys = Object.keys(raw).filter((k) => !KNOWN.has(k));
@@ -223,10 +275,6 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
   if (typeof raw.external_editor === 'string') externalEditor = raw.external_editor;
   else if (raw.external_editor !== undefined) warnings.push('external_editor was invalid; ignored');
 
-  let resident = DEFAULTS.resident;
-  if (typeof raw.resident === 'boolean') resident = raw.resident;
-  else if (raw.resident !== undefined) warnings.push('resident was invalid; using false');
-
   let copyFormat = DEFAULTS.copyFormat;
   if (typeof raw.copy_format === 'string' && COPY_FORMATS.includes(raw.copy_format)) copyFormat = raw.copy_format;
   else if (raw.copy_format !== undefined) warnings.push(`copy_format was invalid; using ${DEFAULTS.copyFormat}`);
@@ -234,6 +282,20 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
   let versions = DEFAULTS.versions;
   if (typeof raw.versions === 'boolean') versions = raw.versions;
   else if (raw.versions !== undefined) warnings.push('versions was invalid; versions stay on');
+
+  let versionCopies = DEFAULTS.versionCopies;
+  // The Settings page writes a choice as a string ("20"); a hand edit may write the number.
+  const copiesRaw = typeof raw.version_copies === 'string' && /^\d+$/.test(raw.version_copies) ? Number(raw.version_copies) : raw.version_copies;
+  if (typeof copiesRaw === 'number' && VERSION_COPIES.includes(copiesRaw)) versionCopies = copiesRaw;
+  else if (raw.version_copies !== undefined) warnings.push(`version_copies was invalid (${VERSION_COPIES.join(', ')}); keeping ${DEFAULTS.versionCopies}`);
+
+  let verbs = DEFAULTS.verbs;
+  if (typeof raw.verbs === 'boolean') verbs = raw.verbs;
+  else if (raw.verbs !== undefined) warnings.push('verbs was invalid; the single keys stay on');
+
+  let reviewChanges = DEFAULTS.reviewChanges;
+  if (typeof raw.review_changes === 'boolean') reviewChanges = raw.review_changes;
+  else if (raw.review_changes !== undefined) warnings.push('review_changes was invalid; Save writes at once');
 
   let linuxWeightOffset: number | null = null;
   const linux = raw.linux;
@@ -246,6 +308,9 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
   const unknown = new Set(unknownKeys);
   const kindRules = parseKindRules(raw.kind, ctx.home, warnings, unknown);
   const strip = parseStrip(raw.strip, warnings);
+  const { proposals, named: proposalsNamed } = parseProposals(raw.proposals, warnings);
+  const commands = parseCommands(raw.command, warnings, unknown);
+  const syntax = parseSyntax(raw.syntax, warnings);
 
   return {
     config: {
@@ -262,12 +327,18 @@ export function parseConfig(bytes: Uint8Array, ctx: { readonly home?: string } =
       showWhitespace,
       columnGuide,
       externalEditor,
-      resident,
       copyFormat,
       versions,
+      versionCopies,
+      verbs,
+      reviewChanges,
       linuxWeightOffset,
       kindRules,
       strip,
+      proposals,
+      proposalsNamed,
+      commands,
+      syntax,
     },
     unknownKeys: [...unknown],
     warnings,
@@ -280,7 +351,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 /**
  * A `[[kind]]` glob as detection will match it: `~` expanded, `.`, `..` and empty segments resolved
- * lexically, Unicode composed (NFC). The way a `[[capture]]` path is resolved (P-02): null when it
+ * lexically, Unicode composed (NFC). The way a `[[capture]]` path is resolved: null when it
  * is not absolute (nor opens with `**`, which matches under any folder), a `..` would climb above
  * its root or follows a segment holding a glob character (a textual collapse would change what the
  * glob means), or it is a UNC share. Case is not folded here; matching folds it (core `show-as.ts`).
@@ -359,8 +430,84 @@ function parseKindRules(
   return rules;
 }
 
+function parseCommands(rawCommand: unknown, warnings: string[], unknown: Set<string>): ReaderCommand[] {
+  const commands: ReaderCommand[] = [];
+  if (rawCommand === undefined) return commands;
+  if (!Array.isArray(rawCommand)) {
+    warnings.push('command must be a list of [[command]] tables; ignored');
+    return commands;
+  }
+  for (const [i, entry] of rawCommand.entries()) {
+    const label = `command ${i + 1}`;
+    if (!isRecord(entry)) {
+      warnings.push(`${label} is not a table; skipped`);
+      continue;
+    }
+    for (const k of Object.keys(entry)) if (!COMMAND_KEYS.has(k)) unknown.add(`command.${k}`);
+    const name = typeof entry.name === 'string' ? entry.name.trim() : '';
+    if (name === '') {
+      warnings.push(`${label} has no name; skipped`);
+      continue;
+    }
+    const run = entry.run;
+    if (!Array.isArray(run) || run.length === 0 || !run.every((a) => typeof a === 'string') || run[0].trim() === '') {
+      const said = typeof run === 'string' ? `, not one string` : '';
+      warnings.push(`${label} ("${name}") run must be the program and its arguments as a list, as in run = ["fold", "-s", "-w", "72"]${said}; skipped`);
+      continue;
+    }
+    if (commands.some((c) => c.name === name)) {
+      warnings.push(`${label} ("${name}") has the name of one before it; skipped`);
+      continue;
+    }
+    if (commands.length >= MAX_COMMANDS) {
+      warnings.push(`more than ${MAX_COMMANDS} commands; ${label} dropped`);
+      continue;
+    }
+    let prints = false;
+    if (typeof entry.prints === 'boolean') prints = entry.prints;
+    else if (entry.prints !== undefined) warnings.push(`${label} ("${name}") prints was not true or false; using false`);
+    commands.push({ name, run: run as [string, ...string[]], prints });
+  }
+  return commands;
+}
+
+const SYNTAX_HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+const SYNTAX_LANG = /^[a-z0-9#+._-]{1,32}$/;
+
 /**
- * `[strip]` (K-07): `report = ["changes", "paths"]`. A key that is not a kind, a value that is not a list of strings, an
+ * `[syntax]`: `by_language` and `accent`, booleans, and a `[syntax.<lang>]` table per language of role = colour. An
+ * unknown role, a colour that is not a hex and a language id the registry could not hold warn and are skipped.
+ */
+function parseSyntax(raw: unknown, warnings: string[]): SyntaxConfig {
+  const out = { byLanguage: true, accent: true, langs: {} as Record<string, Partial<Record<SyntaxRole, string>>> };
+  if (raw === undefined) return out;
+  if (!isRecord(raw)) {
+    warnings.push('syntax must be a table; ignored');
+    return out;
+  }
+  for (const [k, v] of Object.entries(raw)) {
+    if (k === 'by_language' || k === 'accent') {
+      if (typeof v === 'boolean') out[k === 'accent' ? 'accent' : 'byLanguage'] = v;
+      else warnings.push(`syntax.${k} must be true or false; using true`);
+      continue;
+    }
+    if (!isRecord(v) || !SYNTAX_LANG.test(k)) {
+      warnings.push(`syntax.${k} is not a language's table of colours; ignored`);
+      continue;
+    }
+    const roles: Partial<Record<SyntaxRole, string>> = {};
+    for (const [role, colour] of Object.entries(v)) {
+      if (!(SYNTAX_ROLES as readonly string[]).includes(role)) warnings.push(`syntax.${k}.${role} is not a role; ignored`);
+      else if (typeof colour !== 'string' || !SYNTAX_HEX.test(colour)) warnings.push(`syntax.${k}.${role} must be a colour like "#c45a22"; ignored`);
+      else roles[role as SyntaxRole] = colour.toLowerCase();
+    }
+    if (Object.keys(roles).length > 0) out.langs[k] = roles;
+  }
+  return out;
+}
+
+/**
+ * `[strip]`: `report = ["changes", "paths"]`. A key that is not a kind, a value that is not a list of strings, an
  * unknown tool id and a repeat warn and are skipped; more than `MAX_STRIP_TOOLS` warns and truncates. An empty list is
  * kept: the reader chose no tools for that kind.
  */
@@ -408,7 +555,7 @@ export function tomlString(s: string): string {
 }
 
 /**
- * Appends one `[[kind]]` table (ADR-0060 item 9, "Always open this folder as"). Every byte of the input
+ * Appends one `[[kind]]` table ("Always open this folder as"). Every byte of the input
  * survives as a prefix of the output; only text is added at the end: the file's own line ending where
  * its last line lacks one, a blank line to set the table apart, then the table. An empty input becomes
  * the template first. `rule.glob` is written as given, so a caller collapses the home folder to `~`.
@@ -550,17 +697,29 @@ interface TopEntry {
   readonly valueEnd: number;
   /** One past the statement's line ending (or the end of the text). */
   readonly end: number;
+  /** The index in `tables` of the header the statement is under; -1 at the top level. */
+  readonly table: number;
+}
+
+interface TableHeader {
+  readonly path: readonly string[];
+  readonly array: boolean;
+  readonly lineStart: number;
+  /** One past the header's line ending. */
+  readonly end: number;
 }
 
 interface TopScan {
   readonly entries: readonly TopEntry[];
   /** The offset where the first `[table]` or `[[array]]` header's line begins; -1 when there is none. */
   readonly firstTable: number;
+  /** Every header, when the whole file was scanned; none for the top level alone. */
+  readonly tables: readonly TableHeader[];
 }
 
 class Unscannable extends Error {}
 
-function scanTop(text: string): TopScan {
+function scanTop(text: string, whole = false): TopScan {
   const n = text.length;
   let i = 0;
   const fail = (): never => {
@@ -702,6 +861,7 @@ function scanTop(text: string): TopScan {
   };
 
   const entries: TopEntry[] = [];
+  const tables: TableHeader[] = [];
   let firstTable = -1;
   while (i < n) {
     const lineStart = i;
@@ -717,8 +877,20 @@ function scanTop(text: string): TopScan {
       continue;
     }
     if (text[i] === '[') {
-      firstTable = lineStart;
-      break;
+      if (firstTable < 0) firstTable = lineStart;
+      if (!whole) break;
+      const array = text[i + 1] === '[';
+      i += array ? 2 : 1;
+      const path = parseKey();
+      skipWs();
+      if (text[i] !== ']' || (array && text[i + 1] !== ']')) fail();
+      i += array ? 2 : 1;
+      skipWs();
+      if (text[i] === '#') toEol();
+      if (i < n && eolLen(i) === 0) fail();
+      i += eolLen(i);
+      tables.push({ path, array, lineStart, end: i });
+      continue;
     }
     const path = parseKey();
     skipWs();
@@ -732,9 +904,9 @@ function scanTop(text: string): TopScan {
     if (text[i] === '#') toEol();
     if (i < n && eolLen(i) === 0) fail();
     i += eolLen(i);
-    entries.push({ path, lineStart, valueStart, valueEnd, end: i });
+    entries.push({ path, lineStart, valueStart, valueEnd, end: i, table: tables.length - 1 });
   }
-  return { entries, firstTable };
+  return { entries, firstTable, tables };
 }
 
 /** The statement for a top-level `key` (or null), after the checks both edits make: the file reads, and no dotted key hides under it. */
@@ -763,7 +935,7 @@ function withBom(bytes: Uint8Array, hasBom: boolean): Uint8Array {
 
 /**
  * Removes one top-level `key = value` statement, the whole of it (a multi-line string or array included), and not a byte else: every
- * other line keeps its bytes and its own ending (W-12, the Settings page's reset). A key that is absent, or only inside a `[table]`,
+ * other line keeps its bytes and its own ending (the Settings page's reset). A key that is absent, or only inside a `[table]`,
  * returns the input unchanged (the same bytes, not a copy of them). The statement's trailing comment goes with it: the line is the
  * setting. Throws `ConfigNotReadableError` when the file is not valid TOML or the result would not read as the file did less the key
  * (the edit is proved against the real parser), and an Error for a dotted key under the name, as `setTopLevelKey` does.
@@ -806,5 +978,101 @@ export function setTopLevelKey(bytes: Uint8Array, key: string, tomlValue: string
     throw new Error(`${tomlValue} is not a TOML value`);
   }
   verifyEdit(before, result, key, { value: want });
+  return result;
+}
+
+// ---- one key inside a [table] -------------------------------------------------------------------------------------------
+
+const keyText = (k: string): string => (/^[A-Za-z0-9_-]+$/.test(k) ? k : JSON.stringify(k));
+
+/** `o` with the value at `path` set (or, `value` undefined, taken out), the objects along it copied. */
+function withPath(o: Record<string, unknown>, path: readonly string[], value: unknown): Record<string, unknown> {
+  const [head, ...rest] = path;
+  const copy = { ...o };
+  if (rest.length === 0) {
+    if (value === undefined) delete copy[head!];
+    else copy[head!] = value;
+    return copy;
+  }
+  const inner = copy[head!];
+  copy[head!] = withPath(isRecord(inner) ? inner : {}, rest, value);
+  return copy;
+}
+
+function scanWhole(text: string): TopScan {
+  try {
+    return scanTop(text, true);
+  } catch (e) {
+    if (e instanceof Unscannable) throw new ConfigNotReadableError('config.toml could not be read safely, so nothing was written; edit the file by hand');
+    throw e;
+  }
+}
+
+/** The proof of a table edit: the file after reads as `expected`, every other key as it was. */
+function verifyTableEdit(expected: Record<string, unknown>, after: Uint8Array): void {
+  let now: Record<string, unknown>;
+  try {
+    now = parseOrThrow(after);
+  } catch {
+    now = {};
+  }
+  if (canon(now) !== canon(expected)) throw new ConfigNotReadableError('config.toml could not take this change safely, so nothing was written; edit the file by hand');
+}
+
+function headerOf(scan: TopScan, table: readonly string[]): number {
+  return scan.tables.findIndex((t) => !t.array && t.path.length === table.length && t.path.every((p, k) => p === table[k]));
+}
+
+/**
+ * Sets `key = value` inside `[table]` (`[syntax.rust] keyword = "#c45a22"`), one line, every other byte kept: the key's
+ * value replaced where the table has it, else a line added after the table's last, else the table appended at the end of
+ * the file. A table written another way (inline, or by dotted keys) is not edited: the result is proved against the
+ * parser, and anything but the one key changing is refused with `ConfigNotReadableError`.
+ */
+export function setTableKey(bytes: Uint8Array, table: readonly string[], key: string, tomlValue: string): Uint8Array {
+  const hasBom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+  const text = bytesToLatin1(hasBom ? bytes.subarray(3) : bytes);
+  const before = parseOrThrow(bytes);
+  let want: unknown;
+  try {
+    want = (parse(`k = ${tomlValue}`) as Record<string, unknown>).k;
+  } catch {
+    throw new Error(`${tomlValue} is not a TOML value`);
+  }
+  const scan = scanWhole(text);
+  const value = bytesToLatin1(new TextEncoder().encode(tomlValue));
+  const eol = detectEol(bytes);
+  const line = `${keyText(key)} = ${value}${eol}`;
+  const at = headerOf(scan, table);
+  let out: string;
+  if (at >= 0) {
+    const inTable = scan.entries.filter((e) => e.table === at);
+    const found = inTable.find((e) => e.path.length === 1 && e.path[0] === key);
+    if (found) out = text.slice(0, found.valueStart) + value + text.slice(found.valueEnd);
+    else {
+      const end = inTable.at(-1)?.end ?? scan.tables[at]!.end;
+      const lead = end > 0 && !/[\r\n]/.test(text[end - 1]!) ? eol : '';
+      out = text.slice(0, end) + lead + line + text.slice(end);
+    }
+  } else {
+    const lead = text === '' ? '' : `${/[\r\n]$/.test(text) ? '' : eol}${eol}`;
+    out = `${text}${lead}[${table.map(keyText).join('.')}]${eol}${line}`;
+  }
+  const result = withBom(latin1ToBytes(out), hasBom);
+  verifyTableEdit(withPath(before, [...table, key], want), result);
+  return result;
+}
+
+/** Takes `key`'s line out of `[table]`, every other byte kept; the header stays. Absent, the input comes back unchanged. */
+export function removeTableKey(bytes: Uint8Array, table: readonly string[], key: string): Uint8Array {
+  const hasBom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+  const text = bytesToLatin1(hasBom ? bytes.subarray(3) : bytes);
+  const before = parseOrThrow(bytes);
+  const scan = scanWhole(text);
+  const at = headerOf(scan, table);
+  const found = at < 0 ? undefined : scan.entries.find((e) => e.table === at && e.path.length === 1 && e.path[0] === key);
+  if (!found) return bytes;
+  const result = withBom(latin1ToBytes(text.slice(0, found.lineStart) + text.slice(found.end)), hasBom);
+  verifyTableEdit(withPath(before, [...table, key], undefined), result);
   return result;
 }

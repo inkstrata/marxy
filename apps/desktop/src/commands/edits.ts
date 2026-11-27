@@ -1,4 +1,4 @@
-// Operations, undo and redo against the open document's store (ADR-0004, ADR-0037, MARXY-49). This
+// Operations, undo and redo against the open document's store. This
 // module holds no document state: the buffer, the history and the saved baseline are the store's
 // (document/store.ts), and every change here is one of its transitions. Operations change only the
 // in-memory buffer; the file changes on explicit save (save.ts).
@@ -22,7 +22,7 @@ async function reportFailedChange(what: string, e: unknown): Promise<void> {
  * (no document, a range the buffer no longer has, a store closed by another open): the store is
  * untouched and the reader is told so, so a caller shows no success. `baseVersion` is the store version
  * the range was resolved at: the store refuses it, untouched, once another change to the bytes has
- * landed since (ADR-0037 Amendment 1, the B-11 review). A save or a rename in between does not.
+ * landed since. A save or a rename in between does not.
  */
 export async function applyDocumentMutation(
   store: DocumentStore | null,
@@ -66,7 +66,7 @@ async function stepHistory(store: DocumentStore | null, direction: 'undo' | 'red
   if (!store) return;
   try {
     // Text typed in Source is part of the document's history: fold it in first, so undo takes it out
-    // and the next fold cannot write it back over the result (F-12).
+    // and the next fold cannot write it back over the result.
     if (appHandle()?.document() === store) await appHandle()?.foldSource();
     await (direction === 'undo' ? store.undo() : store.redo());
   } catch (e) {

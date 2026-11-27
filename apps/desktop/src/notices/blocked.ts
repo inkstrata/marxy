@@ -1,4 +1,4 @@
-// Blocked remote images and simplified HTML: one notice, with the HTML opt-in when there is one (MARXY-44, MARXY-138).
+// Blocked remote images and simplified HTML: one notice, with the HTML opt-in when there is one.
 
 import type { BlockedImage } from '@marxy/core/src/render/images.ts';
 import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
@@ -51,12 +51,12 @@ export function dismissBlockedNoticeForPath(path: string): void {
   dismissedPaths.add(path);
 }
 
-/** Each open shows the notice again until the reader dismisses it for that visit (§12). */
+/** Each open shows the notice again until the reader dismisses it for that visit. */
 export function clearDismissForPath(path: string): void {
   dismissedPaths.delete(path);
 }
 
-/** Image-only path kept for documents with no HTML widening story yet (MARXY-138 harness). */
+/** Image-only path kept for documents with no HTML widening yet. */
 export function blockedContentNotice(images: readonly BlockedImage[], pane: HTMLElement | undefined = focusedPane()): void {
   // Only this notice's previous line in this pane: file, theme and index notices are not this document's
   // blocked images, and another pane's are its own.

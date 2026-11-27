@@ -1,5 +1,5 @@
-// The clipboard half of the Shell, apart from Tauri so both shells and the contract test share it
-// (J-02, ADR-0065 §2, §3, §5). Nothing here runs on its own: every function acts only when a
+// The clipboard half of the Shell, apart from Tauri so both shells and the contract test share it.
+// Nothing here runs on its own: every function acts only when a
 // command calls the Shell method that wraps it, so there is no read at construction, on focus or on
 // a timer. The native side (`src-tauri/src/pasteboard`) enforces the same rules again.
 import type { ClipboardMeta, ClipboardRep, PasteboardTypes, ShellError } from '@marxy/shell-api';
@@ -66,10 +66,12 @@ const text = (b: Uint8Array): string => {
     throw shellError('invalid', 'not valid UTF-8');
   }
 };
+/** Lenient: invalid bytes become U+FFFD and a leading BOM is dropped. For frame headers the shell's own Rust side wrote and a file's magic bytes, never a document's text. */
+const textLoose = (b: Uint8Array): string => new TextDecoder().decode(b);
 
 const decodeBase64 = (data: string): Uint8Array => Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
 
-/** The three Shell clipboard methods over J-01's `pasteboard_*` commands. */
+/** The three Shell clipboard methods over the `pasteboard_*` commands. */
 function tauriClipboard(call: Call) {
   return {
     clipboardTypes: (): Promise<PasteboardTypes> => native<string[]>(call, 'pasteboard_types'),
@@ -108,5 +110,6 @@ export const clipboard = {
   shellError,
   utf8,
   text,
+  textLoose,
   tauri: tauriClipboard,
 };

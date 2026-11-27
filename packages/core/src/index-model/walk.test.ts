@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { collectFiles } from './index.ts';
+import { collectFiles, parseIgnore } from './index.ts';
 import { nodeReader } from './node-reader.test.ts';
 
 test('a .gitignore and a .ignore file both drop matching files', () => {
@@ -23,13 +23,19 @@ test('a .gitignore and a .ignore file both drop matching files', () => {
   }
 });
 
-test('a symlink to a directory outside the root is not followed', () => {
+test('a symlink to a directory outside the root is not followed', (t) => {
   const root = mkdtempSync(join(tmpdir(), 'marxy-index-link-'));
   const outside = mkdtempSync(join(tmpdir(), 'marxy-index-outside-'));
   try {
     writeFileSync(join(root, 'inside.md'), '# in\n');
     writeFileSync(join(outside, 'escape.md'), '# out\n');
-    symlinkSync(outside, join(root, 'escape'));
+    try {
+      symlinkSync(outside, join(root, 'escape'));
+    } catch (e) {
+      // Windows without Developer Mode or the privilege refuses symlinks.
+      if ((e as NodeJS.ErrnoException).code === 'EPERM') return t.skip('symlinks are not permitted here');
+      throw e;
+    }
     const found = collectFiles(root, nodeReader()).map((f) => f.relativePath);
     assert.deepEqual(found, ['inside.md']);
   } finally {
@@ -69,4 +75,20 @@ test('a listing entry whose path climbs out of the root through a .. segment is 
     readText: () => undefined,
   };
   assert.deepEqual(collectFiles(root, reader).map((f) => f.path), ['/repo/ok.md']);
+});
+
+test('collectFiles names the folders the ignore rules and deny globs left out, outermost only, and not the built-in names', () => {
+  const root = mkdtempSync(join(tmpdir(), 'marxy-index-ignored-dirs-'));
+  try {
+    writeFileSync(join(root, '.gitignore'), 'gen-out/\n');
+    for (const dir of ['gen-out/deep', 'denied-by-glob', 'node_modules/x', 'kept']) mkdirSync(join(root, dir), { recursive: true });
+    for (const file of ['gen-out/deep/a.js', 'denied-by-glob/b.md', 'node_modules/x/c.js', 'kept/d.md']) writeFileSync(join(root, file), 'x');
+    const ignoredDirs: string[] = [];
+    const found = collectFiles(root, nodeReader(), { extraRules: parseIgnore('denied-by-glob/\n', ''), ignoredDirs });
+    assert.deepEqual(found.map((f) => f.relativePath), ['kept/d.md']);
+    const slash = (p: string) => p.replace(/\\/g, '/');
+    assert.deepEqual(ignoredDirs.map((d) => slash(d).slice(slash(root).length + 1)).sort(), ['denied-by-glob', 'gen-out']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

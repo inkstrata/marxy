@@ -1,10 +1,16 @@
-// Converts micromark's UTF-16 code-unit offsets to UTF-8 byte offsets, once per document (ADR-0021).
-// The AST contract (ADR-0003) counts bytes, because operations splice the file's bytes; micromark
+// Converts micromark's UTF-16 code-unit offsets to UTF-8 byte offsets, once per document.
+// The AST contract counts bytes, because operations splice the file's bytes; micromark
 // counts code units, because it works on a JavaScript string. One table bridges the two.
 
 /** Number of tables built in this process. Exported so a test can assert "once per document". */
 let builds = 0;
 export const byteOffsetTableBuilds = (): number => builds;
+
+/** A decode of bytes and its table, as `decodeWithOffsets` gives it. */
+export interface Decoded {
+  readonly text: string;
+  readonly offsets: ByteOffsets;
+}
 
 export interface ByteOffsets {
   /** Byte offset of the code unit at `utf16Offset`; defined for 0..length inclusive. */
@@ -58,17 +64,22 @@ export function decodeWithOffsets(bytes: Uint8Array, from = 0): { text: string; 
   }
   if (text !== undefined) return { text, offsets: byteOffsets(text, from) };
   builds++;
-  const units: number[] = [];
-  const starts: number[] = [];
+  // Typed and sized once (a byte gives at most one code unit), not number[] (35 bytes were held per byte decoded).
+  const units = new Uint16Array(view.length);
+  const starts = new Uint32Array(view.length);
+  let length = 0;
   const emit = (codePoint: number, start: number, end: number): void => {
     if (codePoint > 0xffff) {
       const v = codePoint - 0x10000;
-      units.push(0xd800 + (v >> 10), 0xdc00 + (v & 0x3ff));
+      units[length] = 0xd800 + (v >> 10);
+      units[length + 1] = 0xdc00 + (v & 0x3ff);
       // As in `byteOffsets`: the high surrogate owns the pair's bytes, the low one sits at their end.
-      starts.push(start, end);
+      starts[length] = start;
+      starts[length + 1] = end;
+      length += 2;
     } else {
-      units.push(codePoint);
-      starts.push(start);
+      units[length] = codePoint;
+      starts[length++] = start;
     }
   };
   let needed = 0;
@@ -125,15 +136,33 @@ export function decodeWithOffsets(bytes: Uint8Array, from = 0): { text: string; 
   }
   if (needed !== 0) emit(0xfffd, start, view.length);
   let decoded = '';
-  for (let i = 0; i < units.length; i += 8192) decoded += String.fromCharCode(...units.slice(i, i + 8192));
-  const table = Uint32Array.from(starts);
-  const length = units.length;
+  for (let i = 0; i < length; i += 8192) decoded += String.fromCharCode(...units.subarray(i, Math.min(i + 8192, length)));
+  return { text: decoded, offsets: tableOffsets(length === starts.length ? starts : starts.slice(0, length), from, view.length) };
+}
+
+/**
+ * The table of a decode that was not valid UTF-8. Its own function, so the closure holds the table alone: one made beside
+ * `emit` shared its context and kept the decode's scratch arrays for as long as the offsets lived.
+ */
+function tableOffsets(table: Uint32Array, from: number, bytes: number): ByteOffsets {
+  const length = table.length;
   return {
-    text: decoded,
-    offsets: {
-      at: (offset: number) => from + (offset <= 0 ? (table[0] ?? 0) : offset >= length ? view.length : table[offset]!),
-      byteLength: from + view.length,
-    },
+    at: (offset: number) => from + (offset <= 0 ? (table[0] ?? 0) : offset >= length ? bytes : table[offset]!),
+    byteLength: from + bytes,
+  };
+}
+
+/**
+ * `decoded`, the decode of a whole file (`decodeWithOffsets(bytes)`), from its code unit `from` on: what decoding the bytes
+ * after that unit would give, made without decoding again. For a parse handed the text a store already holds.
+ */
+export function decodedFrom(decoded: Decoded, from: number): { text: string; offsets: ByteOffsets } {
+  if (from === 0) return { text: decoded.text, offsets: decoded.offsets };
+  const { text, offsets } = decoded;
+  const length = text.length - from;
+  return {
+    text: text.slice(from),
+    offsets: { at: (offset: number) => offsets.at(from + (offset < 0 ? 0 : offset > length ? length : offset)), byteLength: offsets.byteLength },
   };
 }
 
@@ -157,4 +186,31 @@ function utf8Length(text: string, i: number): number {
 function isAscii(text: string): boolean {
   for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) > 0x7f) return false;
   return true;
+}
+
+// Here rather than in buffer.ts, which source-text.ts imports: the two would otherwise import each other.
+const utf16Cache = new WeakMap<object, Uint32Array>();
+
+/** CodeMirror's UTF-16 offset for `byte`. ASCII is identity; otherwise a cached inverse table. */
+export function byteToUtf16(buffer: { readonly text: string; readonly offsets: ByteOffsets }, byte: number): number {
+  const { text, offsets } = buffer;
+  const clamped = byte < 0 ? 0 : byte > offsets.byteLength ? offsets.byteLength : byte;
+  if (offsets.byteLength === text.length) return clamped;
+  let inverse = utf16Cache.get(buffer);
+  if (!inverse) {
+    inverse = invertOffsets(text, offsets);
+    utf16Cache.set(buffer, inverse);
+  }
+  return inverse[clamped]!;
+}
+
+function invertOffsets(text: string, offsets: ByteOffsets): Uint32Array {
+  const inverse = new Uint32Array(offsets.byteLength + 1);
+  for (let i = 0; i < text.length; i++) {
+    const from = offsets.at(i);
+    const to = offsets.at(i + 1);
+    for (let b = from; b < to; b++) inverse[b] = i;
+  }
+  inverse[offsets.byteLength] = text.length;
+  return inverse;
 }

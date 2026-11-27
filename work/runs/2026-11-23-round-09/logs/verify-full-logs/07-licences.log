@@ -1,0 +1,8 @@
+$ pnpm gate:licences   (in .)
+
+$ node scripts/gate-licences.mjs
+licence gate self-check ok (72 cases, including a GPL npm dependency, a GPL, licence-less and unaudited crate, an allow-list neutered by a wildcard, and the pre-build / post-build split)
+licence gate: pre-build mode (allow-list fallback; empty cargo cache is ok)
+licence gate ok (233 lockfile packages, 616 Cargo.lock crates, 252 grammars, 2 hyphenation patterns)
+crate licences: 615 re-read from the local cargo cache, 0 taken as recorded in scripts/allowlists/crate-licences.json and re-read by nothing on this run, 1 from the workspace manifest
+crate licences accepted by electing a permissive branch of a disjunction that also offers copyleft (2): r-efi@5.3.0 (MIT OR Apache-2.0 OR LGPL-2.1-or-later), r-efi@6.0.0 (MIT OR Apache-2.0 OR LGPL-2.1-or-later)

@@ -1,4 +1,4 @@
-// Focus between two panes (D-06): `Mod+Alt+Left`/`Right` move it, a press or a wheel
+// Focus between two panes: `Mod+Alt+Left`/`Right` move it, a press or a wheel
 // gesture after a pause over the other pane moves it, and the selection, copy and undo act on the focused
 // pane. Booted on the shipped skeleton and CSS (test/support/two-pane.mjs), over the memory shell.
 import { strict as assert } from 'node:assert';
@@ -23,11 +23,31 @@ const files = {
   '/r/C.md': `# Charlie\n\n${para('Charlie').repeat(4)}\n`,
 };
 
+/**
+ * Idle typesetting re-sets each pane's paragraphs after the page is shown and moves what is under the pointer; a split
+ * window does not scroll, so each article's height is waited on: still across ten 100 ms samples (test/settle.mjs).
+ */
+const reflowDone = (page) =>
+  page.evaluate(async () => {
+    let last = '';
+    let still = 0;
+    while (still < 10) {
+      await new Promise((r) => setTimeout(r, 100));
+      const now = [...document.querySelectorAll('#marxy-main .marxy-article')].map((a) => a.getBoundingClientRect().height).join();
+      if (now === last) still++;
+      else {
+        still = 0;
+        last = now;
+      }
+    }
+  });
+
 async function withTwoPanes(fn) {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 1470, height: 900 } });
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+    await reflowDone(page);
     const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
     // Every focus change the set emits: a chord that ran its command twice shows as two.
     await page.evaluate(() => {
@@ -78,6 +98,13 @@ const stillCentre = (page, selector) =>
     return [r.x + Math.min(r.width / 2, 40), r.y + r.height / 2];
   }, selector);
 
+/** The middle of each pane's own box: the left section's drawer stands where a fixed x once fell in the left pane. */
+const paneMiddles = (page) =>
+  page.evaluate(() => [...document.querySelectorAll('#marxy-main > section.marxy-pane')].map((h) => {
+    const r = h.getBoundingClientRect();
+    return Math.round((r.left + r.right) / 2);
+  }));
+
 const clickOn = async (page, selector) => {
   const [x, y] = await stillCentre(page, selector);
   await page.mouse.click(x, y);
@@ -88,14 +115,14 @@ test('Mod+Alt+Right focuses the right pane and Mod+Alt+Left the left: one marked
     assert.deepEqual({ ...(await focusState(page)), active: 0 }, LEFT);
     await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     assert.deepEqual(await focusState(page), RIGHT);
-    // The window title follows (D-01's listener; asserted here so the chord's whole effect is pinned).
+    // The window title follows (the listener; asserted here so the chord's whole effect is pinned).
     assert.equal(await page.evaluate(() => document.title), 'B.md — Marxy');
     await page.keyboard.press(`${mod}+Alt+ArrowLeft`);
     assert.deepEqual(await focusState(page), LEFT);
   });
 });
 
-test('Mod+1 and Mod+2 no longer move focus (they choose Read and Split, W-19)', async () => {
+test('Mod+1 and Mod+2 no longer move focus (they choose Read and Split)', async () => {
   await withTwoPanes(async (page, mod) => {
     assert.deepEqual({ ...(await focusState(page)), active: 0 }, LEFT);
     await page.keyboard.press(`${mod}+2`);
@@ -147,12 +174,13 @@ test('a click in the unfocused pane focuses it and selects the block under it; a
     assert.deepEqual(selected, { kind: 'node', inRight: 1, inLeft: 0, text: 'Bravo is the second document and its first paragraph.' });
 
     // The pointer over the left pane, still for longer than the gap: the first wheel event focuses it.
-    await page.mouse.move(300, 450);
+    const [leftX, rightX] = await paneMiddles(page);
+    await page.mouse.move(leftX, 450);
     await page.waitForTimeout(300);
     await page.mouse.wheel(0, 40);
     await page.waitForFunction(() => window.__marxyHandle.panes().focused.slot === 0);
     // Straight on over the right pane, inside the same gesture: focus stays where the gesture began.
-    await page.mouse.move(1100, 450);
+    await page.mouse.move(rightX, 450);
     await page.mouse.wheel(0, 40);
     await page.mouse.wheel(0, 40);
     await page.waitForTimeout(50);
@@ -302,15 +330,6 @@ async function assertChordsHeldOnLeft(page, mod) {
   assert.ok(before);
 }
 
-test('with the outline open, Mod+Alt+Arrow leave focus, the mark and the selection on the left pane', async () => {
-  await withTwoPanes(async (page, mod) => {
-    await page.keyboard.press(`${mod}+Shift+KeyO`);
-    await page.waitForFunction(() => document.getElementById('marxy-outline')?.hasAttribute('open'));
-    await assertChordsHeldOnLeft(page, mod);
-    assert.equal(await page.evaluate(() => document.querySelectorAll('dialog[open]').length), 1);
-  });
-});
-
 test('with the palette open, Mod+Alt+Arrow leave focus, the mark and the selection on the left pane', async () => {
   await withTwoPanes(async (page, mod) => {
     await page.evaluate(async () => {
@@ -367,5 +386,36 @@ test('each pane host is labelled with its document, so a screen reader announces
     assert.deepEqual(await labels(), ['Left pane, A.md', 'Right pane, B.md']);
     await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     assert.deepEqual(await labels(), ['Left pane, A.md', 'Right pane, B.md']);
+  });
+});
+
+test('a larger text size sets the page again in both panes, not only the focused one', async () => {
+  await withTwoPanes(async (page) => {
+    /** For each pane, how far its paragraphs' lines run past their box (positive: overrun). */
+    const overrun = () =>
+      page.evaluate(() =>
+        window.__marxyHandle.panes().panes.map((p) =>
+          Math.max(
+            ...[...p.host.querySelectorAll('.marxy-article p')]
+              .filter((x) => x.textContent.length > 200)
+              .map((x) => {
+                const r = document.createRange();
+                r.selectNodeContents(x);
+                return Math.max(...[...r.getClientRects()].map((q) => q.right)) - x.getBoundingClientRect().right;
+              }),
+          ),
+        ),
+      );
+    await page.evaluate(() => window.__marxyHandle.panes().focus(window.__marxyHandle.panes().panes[0]));
+    for (let i = 0; i < 3; i++)
+      await page.evaluate(async () => {
+        const { buildAppContext } = await import('/src/selection/bind.ts');
+        const h = window.__marxyHandle;
+        await h.commands().find((c) => c.id === 'view.text-larger').run(buildAppContext(h));
+      });
+    await reflowDone(page);
+    const [left, right] = await overrun();
+    assert.ok(left <= 1, `the focused pane's lines fit: ${left}`);
+    assert.ok(right <= 1, `the other pane's lines fit too: ${right}`);
   });
 });

@@ -1,0 +1,60 @@
+$ node --test --experimental-strip-types --test-concurrency=1 src/notices/config-warnings-wired.test.mjs src/source/frame.test.mjs src/source/source-browser.test.mjs src/theme/measure-face.test.mjs   (in apps/desktop)
+
+✔ launch: a malformed [[kind]] rule is shown as a refusal that names the rule and the file (8558.4166ms)
+✔ launch: a malformed [strip] entry is shown as a refusal that names the entry (2216.7516ms)
+✔ the top bar says what the bytes are: line endings, BOM, bytes that are not UTF-8, indentation, size and lines (24787.4228ms)
+✔ the path is quiet segments and the file is named last (2197.3033ms)
+✔ the bottom bar says line, column and byte offset, and the code point after the caret (U+200B by name) (2514.6758ms)
+✔ the bottom bar says CRLF at the end of a line in a CRLF file, and the byte offset counts both bytes (2858.4639ms)
+✔ the byte count follows the reader's edits exactly (multi-byte text, breaks, a deletion and its undo) (7514.353ms)
+ruler at 14px, scrolled 0: 23 ticks, worst error 0.297 px at column 5
+ruler at 14px, scrolled 700: 23 ticks, worst error 0.297 px at column 85
+ruler at 18px, scrolled 0: 17 ticks, worst error 0.094 px at column 5
+ruler at 18px, scrolled 700: 17 ticks, worst error 0.094 px at column 70
+✔ the ruler's tick for column N is within half a pixel of character N's centre, at 14 and 18 px, scrolled or not (4237.7179ms)
+✔ the ruler marks the caret column and a selection on one line, and the numbers are every tenth (2226.0675ms)
+✔ the ruler is hidden with soft wrap (Markdown) and below 520 px (6882.3743ms)
+✔ the bars never cover text and scrolling does not move them (2609.6268ms)
+✔ the frame fills the pane, folded and unfolded, and the editor fills the frame (3088.9612ms)
+✔ invisible characters and find matches have marks at the height of their bytes; a click selects them (4959.5319ms)
+✔ find in Source still opens its panel inside the frame and finds the text (4381.6857ms)
+✔ the bars are not focus stops or live regions, and the strip and ruler are hidden from a screen reader (2790.0537ms)
+✔ first text never waits for the frame: the bars are in the page, filled, when the first line is (2653.121ms)
+✔ a change on disk updates what the bars say (a reload: another line ending, size and lines) (2675.474ms)
+✔ opening another file from Source, slowly, keeps the old text on screen as the whole frame, at its place (5485.0158ms)
+✔ the caret byte counts the BOM after an edit, a character outside the BMP is one column, a stray byte is named (14343.5537ms)
+✔ mode switch twice without editing keeps bytes and byteOffset (19937.2562ms)
+✔ multi-cursor edit undo restores prior doc length (902.4448ms)
+✔ bytes that are not UTF-8: shown as marked bytes, copied as U+FFFD, pasted back and moved as themselves (1111.3634ms)
+✔ a copied stray line pastes back exactly after a drag that went nowhere; another program's U+FFFD stays U+FFFD (986.4811ms)
+✔ the find panel, opened on a selection with a stray byte, and its announcement hold no lone surrogate (1876.7849ms)
+✔ a save after two stray bytes are made neighbours keeps the caret, and each Mod+Z puts back exactly the bytes the reader had (1777.0022ms)
+✔ the same when the caret moved after the typing: the read-back is a step of its own, and every step is still exact (2058.2634ms)
+✔ the same when the typing was undone before the save: the redo is gone, and Mod+Z is exact (2145.4558ms)
+✔ Source shows the text before a slow grammar arrives, and colours it when it does (5490.288ms)
+✔ a grammar that fails to load leaves Source mounted with the exact text, uncoloured (3528.3066ms)
+✔ D1: Ruby, TypeScript, PowerShell, Terraform and C# in Source take each token's role from Read, and carry their language (4324.9811ms)
+✔ D1: a Markdown fence in Source takes the roles Read gives the same fence, and Markdown's own marks keep Lezer's colour (4148.8968ms)
+200 KB TypeScript: first coloured token in Source after 2742 ms (recorded)
+✔ D1: time to the first coloured token in Source for a 200 KB TypeScript file is recorded (5105.252ms)
+✔ D1: an edit is coloured again from the worker, as Read colours the edited text (4642.5057ms)
+✔ Literata at the 20 px body measures within 1 % of 0.463 (2475.2187ms)
+✔ Literata: the canvas mean agrees with the hmtx mean (1 %; Literata 2 %, kerning) (1490.8564ms)
+✔ Source Serif 4: the canvas mean agrees with the hmtx mean (1 %; Literata 2 %, kerning) (1962.2251ms)
+✔ JetBrains Mono: the canvas mean agrees with the hmtx mean (1 %; Literata 2 %, kerning) (1698.7342ms)
+✔ IBM Plex Mono: the canvas mean agrees with the hmtx mean (1 %; Literata 2 %, kerning) (1449.4772ms)
+✔ two sizes of one face give the same em value within 0.5 % (2267.16ms)
+﹣ an optical-size face is narrower as it grows, so its number is measured at the size it is set at (0.1966ms) # Playwright's Windows WebKit does not size the optical axis
+✔ a face that is not there is null, not a fallback face measured as if it were the one asked for (3121.8028ms)
+✔ a measurement is memoised: the second ask is answered from the cache, synchronously readable (3042.8784ms)
+✔ measureFaceWhenIdle does not measure before the first frame has painted (2662.7505ms)
+✔ afterFirstPaint runs the callback after a frame has painted, never inline (1811.0289ms)
+✔ user-theme reaches the measurement only from inside afterFirstPaint (first text never waits) (0.8581ms)
+ℹ tests 45
+ℹ suites 0
+ℹ pass 44
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 1
+ℹ todo 0
+ℹ duration_ms 193958.3324

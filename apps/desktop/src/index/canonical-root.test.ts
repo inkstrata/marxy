@@ -1,4 +1,4 @@
-// A root is keyed by its canonical path (F-37.1). The real shell lists and watches canonical paths (symlinks resolved,
+// A root is keyed by its canonical path. The real shell lists and watches canonical paths (symlinks resolved,
 // `/private/tmp` for `/tmp`), so a folder opened through a link must index its files, take watch events, and be one root
 // with the same folder opened by its real path.
 import { test } from 'node:test';
@@ -9,6 +9,31 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createIndexService } from './service.ts';
 import { createMemoryShell } from '../shell/memory.ts';
+
+/**
+ * A directory link. Windows refuses symlinks without Developer Mode or the privilege, so it falls back to a junction,
+ * which needs neither: `lstat` reports it as a link and `realpath` resolves it, as for a symlink.
+ */
+function linkDir(target: string, path: string): void {
+  try {
+    symlinkSync(target, path, 'dir');
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== 'EPERM') throw e;
+    symlinkSync(target, path, 'junction');
+  }
+}
+
+const noLinks = ((): string | false => {
+  const dir = mkdtempSync(join(tmpdir(), 'marxy-canon-probe-'));
+  try {
+    linkDir(dir, join(dir, 'l'));
+    return false;
+  } catch {
+    return 'directory links are not permitted here';
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+})();
 
 /** The Tauri shell's `read_dir`, `stat_file`, `read_head` and `real_path`, on the real filesystem. */
 const fsShell = () => ({
@@ -41,17 +66,20 @@ const fsShell = () => ({
   async mark() {},
 });
 
+/** The index keys paths with forward slashes on every platform. */
+const slashed = (p: string): string => p.replaceAll('\\', '/');
+
 function fixture() {
   const base = realpathSync(mkdtempSync(join(tmpdir(), 'marxy-canon-')));
   const real = join(base, 'real');
   mkdirSync(join(real, 'docs'), { recursive: true });
   writeFileSync(join(real, 'README.md'), '# Old\n');
   writeFileSync(join(real, 'docs', 'guide.md'), '# Guide\n');
-  symlinkSync(real, join(base, 'link'));
-  return { base, real, link: join(base, 'link') };
+  linkDir(real, join(base, 'link'));
+  return { base, real: slashed(real), link: join(base, 'link') };
 }
 
-test('a folder opened through a symlink indexes its files, under their canonical paths', async () => {
+test('a folder opened through a symlink indexes its files, under their canonical paths', { skip: noLinks }, async () => {
   const { base, real, link } = fixture();
   try {
     const index = createIndexService(fsShell());
@@ -64,7 +92,7 @@ test('a folder opened through a symlink indexes its files, under their canonical
   }
 });
 
-test('a canonical watch event updates the entry of a folder opened through a symlink', async () => {
+test('a canonical watch event updates the entry of a folder opened through a symlink', { skip: noLinks }, async () => {
   const { base, real, link } = fixture();
   try {
     const index = createIndexService(fsShell());
@@ -80,7 +108,7 @@ test('a canonical watch event updates the entry of a folder opened through a sym
   }
 });
 
-test('the same folder opened by its link and by its real path is one root with one entry per file', async () => {
+test('the same folder opened by its link and by its real path is one root with one entry per file', { skip: noLinks }, async () => {
   const { base, real, link } = fixture();
   try {
     const index = createIndexService(fsShell());
@@ -105,11 +133,11 @@ test('a root whose path cannot be resolved keeps the spelling it was given', asy
   assert.deepEqual(index.roots(), ['/r']);
 });
 
-test('link/sub/.. resolves as the OS does, not lexically', async () => {
+test('link/sub/.. resolves as the OS does, not lexically', { skip: noLinks }, async () => {
   const { base, link } = fixture();
   try {
     // sub is a link into docs: the OS takes `..` from docs (the root), not from `link`'s own folder.
-    symlinkSync(join(base, 'real', 'docs'), join(base, 'real', 'sub'));
+    linkDir(join(base, 'real', 'docs'), join(base, 'real', 'sub'));
     const through = `${link}/sub/..`;
     const os = realpathSync(through);
     assert.equal(os, join(base, 'real'));
@@ -126,12 +154,12 @@ test('link/sub/.. resolves as the OS does, not lexically', async () => {
   }
 });
 
-test('a symlink inside the root that points outside it adds nothing', async () => {
+test('a symlink inside the root that points outside it adds nothing', { skip: noLinks }, async () => {
   const { base, real, link } = fixture();
   try {
     mkdirSync(join(base, 'outside'));
     writeFileSync(join(base, 'outside', 'secret.md'), '# Secret\n');
-    symlinkSync(join(base, 'outside'), join(real, 'out'));
+    linkDir(join(base, 'outside'), join(base, 'real', 'out'));
     const index = createIndexService(fsShell());
     await index.ensureRoot(link);
     await index.settled();
@@ -141,10 +169,10 @@ test('a symlink inside the root that points outside it adds nothing', async () =
   }
 });
 
-test('a link retargeted after its root was dropped indexes the new folder', async () => {
+test('a link retargeted after its root was dropped indexes the new folder', { skip: noLinks }, async () => {
   const { base, real, link } = fixture();
   try {
-    const other = join(base, 'other');
+    const other = slashed(join(base, 'other'));
     mkdirSync(other);
     writeFileSync(join(other, 'b.md'), '# B\n');
     const index = createIndexService(fsShell());
@@ -152,7 +180,7 @@ test('a link retargeted after its root was dropped indexes the new folder', asyn
     await index.settled();
     index.dropRoot(link);
     rmSync(link);
-    symlinkSync(other, link);
+    linkDir(other, link);
     await index.ensureRoot(link);
     await index.settled();
     assert.deepEqual(index.roots(), [other]);

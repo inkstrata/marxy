@@ -1,0 +1,14 @@
+{
+  "tier": "quick",
+  "base": "master",
+  "root": "C:\\Dev\\reader\\worktrees\\verify-defaults",
+  "rows": [
+    {
+      "name": "unit-desktop",
+      "status": "pass",
+      "seconds": 94.441,
+      "tests": "1279 pass, 0 fail",
+      "log": "C:\\Dev\\reader\\work\\wave1\\verify-defaults\\after-plain-1\\01-unit-desktop.log"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "tier": "quick",
+  "base": "master",
+  "root": "C:\\Dev\\reader\\worktrees\\verify-defaults",
+  "rows": [
+    {
+      "name": "unit-desktop-browser",
+      "status": "pass",
+      "seconds": 195.039,
+      "tests": "44 pass, 0 fail, 1 skip",
+      "log": "C:\\Dev\\reader\\work\\wave1\\verify-defaults\\after-browser\\01-unit-desktop-browser.log"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
-<pre class="language-rust marxy-run" data-marxy-s="0" data-marxy-e="4423"><code class="language-rust" data-marxy-s="0" data-marxy-e="4423">// Tauri shell for the marxy spike. Same frontend as the Electron shell; only this crate differs.
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+<pre class="language-rust marxy-run" data-marxy-lang="rust" data-marxy-s="0" data-marxy-e="4423"><code class="language-rust" data-marxy-s="0" data-marxy-e="4423">// Tauri shell for the marxy spike. Same frontend as the Electron shell; only this crate differs.
+#![cfg_attr(not(debug_assertions), windows_subsystem = &quot;windows&quot;)]
 use ignore::WalkBuilder;
 use nucleo_matcher::{pattern::{CaseMatching, Normalization, Pattern}, Config, Matcher, Utf32Str};
 use std::io::Write;
@@ -18,7 +18,7 @@ fn read_file(path: String) -&gt; Result&lt;String, String&gt; { std::fs::read_to
 #[tauri::command]
 fn mark(name: String, t: f64, data: Option&lt;String&gt;) {
     let mut out = std::io::stdout().lock();
-    let _ = writeln!(out, "MARK {} {} {}", name, t, data.unwrap_or_default());
+    let _ = writeln!(out, &quot;MARK {} {} {}&quot;, name, t, data.unwrap_or_default());
     let _ = out.flush();
 }
 
@@ -33,7 +33,7 @@ fn index_build(root: String, state: State&lt;Index&gt;) -&gt; serde_json::Value 
     }
     let n = v.len();
     *state.0.lock().unwrap() = v;
-    serde_json::json!({ "count": n, "ms": t0.elapsed().as_secs_f64() * 1000.0 })
+    serde_json::json!({ &quot;count&quot;: n, &quot;ms&quot;: t0.elapsed().as_secs_f64() * 1000.0 })
 }
 
 #[tauri::command]
@@ -49,11 +49,11 @@ fn index_query(q: String, state: State&lt;Index&gt;) -&gt; serde_json::Value {
         .collect();
     scored.sort_unstable_by(|a, b| b.0.cmp(&amp;a.0));
     let top: Vec&lt;&amp;String&gt; = scored.iter().take(50).map(|x| x.1).collect();
-    serde_json::json!({ "n": scored.len(), "top": top, "ms": t0.elapsed().as_secs_f64() * 1000.0 })
+    serde_json::json!({ &quot;n&quot;: scored.len(), &quot;top&quot;: top, &quot;ms&quot;: t0.elapsed().as_secs_f64() * 1000.0 })
 }
 
 /// Capture the WKWebView's own rendering (what the user sees on macOS) without screen-recording permission.
-#[cfg(target_os = "macos")]
+#[cfg(target_os = &quot;macos&quot;)]
 #[tauri::command]
 async fn snapshot(window: tauri::WebviewWindow, path: String) -&gt; Result&lt;String, String&gt; {
     let (tx, rx) = std::sync::mpsc::channel::&lt;Result&lt;(), String&gt;&gt;();
@@ -66,11 +66,11 @@ async fn snapshot(window: tauri::WebviewWindow, path: String) -&gt; Result&lt;St
             let wv: &amp;WKWebView = unsafe { &amp;*(pw.inner() as *const WKWebView) };
             let block = block2::RcBlock::new(move |img: *mut NSImage, _err: *mut NSError| {
                 let r = (|| -&gt; Result&lt;(), String&gt; {
-                    if img.is_null() { return Err("null image".into()); }
+                    if img.is_null() { return Err(&quot;null image&quot;.into()); }
                     let img: &amp;NSImage = unsafe { &amp;*img };
-                    let tiff = img.TIFFRepresentation().ok_or("no tiff")?;
-                    let rep = NSBitmapImageRep::imageRepWithData(&amp;tiff).ok_or("no rep")?;
-                    let png = unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &amp;NSDictionary::new()) }.ok_or("no png")?;
+                    let tiff = img.TIFFRepresentation().ok_or(&quot;no tiff&quot;)?;
+                    let rep = NSBitmapImageRep::imageRepWithData(&amp;tiff).ok_or(&quot;no rep&quot;)?;
+                    let png = unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &amp;NSDictionary::new()) }.ok_or(&quot;no png&quot;)?;
                     std::fs::write(&amp;out, png.to_vec()).map_err(|e| e.to_string())
                 })();
                 let _ = tx.send(r);
@@ -82,19 +82,19 @@ async fn snapshot(window: tauri::WebviewWindow, path: String) -&gt; Result&lt;St
     Ok(path)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(target_os = &quot;macos&quot;))]
 #[tauri::command]
-async fn snapshot(_path: String) -&gt; Result&lt;String, String&gt; { Err("snapshot only implemented on macOS".into()) }
+async fn snapshot(_path: String) -&gt; Result&lt;String, String&gt; { Err(&quot;snapshot only implemented on macOS&quot;.into()) }
 
 #[tauri::command]
 fn quit(app: tauri::AppHandle) { app.exit(0); }
 
 fn main() {
-    mark("main_start".into(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as f64, None);
+    mark(&quot;main_start&quot;.into(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as f64, None);
     tauri::Builder::default()
         .manage(Index(Mutex::new(Vec::new())))
         .invoke_handler(tauri::generate_handler![args, read_file, mark, index_build, index_query, snapshot, quit])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect(&quot;error while running tauri application&quot;);
 }
 </code></pre>

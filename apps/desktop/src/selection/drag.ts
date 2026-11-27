@@ -1,4 +1,4 @@
-// A drag (or a keyboard selection, Cmd+A among them) recorded when it is made (C-06 review): the range on
+// A drag (or a keyboard selection, Cmd+A among them) recorded when it is made: the range on
 // the article and the bytes of the top-level blocks it touches. The copy verbs read the record, never the
 // live DOM selection, which a summoned palette takes away.
 import type { Source } from '@marxy/core';

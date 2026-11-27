@@ -40,9 +40,9 @@ test('without bytes, the title is the filename and headings stay empty', () => {
   assert.deepEqual(entry.headings, []);
 });
 
-test('a binary extension is not an index kind', () => {
-  assert.equal(classify('photo.png'), undefined);
-  assert.equal(classify('blob'), undefined);
+test('every file has an index kind: a binary extension is binary, a name no row names is text', () => {
+  assert.equal(classify('photo.png'), 'binary');
+  assert.equal(classify('blob'), 'text');
   assert.equal(classify('notes.md'), 'markdown');
 });
 
@@ -130,7 +130,7 @@ test('CRLF and bare CR files keep byte offsets correct', () => {
   assertAgrees('---\r\nt: 1\r\n---\r\n# a\r\n', ['a']);
 });
 
-test('indented # lines inside $$ math blocks and HTML blocks are not headings (MARXY-337)', () => {
+test('indented # lines inside $$ math blocks and HTML blocks are not headings', () => {
   assertAgrees('# a\n\n$$\n  # x\n$$\n\n# b\n', ['a', 'b']);
   assertAgrees('$$ meta\n  # x\n  $$\n# b\n', ['b']);
   assertAgrees('$$$\n$$\n  # x\n$$$\n# b\n', ['b']);
@@ -147,7 +147,7 @@ test('indented # lines inside $$ math blocks and HTML blocks are not headings (M
   assertAgrees('# a\r\n<div>\r\n# x\r\n\r\n# b\r\n', ['a', 'b']);
 });
 
-test('a lone HTML tag starts a block unless it would interrupt a paragraph (MARXY-337)', () => {
+test('a lone HTML tag starts a block unless it would interrupt a paragraph', () => {
   assertAgrees('<span>\n# a\n\n# b\n', ['b']);
   assertAgrees('</custom-el>\n# a\n', []);
   assertAgrees('para\n<span>\n# a\n', ['a']);
@@ -155,13 +155,13 @@ test('a lone HTML tag starts a block unless it would interrupt a paragraph (MARX
   assertAgrees('<span> text\n# a\n', ['a']);
 });
 
-test('a lone === line is paragraph text, so a following HTML tag line does not swallow a heading (MARXY-337)', () => {
+test('a lone === line is paragraph text, so a following HTML tag line does not swallow a heading', () => {
   const md = '===\n<a href="x">\n# H\n';
   const h = headingsFromMarkdown(new TextEncoder().encode(md));
   assert.deepEqual(h.map((x) => x.text), ['H']);
 });
 
-test('container lines are judged by their content when deciding what can start an HTML block (MARXY-337)', () => {
+test('container lines are judged by their content when deciding what can start an HTML block', () => {
   const quote = headingsFromMarkdown(new TextEncoder().encode('> # quote\n<img src=x>\n<!--\n\n\n## Two\n'));
   assert.deepEqual(quote.map((x) => x.text), ['Two']);
   const item = headingsFromMarkdown(new TextEncoder().encode('- # in list\n<a href="x">\n\n# H\n'));
@@ -171,12 +171,12 @@ test('container lines are judged by their content when deciding what can start a
   assert.deepEqual(para.map((x) => x.text), ['H']);
 });
 
-test('a paragraph that only starts like a list marker is not in a container (MARXY-337)', () => {
+test('a paragraph that only starts like a list marker is not in a container', () => {
   assertAgrees('*Note* text\n===\n<img src="a.png">\n# Not a heading\n', []);
   assertAgrees('-1 degrees\n===\n<my-tag>\n# Not a heading\n', []);
 });
 
-test('the log and data extensions are indexed, each with its ADR-0060 reader kind from the path alone (K-06)', () => {
+test('the log and data extensions are indexed, each with its reader kind from the path alone', () => {
   const expected: Record<string, string> = {
     'a.log': 'log',
     'a.out': 'log',
@@ -196,13 +196,29 @@ test('the log and data extensions are indexed, each with its ADR-0060 reader kin
   }
 });
 
-test('a .jsonl is not refined to transcript by the index, whatever the bytes say (K-06)', () => {
+test('a .jsonl is not refined to transcript by the index, whatever the bytes say', () => {
   const bytes = new TextEncoder().encode('{"role":"user","content":"hi"}\n{"role":"assistant","content":"yo"}\n');
   const entry = entryFromCandidate('/repo', { path: '/repo/chat.jsonl', relativePath: 'chat.jsonl', mtimeMs: 1, size: bytes.length, bytes });
   assert.equal(entry.readerKind, 'data');
 });
 
-test('a reader rule passed to entryFromCandidate decides the reader kind (the K-04 seam)', () => {
-  const entry = entryFromCandidate('/repo', { path: '/repo/x.log', relativePath: 'x.log', mtimeMs: 1, size: 0 }, [{ glob: '/repo/*.log', is: 'notes' }]);
+test('a reader rule passed to entryFromCandidate decides the reader kind', () => {
+  const entry = entryFromCandidate('/repo', { path: '/repo/x.log', relativePath: 'x.log', mtimeMs: 1, size: 0 }, { rules: [{ glob: '/repo/*.log', is: 'notes' }] });
   assert.equal(entry.readerKind, 'notes');
+});
+
+// the index decides a file's kind as Open does: Show as beats a rule, a rule beats the name.
+test('buildIndex takes the reader\'s [[kind]] rules and Show as, and withReaderKinds re-derives them', async () => {
+  const { buildIndex, withReaderKinds } = await import('./index.ts');
+  const { setShowAs, emptyKindsEnvelope } = await import('../kind/show-as.ts');
+  const shown = setShowAs(emptyKindsEnvelope(), '/r/b.txt', 'report');
+  assert.ok(shown.ok);
+  const kinds = { rules: [{ glob: '**/x.txt', is: 'log' as const }], choices: shown.envelope };
+  const candidates = ['x.txt', 'b.txt', 'c.txt'].map((name) => ({ path: `/r/${name}`, relativePath: name, mtimeMs: 1, size: 1 }));
+  const kindOf = (entries: readonly { path: string; readerKind?: string }[]) => Object.fromEntries(entries.map((e) => [e.path, e.readerKind]));
+  const plain = buildIndex('/r', candidates).entries;
+  const built = buildIndex('/r', candidates, kinds).entries;
+  assert.deepEqual(kindOf(built), { '/r/x.txt': 'log', '/r/b.txt': 'report', '/r/c.txt': kindOf(plain)['/r/c.txt'] });
+  assert.deepEqual(kindOf(withReaderKinds(plain, kinds)), kindOf(built));
+  assert.deepEqual(kindOf(withReaderKinds(built, {})), kindOf(plain));
 });

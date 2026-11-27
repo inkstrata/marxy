@@ -1,0 +1,85 @@
+/* Fit: an eye test over the stage, quiet as an optician's chart. Colours only from tokens. */
+
+.marxy-studio-fit {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 12px 20px 12px;
+  background: var(--marxy-frame-chrome);
+  outline: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .marxy-studio-fit { animation: marxy-studio-fit-in 0.2s ease-out; }
+  .marxy-studio-fit-dot { transition: background-color 0.2s ease, border-color 0.2s ease; }
+}
+@keyframes marxy-studio-fit-in { from { opacity: 0; } to { opacity: 1; } }
+
+.marxy-studio-fit-head { display: flex; align-items: baseline; gap: 14px; min-width: 0; white-space: nowrap; }
+.marxy-studio-fit-name { font-weight: 700; color: var(--marxy-color-text-strong); }
+.marxy-studio-fit-dots { display: flex; gap: 6px; align-self: center; }
+.marxy-studio-fit-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 1px solid var(--marxy-color-text-faint);
+}
+.marxy-studio-fit-dot-done { background: var(--marxy-color-text-faint); }
+.marxy-studio-fit-dot[aria-current] { background: var(--marxy-color-accent); border-color: var(--marxy-color-accent); }
+.marxy-studio-fit-q { color: var(--marxy-color-text-strong); font-size: calc(15 * var(--marxy-c)); overflow: hidden; text-overflow: ellipsis; }
+.marxy-studio-fit-sp { flex: 1 1 0; }
+.marxy-studio-fit-step { color: var(--marxy-color-text-faint); }
+
+.marxy-studio-fit-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-height: 0; }
+.marxy-studio-fit-pair.marxy-studio-fit-stack { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; gap: 12px; }
+.marxy-studio-fit-pair[hidden], .marxy-studio-fit-summary[hidden] { display: none; }
+.marxy-studio-fit-side { position: relative; min-width: 0; min-height: 0; cursor: pointer; }
+.marxy-studio-fit-paper {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px var(--marxy-frame-hair-2);
+}
+.marxy-studio-fit-side:hover .marxy-studio-fit-paper { box-shadow: 0 0 0 2px var(--marxy-color-accent); }
+.marxy-studio-fit .marxy-studio-scroll { padding: 26px 0 20px; }
+.marxy-studio-fit-num {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  z-index: 1;
+  min-width: 1.6em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  box-sizing: border-box;
+  background: var(--marxy-color-surface);
+  color: var(--marxy-color-text-secondary);
+  font-weight: 650;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.marxy-studio-fit-summary { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; min-height: 0; }
+.marxy-studio-fit-aside { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; }
+.marxy-studio-fit-values { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; }
+.marxy-studio-fit-values dt { color: var(--marxy-color-text-faint); }
+.marxy-studio-fit-values dd { margin: 0; color: var(--marxy-color-text-strong); font-variant-numeric: tabular-nums; }
+.marxy-studio-fit-values small { margin-left: 8px; color: var(--marxy-color-text-faint); font-size: inherit; }
+.marxy-studio-fit-honest { margin: 2px 0; color: var(--marxy-color-text-secondary); }
+.marxy-studio-fit-label { display: flex; flex-direction: column; gap: 4px; color: var(--marxy-color-text-secondary); }
+.marxy-studio-fit-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.marxy-studio-fit-foot { display: flex; flex-wrap: wrap; gap: 6px 22px; color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); }
+.marxy-studio-fit-key {
+  display: inline-block;
+  padding: 0 5px;
+  border: 1px solid var(--marxy-color-rule-strong);
+  border-radius: 4px;
+  color: var(--marxy-color-text-secondary);
+  font-family: inherit;
+  font-size: inherit;
+}

@@ -1,4 +1,4 @@
-// Rendered-mode edits: task toggle, table align, undo, dirty state (MARXY-43).
+// Rendered-mode edits: task toggle, table align, undo, dirty state.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { alignTablePipes } from '../../../packages/core/src/operations/align-table-pipes.ts';
 import { createBuffer, parseMarkdown, textOf } from '../../../packages/core/src/index.ts';
@@ -149,7 +149,7 @@ test('clicking the first open task checkbox toggles only the marker bytes', asyn
   }
 });
 
-test('a tick after a reload from disk keeps what the other writer added (MARXY-246)', async () => {
+test('a tick after a reload from disk keeps what the other writer added', async () => {
   const file = '03-ai-plan.md';
   const bytes = readFileSync(join(corpusDir, file));
   const markers = [];
@@ -394,7 +394,7 @@ for (const [name, docPath, text, words] of [
   ['a tight task list (03-ai-plan.md)', '/corpus/03-ai-plan.md', null, 'Attestation policy decided'],
   ['a loose task list', '/loose-tasks.md', '# Plan\n\n- [ ] Write the brief\n\n- [x] Book the room\n', 'Write the brief'],
 ]) {
-  test(`C-06: a click on a task item's text offers Toggle task, which changes only the marker bytes: ${name}`, async () => {
+  test(`a click on a task item's text offers Toggle task, which changes only the marker bytes: ${name}`, async () => {
     const source = text ?? readFileSync(join(corpusDir, docPath.slice('/corpus/'.length)), 'utf8');
     const ast = parseMarkdown(Buffer.from(source, 'utf8'), { file: docPath });
     let item;
@@ -437,7 +437,7 @@ for (const [name, docPath, text, words] of [
   });
 }
 
-test('C-06: a click on a table cell offers the table\'s verbs, Align table pipes among them', async () => {
+test('a click on a table cell offers the table\'s verbs, Align table pipes among them', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });

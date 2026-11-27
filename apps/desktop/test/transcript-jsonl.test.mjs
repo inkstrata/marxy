@@ -1,5 +1,5 @@
-// A JSONL agent session read as a conversation (K-12; ADR-0061): with a `[[kind]]` rule that says `read = true` for its
-// folder, the corpus session opens in Read as turns; without one it opens in Source. ⌘E shows Source at the line Read was
+// A JSONL agent session read as a conversation: the corpus session opens in Read as turns, under a
+// `[[kind]]` rule or, since every .jsonl is read, in a folder no rule names. ⌘E shows Source at the line Read was
 // on and back. *Only you* hides the assistant's turns and says how many; *Collapse tools* folds the tool calls into one
 // line a run; a turn's ⌘C is its text without its label; a tool's ⌘C its whole output; a drag copies what it shows, an
 // invisible's character and not its label. Nothing in the view reaches an operation, and nothing is written. A rule's
@@ -36,6 +36,7 @@ const files = {
   '/s/40-session.jsonl': SESSION,
   '/s/long.jsonl': LONG,
   '/r/40-session.jsonl': SESSION,
+  '/r/runs.jsonl': `${line({ at: '07:00', files: 1204, ok: true })}\n${line({ at: '08:00', files: 1210, ok: true })}\n${line({ at: '09:00', files: 1188, ok: false })}\n`,
   '/config': `${RULE}\n[[kind]]\nglob = "/ruled/**"\nis = "code"\nread = true\n\n[[kind]]\nglob = "/kept/**"\nis = "notes"\nread = false\n`,
 };
 
@@ -90,7 +91,7 @@ const lineOf = (page, at) => page.evaluate((b) => {
 }, at);
 const modeNow = (page) => page.evaluate(() => window.__marxyHandle.panes().focused.view.mode);
 
-// F-111: the view loads on demand. No module the app loads before first text reaches it, or the deriver, by a static import.
+// the view loads on demand. No module the app loads before first text reaches it, or the deriver, by a static import.
 nodeTest('nothing on the way to first text imports the transcript view or the deriver statically', () => {
   const repo = fileURLToPath(new URL('../../../', import.meta.url));
   const resolveSpec = (from, spec) => {
@@ -109,12 +110,13 @@ nodeTest('nothing on the way to first text imports the transcript view or the de
       if (next) queue.push(next);
     }
   }
-  const reached = [...seen].map((f) => f.slice(repo.length));
+  // Written with `/` on every platform, so the names below compare as written.
+  const reached = [...seen].map((f) => f.slice(repo.length).replaceAll('\\', '/'));
   assert.ok(reached.includes('apps/desktop/src/view/rendered-view.ts') && reached.length > 100, `the walk reached the app (${reached.length} modules)`);
   assert.deepEqual(reached.filter((f) => f === 'apps/desktop/src/kinds/transcript-view.ts' || f.startsWith('packages/core/src/derive/')), []);
 });
 
-test('with a [[kind]] rule that says read, the session opens in Read as turns; without one it opens in Source', () =>
+test('the session opens in Read as turns, with a [[kind]] rule or without; JSON Lines that are not a session read as records', () =>
   withPage(async (page) => {
     await settled(page);
     assert.equal(await modeNow(page), 'rendered');
@@ -152,9 +154,26 @@ test('with a [[kind]] rule that says read, the session opens in Read as turns; w
     for (const meta of ['model-name-x', '00000000-0000-4000-8000-000000000001', '0.0123', '2026-10-07T15', 'costUSD', 'input_tokens']) {
       assert.equal(seen.text.includes(meta), false, `the page shows ${meta}`);
     }
-    // The same bytes in a folder no rule names open in Source, as ADR-0060 decides for a .jsonl.
+    // Any .jsonl opens in Read, so a folder no rule names reads it too: these bytes as turns,
+    // because their lines name roles and the kind is found from them; JSON Lines that name none as a table of records.
     await openFile(page, '/r/40-session.jsonl');
-    assert.equal(await modeNow(page), 'source');
+    await settled(page);
+    assert.equal(await modeNow(page), 'rendered');
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().focused.host.getAttribute('data-marxy-kind')), 'transcript');
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().focused.parts.article.querySelectorAll('[data-marxy-derived="jsonl-transcript"] .marxy-turn').length), 6);
+    await page.evaluate(() => window.__marxyHandle.open('/r/runs.jsonl'));
+    await page.waitForFunction(() => window.__marxyHandle.panes().focused.parts.article.querySelector('[data-marxy-reading]') !== null);
+    assert.equal(await modeNow(page), 'rendered');
+    const records = await page.evaluate(() => {
+      const article = window.__marxyHandle.panes().focused.parts.article;
+      return {
+        reading: article.querySelector('[data-marxy-reading]').getAttribute('data-marxy-reading'),
+        derived: article.querySelector('[data-marxy-derived]') !== null,
+        columns: [...article.querySelectorAll('.marxy-reading-table thead th')].map((th) => th.textContent.trim()),
+        rows: article.querySelectorAll('.marxy-reading-table tbody tr').length,
+      };
+    });
+    assert.deepEqual(records, { reading: 'records', derived: false, columns: ['at', 'files', 'ok'], rows: 3 });
     assert.equal(await writes(page), 0);
   }));
 
@@ -191,9 +210,15 @@ test('⌘E shows Source at the line Read was on, and Read again at that line', (
 test('Only you hides the assistant\'s turns and says how many; Collapse tools folds each run of calls into a line; both undo', () =>
   withPage(async (page) => {
     await settled(page);
-    await page.evaluate(() => window.__marxyHandle.workspace().unfold());
-    const strip = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-workspace-region="strip"] button')].map((b) => b.textContent.trim()));
-    assert.deepEqual(strip.filter((t) => /Collapse tools|Only you|Only assistant/.test(t)), ['Collapse tools', 'Only you', 'Only assistant']);
+    await page.evaluate(() => window.__marxyHandle.frame().unfold());
+    // There is no strip: the filters are the transcript's commands, offered while one is shown.
+    const offered = await page.evaluate(async () => {
+      const { buildAppContext } = await import('/src/selection/bind.ts');
+      const handle = window.__marxyHandle;
+      const ctx = buildAppContext(handle);
+      return handle.commands().filter((c) => c.id.startsWith('transcript.') && c.when(ctx)).map((c) => c.title);
+    });
+    assert.deepEqual(offered.filter((t) => /Collapse tools|Only you|Only assistant/.test(t)).sort(), ['Collapse tools', 'Only assistant', 'Only you']);
     const look = () => page.evaluate(() => {
       const root = window.__marxyHandle.panes().focused.parts.article.querySelector('[data-marxy-derived]');
       return {

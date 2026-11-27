@@ -1,13 +1,16 @@
-// MARXY-33: static import walk from main.ts — the entry chunk must not pull grammars, KaTeX or CodeMirror.
+// static import walk from main.ts — the entry chunk must not pull grammars, KaTeX or CodeMirror.
 import { existsSync, readFileSync } from 'node:fs';
-import { extname, join } from 'node:path';
+import { dirname, extname, join, relative, sep } from 'node:path';
 const FORBIDDEN = [/^@shikijs\//, /^katex$/, /^katex\//, /^@codemirror\//];
 
-/** Static ESM import/export-from specifiers in a module (not dynamic import()). */
+/**
+ * Static ESM import/export-from specifiers in a module (not dynamic import()). `import type` and `export type` are left
+ * out: TypeScript erases them, so they put nothing in the chunk.
+ */
 export function staticImportSpecifiers(source) {
   const out = [];
-  for (const m of source.matchAll(/(?:import|export)\s+(?:[\w*{}\s,]+\s+from\s+)?["']([^"']+)["']/g)) {
-    out.push(m[1]);
+  for (const m of source.matchAll(/(?:import|export)\s+(type\s+)?(?:[\w*{}\s,]+\s+from\s+)?["']([^"']+)["']/g)) {
+    if (!m[1]) out.push(m[2]);
   }
   return out;
 }
@@ -47,9 +50,15 @@ function resolveModule(fromDir, spec, desktopSrcDir, corePkgDir) {
   return resolveMarxyCore(corePkgDir, spec);
 }
 
+/** Whether `abs` is `dir` or inside it; `dir` may end in a separator or not (fileURLToPath of a folder URL does). */
+function inside(abs, dir) {
+  const r = relative(dir, abs);
+  return r === '' || (!r.startsWith('..') && !r.startsWith(sep) && !/^[a-zA-Z]:/.test(r));
+}
+
 function displayPath(abs, desktopSrcDir, corePkgDir) {
-  if (abs.startsWith(desktopSrcDir)) return abs.slice(desktopSrcDir.length + 1);
-  if (abs.startsWith(corePkgDir)) return `@marxy/core/${abs.slice(corePkgDir.length + 1)}`;
+  if (inside(abs, desktopSrcDir)) return relative(desktopSrcDir, abs).split(sep).join('/');
+  if (inside(abs, corePkgDir)) return `@marxy/core/${relative(corePkgDir, abs).split(sep).join('/')}`;
   return abs;
 }
 
@@ -65,13 +74,14 @@ export function forbiddenStaticImportsFromEntry(desktopSrcDir, entryRel = 'main.
     seen.add(abs);
     if (!existsSync(abs)) continue;
     const text = readFileSync(abs, 'utf8');
-    const dir = abs.slice(0, abs.lastIndexOf('/'));
+    // dirname, not a split on '/': on Windows the paths use '\\', and a split on '/' stopped the walk at main.ts.
+    const dir = dirname(abs);
     const rel = displayPath(abs, desktopSrcDir, corePkgDir);
     for (const spec of staticImportSpecifiers(text)) {
       if (FORBIDDEN.some((re) => re.test(spec))) hits.push({ from: rel, spec });
       const next = resolveModule(dir, spec, desktopSrcDir, corePkgDir);
       if (!next) continue;
-      if (next.startsWith(desktopSrcDir) || next.startsWith(corePkgDir)) queue.push(next);
+      if (inside(next, desktopSrcDir) || inside(next, corePkgDir)) queue.push(next);
     }
   }
   return hits;

@@ -1,4 +1,4 @@
-// Copies of one document from worktrees of one repository fold to one hit (C-15).
+// Copies of one document from worktrees of one repository fold to one hit.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { IndexEntry, IndexHit } from '@marxy/core';

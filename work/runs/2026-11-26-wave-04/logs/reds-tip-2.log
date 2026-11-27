@@ -1,0 +1,19 @@
+✔ a 1.1 MB page is painted before the panel reads it, and its links come after in the Links panel, every one counted (21331.3522ms)
+Port 5173 is in use, trying another one...
+Port 5174 is in use, trying another one...
+✔ main.rs registers single-instance and handles RunEvent::Opened (99.0799ms)
+✔ tauri.conf.json declares markdown file associations (0.4323ms)
+✔ tauri.conf.json lets Finder offer Marxy for source and text files (0.2581ms)
+✔ main.rs queues Finder opens until take_pending_opens (0.3832ms)
+✔ tauri.ts drains pending opens after listen resolves (0.281ms)
+✔ tauri.ts listens for marxy:open-files (0.213ms)
+✔ a Finder open that arrives before the listener exists is not lost (7499.9447ms)
+✔ second launch, Finder open, and Dock drop replace the open document (1056.7273ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 31237.0725

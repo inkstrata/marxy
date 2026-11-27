@@ -9,7 +9,7 @@ import { join } from 'node:path';
 
 import { stagedNames, walk } from './repo.mjs';
 
-/** Build a repository whose story branch is one commit behind a main that touched other files. */
+/** Build a repository whose feature branch is one commit behind a main that touched other files. */
 function fixture() {
   const dir = mkdtempSync(join(tmpdir(), 'marxy-repo-test-'));
   const git = (...args) => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
@@ -22,13 +22,13 @@ function fixture() {
   git('config', 'tag.gpgsign', 'false');
   write('mine.txt', 'one\n'); write('shared.txt', 'base\n');
   git('add', '-A'); git('commit', '-q', '-m', 'base');
-  git('checkout', '-q', '-b', 'story');
+  git('checkout', '-q', '-b', 'topic');
   write('mine.txt', 'one\ntwo\n'); write('shared.txt', 'base\nstory\n');
-  git('add', '-A'); git('commit', '-q', '-m', 'story work');
+  git('add', '-A'); git('commit', '-q', '-m', 'topic work');
   git('checkout', '-q', 'main');
   write('theirs.txt', 'theirs\n'); write('shared.txt', 'base\nmain\n');
   git('add', '-A'); git('commit', '-q', '-m', 'other work');
-  git('checkout', '-q', 'story');
+  git('checkout', '-q', 'topic');
   return { dir, git };
 }
 

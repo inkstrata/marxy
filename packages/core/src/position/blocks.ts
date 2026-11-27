@@ -1,4 +1,4 @@
-// Block-list reading-line math: byteOffset + fraction from layout boxes (ADR-0018, design §08).
+// Block-list reading-line math: byteOffset + fraction from layout boxes.
 
 /** One typeset block's geometry in document order; DOM-free so tests can drive it. */
 export interface LayoutBlock {
@@ -38,8 +38,8 @@ export function blockIndexAtReadingLine(
 
 /**
  * The reading position at a scroll offset. A reader who has not scrolled (`scrollTop <= 0`) is
- * reading the top of the file, not whichever block crosses the reading line, so that is byte 0
- * (ruling, 2026-10-08); text written above it then leaves them at the top (`restore.ts`).
+ * reading the top of the file, not whichever block crosses the reading line, so that is byte 0;
+ * text written above it then leaves them at the top (`restore.ts`).
  */
 export function positionAtScroll(
   blocks: readonly LayoutBlock[],
@@ -51,7 +51,7 @@ export function positionAtScroll(
 }
 
 /** The block under the reading line and how far through it the line is, with no top-of-file rule. */
-function blockPositionAtScroll(
+export function blockPositionAtScroll(
   blocks: readonly LayoutBlock[],
   scrollTop: number,
   viewportHeight: number,
@@ -66,7 +66,7 @@ function blockPositionAtScroll(
 }
 
 /** The block holding `byteOffset`: the last one starting at or before it, as `restore.ts`'s `blockAt`. */
-function blockIndexForByteOffset(blocks: readonly LayoutBlock[], byteOffset: number): number {
+export function blockIndexForByteOffset(blocks: readonly LayoutBlock[], byteOffset: number): number {
   let chosen = 0;
   for (let i = 0; i < blocks.length; i++) {
     if (blocks[i].start > byteOffset) break;

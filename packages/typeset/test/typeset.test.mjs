@@ -1,5 +1,4 @@
-// The typesetter in Playwright WebKit over the rendered corpus (MARXY-23, docs/design/04-typeset.md
-// §Tests): body text stays inline HTML, a paragraph that cannot be set is left to the engine, set text
+// The typesetter in Playwright WebKit over the rendered corpus: body text stays inline HTML, a paragraph that cannot be set is left to the engine, set text
 // copies and searches as it did before, the viewport pass fits its budget, and the rag is better than
 // the engine's own wrapping.
 
@@ -11,7 +10,7 @@ import { ragMetrics } from '../scripts/rag-model.mjs';
 import { readLines, renderCorpus, startHarness } from './harness.mjs';
 
 /**
- * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+ * A run without Playwright's WebKit skips these tests and says why, unless
  * MARXY_BROWSER_TESTS_REQUIRED=1, where a missing browser is a failure as it should be.
  */
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -44,7 +43,7 @@ test('attach then destroy leaves the article exactly as it was', async () => {
   await page.close();
 });
 
-test('a paragraph longer than MAX_SET_CHARS is left to the engine, one just under it is set (F-79)', async () => {
+test('a paragraph longer than MAX_SET_CHARS is left to the engine, one just under it is set', async () => {
   const words = (n) => Array.from({ length: n }, (_, i) => `word${i}`).join(' ').slice(0, n * 8);
   const text = (chars) => words(Math.ceil(chars / 6)).slice(0, chars);
   const page = await harness.open(`<p data-marxy-s="0" data-marxy-e="1">${text(16_384)}</p><p data-marxy-s="2" data-marxy-e="3">${text(16_385)}</p>`);
@@ -111,7 +110,7 @@ test('selection, copy and find see the text, not the line breaks', async () => {
 });
 
 test('the viewport is set within its budget', async () => {
-  // 100 ms on the reference machine (ADR-0022 product tier); a CI runner gets the envelope.
+  // 100 ms on the reference machine (product tier); a CI runner gets the envelope.
   const budget = process.env.CI ? 300 : 100;
   for (const file of ['01-long-technical.md', '15-prose-volume.md']) {
     const page = await harness.open(renderCorpus(file));
@@ -175,7 +174,7 @@ test('the kill switch stops in-flight background typesetting', async () => {
   await page.close();
 });
 
-/** Attaches with hanging and hyphenation, the story's defaults. */
+/** Attaches with hanging and hyphenation, the defaults. */
 const attachOn = (page) =>
   page.evaluate(async () => {
     window.controller = window.typeset.attach(document.getElementById('doc'), {
@@ -208,7 +207,7 @@ test('an opening quote hangs left of the content edge by at least 40% of its adv
   await page.close();
 });
 
-test('every hung glyph is pulled by its own advance: one ratio per character, a whole advance for an opening quote (B-25)', async () => {
+test('every hung glyph is pulled by its own advance: one ratio per character, a whole advance for an opening quote', async () => {
   const page = await harness.open(renderCorpus('15-prose-volume.md'), { extraCss: '.marxy-article { max-width: 30ch !important; }' });
   await attachOn(page);
   const glyphs = await page.evaluate(() => {
@@ -366,6 +365,8 @@ test('flipping the kill switch mid-run reverts the paragraphs already set', asyn
       lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', scheduler: { schedule: (w) => jobs.push(w) },
     });
     await c.ready;
+    // The reader is scrolling, so a chunk takes no more than a busy one: the run is still going when the switch flips.
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 100 }));
     jobs.shift()(() => 1e9);
     const before = doc.querySelectorAll('.marxy-set').length;
     doc.style.setProperty('--marxy-typeset', 'none');
@@ -448,7 +449,7 @@ test('an invisible-character marker adds nothing to its line: the paragraph stay
   await page.close();
 });
 
-test('a marker written into a set paragraph after setting is set again, before paint, and never overruns (B-02.3)', async () => {
+test('a marker written into a set paragraph after setting is set again, before paint, and never overruns', async () => {
   // As the app runs it: the paragraph is set first, and the invisible-character pass comes later at idle.
   const words = 'Every line of this paragraph is filled close to the measure by the breaker, so a marker added later has nowhere to go but past the edge. ';
   const page = await harness.open(`<p data-marxy-s="0">${words.repeat(4).trim()}</p>`, { width: 320 });
@@ -523,7 +524,7 @@ const resetSinceSource = `(doc) => {
   };
 }`;
 
-test('hidden labels written into many set paragraphs cost reads only and leave every line as it was (B-02.3)', async () => {
+test('hidden labels written into many set paragraphs cost reads only and leave every line as it was', async () => {
   const page = await harness.open(linkParagraphs(400), { width: 640 });
   await attach(page);
   const r = await page.evaluate(async ({ tagBreaksSource, resetSinceSource }) => {
@@ -554,7 +555,7 @@ test('hidden labels written into many set paragraphs cost reads only and leave e
   await page.close();
 });
 
-test('markers written into many set paragraphs re-set only those near the viewport in the task; the rest wait for idle (B-02.3)', async () => {
+test('markers written into many set paragraphs re-set only those near the viewport in the task; the rest wait for idle', async () => {
   const page = await harness.open(linkParagraphs(300), { width: 320 });
   const r = await page.evaluate(async ({ markerSource, tagBreaksSource, resetSinceSource }) => {
     const marker = (0, eval)(markerSource);
@@ -630,7 +631,7 @@ const paddings = (page) =>
     ]),
   );
 
-test('a grid pass `from` the first appended block pads exactly what a whole pass pads (A-02)', async () => {
+test('a grid pass `from` the first appended block pads exactly what a whole pass pads', async () => {
   const html = renderCorpus('01-long-technical.md');
   const page = await harness.open(html);
   // Split points: after a code block (an island predecessor), after a table, and after a paragraph.
@@ -662,7 +663,7 @@ test('a grid pass `from` the first appended block pads exactly what a whole pass
   }
 });
 
-test('adopt queues appended paragraphs, and `done` is a new promise that resolves once they are set (A-02)', async () => {
+test('adopt queues appended paragraphs, and `done` is a new promise that resolves once they are set', async () => {
   const page = await harness.open(renderCorpus('15-prose-volume.md'));
   await splitAt(page, 20);
   const r = await page.evaluate(async () => {
@@ -734,7 +735,7 @@ const chunked = (page, k, size) =>
     };
   }, { k, size });
 
-test('a chunk pass does not restart from a padded `pre` above it: the theme padding is not taken for drift (A-02)', async () => {
+test('a chunk pass does not restart from a padded `pre` above it: the theme padding is not taken for drift', async () => {
   const para = (i) => `<p data-marxy-s="${i}" data-marxy-e="${i + 1}">Paragraph ${i}, a line of plain words.</p>`;
   const html = [para(0), para(1), '<pre data-marxy-s="2" data-marxy-e="3"><code>one\ntwo</code></pre>', ...Array.from({ length: 12 }, (_, i) => para(i + 3))].join('');
   // A theme padding and a code line that is not a whole unit, so the pass must add padding of its own.
@@ -767,7 +768,7 @@ test('a chunk pass does not restart from a padded `pre` above it: the theme padd
   await page.close();
 });
 
-test('a chunk pass lays out at most six times: the drift check, the islands and four rounds (A-02)', async () => {
+test('a chunk pass lays out at most six times: the drift check, the islands and four rounds', async () => {
   // Every kind of work a chunk pass does: islands above it to check, islands in it to pad, and blocks
   // no rule pads (13 px) that only a push puts back on the grid.
   const para = (i) => `<p data-marxy-s="${i}" data-marxy-e="${i + 1}">Paragraph ${i}, a line of plain words.</p>`;
@@ -807,8 +808,8 @@ test('a chunk pass lays out at most six times: the drift check, the islands and 
   await page.close();
 });
 
-test('a chunk pass orders nothing by document position, so it does not pay for the blocks above it (B-25)', async () => {
-  // Islands the passes padded and measured above the chunk: before B-25 each was ordered against the
+test('a chunk pass orders nothing by document position, so it does not pay for the blocks above it', async () => {
+  // Islands the passes padded and measured above the chunk: each was once ordered against the
   // chunk with compareDocumentPosition, which WebKit answers by walking the siblings between them.
   const para = (i) => `<p data-marxy-s="${i}" data-marxy-e="${i + 1}">Paragraph ${i}, a line of plain words.</p>`;
   const pre = (i) => `<pre data-marxy-s="${i}" data-marxy-e="${i + 1}"><code>one\ntwo</code></pre>`;
@@ -840,7 +841,39 @@ test('a chunk pass orders nothing by document position, so it does not pay for t
   await page.close();
 });
 
-test('a background batch that leaves every height as it was asks for no grid pass (B-25)', async () => {
+test('margin paragraphs the observer left to the queue are set as they reach the screen, with the idle chunks held', async () => {
+  const html = Array.from({ length: 10 }, () => renderCorpus('01-long-technical.md')).join('\n');
+  const page = await harness.open(html);
+  const r = await page.evaluate(async () => {
+    const doc = document.getElementById('doc');
+    const frames = async (n) => { for (let i = 0; i < n; i++) await new Promise((res) => requestAnimationFrame(res)); };
+    const unsetOnScreen = () => [...doc.querySelectorAll('p[data-marxy-s]')].filter((p) => {
+      const b = p.getBoundingClientRect();
+      return b.bottom > 0 && b.top < innerHeight && b.height > window.lineBox * 1.5 && !p.classList.contains('marxy-set');
+    }).length;
+    // Idle chunks never run: only the first pass and the observers set anything.
+    window.controller = window.typeset.attach(doc, { lineBox: window.lineBox, glueStretchEm: 0.6, lastLineMinWidth: 0.33, scheduler: { schedule() {} } });
+    await window.controller.ready;
+    // A jump: the screen is set in the observer's task, and most of the two screens of margin around it are queued.
+    window.scrollTo(0, document.documentElement.scrollHeight * 0.6);
+    await frames(3);
+    const landed = unsetOnScreen();
+    const queuedAbove = [...doc.querySelectorAll('p[data-marxy-s]')].filter((p) => {
+      const b = p.getBoundingClientRect();
+      return b.bottom < 0 && b.bottom > -2 * innerHeight && b.height > window.lineBox * 1.5 && !p.classList.contains('marxy-set');
+    }).length;
+    // Back up a screen and a half at once.
+    window.scrollBy(0, -1.5 * innerHeight);
+    await frames(2);
+    return { landed, queuedAbove, after: unsetOnScreen() };
+  });
+  assert.equal(r.landed, 0, 'the screen a jump lands on is set');
+  assert.ok(r.queuedAbove > 0, `the observer left ${r.queuedAbove} paragraphs of the margin above to the queue`);
+  assert.equal(r.after, 0, `${r.after} paragraphs on screen are not set two frames after the scroll`);
+  await page.close();
+});
+
+test('a background batch that leaves every height as it was asks for no grid pass', async () => {
   const page = await harness.open(renderCorpus('15-prose-volume.md'), { height: 400 });
   const r = await page.evaluate(async () => {
     const doc = document.getElementById('doc');
@@ -874,7 +907,68 @@ test('a background batch that leaves every height as it was asks for no grid pas
   await page.close();
 });
 
-test('while paragraphs are still being adopted, the background batches wait on a scheduler that can wait (B-25)', async () => {
+test('while the reader scrolls, an idle chunk with almost no time left sets one paragraph, and the chunks end with every paragraph set as one pass sets them', async () => {
+  const page = await harness.open(renderCorpus('15-prose-volume.md'), { height: 400 });
+  const r = await page.evaluate(async () => {
+    const doc = document.getElementById('doc');
+    const opts = { lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: true, lastLineMinWidth: 0.33, hanging: 'left' };
+    const whole = window.typeset.attach(doc, { ...opts, scheduler: window.immediateScheduler() });
+    await whole.done;
+    const once = doc.innerHTML;
+    whole.destroy();
+    const queued = [];
+    const controller = window.typeset.attach(doc, { ...opts, scheduler: { schedule: (work) => queued.push(work) } });
+    await controller.ready;
+    const sizes = [];
+    while (queued.length) {
+      // While the reader is scrolling; an idle reader's chunk takes more than the scheduler offers.
+      window.dispatchEvent(new WheelEvent('wheel', { deltaY: 100 }));
+      const before = doc.querySelectorAll('.marxy-set').length;
+      queued.shift()(() => 0.001);
+      sizes.push(doc.querySelectorAll('.marxy-set').length - before);
+    }
+    await controller.done;
+    return { most: Math.max(...sizes), chunks: sizes.length, same: doc.innerHTML === once };
+  });
+  assert.ok(r.chunks > 5, `the background ran in ${r.chunks} chunks`);
+  assert.equal(r.most, 1, 'a chunk with no time left sets one paragraph');
+  assert.ok(r.same, 'one paragraph a chunk ends where one pass does');
+  await page.close();
+});
+
+test('a paragraph that holds the selection is set in place: the selection keeps its characters, and the breaks are the same', async () => {
+  const page = await harness.open(renderCorpus('15-prose-volume.md'));
+  const r = await page.evaluate(async () => {
+    const doc = document.getElementById('doc');
+    const opts = { lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: true, lastLineMinWidth: 0.33, hanging: 'left', scheduler: window.immediateScheduler() };
+    const first = window.typeset.attach(doc, opts);
+    await first.done;
+    const fresh = doc.innerHTML;
+    first.destroy();
+    // Across the first few long paragraphs, ending inside one of them.
+    const ps = [...doc.querySelectorAll('p[data-marxy-s]')].filter((p) => (p.textContent ?? '').length > 400).slice(0, 3);
+    const range = document.createRange();
+    const startNode = document.createTreeWalker(ps[0], NodeFilter.SHOW_TEXT).nextNode();
+    const endNode = document.createTreeWalker(ps[2], NodeFilter.SHOW_TEXT).nextNode();
+    range.setStart(startNode, 10);
+    range.setEnd(endNode, Math.min(300, endNode.length));
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    // The characters the range holds: rendered text (`toString`) differs between set and native lines by white space alone.
+    const text = () => getSelection().getRangeAt(0).cloneContents().textContent;
+    const selected = text();
+    const second = window.typeset.attach(doc, opts);
+    await second.done;
+    return { selected, after: text(), same: doc.innerHTML === fresh, set: ps.every((p) => p.classList.contains('marxy-set')) };
+  });
+  assert.ok(r.selected.length > 300, 'the selection spans paragraphs');
+  assert.ok(r.set, 'the selected paragraphs are set');
+  assert.equal(r.after, r.selected, 'the selection holds the same characters after setting');
+  assert.ok(r.same, 'set in place or in new nodes, the page is the same');
+  await page.close();
+});
+
+test('while paragraphs are still being adopted, the background batches wait on a scheduler that can wait', async () => {
   const page = await harness.open(renderCorpus('15-prose-volume.md'));
   await splitAt(page, 20);
   const r = await page.evaluate(async () => {
@@ -911,7 +1005,39 @@ test('while paragraphs are still being adopted, the background batches wait on a
   await page.close();
 });
 
-test('setting a whole document makes one Range, not one per paragraph or line (B-25)', async () => {
+test('while the reader is idle a background slice sets more than a busy one, and the first wheel turn makes it small again', async () => {
+  const page = await harness.open(renderCorpus('15-prose-volume.md'));
+  const r = await page.evaluate(async () => {
+    const doc = document.getElementById('doc');
+    const queued = [];
+    // An 8 ms chunk, as the idle scheduler gives.
+    const scheduler = { schedule: (work) => queued.push(work) };
+    let controller = null;
+    const setCount = () => controller.stats.paragraphs;
+    const slice = () => {
+      const before = setCount();
+      queued.shift()(() => 8);
+      return setCount() - before;
+    };
+    controller = window.typeset.attach(doc, {
+      lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: false, lastLineMinWidth: 0.33, hanging: 'none', scheduler,
+    });
+    await controller.ready;
+    const idle = slice();
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 100 }));
+    const busy = [slice(), slice()];
+    await new Promise((res) => setTimeout(res, 450));
+    const idleAgain = slice();
+    controller.destroy();
+    return { idle, busy, idleAgain };
+  });
+  assert.ok(r.idle > Math.max(...r.busy), `an idle slice takes more than a busy slice: ${JSON.stringify(r)}`);
+  assert.ok(r.busy.every((n) => n <= 8), `after the wheel each slice takes what 8 ms holds: ${JSON.stringify(r)}`);
+  assert.ok(r.idleAgain > Math.max(...r.busy), `quiet again, the slices grow: ${JSON.stringify(r)}`);
+  await page.close();
+});
+
+test('setting a whole document makes one Range, not one per paragraph or line', async () => {
   // WebKit visits every Range a script made, until the collector frees it, on every DOM mutation.
   const page = await harness.open(renderCorpus('15-prose-volume.md'));
   const r = await page.evaluate(async () => {
@@ -939,7 +1065,7 @@ test('setting a whole document makes one Range, not one per paragraph or line (B
   await page.close();
 });
 
-// ---- F-80: a grid pass over what changed, and a whole pass in windows --------------------------------------------------------------
+// ---- a grid pass over what changed, and a whole pass in windows --------------------------------------------------------------
 
 /** A page of `groups` paragraphs, each followed by a code block the theme pads oddly and a 13 px block no rule pads. */
 const groupsHtml = (groups) => {
@@ -957,7 +1083,7 @@ const grow = (page, positions) =>
 /** Makes the 13 px block after the code block at `at` 20 px tall: a block that changes height and that no rule pads. */
 const taller = (page, at) => page.evaluate((at) => { document.querySelectorAll('#doc > pre')[at].nextElementSibling.style.height = '20px'; }, at);
 
-test('a pass over the blocks that changed height pads exactly what a whole pass pads, and writes nothing far from them (F-80)', async () => {
+test('a pass over the blocks that changed height pads exactly what a whole pass pads, and writes nothing far from them', async () => {
   const html = groupsHtml(40);
   const changed = [5, 6, 21];
   const a = await harness.open(html, { extraCss: ODD_CSS });
@@ -1003,7 +1129,7 @@ test('a pass over the blocks that changed height pads exactly what a whole pass 
   await b.close();
 });
 
-test('blocks that follow one another are one window, and a pass over them lays out as few times as a chunk pass (F-80)', async () => {
+test('blocks that follow one another are one window, and a pass over them lays out as few times as a chunk pass', async () => {
   const page = await harness.open(groupsHtml(40), { extraCss: ODD_CSS });
   await grow(page, [10, 11, 12]);
   const layouts = await page.evaluate(() => {
@@ -1030,7 +1156,7 @@ test('blocks that follow one another are one window, and a pass over them lays o
   await page.close();
 });
 
-test('a whole pass in windows pads exactly what a whole pass pads, and gives the event loop back between them (F-80)', async () => {
+test('a whole pass in windows pads exactly what a whole pass pads, and gives the event loop back between them', async () => {
   const html = groupsHtml(40);
   const positions = Array.from({ length: 40 }, (_, i) => i);
   const a = await harness.open(html, { extraCss: ODD_CSS });

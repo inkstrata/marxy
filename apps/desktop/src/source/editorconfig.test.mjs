@@ -1,4 +1,4 @@
-// A backslash is part of a folder name on macOS and Linux (C-03.1): .editorconfig is found above `a\b`.
+// A backslash is part of a folder name on macOS and Linux: .editorconfig is found above `a\b`.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

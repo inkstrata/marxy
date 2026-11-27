@@ -1,4 +1,4 @@
-// Standard back/forward keys. The palette is the tab manager; these walk history (ADR-0011).
+// Standard back/forward keys. The palette is the tab manager; these walk history.
 
 export type HistoryDirection = 'back' | 'forward';
 

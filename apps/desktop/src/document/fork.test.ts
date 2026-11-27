@@ -1,4 +1,4 @@
-// *Fork this file* (W-14, F-85), in Node over a fake filesystem that behaves as the real shell does where it matters:
+// *Fork this file*, in Node over a fake filesystem that behaves as the real shell does where it matters:
 // `writeFileNew` is create-only (a file, a folder, a symlink, a dangling symlink and a name differing only by case are all taken, and
 // it fails `exists` and writes nothing), while `writeFileAtomic` replaces what is at the name and writes *through* a symlink (which is
 // why a fork must never call it). Each test says which acceptance line it holds.
@@ -217,7 +217,7 @@ test('every one of the 999 names taken: no write at all, a failure that says why
 });
 
 test('RACE: a creator that makes the fork\'s name between the caller\'s look and the write is not replaced: Fork writes (fork 2) and the creator keeps its bytes', async () => {
-  // The F-85 window: W-14 accepted that a file made at `notes (fork).md` after the last look was replaced. The write is create-only
+  // The window: it is accepted that a file made at `notes (fork).md` after the last look was replaced. The write is create-only
   // now, so the creator wins the name and the fork takes the next one.
   const fs = withOriginal();
   const planted = enc.encode('PLANTED between the look and the write');

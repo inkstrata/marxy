@@ -1,4 +1,4 @@
-// A pane leaves a document while the other pane over it is typing (F-48; D-11; the F-42.1 review). The same
+// A pane leaves a document while the other pane over it is typing. The same
 // file is open in two panes, both in Source. B has typed and A is typing: B's text is folded into the store
 // or the reader is asked about it, whichever way B leaves (the pane closes, Read, another document opened in
 // it, a tab click). The store is busy meanwhile (a queue held, as a slow save's write or a title refresh
@@ -42,12 +42,10 @@ const settle = (page) =>
     }
   });
 
-const radio = (page, label) => page.locator('[role=radiogroup] [role=radio]', { hasText: label });
-
 /** How B leaves. Each starts the leave and does not wait for it: over text it cannot keep it waits for the reader. */
 const WAYS = {
-  // Read, in the toolbar's control (F-44): from Split it closes the right pane. B is the right pane.
-  'Read (toolbar)': { b: 1, start: (page) => radio(page, 'Read').click() },
+  // Read, Mod+1: from Split it closes the right pane. B is the right pane. There is no toolbar control for it.
+  'Read (Mod+1)': { b: 1, start: (page) => page.keyboard.press('ControlOrMeta+1') },
   'close the pane': {
     b: 1,
     start: (page, b) => page.evaluate((slot) => { window.__leaving = window.__marxyHandle.panes().close(window.__marxyHandle.panes().panes[slot]); }, b),
@@ -81,7 +79,8 @@ const WAYS = {
     },
     start: async (page, b) => {
       await focusPane(page, b);
-      await page.click('[data-marxy-tab="/r/T.md"] [role=tab]');
+      // The window's one row of tabs: a press shows the tab in the focused pane; the tab's title starts with its path.
+      await page.click(`.marxy-tabbar .marxy-tab[title^="/r/T.md"] .marxy-tab-open`);
     },
   },
 };
@@ -92,7 +91,7 @@ for (const [name, way] of Object.entries(WAYS)) {
       const page = await browser.newPage({ viewport: { width: 1470, height: 900 } });
       try {
         await bootTwoPanes(page, { files: FILES, open: ['/r/S.md', '/r/S.md'], guard: true });
-        await page.evaluate(() => window.__marxyHandle.workspace().unfold());
+        await page.evaluate(() => window.__marxyHandle.frame().unfold());
         const b = way.b;
         const a = 1 - b;
         await way.prepare?.(page, b);

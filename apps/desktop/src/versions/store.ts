@@ -1,18 +1,18 @@
-// Local versions (V-06, ADR-0072): byte-exact copies of a reader's file, kept as plain files in Marxy's data folder, and the
+// Local versions: byte-exact copies of a reader's file, kept as plain files in Marxy's data folder, and the
 // manifest that names them. Pure over an injected read and write: nothing here knows the shell, the DOM or a document store.
 //
 // THE LAYOUT. One file's versions are `versions-<sha1(path)>.json` (the manifest: the path, and for each version its slot, the
 // time it was kept, its size, its SHA-256 and its reason) and up to 20 slots, `versions-<sha1(path)>-01` to `-20`, each holding one version's
 // bytes exactly. They sit flat in the data folder, beside `index-<sha1>.json`, because `writeFileAtomic` creates no folders (the
-// index snapshot's precedent, `index/service.ts`); ADR-0072's `versions/<hash>/` folder is this, amended.
+// index snapshot's precedent, `index/service.ts`); the `versions/<hash>/` folder is this, amended.
 //
-// THE RULES (ADR-0072 items 2, 3, 5).
+// THE RULES (3, 5).
 // - Identical bytes are kept once: a version whose bytes equal the newest one's adds nothing, and one whose bytes equal an older
 //   one's shares that one's slot (a second entry, no second copy).
 // - At most 20 versions per file, none older than 30 days, 200 MB in all; the oldest is dropped first.
 // - There is no delete (no new `shell-api` capability): a dropped version leaves the manifest first, and then its slot is
 //   overwritten with zero bytes, so no dropped or cleared version's bytes stay readable through the store.
-// - A slot is the version only while it hashes to the manifest's SHA-256 (ADR-0072 amendment 4): a same-size hand edit reads as changed.
+// - A slot is the version only while it hashes to the manifest's SHA-256: a same-size hand edit reads as changed.
 // - A manifest this store cannot read as its own (not JSON, a wrong shape, another file's) is reported, never replaced by
 //   keeping: the file's versions stop until the reader clears them. A newer Marxy's manifest is read and never written.
 // - Every write is atomic (`writeFileAtomic`), and every path written is in the data folder: never beside a reader's file.
@@ -22,16 +22,20 @@ import { isDeniedName } from '@marxy/core/src/index-model/deny.ts';
 import { denyRulesFor } from '@marxy/core/src/index-model/collection.ts';
 import { isIgnored } from '@marxy/core/src/index-model/ignore.ts';
 
-/** At most this many versions of one file (ADR-0072 item 3). */
+/** At most this many versions of one file. */
 export const VERSIONS_PER_FILE = 20;
-/** None older than this (ADR-0072 item 3). */
+/** None older than this. */
 export const VERSIONS_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
-/** Every version's bytes together, across every file (ADR-0072 item 3). */
+/** Every version's bytes together, across every file. */
 export const VERSIONS_TOTAL_BYTES = 200 * 1024 * 1024;
 /** A manifest larger than this is not one Marxy wrote: 20 entries are a few hundred bytes each. */
 export const MANIFEST_MAX_BYTES = 256 * 1024;
 /** The data folder's file names this store owns start with this. */
 export const VERSIONS_PREFIX = 'versions-';
+/** The settings the reader may choose for `perFile` (`version_copies` in config.toml). */
+export const VERSION_COPIES_CHOICES: readonly number[] = [5, 20, 100];
+/** The highest slot number: room for the largest `perFile` and the copies kept for good beyond it. */
+export const VERSIONS_SLOTS_MAX = 999;
 
 /** Why a version was kept, as the manifest and the tab spell it. */
 export type VersionReason = 'read' | 'before save' | 'before reload';
@@ -48,6 +52,8 @@ export interface VersionEntry {
   /** SHA-256 of the bytes, in hex: a slot is the version only while it hashes to this (a same-size hand edit is not). */
   readonly hash: string;
   readonly reason: VersionReason;
+  /** Kept for good: no limit of count, age or size drops it; only the reader's delete or Clear does. */
+  readonly kept?: boolean;
 }
 
 /** A listed version, with what the store found of its bytes: there, gone, or not the bytes the manifest says (another size or another hash). */
@@ -167,7 +173,7 @@ export interface VersionStore {
   /**
    * Keeps `bytes` as a version of `path` for `reason`, within the limits. Never throws: a failure is a result. `cancelled` is asked
    * before each write: once it says yes (the caller gave up waiting) nothing more is written, so a keep that finishes late leaves no
-   * version behind (V-06.1).
+   * version behind.
    */
   keep(path: string, bytes: Uint8Array, reason: VersionReason, cancelled?: () => boolean): Promise<KeepResult>;
   read(path: string, id: number): Promise<ReadResult>;
@@ -175,10 +181,21 @@ export interface VersionStore {
   clear(path: string): Promise<{ readonly cleared: number; readonly error?: unknown }>;
   /** `clear` for every file with versions, including one whose manifest is damaged. */
   clearAll(): Promise<{ readonly files: number; readonly cleared: number; readonly errors: readonly unknown[] }>;
-  /** Drops every version older than 30 days, then the oldest across all files while the total is over 200 MB. */
+  /**
+   * Drops every version older than 30 days, then the oldest across all files while the total is over 200 MB. A slot with bytes
+   * that no readable manifest names (a keep cut short) is emptied; one under a damaged or newer manifest is left alone.
+   */
   sweep(): Promise<{ readonly dropped: number; readonly errors: readonly unknown[] }>;
   /** Every version's bytes together, from the sizes of the slot files. */
   totalBytes(): Promise<number>;
+  /** Marks version `id` of `path` kept for good, or not. False when there is no such version or the manifest is not this store's. */
+  setKept(path: string, id: number, kept: boolean): Promise<boolean>;
+  /** Drops version `id` of `path` as a limit would: the manifest first, then its slot emptied if no other entry shares it. */
+  drop(path: string, id: number): Promise<boolean>;
+  /** Drops, across every file, each version not kept for good that `test` picks. */
+  dropWhere(test: (v: VersionEntry) => boolean): Promise<{ readonly dropped: number; readonly errors: readonly unknown[] }>;
+  /** Every file with versions whose manifest this store reads, with its versions newest first (no slot is read). */
+  listAll(): Promise<readonly { readonly path: string; readonly versions: readonly VersionEntry[] }[]>;
 }
 
 const encoder = new TextEncoder();
@@ -211,9 +228,9 @@ const trimDir = (dir: string): string => dir.replace(/\/+$/, '');
 export const manifestPath = (data: string, key: string): string => `${trimDir(data)}/${VERSIONS_PREFIX}${key}.json`;
 export const slotPath = (data: string, key: string, slot: number): string => `${trimDir(data)}/${VERSIONS_PREFIX}${key}-${String(slot).padStart(2, '0')}`;
 
-/** `versions-<key>-NN` → [key, NN]; `versions-<key>.json` → [key, 0]; anything else null. */
+/** `versions-<key>-NN` (or `-NNN`) → [key, NN]; `versions-<key>.json` → [key, 0]; anything else null. */
 export function ownName(name: string): { readonly key: string; readonly slot: number } | null {
-  const m = /^versions-([0-9a-f]{40})(?:\.json|-(\d{2}))$/.exec(name);
+  const m = /^versions-([0-9a-f]{40})(?:\.json|-(\d{2}|[1-9]\d{2}))$/.exec(name);
   if (!m) return null;
   return { key: m[1]!, slot: m[2] === undefined ? 0 : Number(m[2]) };
 }
@@ -259,13 +276,14 @@ export function parseManifest(bytes: Uint8Array, limits: VersionLimits = VERSION
     if (!isRecord(v)) return { kind: 'damaged', reason: `${where} is not an object` };
     const time = typeof v.time === 'string' ? Date.parse(v.time) : Number.NaN;
     if (!isCount(v.id) || ids.has(v.id) || v.id >= raw.next) return { kind: 'damaged', reason: `${where} has no unique id` };
-    if (!isCount(v.slot) || v.slot < 1 || v.slot > limits.perFile) return { kind: 'damaged', reason: `${where} names no slot` };
+    if (!isCount(v.slot) || v.slot < 1 || v.slot > Math.max(limits.perFile, VERSIONS_SLOTS_MAX)) return { kind: 'damaged', reason: `${where} names no slot` };
     if (!Number.isFinite(time)) return { kind: 'damaged', reason: `${where} has no time` };
     if (!isCount(v.size)) return { kind: 'damaged', reason: `${where} has no size` };
     if (typeof v.hash !== 'string' || !/^[0-9a-f]{64}$/.test(v.hash)) return { kind: 'damaged', reason: `${where} has no hash` };
     if (typeof v.reason !== 'string' || !REASONS.includes(v.reason as VersionReason)) return { kind: 'damaged', reason: `${where} has no reason Marxy knows` };
+    if (v.kept !== undefined && typeof v.kept !== 'boolean') return { kind: 'damaged', reason: `${where} has a "kept" that is not true or false` };
     ids.add(v.id);
-    versions.push({ id: v.id, slot: v.slot, time, size: v.size, hash: v.hash, reason: v.reason as VersionReason });
+    versions.push({ id: v.id, slot: v.slot, time, size: v.size, hash: v.hash, reason: v.reason as VersionReason, ...(v.kept === true ? { kept: true } : {}) });
   }
   // Two entries on one slot must be the same bytes, so the same size and the same hash.
   const held = new Map<number, VersionEntry>();
@@ -290,7 +308,7 @@ export function formatManifest(m: Manifest): Uint8Array {
     path: m.path,
     next: m.next,
     saved: m.saved === null ? null : new Date(m.saved).toISOString(),
-    versions: m.versions.map((v) => ({ id: v.id, slot: v.slot, time: new Date(v.time).toISOString(), size: v.size, hash: v.hash, reason: v.reason })),
+    versions: m.versions.map((v) => ({ id: v.id, slot: v.slot, time: new Date(v.time).toISOString(), size: v.size, hash: v.hash, reason: v.reason, ...(v.kept ? { kept: true } : {}) })),
   };
   return encoder.encode(`${JSON.stringify(body, null, 2)}\n`);
 }
@@ -302,10 +320,13 @@ export interface VersionStoreOptions {
   readonly limits?: VersionLimits;
   /** Asked before every keep: a reason not to keep this file, or null. A refusal writes nothing. */
   readonly policy?: (path: string, bytes: Uint8Array) => Promise<NotKept | null>;
+  /** The reader's copies per file (`version_copies`), asked at each keep after `policy`; `limits.perFile` without it. */
+  readonly perFile?: () => number;
 }
 
 export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {}): VersionStore {
   const limits = opts.limits ?? VERSION_LIMITS;
+  const perFileNow = (): number => Math.max(1, Math.min(VERSIONS_SLOTS_MAX, opts.perFile?.() ?? limits.perFile));
   /** One change at a time across every file: a manifest is read, changed and written without another change between. */
   let queue: Promise<unknown> = Promise.resolve();
   const serially = <T>(fn: () => Promise<T>): Promise<T> => {
@@ -372,10 +393,12 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
     }
   };
 
-  /** Drops what is over the per-file limits from `versions` (oldest first), leaving room for `room` more. */
+  /** Drops what is over the per-file limits from `versions` (oldest first), leaving room for `room` more; one kept for good stays. */
   function withinLimits(versions: readonly VersionEntry[], now: number, room: number): VersionEntry[] {
-    const fresh = versions.filter((v) => now - v.time <= limits.maxAgeMs);
-    return fresh.slice(Math.max(0, fresh.length - (limits.perFile - room)));
+    const fresh = versions.filter((v) => v.kept || now - v.time <= limits.maxAgeMs);
+    const kept = fresh.filter((v) => v.kept).length;
+    let over = fresh.length - kept - Math.max(0, perFileNow() - room - kept);
+    return fresh.filter((v) => v.kept || over-- <= 0);
   }
 
   async function sweepLocked(): Promise<{ dropped: number; errors: unknown[] }> {
@@ -385,10 +408,30 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
     let dropped = 0;
     const files = await ownFiles(data);
     const held: { key: string; manifest: Manifest }[] = [];
+    /**
+     * A slot with bytes that no manifest names: a keep cut short between its slot and its manifest (a close, an abandoned
+     * save copy, a failed write). It is no version and `totalBytes` counts it, so it is emptied here, or a sweep could never
+     * bring the total down.
+     */
+    const emptyUnnamed = async (key: string, slots: ReadonlyMap<number, number>, named: ReadonlySet<number>): Promise<void> => {
+      for (const [slot, size] of slots) {
+        if (size === 0 || named.has(slot)) continue;
+        try {
+          await io.writeFileAtomic(slotPath(data, key, slot), EMPTY);
+        } catch (error) {
+          errors.push(error);
+        }
+      }
+    };
     for (const [key, f] of files) {
-      if (!f.manifest) continue;
+      if (!f.manifest) {
+        await emptyUnnamed(key, f.slots, new Set());
+        continue;
+      }
       const parsed = await readManifest(data, key);
       if (parsed.kind !== 'ok') continue; // reported by the tab for its own file; never rewritten here
+      // The slots dropped below are emptied with their versions; the ones no version named are emptied now.
+      await emptyUnnamed(key, f.slots, slotsOf(parsed.manifest.versions));
       let manifest = parsed.manifest;
       const fresh = withinLimits(manifest.versions, now, 0);
       if (fresh.length !== manifest.versions.length) {
@@ -419,6 +462,7 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
     const after = new Map(held.map((h) => [h.key, h.manifest]));
     for (const { h, v } of all) {
       if (total <= limits.totalBytes) break;
+      if (v.kept) continue;
       const ids = drop.get(h.key) ?? new Set<number>();
       ids.add(v.id);
       drop.set(h.key, ids);
@@ -546,7 +590,7 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
           const used = slotsOf(kept);
           let slot = shared;
           if (slot === null) {
-            for (let s = 1; s <= limits.perFile; s++) {
+            for (let s = 1; s <= VERSIONS_SLOTS_MAX; s++) {
               if (!used.has(s)) {
                 slot = s;
                 break;
@@ -657,5 +701,70 @@ export function createVersionStore(io: VersionsIo, opts: VersionStoreOptions = {
       for (const f of (await ownFiles(data)).values()) for (const size of f.slots.values()) n += size;
       return n;
     },
+
+    setKept(path, id, kept) {
+      return editOne(path, (m) => {
+        if (!m.versions.some((v) => v.id === id)) return null;
+        const plain = (v: VersionEntry): VersionEntry => ({ id: v.id, slot: v.slot, time: v.time, size: v.size, hash: v.hash, reason: v.reason });
+        return { ...m, versions: m.versions.map((v) => (v.id !== id ? v : kept ? { ...v, kept: true } : plain(v))) };
+      });
+    },
+
+    drop(path, id) {
+      return editOne(path, (m) => (m.versions.some((v) => v.id === id) ? { ...m, versions: m.versions.filter((v) => v.id !== id) } : null));
+    },
+
+    dropWhere(test) {
+      return serially(async () => {
+        const errors: unknown[] = [];
+        let dropped = 0;
+        try {
+          const data = await io.dataDir();
+          for (const [key, f] of await ownFiles(data)) {
+            if (!f.manifest) continue;
+            const parsed = await readManifest(data, key);
+            if (parsed.kind !== 'ok') continue;
+            const before = parsed.manifest;
+            const next = { ...before, versions: before.versions.filter((v) => v.kept || !test(v)) };
+            if (next.versions.length === before.versions.length) continue;
+            try {
+              await commitDrop(data, key, before, next);
+              dropped += before.versions.length - next.versions.length;
+            } catch (error) {
+              errors.push(error);
+            }
+          }
+        } catch (error) {
+          errors.push(error);
+        }
+        return { dropped, errors };
+      });
+    },
+
+    async listAll() {
+      const data = await io.dataDir();
+      const out: { path: string; versions: VersionEntry[] }[] = [];
+      for (const [key, f] of await ownFiles(data)) {
+        if (!f.manifest) continue;
+        const parsed = await readManifest(data, key);
+        if (parsed.kind !== 'ok' || parsed.manifest.path === '' || parsed.manifest.versions.length === 0) continue;
+        out.push({ path: parsed.manifest.path, versions: [...parsed.manifest.versions].reverse() });
+      }
+      return out.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+    },
   };
+
+  /** One file's manifest changed by `change` (null: nothing to change), under the store's one-at-a-time rule. */
+  function editOne(path: string, change: (m: Manifest) => Manifest | null): Promise<boolean> {
+    return serially(async () => {
+      const data = await io.dataDir();
+      const key = await versionsKey(path);
+      const parsed = await readManifest(data, key);
+      if (parsed.kind !== 'ok' || parsed.manifest.path !== path) return false;
+      const next = change(parsed.manifest);
+      if (next === null) return false;
+      await commitDrop(data, key, parsed.manifest, next);
+      return true;
+    });
+  }
 }

@@ -1,0 +1,17 @@
+﻿(node:27376) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ attaching to a long article makes about as many layout reads as to a short one: the viewport is found by bisection (3545.4307ms)
+✔ on a page scrolled to the middle the screen is set first, and the queue runs outward from it by place in the document (1748.1142ms)
+✔ destroy with discard writes nothing and leaves the set page as it is, and nothing queued runs after it (2073.9533ms)
+✔ destroy without an option restores the article exactly (2596.7058ms)
+✔ a visible pass that leaves every height as it was does not announce itself (1477.09ms)
+✔ a visible pass that changes heights announces itself with the paragraphs it set (1974.5363ms)
+✔ the kill switch is read once for a batch that writes markers, and not at all to adopt paragraphs (1817.1627ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17242.9436

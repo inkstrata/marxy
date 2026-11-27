@@ -1,14 +1,14 @@
-// results/perf.json is updated by two test processes at once under `pnpm test` (G-01.1).
+// results/perf.json is updated by two test processes at once under `pnpm test`.
 import { strict as assert } from 'node:assert';
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
 import { readRecord, updateRecord } from './perf-record.mjs';
 
-const helper = fileURLToPath(new URL('./perf-record.mjs', import.meta.url));
+// A file URL: a bare Windows path is not an importable specifier.
+const helper = new URL('./perf-record.mjs', import.meta.url).href;
 
 test('a missing, empty, truncated or non-object file reads as an empty record', () => {
   const dir = mkdtempSync(join(tmpdir(), 'marxy-perf-'));
@@ -34,7 +34,7 @@ test('update keeps the keys it does not set and leaves no temp file behind', () 
 // Two processes, each updating its own key 150 times while a third loop reads the file the way
 // palette.test.mjs used to (a bare JSON.parse). Without the atomic write the reader throws on a
 // truncated file. A lost update between the writers is acceptable and not asserted.
-test('concurrent writers never expose a partial file', async () => {
+test('concurrent writers never expose a partial file', { timeout: 60_000 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), 'marxy-perf-'));
   const path = join(dir, 'perf.json');
   mkdirSync(dir, { recursive: true });
@@ -60,9 +60,12 @@ test('concurrent writers never expose a partial file', async () => {
       await new Promise((resolve) => setImmediate(resolve));
     }
   })();
-  await Promise.all([child('a'), child('b')]);
-  done = true;
-  await reader;
+  try {
+    await Promise.all([child('a'), child('b')]);
+  } finally {
+    done = true;
+    await reader;
+  }
   assert.deepEqual(failures, [], 'a reader saw a partial file');
   assert.ok(reads > 0, 'the reader never got a read in');
   JSON.parse(readFileSync(path, 'utf8'));

@@ -1,0 +1,20 @@
+verify-turn: slot b, watch-ignore, pnpm verify --tier changed --from browser (2026-11-25T18:48:55-08:00)
+$ node scripts/verify.mjs "--tier" "changed" "--from" "browser"
+verify changed in C:\Dev\reader\worktrees\watch-ignore
+17 files changed against master; unit suites: desktop, core; browser files: 25; rust changed
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\watch-ignore-2026-11-26T02-48-56
+
+verify: holding place 2 of 2 (--no-lock skips it)
+
+PASS    browser        266.2s    254 pass, 0 fail
+PASS    cargo          24.6s     642 pass, 0 fail, 6 skip
+
+step     result  wall    tests
+-------  ------  ------  ------------------------
+browser  pass    266.2s  254 pass, 0 fail
+cargo    pass    24.6s   642 pass, 0 fail, 6 skip
+-------  ------  ------  ------------------------
+total            290.7s
+
+verify changed: 2/2 steps passed
+verify-turn: exit 0 (2026-11-25T18:53:47-08:00)

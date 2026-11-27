@@ -1,4 +1,4 @@
-// Helpers shared by operations that put HTML on the clipboard (moved from copy-section, MARXY-230).
+// Helpers shared by operations that put HTML on the clipboard (moved from copy-section).
 import type { Document } from '../contracts/ast.ts';
 import type { OperationInput } from '../contracts/operation.ts';
 import { parseMarkdown } from '../parse/parse.ts';
@@ -12,7 +12,7 @@ import { parseMarkdown } from '../parse/parse.ts';
 export function sectionOf(input: OperationInput): Document {
   const { document, range } = input;
   const inside = document.children.filter((block) => block.src.start >= range.start && block.src.end <= range.end);
-  // A block that is not inside must lie wholly outside; testing the range again, not `inside.includes`, keeps this one pass (F-58).
+  // A block that is not inside must lie wholly outside; testing the range again, not `inside.includes`, keeps this one pass.
   const covered = inside.length > 0 && document.children.every(
     (block) => (block.src.start >= range.start && block.src.end <= range.end) || block.src.end <= range.start || block.src.start >= range.end,
   );
@@ -22,7 +22,7 @@ export function sectionOf(input: OperationInput): Document {
 
 const PROVENANCE_ATTR = /^data-marxy-/i;
 
-/** Drops renderer provenance attributes from tag openers only, never from text nodes (MARXY-230). */
+/** Drops renderer provenance attributes from tag openers only, never from text nodes. */
 export function stripRendererProvenance(html: string): string {
   const parts: string[] = [];
   let index = 0;

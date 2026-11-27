@@ -1,4 +1,4 @@
-// MARXY-26: resolve a local image against the image root and report blocked hosts (core, no shell).
+// resolve a local image against the image root and report blocked hosts (core, no shell).
 
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
@@ -50,7 +50,7 @@ const PNG_1X1 = Uint8Array.from(
   (c) => c.charCodeAt(0),
 );
 
-test('criterion 1: 10-hostile.md reports two example.invalid images and one host; data: contributes none', () => {
+test('10-hostile.md reports two example.invalid images and one host; data: contributes none', () => {
   const source = readFileSync(new URL('10-hostile.md', corpus), 'utf8');
   const { removed, blockedImages } = renderSafeHtml(source, { file: '10-hostile.md' });
   assert.deepEqual(blockedImagesFrom(removed), blockedImages);
@@ -76,14 +76,14 @@ test('criterion 1: 10-hostile.md reports two example.invalid images and one host
   assert.ok(blockedImages.every((image) => !image.url.startsWith('data:')));
 });
 
-test('criterion 2: /assets/logo.png from docs/README.md resolves against the image root', () => {
+test('/assets/logo.png from docs/README.md resolves against the image root', () => {
   assert.deepEqual(resolveImageSrc('/assets/logo.png', { documentDir: '/repo/docs', imageRoot: '/repo' }), {
     kind: 'local',
     path: '/repo/assets/logo.png',
   });
 });
 
-test('criterion 2: image.png and ../x.png resolve against the document directory, not the root', () => {
+test('image.png and ../x.png resolve against the document directory, not the root', () => {
   const relative = resolveImageSrc('image.png', { documentDir: '/repo/fixtures/corpus', imageRoot: '/repo' });
   assert.deepEqual(relative, { kind: 'local', path: '/repo/fixtures/corpus/image.png' });
   assert.notDeepEqual(relative, { kind: 'local', path: '/repo/image.png' });
@@ -93,25 +93,25 @@ test('criterion 2: image.png and ../x.png resolve against the document directory
   });
 });
 
-test('criterion 2: ../../etc/x.png is refused with a reason, not a path', () => {
+test('../../etc/x.png is refused with a reason, not a path', () => {
   assertRefusal(resolveImageSrc('../../etc/x.png', { documentDir: '/repo/docs', imageRoot: '/repo' }));
   assert.equal(collapsePath('/repo/docs/../../etc/x.png'), '/etc/x.png');
 });
 
-test('criterion 2: a Windows drive letter is refused with a reason, not a path', () => {
+test('a Windows drive letter is refused with a reason, not a path', () => {
   assertRefusal(resolveImageSrc('C:/Windows/x.png', { documentDir: '/repo/docs', imageRoot: '/repo' }));
   assertRefusal(resolveImageSrc('D:\\secret.png', { documentDir: 'C:/repo/docs', imageRoot: 'C:/repo' }));
   assert.equal(collapsePath('C:/foo/../..'), null);
 });
 
-test('criterion 2: .. at the image root is refused; collapsePath returns null', () => {
+test('.. at the image root is refused; collapsePath returns null', () => {
   assert.equal(collapsePath('/..'), null);
   assert.equal(collapsePath('C:/..'), null);
   assertRefusal(resolveImageSrc('..', { documentDir: '/repo', imageRoot: '/repo' }));
   assertRefusal(resolveImageSrc('../x.png', { documentDir: '/repo', imageRoot: '/repo' }));
 });
 
-test('criterion 3: 1200x400 at 640px reserves measure width and nearest-integer height', () => {
+test('1200x400 at 640px reserves measure width and nearest-integer height', () => {
   // Wider than the measure: width becomes the measure; height is Math.round((h * measure) / w).
   // 400 * 640 / 1200 = 213.3… → 213 (nearest integer; ties round toward +∞).
   assert.deepEqual(reserveImageBox({ width: 1200, height: 400 }, 640), {
@@ -121,12 +121,12 @@ test('criterion 3: 1200x400 at 640px reserves measure width and nearest-integer 
   assert.equal(reserveImageBox({ width: 1200, height: 400 }, 640).height, 213);
 });
 
-test('criterion 3: a source that already fits the measure is returned unchanged', () => {
+test('a source that already fits the measure is returned unchanged', () => {
   const fits: ImageSize = { width: 320, height: 200 };
   assert.equal(reserveImageBox(fits, 640), fits);
 });
 
-test('criterion 3: a non-positive width, height or measure returns the input untouched', () => {
+test('a non-positive width, height or measure returns the input untouched', () => {
   const zeroW: ImageSize = { width: 0, height: 400 };
   const zeroH: ImageSize = { width: 1200, height: 0 };
   const neg: ImageSize = { width: 1200, height: -1 };
@@ -138,7 +138,7 @@ test('criterion 3: a non-positive width, height or measure returns the input unt
   assert.equal(reserveImageBox(ok, -10), ok);
 });
 
-test('criterion 4: a throwing assetUrl is not called for ../../etc/x.png or https:', () => {
+test('a throwing assetUrl is not called for ../../etc/x.png or https:', () => {
   assert.deepEqual(
     presentLocalImage('../../etc/x.png', {
       documentDir: '/repo/docs',
@@ -162,7 +162,7 @@ test('criterion 4: a throwing assetUrl is not called for ../../etc/x.png or http
   }
 });
 
-test('criterion 4: a recorder sees reserve precede the single assetUrl call for a local source', () => {
+test('a recorder sees reserve precede the single assetUrl call for a local source', () => {
   const order: string[] = [];
   const size: ImageSize = {
     get width() {
@@ -187,7 +187,7 @@ test('criterion 4: a recorder sees reserve precede the single assetUrl call for 
   assert.deepEqual(presented, { kind: 'ready', src: 'asset:/repo/docs/diagram.png', width: 640, height: 213 });
 });
 
-test('criterion 5: blockedImageNoticeText names each host once with a count; empty list is empty', () => {
+test('blockedImageNoticeText names each host once with a count; empty list is empty', () => {
   assert.equal(blockedImageNoticeText([]), '');
   const twoOnOne = [
     { host: 'example.invalid', url: 'https://example.invalid/remote.png' },
@@ -199,7 +199,7 @@ test('criterion 5: blockedImageNoticeText names each host once with a count; emp
   assert.match(notice, /2 /);
 });
 
-test('B-09.1: blockedImageNoticeText is the clause plus a full stop; an IDN host shows both forms', () => {
+test('blockedImageNoticeText is the clause plus a full stop; an IDN host shows both forms', () => {
   const images = [
     { host: 'img.shields.io', url: 'https://img.shields.io/a.svg' },
     { host: 'xn--pple-43d.com', url: 'https://xn--pple-43d.com/a.png' },
@@ -212,7 +212,7 @@ test('B-09.1: blockedImageNoticeText is the clause plus a full stop; an IDN host
   assert.equal(displayBlockedHost('example.com'), 'example.com');
 });
 
-test('criterion 5: rendered 10-hostile.md HTML contains no blocked-image host and no notice text', () => {
+test('rendered 10-hostile.md HTML contains no blocked-image host and no notice text', () => {
   const source = readFileSync(new URL('10-hostile.md', corpus), 'utf8');
   const { html, blockedImages } = renderSafeHtml(source, { file: '10-hostile.md' });
   const notice = blockedImageNoticeText(blockedImages);
@@ -228,29 +228,29 @@ test('criterion 5: rendered 10-hostile.md HTML contains no blocked-image host an
   }
 });
 
-test('criterion 6: this story\'s tests do not read apps/ or assert over another package\'s source', () => {
+test('these tests do not read apps/ or assert over another package\'s source', () => {
   const self = readFileSync(new URL('images.test.ts', renderDir), 'utf8');
   assert.doesNotMatch(self, /readFileSync\([\s\S]{0,400}?apps\//);
   assert.doesNotMatch(self, /assert\.match\(\s*(?:src|tauri|memory)\s*,/);
 });
 
-test('criterion 7: imageSizeFromBytes reads a PNG header', () => {
+test('imageSizeFromBytes reads a PNG header', () => {
   assert.deepEqual(imageSizeFromBytes(PNG_1X1), { width: 1, height: 1 });
 });
 
-test('criterion 7: imageSizeFromBytes reads a GIF header', () => {
+test('imageSizeFromBytes reads a GIF header', () => {
   const gif = Uint8Array.from([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 16, 0, 8, 0]);
   assert.deepEqual(imageSizeFromBytes(gif), { width: 16, height: 8 });
 });
 
-test('criterion 7: imageSizeFromBytes reads a JPEG SOF header', () => {
+test('imageSizeFromBytes reads a JPEG SOF header', () => {
   const jpeg = Uint8Array.from([
     0xff, 0xd8, 0xff, 0xc0, 0x00, 0x0b, 0x08, 0x00, 0x64, 0x00, 0xc8, 0x01, 0x01, 0x00, 0x00,
   ]);
   assert.deepEqual(imageSizeFromBytes(jpeg), { width: 200, height: 100 });
 });
 
-test('criterion 7: imageSizeFromBytes reads a WebP VP8 header', () => {
+test('imageSizeFromBytes reads a WebP VP8 header', () => {
   const webp = new Uint8Array(30);
   webp.set([0x52, 0x49, 0x46, 0x46], 0);
   webp.set([0x57, 0x45, 0x42, 0x50], 8);
@@ -262,13 +262,13 @@ test('criterion 7: imageSizeFromBytes reads a WebP VP8 header', () => {
   assert.deepEqual(imageSizeFromBytes(webp), { width: 32, height: 16 });
 });
 
-test('criterion 7: imageSizeFromBytes returns null for a truncated header and a non-image', () => {
+test('imageSizeFromBytes returns null for a truncated header and a non-image', () => {
   const truncatedPng = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00]);
   assert.equal(imageSizeFromBytes(truncatedPng), null);
   assert.equal(imageSizeFromBytes(Uint8Array.from([0, 1, 2, 3, 4])), null);
 });
 
-// MARXY-337: the path is percent-decoded and loses its ?query and #fragment, without losing the root.
+// the path is percent-decoded and loses its ?query and #fragment, without losing the root.
 test('resolveImageSrc decodes percent-escapes and drops ?query and #fragment', () => {
   const opts = { documentDir: '/repo/docs', imageRoot: '/repo' };
   assert.deepEqual(resolveImageSrc('my%20pic.png', opts), { kind: 'local', path: '/repo/docs/my pic.png' });
@@ -289,4 +289,52 @@ test('resolveImageSrc still refuses a traversal hidden by percent-encoding', () 
 test('resolveImageSrc reads a backslash in an image reference as a separator (Windows-authored docs)', () => {
   const ctx = { documentDir: '/repo/docs/sub', imageRoot: '/repo' };
   assert.deepEqual(resolveImageSrc('..\\img.png', ctx), resolveImageSrc('../img.png', ctx));
+});
+
+const svgBytes = (root: string): Uint8Array => new TextEncoder().encode(root);
+
+test('imageSizeFromBytes reads an SVG root: width and height, viewBox only, units, percentages', () => {
+  assert.deepEqual(imageSizeFromBytes(svgBytes('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"></svg>')), { width: 120, height: 80 });
+  assert.deepEqual(imageSizeFromBytes(svgBytes('<svg viewBox="0 0 200 100">')), { width: 200, height: 100 });
+  assert.deepEqual(imageSizeFromBytes(svgBytes('<svg width="1in" height="3pt">')), { width: 96, height: 4 });
+  assert.deepEqual(imageSizeFromBytes(svgBytes('<svg width="100%" height="100%" viewBox="0 0 40 20">')), { width: 40, height: 20 });
+  assert.deepEqual(imageSizeFromBytes(svgBytes('<svg width="100" viewBox="0 0 50 25">')), { width: 100, height: 50 });
+  assert.deepEqual(imageSizeFromBytes(svgBytes('<?xml version="1.0"?><!-- <svg width="1" height="1"> --><svg width="30" height="20"><svg width="5" height="5"/></svg>')), { width: 30, height: 20 });
+});
+
+test('imageSizeFromBytes returns null for an SVG that names no size, and for children that do', () => {
+  assert.equal(imageSizeFromBytes(svgBytes('<svg xmlns="http://www.w3.org/2000/svg"></svg>')), null);
+  assert.equal(imageSizeFromBytes(svgBytes('<svg><rect width="9" height="9"/></svg>')), null);
+  assert.equal(imageSizeFromBytes(svgBytes('<svg width="100%" height="100%">')), null);
+});
+
+test('a share keeps its server and share: collapsePath no longer reads //server/share as /server/share', () => {
+  assert.equal(collapsePath('//server/share/notes/img.png'), '//server/share/notes/img.png');
+  assert.equal(collapsePath(String.raw`\\server\share\notes\..\img.png`), '//server/share/img.png');
+  assert.equal(collapsePath('//server/share'), '//server/share');
+  assert.equal(collapsePath('//server/share/..'), null, 'a .. cannot climb out of the share');
+  assert.equal(collapsePath('//server/share/a/../../x'), null);
+  assert.deepEqual(resolveImageSrc('../img/a.png', { documentDir: '//server/share/notes', imageRoot: '//server/share' }), {
+    kind: 'local',
+    path: '//server/share/img/a.png',
+  });
+  assertRefusal(resolveImageSrc('../../a.png', { documentDir: '//server/share/notes', imageRoot: '//server/share/notes' }));
+});
+
+test('a long path keeps its //?/ prefix, for a drive and for a share', () => {
+  assert.equal(collapsePath('//?/C:/deep/folder/img.png'), '//?/C:/deep/folder/img.png');
+  assert.equal(collapsePath(String.raw`\\?\C:\deep\..\img.png`), '//?/C:/img.png');
+  assert.equal(collapsePath('//?/C:/'), '//?/C:/');
+  assert.equal(collapsePath('//?/C:/..'), null);
+  assert.equal(collapsePath('//?/UNC/server/share/a/../b.png'), '//?/UNC/server/share/b.png');
+  assert.equal(collapsePath('//?/UNC/server/share/..'), null);
+  assert.deepEqual(resolveImageSrc('img/a.png', { documentDir: '//?/C:/deep', imageRoot: '//?/C:/deep' }), {
+    kind: 'local',
+    path: '//?/C:/deep/img/a.png',
+  });
+  assert.deepEqual(resolveImageSrc('deep/a.png', { documentDir: '//?/C:/', imageRoot: '//?/C:/' }), {
+    kind: 'local',
+    path: '//?/C:/deep/a.png',
+  });
+  assertRefusal(resolveImageSrc('../a.png', { documentDir: '//?/C:/deep', imageRoot: '//?/C:/deep' }));
 });

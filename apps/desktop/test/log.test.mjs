@@ -1,8 +1,10 @@
-// A log in Read (K-08): it opens as Read, the level word is weight 700 and the timestamp the comment colour, an ERROR line
-// carries a rule, ESC is shown as a picture and copied as the byte, and the level filter hides lines by level, says how
-// many it hides, and shows them again on a click. WebKit, over the shipped skeleton and the memory shell, as
-// transcript.test.mjs runs. The last test opens a log of tens of megabytes and records the time to first text and to a
-// filtered page (commitment 5); the numbers are printed, and what is asserted is that first text does not wait.
+// A log in Read: it opens as Read, as the log page (the time of day and the level in columns of their
+// own, a heading with the day and the zone, a pause marked, an escape code hidden and its colour drawn in the theme's tone, with the fold saying so),
+// all of it drawn over the file's text, so a copy is the bytes; and the level filter hides lines by level, says how many it
+// hides, and shows them again on a click. WebKit, over the shipped skeleton and the memory shell, as
+// transcript.test.mjs runs. The last tests open a log just under the size from which a log is read as lines (whose own
+// tests are reading-lines.test.mjs) and record the time to first text and to a filtered page (commitment 5); the numbers
+// are printed, and what is asserted is that first text does not wait.
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
@@ -19,6 +21,8 @@ after(() => closeHarness());
 
 const fixture = readFileSync(new URL('../../../fixtures/corpus/35-build.log', import.meta.url), 'utf8');
 const fixtureLines = fixture.replace(/\n$/, '').split('\n');
+/** The demo's build log: the shots are of it (pauses, an escape code, a stack trace). */
+const steps = readFileSync(new URL('../../../fixtures/demo/logs/build-2026-10-14.log', import.meta.url), 'utf8');
 const files = {
   '/r/build.log': fixture,
   '/r/headed.log': `# Release 4\n\n## Notes\n${fixture}`,
@@ -146,17 +150,33 @@ test('a .log opens in Read with no heading painted from a # line in any frame, a
     assert.equal(seen.editor, false, 'Source is not what opened');
   }, { sample: true }));
 
-test('the level word is weight 700 and the colour of its line, the timestamp is the comment colour, frames are present and unfolded', () =>
+test('the log page: the time of day in a column of its own, the level in another, WARN and ERROR weight 700 in the strong ink, INFO faint; frames present and unfolded under the message', () =>
   withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/build.log'] });
     await coloured(page);
     const seen = await page.evaluate(() => {
       const css = (el) => getComputedStyle(el);
-      const probe = document.createElement('i');
-      probe.style.color = 'var(--marxy-tok-comment)';
-      document.querySelector('#doc').append(probe);
-      const comment = css(probe).color;
-      probe.remove();
+      const ink = (token) => {
+        const probe = document.createElement('i');
+        probe.style.color = `var(${token})`;
+        document.querySelector('#doc').append(probe);
+        const colour = css(probe).color;
+        probe.remove();
+        return colour;
+      };
+      /** Where a line's own text starts on screen, past its leading spaces. */
+      const textLeft = (line) => {
+        const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+          const at = node.data.search(/\S/);
+          if (at < 0 || node.parentElement.closest('.marxy-log-time, .marxy-log-space, .marxy-log-level')) continue;
+          const r = document.createRange();
+          r.setStart(node, at);
+          r.setEnd(node, at + 1);
+          return r.getBoundingClientRect().left;
+        }
+        return NaN;
+      };
       const error = [...document.querySelectorAll('#doc .marxy-log-level')].find((el) => el.textContent === 'ERROR');
       const line = error.closest('.marxy-line');
       const time = line.querySelector('.marxy-log-time');
@@ -170,15 +190,22 @@ test('the level word is weight 700 and the colour of its line, the timestamp is 
         weight: css(error).fontWeight,
         bodyWeight: css(line).fontWeight,
         infoWeight: css(info).fontWeight,
+        infoColour: css(info).color,
+        faint: ink('--marxy-color-text-faint'),
+        strong: ink('--marxy-color-text-strong'),
+        comment: ink('--marxy-tok-comment'),
         errorColour: css(error).color,
         lineColour: css(line).color,
         timeColour: css(time).color,
         timeStyle: css(time).fontStyle,
-        comment,
-        rule: css(line).borderInlineStartColor,
+        timeShown: time.dataset.marxyShown,
+        timeText: time.textContent,
+        timeSize: css(time).fontSize,
+        timeRight: time.getBoundingClientRect().right,
+        levelLeft: error.getBoundingClientRect().left,
+        messageLeft: textLeft(line),
+        frameLeft: textLeft(lines[at + 1]),
         ruleWidth: css(line).borderInlineStartWidth,
-        frameRule: css(lines[at + 1]).borderInlineStartColor,
-        plainRule: css(lines[0]).borderInlineStartColor,
         frames: lines.slice(at + 1, at + 4).map((l) => ({ text: l.textContent, shown: l.getClientRects().length > 0 })),
         size: body.fontSize,
         lineHeight: body.lineHeight,
@@ -190,15 +217,20 @@ test('the level word is weight 700 and the colour of its line, the timestamp is 
     const expectedWeight = String(700 + Number(seen.offset));
     assert.equal(seen.weight, expectedWeight, `the ERROR word is weight 700 (+ offset ${seen.offset})`);
     assert.ok(Number(seen.bodyWeight) < Number(seen.weight), `against ${seen.bodyWeight} for the line`);
-    assert.equal(seen.infoWeight, expectedWeight, 'every level word, not only the errors');
-    assert.equal(seen.errorColour, seen.lineColour, 'the level is weight, not a hue');
-    assert.equal(seen.timeColour, seen.comment, 'the timestamp is in the comment colour');
+    assert.equal(seen.infoWeight, seen.bodyWeight, 'INFO is the line\'s weight');
+    assert.equal(seen.infoColour, seen.faint, 'in the faint ink');
+    assert.equal(seen.errorColour, seen.strong, 'ERROR is weight and the strong ink, not a hue');
+    assert.equal(seen.lineColour, seen.strong, 'and so is its entry');
+    assert.equal(seen.timeColour, seen.comment, 'the time is in the comment colour');
     assert.notEqual(seen.timeStyle, 'italic');
+    assert.equal(seen.timeText, '2026-10-12T09:30:09.870Z', 'the timestamp is the file\'s text');
+    assert.equal(seen.timeShown, '09:30:09.870', 'the time of day is what is drawn');
+    assert.equal(seen.timeSize, '0px', 'the rest of it is text at no size');
+    assert.ok(seen.timeRight <= seen.levelLeft, `the time stands left of the level (${seen.timeRight} against ${seen.levelLeft})`);
+    assert.ok(seen.messageLeft > seen.levelLeft, 'the message after the level');
+    assert.ok(seen.frameLeft > seen.messageLeft, `a frame sits under the message, indented (${seen.frameLeft} against ${seen.messageLeft})`);
     assert.equal(seen.levelTimes, fixtureLines.filter((l) => /^\d{4}-/.test(l)).length, 'a timestamp on every head');
-    assert.equal(seen.ruleWidth, '2px');
-    assert.notEqual(seen.rule, 'rgba(0, 0, 0, 0)', 'the ERROR line carries a rule');
-    assert.equal(seen.frameRule, seen.rule, 'and so do the frames that continue it');
-    assert.equal(seen.plainRule, 'rgba(0, 0, 0, 0)', 'a line below ERROR has none');
+    assert.equal(seen.ruleWidth, '0px', 'no rule: the entry\'s ink marks it');
     assert.deepEqual(seen.frames.map((f) => f.text.trim()), ['at parseReading (src/loader/readings.ts:88:41)', 'at loadGauge (src/loader/gauges.ts:140:12)', 'at async refresh (src/loader/index.ts:57:5)']);
     assert.ok(seen.frames.every((f) => f.shown), 'the stack frames are present and shown');
     assert.equal(seen.folded, 0, 'nothing is folded');
@@ -206,36 +238,174 @@ test('the level word is weight 700 and the colour of its line, the timestamp is 
     assert.equal(seen.lineHeight, '24px', 'on 24');
   }));
 
-test('ESC is shown as a picture in the comment colour, never interpreted; a copy of Read is the file, ESC bytes and all', () =>
+test('a log named .txt reads as the log it is: Read, the log page, its levels counted, and a $ in it is text, not maths', () =>
+  withPage(async (page) => {
+    const api = [
+      '2026-11-19T08:10:00.000Z INFO api: listening on :8443 (workers=8)',
+      '2026-11-19T08:10:02.220Z WARN db: slow query (1,204 ms): select * from readings where station_id = $1 order by taken_at desc',
+      '2026-11-19T08:10:02.590Z INFO api: GET /v2/gauges/0417 200 10 ms',
+      '2026-11-19T08:10:03.700Z ERROR ingest: gauge 0417 sent a reading out of range: $14.92 m',
+      '    at ingest::validate (ingest/validate.rs:88)',
+      '',
+    ].join('\n');
+    await bootTwoPanes(page, { files: { '/r/api-2026-11-19.txt': api }, open: ['/r/api-2026-11-19.txt'] });
+    await coloured(page);
+    const seen = await page.evaluate(() => ({
+      mode: window.__marxyHandle.panes().focused.view.mode,
+      kind: document.querySelector('section.marxy-pane').getAttribute('data-marxy-kind'),
+      pieces: document.querySelectorAll('#doc pre.language-log.marxy-run').length,
+      maths: document.querySelectorAll('#doc .marxy-math, #doc .marxy-math-inline, #doc math').length,
+      paragraphs: document.querySelectorAll('#doc p:not(.marxy-log-day)').length,
+      ranks: [...document.querySelectorAll('#doc pre.language-log .marxy-line')].map((l) => l.getAttribute('data-marxy-rank')),
+      text: [...document.querySelectorAll('#doc pre.language-log > code')].map((c) => c.textContent).join(''),
+    }));
+    assert.equal(seen.mode, 'rendered', 'it opens in Read');
+    assert.equal(seen.kind, 'log');
+    assert.ok(seen.pieces >= 1, 'it is the log page');
+    assert.equal(seen.maths, 0, 'nothing between two $ is set as maths');
+    assert.equal(seen.paragraphs, 0, 'no line is joined into a paragraph');
+    assert.deepEqual(seen.ranks.slice(0, 5), ['1', '2', '1', '3', null], 'each entry ranked; the frame is no entry of its own');
+    assert.ok(seen.text.includes('station_id = $1 order by'), 'the $ is the file\'s text');
+  }));
+
+test('the shapes Windows and the servers write are entries of the log page: a time in its column, a level, a status inside its line', () =>
+  withPage(async (page) => {
+    const access = [
+      '203.0.113.7 - - [10/Oct/2024:13:55:36 +0000] "GET /v2/tides HTTP/1.1" 200 157 "-" "curl/8.4.0"',
+      '203.0.113.7 - - [10/Oct/2024:13:55:52 +0000] "GET /v2/gauges HTTP/1.1" 404 12 "-" "curl/8.4.0"',
+      '203.0.113.7 - - [10/Oct/2024:13:55:53 +0000] "POST /v2/readings HTTP/1.1" 502 157 "-" "curl/8.4.0"',
+      '',
+    ].join('\n');
+    const cbs = [
+      '2024-01-15 10:23:45, Info                  CBS    Starting TrustedInstaller initialization.',
+      '2024-01-15 10:23:46, Warning               CBS    Failed to get session package state',
+      '2024-01-15 10:23:47, Error                 CSI    00000007 (F) Hydration failed',
+      '',
+    ].join('\r\n');
+    const dotnet = ['info: Microsoft.Hosting.Lifetime[14]', '      Now listening on: http://localhost:5000', 'warn: Tides.Gauges[3]', '      Gauge 0417 is slow', 'fail: Tides.Ingest[9]', '      Reading out of range', ''].join('\n');
+    await bootTwoPanes(page, { files: { '/r/access.log': access, '/r/CBS.log': cbs, '/r/console.txt': dotnet }, open: ['/r/access.log'] });
+    const lines = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('#doc pre.language-log .marxy-line')].map((l) => ({
+          rank: l.getAttribute('data-marxy-rank'),
+          shown: l.querySelector('.marxy-log-time')?.dataset.marxyShown ?? null,
+          level: l.querySelector('.marxy-log-level')?.textContent ?? null,
+          inline: l.querySelector('.marxy-log-level')?.classList.contains('marxy-log-inline') ?? false,
+          gap: l.getAttribute('data-marxy-gap'),
+        })),
+      );
+    await coloured(page);
+    const web = await lines();
+    assert.deepEqual(web.map((l) => [l.rank, l.shown, l.level, l.inline]), [
+      ['1', '13:55:36', '200', true], ['2', '13:55:52', '404', true], ['3', '13:55:53', '502', true],
+    ]);
+    assert.equal(web[1].gap, '+16 s', 'a pause is measured across the access log\'s own times');
+    await open(page, '/r/CBS.log');
+    await coloured(page);
+    assert.deepEqual((await lines()).map((l) => [l.rank, l.shown, l.level]), [['1', '10:23:45', 'Info'], ['2', '10:23:46', 'Warning'], ['3', '10:23:47', 'Error']]);
+    await open(page, '/r/console.txt');
+    await coloured(page);
+    assert.equal(await page.evaluate(() => document.querySelector('section.marxy-pane').getAttribute('data-marxy-kind')), 'log', '.NET\'s console in a .txt is a log by its shape');
+    assert.deepEqual((await lines()).map((l) => [l.rank, l.level]), [['1', 'info'], [null, null], ['2', 'warn'], [null, null], ['3', 'fail'], [null, null]]);
+  }));
+
+test('the log page: a heading says the day and the zone the file writes, a pause before a slow step is marked, and neither is text of the page', () =>
+  withPage(async (page) => {
+    await bootTwoPanes(page, { files: { ...files, '/r/steps.log': steps }, open: ['/r/steps.log'] });
+    await coloured(page);
+    await page.evaluate(PAGE_HELPERS);
+    const seen = await page.evaluate(() => {
+      const heading = document.querySelector('#doc .marxy-log-day');
+      const pauses = [...document.querySelectorAll('#doc .marxy-line[data-marxy-gap]')];
+      const line = pauses[0];
+      return {
+        day: heading?.dataset.marxyDay,
+        times: heading?.dataset.marxyTimes,
+        drawn: heading ? getComputedStyle(heading, '::after').content : '',
+        headingText: heading?.textContent,
+        beforePre: heading?.nextElementSibling?.matches('pre.language-log'),
+        pauses: pauses.map((l) => [l.querySelector('.marxy-log-time').dataset.marxyShown, l.dataset.marxyGap]),
+        pauseDrawn: line ? getComputedStyle(line, '::before').content : '',
+        pauseRow: line ? line.querySelector('.marxy-log-level').getBoundingClientRect().top - line.getBoundingClientRect().top : 0,
+        lineHeight: line ? parseFloat(getComputedStyle(line).lineHeight) : 0,
+        text: window.__shownLines(),
+      };
+    });
+    assert.equal(seen.day, 'Wednesday, 14 October 2026');
+    assert.equal(seen.times, 'times are UTC, as the file writes them (Z)');
+    assert.ok(seen.drawn.includes('times are UTC'), `the heading draws its words (${seen.drawn})`);
+    assert.equal(seen.headingText, '', 'the heading holds no text of its own: find and a copy do not meet it');
+    assert.equal(seen.beforePre, true, 'it stands over the log');
+    assert.deepEqual(seen.pauses, [['16:02:48.017', '+36 s'], ['16:03:02.733', '+15 s'], ['16:03:09.118', '+6 s'], ['16:03:15.554', '+6 s']]);
+    assert.equal(seen.pauseDrawn, '"+36 s"');
+    assert.equal(seen.pauseRow, seen.lineHeight, 'a pause is a row of its own');
+    assert.deepEqual(seen.text, steps.replace(/\n$/, '').split('\n'), 'the page\'s text is the file\'s lines');
+    // Log times in your zone: the same page, its times and its heading drawn in the reader's zone, and back.
+    const zoned = await page.evaluate(async () => {
+      const { setLogZone } = await import('/src/proposals/log-zone.ts');
+      const article = window.__marxyHandle.panes().focused.article;
+      setLogZone(article, true);
+      const time = document.querySelector('#doc .marxy-log-time');
+      const d = new Date(Date.parse(time.textContent));
+      const two = (n) => String(n).padStart(2, '0');
+      const out = {
+        shown: time.dataset.marxyShown,
+        local: `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, '0')}`,
+        times: document.querySelector('#doc .marxy-log-day').dataset.marxyTimes,
+        text: window.__shownLines(),
+      };
+      setLogZone(article, false);
+      return { ...out, back: time.dataset.marxyShown };
+    });
+    assert.equal(zoned.shown, zoned.local, 'in your zone, the time of day is the same instant where you are');
+    assert.match(zoned.times, /^times shown in your zone, UTC.*; the file writes them in UTC, and Source keeps them so$/);
+    assert.deepEqual(zoned.text, seen.text, 'and the page\'s text is still the file\'s');
+    assert.equal(zoned.back, '16:02:11.402', 'as written again');
+  }));
+
+test('an escape code is hidden and never run: what it colours takes the theme\'s tone, the fold says so, and a copy of Read is the file, ESC bytes and all', () =>
   withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/build.log'] });
     await coloured(page);
     const seen = await page.evaluate(() => {
-      const marks = [...document.querySelectorAll('#doc .marxy-invisible-esc')];
+      const css = (el, pseudo) => getComputedStyle(el, pseudo);
       const probe = document.createElement('i');
-      probe.style.color = 'var(--marxy-tok-comment)';
+      probe.style.color = 'var(--marxy-color-status-warn)';
       document.querySelector('#doc').append(probe);
-      const comment = getComputedStyle(probe).color;
+      const warn = css(probe).color;
       probe.remove();
-      const glyph = marks[0].querySelector('.marxy-invisible-glyph');
+      const codes = [...document.querySelectorAll('#doc .marxy-log-esc')];
+      const tone = document.querySelector('#doc .marxy-ansi-warn');
       return {
-        count: marks.length,
-        labels: marks.map((m) => m.querySelector('.marxy-invisible-glyph').textContent),
-        colour: getComputedStyle(glyph).color,
-        comment,
-        visible: glyph.getClientRects().length > 0,
-        // `[33m` is ordinary text after the picture: the sequence was not run.
-        around: marks[0].parentElement.textContent.includes('[33mslow frame'),
-        bold: [...document.querySelectorAll('#doc [style]')].length,
+        bytes: document.querySelectorAll('#doc .marxy-invisible-esc').length,
+        codes: codes.map((c) => {
+          const copy = c.cloneNode(true);
+          for (const g of copy.querySelectorAll('.marxy-invisible-glyph')) g.remove();
+          return copy.textContent.replace('\u001b', 'ESC');
+        }),
+        drawn: codes.map((c) => css(c, '::before').content),
+        size: css(codes[0]).fontSize,
+        wide: codes.map((c) => c.getBoundingClientRect().width),
+        tone: tone?.textContent,
+        toneColour: tone ? css(tone).color : '',
+        warn,
+        notes: document.querySelectorAll('#doc .marxy-line[data-marxy-esc]').length,
+        fold: [...document.querySelectorAll('#doc .marxy-log-account .marxy-account-body p')].map((p) => p.textContent),
       };
     });
-    assert.equal(seen.count, 4, 'four ESC bytes in the file, four marks');
-    assert.deepEqual(seen.labels, ['␛', '␛', '␛', '␛']);
-    assert.equal(seen.colour, seen.comment);
-    assert.ok(seen.visible);
-    assert.ok(seen.around, 'the rest of the sequence is text');
+    assert.equal(seen.bytes, 4, 'four ESC bytes in the file, each still in the text');
+    assert.deepEqual(seen.codes, ['ESC[33m', 'ESC[0m', 'ESC[2K', 'ESC[0m'], 'each sequence is the page\'s text, as the file has it');
+    assert.deepEqual(seen.drawn, ['none', 'none', 'none', 'none'], 'no ESC box is drawn');
+    assert.equal(seen.size, '0px', 'its parameters at no size: the sequence is neither run nor shown as text');
+    assert.ok(seen.wide.every((w) => w < 1), 'and takes no room');
+    assert.equal(seen.tone, 'slow frame');
+    assert.equal(seen.toneColour, seen.warn, 'yellow is the theme\'s warning tone');
+    assert.equal(seen.notes, 0, 'no line under the entry');
+    assert.match(seen.fold[0], /^The file colours text with escape codes\./);
+    assert.ok(seen.fold[0].endsWith('here yellow as the warning tone.'), seen.fold[0]);
+    assert.ok(seen.fold.some((l) => l.startsWith('It also asks the terminal for clearing the line.')), 'a non-SGR code is named, not run');
     const key = await modifier(page);
-    await page.locator('#doc pre').first().click();
+    await page.locator('#doc .marxy-line:visible').first().click();
     await page.keyboard.press(`${key}+KeyA`);
     await page.keyboard.press(`${key}+KeyC`);
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
@@ -279,7 +449,7 @@ test('Filter by level: Warn leaves the WARN and ERROR lines with their frames, a
     assert.equal(await page.evaluate(() => window.__marxyHandle.document().snapshot().buffer.text), fixture);
   }));
 
-test('the click on a level answers at once: the menu is closed and the choice marked in the frame it was made in, and no slice of the work has run (K-08.1)', () =>
+test('the click on a level answers at once: the menu is closed and the choice marked in the frame it was made in, and no slice of the work has run', () =>
   withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/build.log'] });
     await coloured(page);
@@ -322,7 +492,7 @@ test('the click on a level answers at once: the menu is closed and the choice ma
     assert.deepEqual(await page.evaluate(() => window.__shownLines()), keptLines(fixtureLines, 2).map((i) => fixtureLines[i]), 'the work still happens, and ends as it did');
   }));
 
-test('a line over the highlighter cap shows its own text once, in order, and the next line shows its timestamp once; a copy of the filtered log is the file\'s lines (K-08.1)', () =>
+test('a line over the highlighter cap shows its own text once, in order, and the next line shows its timestamp once; a copy of the filtered log is the file\'s lines', () =>
   withPage(async (page) => {
     const stampOf = (i) => `2026-10-12T09:00:${String(i).padStart(2, '0')}.000Z`;
     const long = `${stampOf(1)} INFO  long ${'a1b2'.repeat(375)} end`;
@@ -430,7 +600,7 @@ test('copying a filtered log takes the lines shown, each as the file has it, and
     await coloured(page);
     await chooseLevel(page, 'warn');
     const key = await modifier(page);
-    await page.locator('#doc pre').first().click();
+    await page.locator('#doc .marxy-line:visible').first().click();
     await page.keyboard.press(`${key}+KeyA`);
     await page.keyboard.press(`${key}+KeyC`);
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'clipboardWriteItem'));
@@ -541,7 +711,7 @@ test('an entry keeps all its continuation lines, however many: the page and the 
     assert.equal(seen.ruleOnLast, true, 'the last frame carries the error rule');
   }));
 
-test('log4j and Laravel levels are read: the level word is bold, the filter works on them', () =>
+test('log4j and Laravel levels are read: ERROR is bold and the others at the line\'s weight, the filter works on them', () =>
   withPage(async (page) => {
     const log4j = [
       '2026-10-12 12:00:00,123 [main] INFO  com.example.App - starting',
@@ -561,7 +731,10 @@ test('log4j and Laravel levels are read: the level word is bold, the filter work
     await coloured(page);
     const levels = () => page.evaluate(() => [...document.querySelectorAll('#doc .marxy-log-level')].map((l) => [l.textContent, getComputedStyle(l).fontWeight]));
     assert.deepEqual((await levels()).map((l) => l[0]), ['INFO', 'ERROR', 'DEBUG']);
-    assert.ok((await levels()).every((l) => l[1] === '700'));
+    const offset = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--marxy-weight-offset').trim());
+    const weights = (await levels()).map((l) => Number(l[1]));
+    assert.equal(weights[1], 700 + Number(offset), 'ERROR is weight 700');
+    assert.ok(weights[0] < weights[1] && weights[2] < weights[1], `INFO and DEBUG are not (${weights})`);
     await chooseLevel(page, 'error');
     assert.deepEqual(await page.evaluate(() => window.__shownLines()), log4j.split('\n').slice(1, 3));
     await open(page, '/r/laravel.log');
@@ -591,16 +764,16 @@ test('a log with no level words cannot be filtered, and says so: the tool is off
     assert.equal(seen.why, 'No level words found in this log');
     assert.ok(seen.notices.some((t) => t.startsWith('No level words found in this log · nothing moved · ')), JSON.stringify(seen.notices));
     assert.ok(!seen.notices.some((t) => t.includes('No ERROR line')), 'it does not say there is no ERROR line');
-    // The strip draws it off, with the reason as its title.
-    await page.evaluate(() => window.__marxyHandle.workspace().unfold());
-    await page.waitForSelector('[data-tool="filter-by-level"]');
-    const button = await page.evaluate(() => { const b = document.querySelector('[data-tool="filter-by-level"]'); return { disabled: b.getAttribute('aria-disabled'), title: b.title }; });
-    assert.equal(button.disabled, 'true');
-    assert.equal(button.title, 'Filter by level: No level words found in this log');
-    // A log that has them is on again.
+    // A log that has them is on again. (The strip that drew the tool off went with the frame; the command is the tool.)
     await open(page, '/r/build.log');
     await page.waitForSelector('#doc pre.language-log');
-    await page.waitForFunction(() => document.querySelector('[data-tool="filter-by-level"]')?.getAttribute('aria-disabled') === null);
+    await page.waitForFunction(async () => {
+      const { buildAppContext } = await import('/src/selection/bind.ts');
+      const handle = window.__marxyHandle;
+      const ctx = buildAppContext(handle);
+      const filter = handle.commands().find((c) => c.id === 'log.filter-level');
+      return filter.when(ctx) === true && filter.unavailable(ctx) === null;
+    });
   }));
 
 test('a file that changes on disk while a level is being set: the notice when it is done counts the new file', () =>
@@ -640,7 +813,7 @@ test('a file that changes on disk while a level is being set: the notice when it
     assert.deepEqual(notices, [`Warn and above · 30,000 lines of ${total.toLocaleString('en-US')} hidden · the file is unchanged`], 'the numbers are the new file\'s');
   }));
 
-// ---- commitment 5: a log of tens of megabytes -------------------------------------------------------------------------------
+// ---- commitment 5: a log of megabytes, just under the lines tier ------------------------------------------------------------
 
 /** A log of about `mb` megabytes made in the page (a base64 argument that size would be the test's own cost). */
 const LARGE_SOURCE = `
@@ -697,9 +870,9 @@ async function bootLarge(page, mb) {
   }, mb);
 }
 
-test(`a log of ${process.env.MARXY_LOG_MB ?? 20} MB: first text does not wait for the last chunk, and a filter is the whole file's: the notice, the page, a copy and the end of the log agree`, () =>
+test(`a log of ${process.env.MARXY_LOG_MB ?? 4.5} MB: first text does not wait for the last chunk, and a filter is the whole file's: the notice, the page, a copy and the end of the log agree`, () =>
   withPage(async (page) => {
-    const mb = Number(process.env.MARXY_LOG_MB ?? 20);
+    const mb = Number(process.env.MARXY_LOG_MB ?? 4.5);
     const size = await bootLarge(page, mb);
     await page.waitForFunction(() => window.__firstText !== null, null, { timeout: 120_000 });
     const first = await page.evaluate(() => ({ at: window.__firstText, pieces: window.__piecesAtFirstText, total: window.__marxyHandle.panes().focused.view.document().ast.children.length }));
@@ -747,8 +920,8 @@ test(`a log of ${process.env.MARXY_LOG_MB ?? 20} MB: first text does not wait fo
     });
     console.log(`# log ${mb} MB filtered to Warn: first filtered screen ${timing.firstScreen.toFixed(0)} ms, every piece of the file ${timing.applied.toFixed(0)} ms, in ${timing.slices} slices, the widest ${(timing.widest * 100).toFixed(1)}% of the file, longest main-thread block ${timing.worst.toFixed(0)} ms ${JSON.stringify(timing.blocks)}`);
     assert.ok(timing.runs > 0);
-    // Slicing is asserted structurally, not by the clock (ADR-0032: a slow machine must not fail a check). The wall-clock hold
-    // (`longest main-thread block`, printed above) is a record for the nightly run to read, never a bound.
+    // Slicing is asserted structurally, not by the clock (a slow machine must not fail a check). The wall-clock hold
+    // (`longest main-thread block`, printed above) is a record for a person to read, never a bound.
     assert.ok(timing.slices >= 5, `the filter ran in ${timing.slices} slices; a file this size is worked through in many`);
     assert.ok(timing.widest < 0.5, `one slice presented ${(timing.widest * 100).toFixed(0)}% of the file; each is a bounded share`);
     await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent.startsWith('Warn and above')), null, { timeout: 120_000 });
@@ -861,7 +1034,7 @@ test('a filter chosen while the log is still being put on the page filters every
 
 test('while a level is being set the page stays live: a pill says how far, nothing unfiltered is drawn, a copy says it must wait, and Esc shows every line', () =>
   withPage(async (page) => {
-    await bootLarge(page, 10);
+    await bootLarge(page, 4.5);
     await page.waitForFunction(() => window.__complete !== null, null, { timeout: 120_000 });
     await page.evaluate(PAGE_HELPERS);
     await page.evaluate(async () => {
@@ -887,7 +1060,7 @@ test('while a level is being set the page stays live: a pill says how far, nothi
     // The filter is held after a few slices, until the page is released below: the steps that follow ask what a page says
     // *while* a level is being set, and a fast machine finishes ten megabytes of filtering between two of them. When it did,
     // the page was a few thousand pixels shorter under the click's scroll, which in WebKit left the page at its foot and the
-    // click's point off screen (F-91.1).
+    // click's point off screen.
     await page.evaluate(() => {
       const raf = window.requestAnimationFrame.bind(window);
       const held = [];
@@ -907,7 +1080,7 @@ test('while a level is being set the page stays live: a pill says how far, nothi
     const key = await modifier(page);
     // The selection is made in the page: select-all follows the focus, and while the pill is up a click near the top of a
     // log that is millions of pixels tall can leave it on the pill's words, and Playwright's own scroll to that click can
-    // leave its point off screen (F-91.1). What is asked here is what a copy of the log's text says.
+    // leave its point off screen. What is asked here is what a copy of the log's text says.
     await page.evaluate(() => getSelection().selectAllChildren(document.querySelector('#doc')));
     await page.keyboard.press(`${key}+KeyC`);
     await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent.startsWith('Still filtering this log · nothing was copied')), null, { timeout: 10_000 });

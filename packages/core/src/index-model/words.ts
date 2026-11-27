@@ -1,5 +1,5 @@
-// The one word counter (F-86). The status bar, the library's `words:` filter (`measureText`) and the Outline's words per
-// section all count through `createWordCounter`, so they cannot disagree.
+// The one word counter. The status bar, the palette's preview and the Outline's words per
+// section all count through it, so they cannot disagree.
 //
 // What a word is. A run of text between spaces that holds a letter or a number is one word. A run that holds a character of
 // a script written without spaces (Chinese, Japanese, Thai) is cut by the system's word breaker (`Intl.Segmenter`,
@@ -16,7 +16,7 @@
 // Streaming: `feed` takes the text in any pieces and the count is the same however it was cut. `done` ends it (call it once, at the end); `count` reads the same number
 // part-way without ending it.
 // No DOM, no Node built-ins.
-import { fileTypeOf } from './file-types.ts';
+import { fileTypeOf } from '../kind/registry.ts';
 
 export interface WordCounter {
   feed(chunk: string): void;

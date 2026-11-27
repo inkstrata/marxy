@@ -1,4 +1,4 @@
-// Each pane its own mode (D-11): `Mod+E` toggles the focused pane only, Source is a CodeMirror inside its
+// Each pane its own mode: `Mod+E` toggles the focused pane only, Source is a CodeMirror inside its
 // pane, a source file opens in Source in whichever pane it opens in, and Source text reaches the other view
 // of the same document when focus leaves the editor (folded into the store, one history entry). Text typed
 // in a Source pane is never lost to what the other pane does. Booted on the shipped skeleton and CSS
@@ -85,6 +85,15 @@ async function typeInRightSource(page, mod, typed) {
 
 test('Mod+E with the right pane focused makes only the right pane Source; the body mirrors the focused pane', async () => {
   await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
+    // The typesetter sets each page again at its pane's width after boot, and holds the reader's block while it does
+    // (rendered-view.ts holdAnchor): "untouched" is measured once the left page has stopped changing.
+    let html = '';
+    for (let i = 0; i < 40; i++) {
+      const now = await page.evaluate(() => window.__marxyHandle.panes().panes[0].article.innerHTML);
+      if (now === html) break;
+      html = now;
+      await page.waitForTimeout(250);
+    }
     // The left pane scrolled away from the top, so "untouched" means something.
     await page.evaluate(() => {
       const left = window.__marxyHandle.panes().panes[0];
@@ -141,8 +150,13 @@ test('the right pane\'s Source is absolutely placed inside its pane, and its edi
   });
 });
 
-test('lib.rs opened beside a README is in Source with no Mod+E; the README stays Rendered and focused', async () => {
+test('lib.rs opened beside a README lands in Read as its code, its Source one switch away in that pane; the README stays Rendered and focused', async () => {
   await withPanes(['/r/README.md', '/r/lib.rs'], async (page) => {
+    await page.waitForFunction(() => document.querySelector('#doc-2 pre code'));
+    assert.deepEqual(await modes(page), { panes: ['rendered', 'rendered'], body: 'rendered' });
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().focused.slot), 0);
+    assert.equal(await page.evaluate(() => document.getElementById('doc-2').hidden), false);
+    await page.evaluate(() => window.__marxyHandle.panes().panes[1].view.setMode('source'));
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[1]?.view.mode === 'source');
     assert.deepEqual(await modes(page), { panes: ['rendered', 'source'], body: 'rendered' });
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().focused.slot), 0);
@@ -234,7 +248,7 @@ test('closing the left pane keeps the right pane\'s Source text: it is folded in
   });
 });
 
-test('the same file twice: a reload from disk keeps the Source pane\'s typed text, and the store keeps the bytes it had (D-10)', async () => {
+test('the same file twice: a reload from disk keeps the Source pane\'s typed text, and the store keeps the bytes it had', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
     await typeInRightSource(page, mod, 'Qz');
     // Still focused in the editor: nothing folded yet.
@@ -283,7 +297,7 @@ test('a right pane scrolled in Source comes back to Rendered at the line on its 
       const { activeSourceEditor } = await import('/src/source/editor.ts');
       const mount = document.getElementById('marxy-source-2');
       const view = activeSourceEditor(mount).view;
-      // The reader scrolls the editor's own scroller (inside the frame's bars, V-05), as CodeMirror's own scrolling does: a
+      // The reader scrolls the editor's own scroller (inside the frame's bars), as CodeMirror's own scrolling does: a
       // programmatic jump of `scrollTop` is corrected by CodeMirror's scroll anchoring, a scroll effect is not. The line goes
       // onto the pane's reading line (40 % down the pane, in window coordinates).
       const pane = mount.parentElement;
@@ -481,7 +495,7 @@ async function typeAtLineEnd(page, slot, line, typed) {
   await page.keyboard.type(typed);
 }
 
-test('a pane opening a file the other pane holds unfolded in Source folds the holder first: both panes\' typing survives (C2)', async () => {
+test('a pane opening a file the other pane holds unfolded in Source folds the holder first: both panes\' typing survives', async () => {
   await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
     await openOverUnfolded(page, mod, '/r/L.md', [[1, 'R1'], [6, 'R6']], [[3, 'LEFT3']]);
     const want = files['/r/L.md'].replace('line1 hello world', 'line1 hello worldR1').replace('line6 hello world', 'line6 hello worldR6').replace('line3 hello world', 'line3 hello worldLEFT3');
@@ -491,7 +505,7 @@ test('a pane opening a file the other pane holds unfolded in Source folds the ho
   });
 });
 
-test('the same route in an 80-line file: no typed text moves to another line (C9)', async () => {
+test('the same route in an 80-line file: no typed text moves to another line', async () => {
   await withPanes(['/r/A.md', '/r/B.md'], async (page, mod) => {
     await openOverUnfolded(page, mod, '/r/mid.md', [[40, 'RIGHT']], [[2, 'L'], [78, 'L']]);
     const want = files['/r/mid.md'].split('\n');

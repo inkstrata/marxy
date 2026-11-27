@@ -1,0 +1,36 @@
+verify-turn: slot b, drop-floor, pnpm verify --tier changed (2026-11-25T18:41:14-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\drop-floor
+2 files changed against master; unit suites: desktop; browser files: 12
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\drop-floor-2026-11-26T02-41-15
+
+PASS    install        0.6s      
+PASS    typecheck      20.8s     
+PASS    lint           3.3s      
+PASS    check          18.9s     10 pass, 0 fail
+PASS    golden         2.9s      
+PASS    fidelity       23.8s     
+PASS    licences       1.6s      
+verify: holding place 2 of 2 (--no-lock skips it)
+
+PASS    unit-desktop   70.1s     1258 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 117.3s    44 pass, 0 fail, 1 skip
+PASS    browser        190.4s    76 pass, 0 fail
+
+step                  result  wall    tests
+--------------------  ------  ------  -------------------------
+install               pass    0.6s
+typecheck             pass    20.8s
+lint                  pass    3.3s
+check                 pass    18.9s   10 pass, 0 fail
+golden                pass    2.9s
+fidelity              pass    23.8s
+licences              pass    1.6s
+unit-desktop          pass    70.1s   1258 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    117.3s  44 pass, 0 fail, 1 skip
+browser               pass    190.4s  76 pass, 0 fail
+--------------------  ------  ------  -------------------------
+total                         449.7s
+
+verify changed: 10/10 steps passed
+verify-turn: exit 0 (2026-11-25T18:48:45-08:00)

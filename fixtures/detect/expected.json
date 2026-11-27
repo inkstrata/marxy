@@ -1,0 +1,551 @@
+{
+  "$comment": "Each fixture, the signals the shell gives for its head (src-tauri/src/detect.rs), and the registry row and reading they land on (packages/core/src/kind/content.test.ts).",
+  "files": {
+    "image.png": {
+      "detect": {
+        "class": "binary",
+        "format": "png"
+      },
+      "row": "image",
+      "reading": "binary"
+    },
+    "photo.jpg": {
+      "detect": {
+        "class": "binary",
+        "format": "jpg"
+      },
+      "row": "image",
+      "reading": "binary"
+    },
+    "picture": {
+      "detect": {
+        "class": "binary",
+        "format": "gif"
+      },
+      "row": "image",
+      "reading": "binary"
+    },
+    "logo.txt": {
+      "detect": {
+        "class": "binary",
+        "format": "png"
+      },
+      "row": "image",
+      "reading": "binary"
+    },
+    "notes.md": {
+      "detect": {
+        "class": "binary",
+        "format": "zip"
+      },
+      "row": "archive",
+      "reading": "binary"
+    },
+    "clip.ts": {
+      "detect": {
+        "class": "binary",
+        "format": "mpeg-ts"
+      },
+      "row": "video",
+      "reading": "binary"
+    },
+    "manual.pdf": {
+      "detect": {
+        "class": "binary",
+        "format": "pdf"
+      },
+      "row": "pdf",
+      "reading": "binary"
+    },
+    "report": {
+      "detect": {
+        "class": "binary",
+        "format": "pdf"
+      },
+      "row": "pdf",
+      "reading": "binary"
+    },
+    "archive.gz": {
+      "detect": {
+        "class": "binary",
+        "format": "gz"
+      },
+      "row": "archive",
+      "reading": "binary"
+    },
+    "setup.exe": {
+      "detect": {
+        "class": "binary",
+        "format": "exe"
+      },
+      "row": "program",
+      "reading": "binary"
+    },
+    "libfoo.so": {
+      "detect": {
+        "class": "binary",
+        "format": "elf"
+      },
+      "row": "executable",
+      "reading": "binary"
+    },
+    "data.bin": {
+      "detect": {
+        "class": "binary"
+      },
+      "row": "executable",
+      "reading": "binary"
+    },
+    "blob": {
+      "detect": {
+        "class": "binary"
+      },
+      "row": "binary",
+      "reading": "binary"
+    },
+    "song.mp3": {
+      "detect": {
+        "class": "binary",
+        "format": "mp3"
+      },
+      "row": "audio",
+      "reading": "binary"
+    },
+    "shortcut": {
+      "detect": {
+        "class": "binary",
+        "format": "lnk"
+      },
+      "row": "shortcut",
+      "reading": "binary"
+    },
+    "font.woff2": {
+      "detect": {
+        "class": "binary",
+        "format": "woff2"
+      },
+      "row": "font",
+      "reading": "binary"
+    },
+    "module.wasm": {
+      "detect": {
+        "class": "binary",
+        "format": "wasm"
+      },
+      "row": "executable",
+      "reading": "binary"
+    },
+    "Main.class": {
+      "detect": {
+        "class": "binary",
+        "format": "class"
+      },
+      "row": "executable",
+      "reading": "binary"
+    },
+    "store.sqlite": {
+      "detect": {
+        "class": "binary",
+        "format": "sqlite"
+      },
+      "row": "database",
+      "reading": "binary"
+    },
+    "favicon.ico": {
+      "detect": {
+        "class": "binary",
+        "format": "ico"
+      },
+      "row": "image",
+      "reading": "binary"
+    },
+    "script.sh": {
+      "detect": {
+        "class": "binary"
+      },
+      "row": "binary",
+      "reading": "binary"
+    },
+    "bom.txt": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8-bom"
+      },
+      "row": "text",
+      "reading": "prose"
+    },
+    "utf16le.txt": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-16le"
+      },
+      "row": "text",
+      "reading": "prose"
+    },
+    "utf16be.txt": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-16be"
+      },
+      "row": "text",
+      "reading": "prose"
+    },
+    "utf16-plain": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-16le"
+      },
+      "row": "unknown",
+      "reading": "plain"
+    },
+    "latin1.txt": {
+      "detect": {
+        "class": "text",
+        "encoding": "8-bit"
+      },
+      "row": "text",
+      "reading": "prose"
+    },
+    "empty.md": {
+      "detect": {
+        "class": "empty"
+      },
+      "row": "markdown",
+      "reading": "page"
+    },
+    "empty": {
+      "detect": {
+        "class": "empty"
+      },
+      "row": "unknown",
+      "reading": "plain"
+    },
+    "bom.py": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8-bom"
+      },
+      "row": "python",
+      "reading": "code"
+    },
+    "deploy": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "python3"
+      },
+      "row": "python",
+      "reading": "code"
+    },
+    "run": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "bash"
+      },
+      "row": "shellscript",
+      "reading": "code"
+    },
+    "serve": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "node"
+      },
+      "row": "javascript",
+      "reading": "code"
+    },
+    "tool": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "deno"
+      },
+      "row": "typescript",
+      "reading": "code"
+    },
+    "build": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "ruby"
+      },
+      "row": "ruby",
+      "reading": "code"
+    },
+    "cleanup": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "perl"
+      },
+      "row": "perl",
+      "reading": "code"
+    },
+    "start": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "sh"
+      },
+      "row": "shellscript",
+      "reading": "code"
+    },
+    "task.txt": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "python"
+      },
+      "row": "python",
+      "reading": "code"
+    },
+    "setup": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "zsh"
+      },
+      "row": "shellscript",
+      "reading": "code"
+    },
+    "release": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "pwsh"
+      },
+      "row": "powershell",
+      "reading": "code"
+    },
+    "game": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "lua"
+      },
+      "row": "lua",
+      "reading": "code"
+    },
+    "cron": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "php"
+      },
+      "row": "php",
+      "reading": "code"
+    },
+    "plot": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "rscript"
+      },
+      "row": "r",
+      "reading": "code"
+    },
+    "hello.py": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "python3"
+      },
+      "row": "python",
+      "reading": "code"
+    },
+    "weird": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "shebang": "frobnicate"
+      },
+      "row": "unknown",
+      "reading": "plain"
+    },
+    "config": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "modeline": "python"
+      },
+      "row": "python",
+      "reading": "code"
+    },
+    "rules": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "modeline": "sh"
+      },
+      "row": "shellscript",
+      "reading": "code"
+    },
+    "header.h": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "modeline": "c++"
+      },
+      "row": "cpp",
+      "reading": "code"
+    },
+    "notes.txt": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "modeline": "markdown"
+      },
+      "row": "markdown",
+      "reading": "page"
+    },
+    "site.conf": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "modeline": "yaml"
+      },
+      "row": "yaml",
+      "reading": "tree"
+    },
+    "rules.inc": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "modeline": "makefile"
+      },
+      "row": "make",
+      "reading": "code"
+    },
+    "objc.h": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "lang": "objective-c"
+      },
+      "row": "objective-c",
+      "reading": "code"
+    },
+    "widget.h": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "lang": "cpp"
+      },
+      "row": "cpp",
+      "reading": "code"
+    },
+    "plain.h": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8"
+      },
+      "row": "c",
+      "reading": "code"
+    },
+    "view.m": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "lang": "objective-c"
+      },
+      "row": "objective-c",
+      "reading": "code"
+    },
+    "solve.m": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "lang": "matlab"
+      },
+      "row": "matlab",
+      "reading": "code"
+    },
+    "script.pl": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "lang": "perl"
+      },
+      "row": "perl",
+      "reading": "code"
+    },
+    "facts.pl": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "lang": "prolog"
+      },
+      "row": "prolog",
+      "reading": "code"
+    },
+    "app.ts": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8"
+      },
+      "row": "typescript",
+      "reading": "code"
+    },
+    "feed": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "lang": "xml"
+      },
+      "row": "xml",
+      "reading": "tree"
+    },
+    "page": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "lang": "html"
+      },
+      "row": "html",
+      "reading": "page"
+    },
+    "payload": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "lang": "json"
+      },
+      "row": "json",
+      "reading": "tree"
+    },
+    "change": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8",
+        "lang": "diff"
+      },
+      "row": "diff",
+      "reading": "code"
+    },
+    "README": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8"
+      },
+      "row": "text-readme",
+      "reading": "prose"
+    },
+    "LICENSE": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8"
+      },
+      "row": "text-authors",
+      "reading": "prose"
+    },
+    "data.csv": {
+      "detect": {
+        "class": "text",
+        "encoding": "utf-8"
+      },
+      "row": "csv",
+      "reading": "table"
+    }
+  }
+}

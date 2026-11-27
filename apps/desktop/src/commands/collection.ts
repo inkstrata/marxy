@@ -1,9 +1,9 @@
-// Two palette commands for the reader's collection (C-14, ADR-0053): add the open document's folder
-// to collection.toml, and open collection.toml in Source. No dialog, no settings pane, no key.
+// Palette commands for the reader's collection: add the open document's folder, or one chosen
+// in the system's picker (the Library's Add a folder…), to collection.toml, and open collection.toml in Source.
 import { appendRoot, COLLECTION_TEMPLATE } from '@marxy/core/src/index-model/collection.ts';
-import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
+import { basename, dirname, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import { isUntitled, NO_FOLDER_YET } from '../document/untitled.ts';
-import { collectionFile, isFilesystemRoot } from '../collection/load.ts';
+import { collectionFile, collectionOf, isFilesystemRoot } from '../collection/load.ts';
 import { COLLECTION_SAYS, type Said } from '../notices/config-copy.ts';
 import { notify } from '../notices/index.ts';
 import { inferHomeFromConfig } from '../theme/user-theme.ts';
@@ -22,20 +22,34 @@ async function addThisFolder(): Promise<void> {
   const path = handle?.currentPath() ?? null;
   if (!handle || path === null) return;
   if (isUntitled(path)) return say(NO_FOLDER_YET);
+  await addRoot(await handle.index.rootFor(path));
+}
+
+/** Asks for a folder with the system's picker and adds it; cancelling adds nothing and says nothing. */
+async function addChosenFolder(): Promise<void> {
+  const picked = await appHandle()?.shell.openDialog?.({ directory: true });
+  const folder = picked?.[0];
+  if (folder !== undefined) await addRoot(folder);
+}
+
+/** Appends `folder` to collection.toml as a place, creating the file if absent. */
+async function addRoot(folder: string): Promise<void> {
+  const handle = appHandle();
+  if (!handle) return;
   const shell = handle.shell;
   const file = await collectionFile(shell);
   if (file === undefined || !shell.configPaths) {
     say(COLLECTION_SAYS.noConfigAdd());
     return;
   }
-  const root = await handle.index.rootFor(path);
+  const root = normalizePath(folder);
   if (isFilesystemRoot(root)) {
     say(COLLECTION_SAYS.wholeDisk());
     return;
   }
   // Marxy's own config and data folders hold its state (trust, positions, snapshots): never indexed.
   const paths = await shell.configPaths();
-  const own = [dirname(paths.config), paths.data].filter((d) => d !== '');
+  const own = [dirname(paths.config), paths.data === '' ? '' : normalizePath(paths.data)].filter((d) => d !== '');
   if (own.some((dir) => dir === root || dir.startsWith(root.endsWith('/') ? root : `${root}/`))) {
     say(COLLECTION_SAYS.ownFolder());
     return;
@@ -69,6 +83,8 @@ async function addThisFolder(): Promise<void> {
     say(COLLECTION_SAYS.writeFailed(e));
     return;
   }
+  // Not left to the collection.toml watch: the Library redraws when this resolves, and must show the place.
+  await collectionOf(handle)?.reload();
   say(COLLECTION_SAYS.added(basename(root)));
 }
 
@@ -97,7 +113,7 @@ async function editCollection(): Promise<void> {
     }
   }
   // Over unsaved edits the open waits for the reader's choice: Source is shown only once collection.toml is
-  // the document, never on the one still on screen (F-21).
+  // the document, never on the one still on screen.
   await handle.open(file, { onLanded: () => void handle.jumpToSource(0) });
 }
 
@@ -112,6 +128,17 @@ export function collectionCommands(): readonly Command[] {
       run: async (ctx) => {
         ctx.closePalette();
         await addThisFolder();
+      },
+    },
+    {
+      id: 'collection.add-place',
+      title: 'Add a folder to the Library…',
+      group: 'app',
+      when: () => appHandle()?.shell.openDialog !== undefined,
+      unavailable: () => (appHandle()?.shell.openDialog === undefined ? 'This window has no folder picker: add the folder in collection.toml' : null),
+      run: async (ctx) => {
+        ctx.closePalette();
+        await addChosenFolder();
       },
     },
     {

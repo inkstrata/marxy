@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "meta": {
+    "commit": "9bed3e34",
+    "dirty": false,
+    "date": "2026-11-24T23:43:46.301Z",
+    "machine": "win32-x64, 16 x AMD Ryzen 7 8845HS w/ Radeon 780M Graphics, 31 GB",
+    "edge": "msedge 158.0.4370.33",
+    "node": "v24.14.1",
+    "runs": 1,
+    "keys": 5
+  },
+  "documents": {
+    "short-document": {
+      "open": {
+        "taskMs": 390.32,
+        "scriptMs": 54.84,
+        "layoutMs": 75.28,
+        "styleMs": 70.41,
+        "layouts": 89,
+        "recalcs": 157,
+        "firstContentMs": 107.8,
+        "longestTaskMs": 113,
+        "settleMs": 435.7,
+        "nodes": 1908
+      },
+      "key": {
+        "taskMs": 16,
+        "scriptMs": 7.42,
+        "layoutMs": 0.67,
+        "styleMs": 2.44,
+        "layouts": 4,
+        "recalcs": 4,
+        "handlerMs": 17.7
+      },
+      "click": {
+        "taskMs": 62.8,
+        "scriptMs": 10.35,
+        "layoutMs": 4.79,
+        "styleMs": 32.85,
+        "layouts": 9,
+        "recalcs": 13,
+        "longestTaskMs": 0,
+        "handlerMs": 24.2
+      },
+      "undo": {
+        "taskMs": 369.24,
+        "scriptMs": 64.68,
+        "layoutMs": 35,
+        "styleMs": 74.16,
+        "layouts": 82,
+        "recalcs": 131,
+        "longestTaskMs": 121,
+        "replacedTop": 206
+      },
+      "reload": {
+        "taskMs": 403.88,
+        "scriptMs": 65.6,
+        "layoutMs": 41.99,
+        "styleMs": 70.1,
+        "layouts": 79,
+        "recalcs": 128,
+        "longestTaskMs": 153,
+        "replacedTop": 202
+      },
+      "tabBack": {
+        "taskMs": 461.68,
+        "scriptMs": 70.87,
+        "layoutMs": 51.55,
+        "styleMs": 124.18,
+        "layouts": 92,
+        "recalcs": 176,
+        "shownMs": 240
+      },
+      "tabAway": {
+        "taskMs": 297.65,
+        "scriptMs": 47.45,
+        "layoutMs": 68.58,
+        "styleMs": 80.4,
+        "layouts": 75,
+        "recalcs": 141,
+        "shownMs": 231
+      },
+      "toRead": {
+        "taskMs": 109.98,
+        "scriptMs": 8.15,
+        "layoutMs": 28.21,
+        "styleMs": 40.37,
+        "layouts": 20,
+        "recalcs": 24,
+        "shownMs": 67.1
+      },
+      "toSource": {
+        "taskMs": 200.75,
+        "scriptMs": 35.2,
+        "layoutMs": 14.62,
+        "styleMs": 26.34,
+        "layouts": 15,
+        "recalcs": 54,
+        "shownMs": 89.6
+      }
+    }
+  },
+  "missing": []
+}

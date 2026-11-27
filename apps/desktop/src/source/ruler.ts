@@ -1,4 +1,4 @@
-// The column ruler of the Source frame (V-05): a tick for every fifth column, taller for every tenth, numbers every
+// The column ruler of the Source frame: a tick for every fifth column, taller for every tenth, numbers every
 // tenth, the caret's column as a notch and a selection on one line as a bar. It sits on the editor's character grid:
 // every position is a number of `ch` of the same face and size as the text, so tick N is under character N whatever the
 // reader's size, and a tick is centred on its character. It scrolls with the text, because it is placed from where the

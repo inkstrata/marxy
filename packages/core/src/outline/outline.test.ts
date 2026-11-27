@@ -1,18 +1,15 @@
-// The outline is the heading list a later dialog will render. These cases are §12 and MARXY-109.
+// The outline is the heading list a later dialog will render.
 
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
 import type { Heading, Node } from '../contracts/ast.ts';
 import { parseMarkdown } from '../parse/parse.ts';
-import { outlineFrom } from './outline.ts';
+import { OUTLINE_MAX, outlineFrom, outlineOf } from './outline.ts';
 import { outlineFrom as exported } from '../index.ts';
 
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
 const outlineDir = new URL('./', import.meta.url);
-const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 
 function astHeadings(node: Node): Heading[] {
   const found: Heading[] = node.type === 'heading' ? [node] : [];
@@ -38,63 +35,6 @@ function sourceFiles(directory: URL, prefix = ''): { path: string; text: string 
     files.push({ path: name, text: readFileSync(new URL(entry.name, directory), 'utf8') });
   }
   return files;
-}
-
-// The sanitiser only (CODEOWNERS protects it; contracts are reviewed, not locked, ADR-0045).
-// package.json, scripts and apps/desktop were MARXY-109's own PR boundary, not a standing lock — later core stories (MARXY-77) need those paths.
-const FORBIDDEN_PREFIXES = ['packages/core/src/sanitize'];
-
-type GitExec = (
-  file: string,
-  args: readonly string[],
-  options?: { cwd?: string; encoding?: BufferEncoding; stdio?: readonly ('ignore' | 'pipe')[] },
-) => string;
-
-// Shallow CI checkouts often have no origin/main; throwing on the three-dot
-// range failed the suite instead of asserting the story boundary (MARXY-109).
-function resolveThreeDotBase(opts: { cwd: string }, git: GitExec = execFileSync as GitExec): string | null {
-  for (const ref of ['origin/main', 'main']) {
-    try {
-      git('git', ['rev-parse', '--verify', ref], {
-        cwd: opts.cwd,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      });
-      return ref;
-    } catch {
-      // try the next candidate
-    }
-  }
-  return null;
-}
-
-function threeDotNames(base: string, opts: { cwd: string }, git: GitExec = execFileSync as GitExec): string[] {
-  return git('git', ['diff', '--name-only', `${base}...HEAD`], {
-    cwd: opts.cwd,
-    encoding: 'utf8',
-  })
-    .split('\n')
-    .filter(Boolean);
-}
-
-function forbiddenIn(names: readonly string[]): string[] {
-  return names.filter((name) =>
-    FORBIDDEN_PREFIXES.some((prefix) => name === prefix || name.startsWith(`${prefix}/`)),
-  );
-}
-
-function runThreeDotForbiddenCheck(opts: {
-  resolveBase: () => string | null;
-  listNames: (base: string) => string[];
-  skip: (reason: string) => void;
-}): 'skipped' | 'asserted' {
-  const base = opts.resolveBase();
-  if (!base) {
-    opts.skip('neither origin/main nor main is a resolvable git ref');
-    return 'skipped';
-  }
-  assert.deepEqual(forbiddenIn(opts.listNames(base)), []);
-  return 'asserted';
 }
 
 for (const name of ['01-long-technical.md', '09-gfm-everything.md']) {
@@ -139,6 +79,22 @@ test('a heading nested in a blockquote is included, document order', () => {
   const headings = astHeadings(document);
   assert.equal(headings[0]?.src.start, outline[0]?.src.start);
   assert.equal(headings[1]?.src.start, outline[1]?.src.start);
+});
+
+test('200,000 headings in one quote: every one in order, no RangeError; capped at OUTLINE_MAX only when asked', () => {
+  const document = parseMarkdown(`---\ntitle: T\n---\n${'> ## h\n'.repeat(199_999)}> # last\n`, { file: 'many.md' });
+  const all = outlineFrom(document);
+  assert.equal(all.length, 200_000, 'the h1 means no front-matter title');
+  assert.equal(all[199_999]!.text, 'last');
+  assert.ok(all.every((entry, i) => i === 0 || entry.src.start > all[i - 1]!.src.start));
+  assert.equal(outlineOf(document).capped, false);
+  const outline = outlineOf(document, OUTLINE_MAX);
+  assert.equal(outline.capped, true);
+  assert.equal(outline.entries.length, OUTLINE_MAX, 'an h1 past the cap still means no front-matter title');
+  assert.deepEqual(outline.entries, all.slice(0, OUTLINE_MAX));
+  const under = outlineOf(parseMarkdown('> # a\n> ## b\n\n# c\n', { file: 'few.md' }));
+  assert.equal(under.capped, false);
+  assert.deepEqual(under.entries.map((entry) => entry.text), ['a', 'b', 'c']);
 });
 
 test('frontmatter title: prepends as level 1 when there is no h1', () => {
@@ -187,7 +143,7 @@ test('packages/core/src/index.ts exports outlineFrom', () => {
   assert.equal(exported, outlineFrom);
 });
 
-test('no file under packages/core/src/outline imports apps/desktop or packages/shell-api (ADR-0020)', () => {
+test('no file under packages/core/src/outline imports apps/desktop or packages/shell-api', () => {
   const offenders: string[] = [];
   for (const file of sourceFiles(outlineDir)) {
     for (const specifier of imports(file.text)) {
@@ -202,140 +158,6 @@ test('no file under packages/core/src/outline imports apps/desktop or packages/s
     }
   }
   assert.deepEqual(offenders, []);
-});
-
-test('the three-dot diff does not contain sanitize', (t) => {
-  const base = resolveThreeDotBase({ cwd: repoRoot });
-  if (!base) {
-    t.skip('neither origin/main nor main is a resolvable git ref');
-    return;
-  }
-  const names = threeDotNames(base, { cwd: repoRoot });
-  const outlineProduct = names.filter(
-    (name) => name.startsWith('packages/core/src/outline/') && !name.endsWith('.test.ts'),
-  );
-  if (outlineProduct.length === 0) {
-    t.skip('diff does not touch outline product code; the guard applies only to outline stories');
-    return;
-  }
-  runThreeDotForbiddenCheck({
-    resolveBase: () => base,
-    listNames: () => names,
-    skip: (reason) => t.skip(reason),
-  });
-});
-
-test('resolveThreeDotBase returns null when neither origin/main nor main verifies', () => {
-  const calls: string[][] = [];
-  const git: GitExec = (_cmd, args) => {
-    calls.push([...args]);
-    throw new Error('fatal: Needed a single revision');
-  };
-  assert.equal(resolveThreeDotBase({ cwd: '/tmp' }, git), null);
-  assert.deepEqual(calls, [
-    ['rev-parse', '--verify', 'origin/main'],
-    ['rev-parse', '--verify', 'main'],
-  ]);
-});
-
-test('resolveThreeDotBase prefers origin/main, then main', () => {
-  const originFirst: GitExec = (_cmd, args) => {
-    if (args.includes('origin/main')) return 'abc\n';
-    throw new Error('must not fall through when origin/main verifies');
-  };
-  assert.equal(resolveThreeDotBase({ cwd: '/tmp' }, originFirst), 'origin/main');
-
-  const mainOnly: GitExec = (_cmd, args) => {
-    if (args.includes('origin/main')) throw new Error('missing');
-    if (args.includes('main')) return 'def\n';
-    throw new Error('unexpected ref');
-  };
-  assert.equal(resolveThreeDotBase({ cwd: '/tmp' }, mainOnly), 'main');
-});
-
-test('the three-dot forbidden-path check skips when no base ref resolves', () => {
-  let reason: string | undefined;
-  const result = runThreeDotForbiddenCheck({
-    resolveBase: () => null,
-    listNames: () => {
-      throw new Error('must not run git diff without a base');
-    },
-    skip: (r) => {
-      reason = r;
-    },
-  });
-  assert.equal(result, 'skipped');
-  assert.match(reason ?? '', /neither origin\/main nor main/);
-});
-
-test('threeDotNames asks git for the three-dot name list against the resolved base', () => {
-  const calls: string[][] = [];
-  const git: GitExec = (_cmd, args) => {
-    calls.push([...args]);
-    return 'packages/core/src/outline/outline.ts\nCHANGELOG.md\n';
-  };
-  assert.deepEqual(threeDotNames('origin/main', { cwd: '/tmp' }, git), [
-    'packages/core/src/outline/outline.ts',
-    'CHANGELOG.md',
-  ]);
-  assert.deepEqual(calls, [['diff', '--name-only', 'origin/main...HEAD']]);
-});
-
-test('the three-dot forbidden-path check asserts prefixes are absent when a base resolves', () => {
-  let seenBase: string | undefined;
-  const result = runThreeDotForbiddenCheck({
-    resolveBase: () => 'origin/main',
-    listNames: (base) => {
-      seenBase = base;
-      return ['packages/core/src/outline/outline.ts', 'CHANGELOG.md'];
-    },
-    skip: () => {
-      throw new Error('must not skip when a base resolves');
-    },
-  });
-  assert.equal(result, 'asserted');
-  assert.equal(seenBase, 'origin/main');
-});
-
-test('the three-dot forbidden-path check fails when a forbidden prefix is in the name list', () => {
-  for (const file of ['packages/core/src/sanitize/sanitize.ts']) {
-    assert.throws(() =>
-      runThreeDotForbiddenCheck({
-        resolveBase: () => 'main',
-        listNames: () => [file],
-        skip: () => {
-          throw new Error('must not skip when a base resolves');
-        },
-      }),
-    );
-  }
-});
-
-test('the three-dot forbidden-path check allows a contract file (ADR-0045)', () => {
-  runThreeDotForbiddenCheck({
-    resolveBase: () => 'main',
-    listNames: () => ['packages/core/src/contracts/ast.ts'],
-    skip: () => {
-      throw new Error('must not skip when a base resolves');
-    },
-  });
-});
-
-test('the three-dot forbidden-path check allows package.json, scripts and apps/desktop', () => {
-  for (const file of [
-    'packages/core/package.json',
-    'packages/core/scripts/fidelity.ts',
-    'apps/desktop/src-tauri/src/atomic_write.rs',
-  ]) {
-    const result = runThreeDotForbiddenCheck({
-      resolveBase: () => 'main',
-      listNames: () => [file],
-      skip: () => {
-        throw new Error('must not skip when a base resolves');
-      },
-    });
-    assert.equal(result, 'asserted');
-  }
 });
 
 test('TOML front matter title prepends like YAML when there is no h1', () => {

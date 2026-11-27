@@ -1,0 +1,9 @@
+things to remember before 1.0
+
+the walk has to honour .gitignore, otherwise a notes folder with one js
+project in it takes ten seconds. (fixed on the 8th, keep the test.)
+
+headings with trailing #'s should drop them. ## like this ## currently keeps
+them in the index.
+
+ask whether anyone needs windows paths before the release.

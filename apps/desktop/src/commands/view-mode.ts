@@ -1,7 +1,7 @@
-// Read, Split and Source (W-19; ADR-0058 item 7): `Mod+1`, `Mod+2`, `Mod+3`. Read and Source set the focused
+// Read, Split and Source: `Mod+1`, `Mod+2`, `Mod+3`. Read and Source set the focused
 // pane's mode and nothing else (a no-op when it is already there, unlike `Mod+E`, which flips). Split is one
 // document twice, Read on the left and Source on the right, built on `view.split-same`. Inside Split, Read and
-// Source close the second pane and keep one in that mode, and Split again goes back to Read (F-44). The commands are
+// Source close the second pane and keep one in that mode, and Split again goes back to Read. The commands are
 // `global`, so they run from inside a Source editor; no Source editing chord takes a digit.
 import { appHandle } from './app-handle.ts';
 import { splitSame } from './pane-split-same.ts';
@@ -10,7 +10,7 @@ import type { Command } from './registry.ts';
 export const SPLIT_TWO_DOCUMENTS = 'Split shows one document twice; this window has two. Close one pane first.';
 
 /**
- * Leaves Split (F-44): the window shows one document twice, and Read, Source or Split again ends it in one pane
+ * Leaves Split: the window shows one document twice, and Read, Source or Split again ends it in one pane
  * in `mode`. The pane that already shows `mode` survives (Source: the right one, which `PaneSet.close` moves
  * into slot 0 at its place; otherwise the left, the reader's place); `close` folds the closing pane's Source
  * text into the store and asks first over what it cannot keep, and a refused close changes nothing.
@@ -34,8 +34,9 @@ const isSplit = (): boolean => {
 function setMode(mode: 'rendered' | 'source'): Command['run'] {
   return async () => {
     if (isSplit()) return leaveSplit(mode);
-    // Asked of the view, which knows the mode a press before this one is still on its way to (V-11).
+    // Asked of the view, which knows the mode a press before this one is still on its way to.
     await appHandle()?.panes().focused.view.setMode(mode);
+    if (mode === 'source') appHandle()?.focusSource();
   };
 }
 

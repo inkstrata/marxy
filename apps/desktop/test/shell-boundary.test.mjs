@@ -1,16 +1,16 @@
-// Proves the shell-api boundary (ADR-0010, ADR-0020): Tauri invoke() and @tauri-apps imports exist
+// Proves the shell-api boundary: Tauri invoke() and @tauri-apps imports exist
 // only under apps/desktop/src/shell, so replacing the shell means rewriting that directory alone.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadConfiguredCsp } from '../../../scripts/check-csp.mjs';
+import { loadConfiguredCsp, parseCspString } from '../../../scripts/check-csp.mjs';
 
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const shellDir = join('apps', 'desktop', 'src', 'shell');
 // `.claude` holds nested agent worktrees: another checkout's files, not this one's.
-const skipDirs = new Set(['node_modules', 'dist', 'target', '.git', '.claude', 'results', 'screenshots']);
+const skipDirs = new Set(['node_modules', 'dist', 'demo-dist', 'target', 'target-rust', '.git', '.claude', 'results', 'screenshots']);
 const sourceExt = /\.(m?[jt]sx?|svelte|vue|html)$/;
 
 function sourceFiles(dir) {
@@ -41,7 +41,8 @@ test('the repository has source files to scan', () => {
 
 test('invoke( appears only under apps/desktop/src/shell', () => {
   const offenders = files
-    .filter(f => !f.rel.startsWith(shellDir + sep) && !f.rel.startsWith('apps/desktop/test/'))
+    // The tests and the scripts that drive the built app over CDP call into it from outside, as a test does.
+    .filter(f => !f.rel.startsWith(shellDir + sep) && !f.rel.startsWith(join('apps', 'desktop', 'test') + sep) && !f.rel.startsWith(join('apps', 'desktop', 'scripts') + sep))
     .filter(f => /\binvoke\s*\(/.test(f.text))
     .map(f => f.rel);
   assert.deepEqual(offenders, [], `invoke( outside ${shellDir}: ${offenders.join(', ')}`);
@@ -81,12 +82,14 @@ function valueExports(text) {
 // boundary. So the directory's runtime export surface is an allowlist — one shell object, nothing
 // that hands a caller the raw IPC channel.
 test('apps/desktop/src/shell exports only the shell object and the memory factory', () => {
-  // `eventsForWatch` (C-05) and `refusalForWatch` (C-11.1) are pure filters over an `fs-watch`
+  // `eventsForWatch` and `refusalForWatch` are pure filters over an `fs-watch`
   // payload; they take no IPC handle. So do `createEarlyBuffer`, its `EARLY_LIMIT` and `isNotWatching`
-  // (C-11.2): the bounded buffer for what arrives before a watch knows its key, and a test of an error.
-  // `clipboard` (J-02): the clipboard type names, the write check and the Tauri adapter, which takes
-  // `invoke` as an argument; it holds no IPC handle.
-  const allowed = ['shell', 'createMemoryShell', 'eventsForWatch', 'refusalForWatch', 'createEarlyBuffer', 'EARLY_LIMIT', 'isNotWatching', 'clipboard'];
+  // the bounded buffer for what arrives before a watch knows its key, and a test of an error.
+  // `clipboard`: the clipboard type names, the write check and the Tauri adapter, which takes
+  // `invoke` as an argument; it holds no IPC handle. `pathsOnce` keeps the answer of a `configPaths` it is
+  // handed; it holds none either. `runFrame` and `headsFrame` parse run_command's and read_archive_heads' answers from bytes
+  // they are handed.
+  const allowed = ['shell', 'createMemoryShell', 'eventsForWatch', 'refusalForWatch', 'createEarlyBuffer', 'EARLY_LIMIT', 'isNotWatching', 'clipboard', 'pathsOnce', 'runFrame', 'headsFrame'];
   const exported = files
     .filter(f => f.rel.startsWith(shellDir + sep))
     .flatMap(f => valueExports(f.text).map(name => ({ name, rel: f.rel })));
@@ -114,7 +117,7 @@ test('main.ts is at most 30 lines and contains no parse or render call', () => {
   assert.doesNotMatch(stripComments(raw), /parseMarkdown|renderDocumentSafeHtml|\.innerHTML\s*=/);
 });
 
-/** Every `invoke('name')` in tauri.ts must appear in `generate_handler!` (MARXY-138). */
+/** Every `invoke('name')` in tauri.ts must appear in `generate_handler!`. */
 function invokeCommandNames(tauriText) {
   return [...new Set([...tauriText.matchAll(/\binvoke(?:<[^>]*>)?\s*\(\s*['"]([^'"]+)['"]/g)].map((m) => m[1]))];
 }
@@ -124,7 +127,7 @@ function handlerCommandNames(mainText) {
   const names = [];
   for (const part of block.split(',')) {
     const token = part.trim().replace(/\s+/g, ' ');
-    const scoped = /commands::(?:fs|os|search)::(\w+)/.exec(token);
+    const scoped = /(?:commands::(?:fs|image|os|search|chars|run|archive|tables|font|media|recent)|pasteboard|detect|remote|scope|encoding::commands|outlook::commands|legacy_office)::(\w+)/.exec(token);
     if (scoped) names.push(scoped[1]);
     else if (/^[a-z][a-z0-9_]*$/.test(token)) names.push(token);
   }
@@ -149,9 +152,98 @@ test('the invoke ↔ handler check fails when a handler name is removed', () => 
   assert.deepEqual(missing, ['image_size']);
 });
 
-test('tauri.conf.json enables assetProtocol with an empty scope and matches check-csp', () => {
-  const conf = JSON.parse(readFileSync(join(repoRoot, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json'), 'utf8'));
-  assert.equal(conf.app.security.assetProtocol.enable, true);
-  assert.deepEqual(conf.app.security.assetProtocol.scope, []);
-  assert.equal(conf.app.security.csp, loadConfiguredCsp());
+const srcTauri = join(repoRoot, 'apps', 'desktop', 'src-tauri');
+
+/** The app manifest's commands in build.rs. */
+function manifestCommandNames(buildText) {
+  const block = /const COMMANDS: &\[&str\] = &\[([\s\S]*?)\];/.exec(buildText)?.[1] ?? '';
+  return [...block.matchAll(/"([a-z_]+)"/g)].map((m) => m[1]);
+}
+
+test('build.rs declares an app manifest of exactly the commands in generate_handler!', () => {
+  const build = readFileSync(join(srcTauri, 'build.rs'), 'utf8');
+  const main = readFileSync(join(srcTauri, 'src', 'main.rs'), 'utf8');
+  assert.match(build, /AppManifest::new\(\)\.commands\(COMMANDS\)/);
+  const declared = manifestCommandNames(build);
+  assert.equal(declared.length, 57);
+  assert.deepEqual([...declared].sort(), [...handlerCommandNames(main)].sort());
+});
+
+test('the one capability is the main window\'s: listen, unlisten and each app command, no plugin and no core:default', () => {
+  assert.deepEqual(readdirSync(join(srcTauri, 'capabilities')), ['main.json']);
+  const cap = JSON.parse(readFileSync(join(srcTauri, 'capabilities', 'main.json'), 'utf8'));
+  const commands = manifestCommandNames(readFileSync(join(srcTauri, 'build.rs'), 'utf8'));
+  assert.equal(cap.identifier, 'main');
+  assert.deepEqual(cap.windows, ['main']);
+  assert.equal(cap.remote, undefined, 'no remote origin may call the app');
+  assert.deepEqual(cap.permissions, [
+    'core:event:allow-listen',
+    'core:event:allow-unlisten',
+    ...commands.map((c) => `allow-${c.replaceAll('_', '-')}`),
+  ]);
+  assert.ok(!cap.permissions.some((p) => /^(dialog|clipboard-manager|fs|shell|opener):|^core:default$/.test(p)));
+});
+
+test('no page code reaches a plugin: the dialogs and the clipboard go through the app\'s own commands', () => {
+  // tauri-check.mjs calls plugin:dialog|open in the real window on purpose, to see it refused.
+  const page = files.filter((f) => f.rel.startsWith(join('apps', 'desktop', 'src') + sep) || f.rel.startsWith(`packages${sep}`));
+  const offenders = page.filter((f) => /['"]plugin:[a-z-]+\|/.test(f.text)).map((f) => f.rel);
+  assert.deepEqual(offenders, []);
+});
+
+test('the CSP has no eval and loads nothing from off the machine', () => {
+  const csp = parseCspString(JSON.parse(readFileSync(join(srcTauri, 'tauri.conf.json'), 'utf8')).app.security.csp);
+  const local = new Set(["'none'", "'self'", 'data:', 'blob:', 'ipc:', 'marxy-file:', 'marxy-remote:']);
+  for (const [directive, sources] of csp) {
+    for (const source of sources) {
+      assert.notEqual(source, "'unsafe-eval'", directive);
+      assert.notEqual(source, "'wasm-unsafe-eval'", directive);
+      if (source === "'unsafe-inline'") {
+        assert.equal(directive, 'style-src-attr', 'inline only for style attributes');
+        continue;
+      }
+      assert.ok(local.has(source) || /^http:\/\/(ipc|marxy-file|marxy-remote)\.localhost$/.test(source), `${directive} ${source}`);
+    }
+  }
+  assert.deepEqual(csp.get('default-src'), ["'none'"]);
+  assert.deepEqual(csp.get('script-src'), ["'self'"]);
+});
+
+test('the release navigation guard refuses a local server on any port; only a debug build loads from one', () => {
+  const main = readFileSync(join(srcTauri, 'src', 'main.rs'), 'utf8');
+  assert.match(main, /on_navigation\(\|_, url\| navigation_allowed\(url, cfg!\(debug_assertions\)\)\)/);
+  // The cases themselves are cargo test's (main.rs, a_release_build_refuses_a_local_server_that_a_debug_build_loads_from).
+  assert.match(main, /!navigation_allowed\(&local\.parse\(\)\.unwrap\(\), false\)/);
+  assert.match(main, /"http:\/\/localhost:1234\/"/);
+});
+
+test('on Windows the main window has dragDropEnabled off and is otherwise the same window', () => {
+  const base = JSON.parse(readFileSync(join(srcTauri, 'tauri.conf.json'), 'utf8')).app.windows;
+  const windows = JSON.parse(readFileSync(join(srcTauri, 'tauri.windows.conf.json'), 'utf8')).app.windows;
+  assert.equal(base.length, 1);
+  assert.equal(base[0].label, 'main');
+  assert.equal(base[0].dragDropEnabled, undefined, 'the drop stays on where tab drag does not need it off');
+  // A platform file's array replaces the base one whole (JSON merge patch), so the window is restated in full.
+  assert.deepEqual(windows, [{ ...base[0], dragDropEnabled: false }]);
+});
+
+test('run_command is sent a command id, never a program or its arguments', () => {
+  const tauri = stripComments(readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'shell', 'tauri.ts'), 'utf8'));
+  assert.match(tauri, /JSON\.stringify\(\{ id, cwd \}\)/);
+  assert.doesNotMatch(tauri, /\bprogram\b/);
+});
+
+test('local files load through marxy-file: only; the asset protocol is off and the CSP matches check-csp', () => {
+  const conf = JSON.parse(readFileSync(join(srcTauri, 'tauri.conf.json'), 'utf8'));
+  assert.equal(conf.app.security.assetProtocol, undefined);
+  assert.doesNotMatch(readFileSync(join(srcTauri, 'Cargo.toml'), 'utf8'), /protocol-asset/);
+  assert.match(readFileSync(join(srcTauri, 'src', 'main.rs'), 'utf8'), /register_asynchronous_uri_scheme_protocol\(file_scheme::SCHEME/);
+  const csp = conf.app.security.csp;
+  assert.equal(csp, loadConfiguredCsp());
+  assert.doesNotMatch(csp, /\basset:|asset\.localhost/);
+  for (const directive of ['img-src', 'font-src', 'media-src']) {
+    assert.match(csp, new RegExp(`${directive} [^;]*marxy-file: http://marxy-file\\.localhost`), directive);
+  }
+  const tauri = stripComments(readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'shell', 'tauri.ts'), 'utf8'));
+  assert.match(tauri, /convertFileSrc\(path, 'marxy-file'\)/);
 });

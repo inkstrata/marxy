@@ -1,4 +1,4 @@
-// Byte offsets of positions in the Source editor's text, once it has been edited (V-05). The buffer's own table answers for
+// Byte offsets of positions in the Source editor's text, once it has been edited. The buffer's own table answers for
 // text nobody has changed; after an edit the offset of a position is the offset of the last one asked about, plus the
 // UTF-8 length of the text between the two. The last answer moves with every change (a change before it shifts it by the
 // change's size in bytes, one after it leaves it alone), so a key press at the caret costs the size of the change and the

@@ -1,7 +1,7 @@
-// A terminal session's lines (K-17): which are commands, which continue one, which are output.
+// A terminal session's lines: which are commands, which continue one, which are output.
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { highlight, lineMetaForHighlight, plainTextFromTokens, TERM_COMMAND_CLASS, TERM_PROMPT_CLASS, TERM_START_CLASS } from './index.ts';
+import { highlight, lineMetaForHighlight, plainTextFromTokens, TERM_COMMAND_CLASS, TERM_PROMPT_CLASS, TERM_START_CLASS } from './grammar.ts';
 import { copyCommands, copyOutput, DETECTION_PROMPT, isTerminalLang, terminalGroups, terminalLines, textLines } from './terminal-lines.ts';
 
 const session = [

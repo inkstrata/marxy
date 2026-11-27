@@ -1,4 +1,4 @@
-// Reading position is a source-map coordinate, never a scroll offset (ADR-0018).
+// Reading position is a source-map coordinate, never a scroll offset.
 
 import type { Block, Document, InlineType, Node } from '../contracts/ast.ts';
 import type { ReadingPosition } from '../contracts/position.ts';
@@ -57,8 +57,7 @@ function isBlock(node: Node): boolean {
  * one inside it lands where the run starts — the nearest place both versions still agree on.
  * An offset exactly where text was inserted is ambiguous: the reader was either at the gap or at the
  * block that began there. Offset 0 is the exception: a reader who has not scrolled is reading the top,
- * not the first heading, so text prepended to the file stays above the held offset in view (ruling,
- * 2026-10-08). The same ambiguity decides a duplicate: if the whole tail from the held offset is
+ * not the first heading, so text prepended to the file stays above the held offset in view. The same ambiguity decides a duplicate: if the whole tail from the held offset is
  * appended again at the end of the file, the bytes cannot tell an insertion at the reader from a copy
  * after them, and the reader follows to the copy (the text they see is identical). When `startsBlock`
  * says a block starts where that offset lands after the insertion, the block moved and the offset

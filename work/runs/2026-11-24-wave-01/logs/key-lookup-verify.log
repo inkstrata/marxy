@@ -1,0 +1,34 @@
+verify-turn: slot a, key-lookup, pnpm verify --tier changed (2026-11-24T14:52:37-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\key-lookup
+4 files changed against master; unit suites: desktop, scripts; browser files: 41
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\key-lookup-2026-11-24T22-52-39
+
+PASS    install        0.7s      
+PASS    typecheck      27.8s     
+PASS    lint           3.9s      
+PASS    check          27.2s     10 pass, 0 fail
+PASS    golden         3.4s      
+PASS    fidelity       36.3s     
+PASS    licences       1.6s      
+PASS    unit-scripts   98.9s     243 pass, 0 fail
+PASS    unit-desktop   433.5s    1319 pass, 0 fail, 1 skip
+PASS    browser        1167.7s   477 pass, 0 fail, 3 skip
+
+step          result  wall     tests
+------------  ------  -------  -------------------------
+install       pass    0.7s
+typecheck     pass    27.8s
+lint          pass    3.9s
+check         pass    27.2s    10 pass, 0 fail
+golden        pass    3.4s
+fidelity      pass    36.3s
+licences      pass    1.6s
+unit-scripts  pass    98.9s    243 pass, 0 fail
+unit-desktop  pass    433.5s   1319 pass, 0 fail, 1 skip
+browser       pass    1167.7s  477 pass, 0 fail, 3 skip
+------------  ------  -------  -------------------------
+total                 1801.0s
+
+verify changed: 10/10 steps passed
+verify-turn: exit 0 (2026-11-24T15:22:40-08:00)

@@ -1,9 +1,9 @@
-// What Source draws beside the text and never in it (V-08): whitespace marks and the column guide. Display only,
+// What Source draws beside the text and never in it: whitespace marks and the column guide. Display only,
 // remembered as `show_whitespace` and `column_guide` in config.toml the way `line_numbers` is (line-numbers.ts). This
 // module holds the reader's choice and the per-file default; it imports no editor code, so the config read can set it
 // at launch without CodeMirror.
 
-import { fileTypeOf } from '@marxy/core/src/index-model/file-types.ts';
+import { fileTypeOf } from '@marxy/core/src/kind/registry.ts';
 import { isUntitled } from '../document/untitled.ts';
 
 /** The column the guide sits at when nothing says otherwise. */

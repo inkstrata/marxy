@@ -1,12 +1,10 @@
-// The summoned palette with nothing typed (C-12): Pinned, Changed since you read, Recent. Pure and
-// shell-free, so the order and the cap are tested without a DOM. `06` §3.5 and §5.2 of the audit:
-// "mtime greater than last read" needs no new field, because the session's read times already ride
-// on `lastReadMs` (the feed prepares them) and C-10's `baselineMs` stands in for a file never read.
+// The summoned finder with nothing typed: Pinned, then Recent. Pure and shell-free, so the order and the cap are
+// tested without a DOM. Nothing here reports what changed since a file was read.
 import type { IndexEntry, IndexHit } from '@marxy/core';
 import type { AppContext, Command } from '../commands/registry.ts';
 import { emptyQueryPaths, type PaletteSession } from './session.ts';
 
-export type EmptySectionKind = 'pinned' | 'changed' | 'recent';
+export type EmptySectionKind = 'pinned' | 'recent';
 
 export interface EmptySection {
   readonly kind: EmptySectionKind;
@@ -17,35 +15,11 @@ export interface EmptyStateInput {
   readonly entriesByPath: ReadonlyMap<string, IndexEntry>;
   readonly session: PaletteSession;
   readonly nowMs: number;
-  /** Whether a root is watched (C-10's `isWatched`). Nothing in an unwatched root counts as changed. */
-  readonly watched: (root: string) => boolean;
-  /** When Marxy first indexed a root (C-10's `baselineMs`). */
-  readonly baselineMs: (root: string) => number | undefined;
   /** Rows in all. Default 12. */
   readonly limit?: number;
-  /** Rows in Changed. Default 5. */
-  readonly changedCap?: number;
 }
 
 export const EMPTY_STATE_LIMIT = 12;
-export const EMPTY_STATE_CHANGED_CAP = 5;
-
-/**
- * The file was modified after the reader last read it; or, never read, after Marxy began indexing its
- * root. A file never read in a root with no baseline yet is not changed: there is nothing to compare.
- */
-export function changedSinceRead(
-  entry: IndexEntry,
-  baselineMs: number | undefined,
-  nowMs: number = Date.now(),
-): boolean {
-  // A modification time in the future (a clock set wrong, an archive) reads as now, so such a file
-  // is changed until it is read and not for ever. A time that moves backwards (a checkout of older
-  // content) is below the read time and so is not changed: only newer content is news.
-  const mtime = Math.min(entry.mtimeMs, nowMs);
-  if (entry.lastReadMs !== undefined) return mtime > entry.lastReadMs;
-  return baselineMs !== undefined && mtime > baselineMs;
-}
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -83,9 +57,8 @@ function withRead(entry: IndexEntry, session: PaletteSession): IndexEntry {
 }
 
 export function emptyStateSections(input: EmptyStateInput): readonly EmptySection[] {
-  const { entriesByPath, session, watched, baselineMs } = input;
+  const { entriesByPath, session } = input;
   const limit = input.limit ?? EMPTY_STATE_LIMIT;
-  const changedCap = input.changedCap ?? EMPTY_STATE_CHANGED_CAP;
   const taken = new Set<string>();
   const hit = (entry: IndexEntry): IndexHit => ({ entry, score: 0 });
 
@@ -100,22 +73,9 @@ export function emptyStateSections(input: EmptyStateInput): readonly EmptySectio
     taken.add(path);
   }
 
-  const changed: IndexEntry[] = [];
-  const room = Math.min(changedCap, limit - pinned.length);
-  if (room > 0) {
-    for (const [path, raw] of entriesByPath) {
-      if (taken.has(path) || !watched(raw.root)) continue;
-      const entry = withRead(raw, session);
-      if (changedSinceRead(entry, baselineMs(entry.root), input.nowMs)) changed.push(entry);
-    }
-    changed.sort((a, b) => b.mtimeMs - a.mtimeMs || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-    changed.length = Math.min(changed.length, room);
-    for (const entry of changed) taken.add(entry.path);
-  }
-
   const recent: IndexHit[] = [];
   for (const path of order) {
-    if (pinned.length + changed.length + recent.length >= limit) break;
+    if (pinned.length + recent.length >= limit) break;
     if (taken.has(path)) continue;
     const entry = entriesByPath.get(path);
     if (entry === undefined) continue;
@@ -124,13 +84,12 @@ export function emptyStateSections(input: EmptyStateInput): readonly EmptySectio
 
   const sections: EmptySection[] = [];
   if (pinned.length > 0) sections.push({ kind: 'pinned', hits: pinned });
-  if (changed.length > 0) sections.push({ kind: 'changed', hits: changed.map(hit) });
   if (recent.length > 0) sections.push({ kind: 'recent', hits: recent });
   return sections;
 }
 
-/** The commands the empty palette suggests (U-04), in this order: the ones a reader reaches for from a closed book. */
-export const SUGGESTED_COMMAND_IDS: readonly string[] = ['view.outline', 'view.find', 'view.open-beside', 'view.toggle-mode'];
+/** The commands the empty palette suggests, in this order: the ones a reader reaches for from a closed book. */
+export const SUGGESTED_COMMAND_IDS: readonly string[] = ['view.find', 'view.open-beside', 'view.toggle-mode'];
 
 /** The suggested commands that apply now. Pure; the palette asks once per summons, never per keystroke. */
 export function suggestedCommands(all: readonly Command[], ctx: AppContext): readonly Command[] {

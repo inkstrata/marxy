@@ -1,5 +1,5 @@
 {
-  "note": "Licences for the Rust crates in apps/desktop/src-tauri/Cargo.lock, which link into the shipped binary and so fall under ADR-0006 exactly as node_modules does. The licence gate runs before the Rust build in CI, where the cargo registry cache is empty and nothing may be fetched, so every crate is recorded here. Each licence below was read on a developer machine from the [package].license field of that crate's own Cargo.toml as cargo unpacked it into the local registry cache, at the path given in `source`; no value here was guessed or looked up over the network. Where the cache is populated the gate re-reads it and fails if a record disagrees, so a stale entry is loud rather than silent. Records are keyed name@version, so a version bump is re-audited rather than inheriting the licence of the version before it. A Cargo.lock crate matching nothing here and absent from the cache fails the gate.",
+  "note": "Licences for the Rust crates in apps/desktop/src-tauri/Cargo.lock, which link into the shipped binary and so are audited exactly as node_modules is. The licence gate runs before the Rust build in CI, where the cargo registry cache is empty and nothing may be fetched, so every crate is recorded here. Each licence below was read on a developer machine from the [package].license field of that crate's own Cargo.toml as cargo unpacked it into the local registry cache, at the path given in `source`; no value here was guessed or looked up over the network. Where the cache is populated the gate re-reads it and fails if a record disagrees, so a stale entry is loud rather than silent. Records are keyed name@version, so a version bump is re-audited rather than inheriting the licence of the version before it. A Cargo.lock crate matching nothing here and absent from the cache fails the gate.",
   "packages": [
     {
       "match": "adler2@2.0.1",
@@ -17,9 +17,19 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-no-stdlib-2.0.4/Cargo.toml [package].license"
     },
     {
+      "match": "alloc-no-stdlib@3.0.0",
+      "licence": "BSD-3-Clause",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-no-stdlib-3.0.0/Cargo.toml [package].license"
+    },
+    {
       "match": "alloc-stdlib@0.2.4",
       "licence": "BSD-3-Clause",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.2.4/Cargo.toml [package].license"
+    },
+    {
+      "match": "alloc-stdlib@0.3.0",
+      "licence": "BSD-3-Clause",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/alloc-stdlib-0.3.0/Cargo.toml [package].license"
     },
     {
       "match": "android_system_properties@0.1.6",
@@ -37,9 +47,59 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/arboard-3.6.1/Cargo.toml [package].license"
     },
     {
+      "match": "base64ct@1.8.3",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/base64ct-1.8.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "bit_field@0.10.3",
+      "licence": "Apache-2.0/MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/bit_field-0.10.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "block-buffer@0.12.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/block-buffer-0.12.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "brotli-decompressor@5.0.3",
+      "licence": "BSD-3-Clause/MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/brotli-decompressor-5.0.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "brotli-decompressor@6.2.0",
+      "licence": "BSD-3-Clause/MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/brotli-decompressor-6.2.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "brotli@9.1.0",
+      "licence": "BSD-3-Clause AND MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/brotli-9.1.0/Cargo.toml [package].license"
+    },
+    {
       "match": "byteorder-lite@0.1.0",
       "licence": "Unlicense OR MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/byteorder-lite-0.1.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "bzip2-rs@0.1.2",
+      "licence": "MIT/Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/bzip2-rs-0.1.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "cargo_toml@1.0.1",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cargo_toml-1.0.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "cfb@0.14.0",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cfb-0.14.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "chardetng@0.1.17",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/chardetng-0.1.17/Cargo.toml [package].license"
     },
     {
       "match": "clipboard-win@5.4.1",
@@ -47,9 +107,64 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/clipboard-win-5.4.1/Cargo.toml [package].license"
     },
     {
+      "match": "const-oid@0.10.2",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/const-oid-0.10.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "core_detect@1.0.0",
+      "licence": "MIT/Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/core_detect-1.0.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "cpufeatures@0.3.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.3.1/Cargo.toml [package].license"
+    },
+    {
       "match": "crunchy@0.2.4",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/crunchy-0.2.4/Cargo.toml [package].license"
+    },
+    {
+      "match": "crypto-common@0.2.2",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/crypto-common-0.2.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "cssparser-macros@0.7.1",
+      "licence": "MPL-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cssparser-macros-0.7.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "cssparser@0.37.0",
+      "licence": "MPL-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cssparser-0.37.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "ctor@1.0.13",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/ctor-1.0.13/Cargo.toml [package].license"
+    },
+    {
+      "match": "der@0.8.3",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/der-0.8.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "digest@0.11.3",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.11.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "dirs@7.0.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dirs-7.0.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "dom_query@0.28.0",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dom_query-0.28.0/Cargo.toml [package].license"
     },
     {
       "match": "downcast-rs@1.2.1",
@@ -57,14 +172,29 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/downcast-rs-1.2.1/Cargo.toml [package].license"
     },
     {
+      "match": "encoding_rs@0.8.44",
+      "licence": "(Apache-2.0 OR MIT) AND BSD-3-Clause",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/encoding_rs-0.8.44/Cargo.toml [package].license"
+    },
+    {
       "match": "error-code@3.4.0",
       "licence": "BSL-1.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/error-code-3.4.0/Cargo.toml [package].license"
     },
     {
+      "match": "exr@1.74.2",
+      "licence": "BSD-3-Clause",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/exr-1.74.2/Cargo.toml [package].license"
+    },
+    {
       "match": "fax@0.2.7",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/fax-0.2.7/Cargo.toml [package].license"
+    },
+    {
+      "match": "filetime@0.2.29",
+      "licence": "MIT/Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/filetime-0.2.29/Cargo.toml [package].license"
     },
     {
       "match": "fixedbitset@0.5.7",
@@ -77,6 +207,16 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/foldhash-0.1.5/Cargo.toml [package].license"
     },
     {
+      "match": "foreign-types-shared@0.1.1",
+      "licence": "MIT/Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/foreign-types-shared-0.1.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "foreign-types@0.3.2",
+      "licence": "MIT/Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/foreign-types-0.3.2/Cargo.toml [package].license"
+    },
+    {
       "match": "fsevent-sys@4.1.0",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/fsevent-sys-4.1.0/Cargo.toml [package].license"
@@ -85,6 +225,11 @@
       "match": "gethostname@1.1.0",
       "licence": "Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/gethostname-1.1.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "getrandom@0.2.17",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/getrandom-0.2.17/Cargo.toml [package].license"
     },
     {
       "match": "half@2.7.1",
@@ -97,9 +242,129 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/hashbrown-0.15.5/Cargo.toml [package].license"
     },
     {
+      "match": "html5ever@0.39.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/html5ever-0.39.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "hybrid-array@0.4.15",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/hybrid-array-0.4.15/Cargo.toml [package].license"
+    },
+    {
+      "match": "ico@0.6.0",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/ico-0.6.0/Cargo.toml [package].license"
+    },
+    {
       "match": "image@0.25.10",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/image-0.25.10/Cargo.toml [package].license"
+    },
+    {
+      "match": "infer@0.22.0",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/infer-0.22.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "json-patch@4.2.0",
+      "licence": "MIT/Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/json-patch-4.2.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "jsonptr@0.7.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jsonptr-0.7.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-bitstream@1.1.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-bitstream-1.1.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-coding@1.0.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-coding-1.0.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-color@0.11.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-color-0.11.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-frame@0.13.3",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-frame-0.13.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-grid@0.6.2",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-grid-0.6.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-image@0.13.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-image-0.13.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-jbr@0.2.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-jbr-0.2.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-modular@0.11.3",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-modular-0.11.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-oxide-common@1.0.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-oxide-common-1.0.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-oxide@0.12.6",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-oxide-0.12.6/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-render@0.12.4",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-render-0.12.4/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-threadpool@1.0.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-threadpool-1.0.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "jxl-vardct@0.11.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jxl-vardct-0.11.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "keyboard-types@0.8.3",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/keyboard-types-0.8.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "lebe@0.5.3",
+      "licence": "BSD-3-Clause",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/lebe-0.5.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "libm@0.2.16",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/libm-0.2.16/Cargo.toml [package].license"
+    },
+    {
+      "match": "lzma-rust2@0.25.0",
+      "licence": "Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/lzma-rust2-0.25.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "markup5ever@0.39.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.39.0/Cargo.toml [package].license"
     },
     {
       "match": "moxcms@0.8.1",
@@ -107,9 +372,54 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/moxcms-0.8.1/Cargo.toml [package].license"
     },
     {
+      "match": "muda@0.20.0",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/muda-0.20.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "multiversion_no_op@1.0.0",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/multiversion_no_op-1.0.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "native-tls@0.2.18",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/native-tls-0.2.18/Cargo.toml [package].license"
+    },
+    {
+      "match": "ndk-context@0.1.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/ndk-context-0.1.1/Cargo.toml [package].license"
+    },
+    {
       "match": "nom@8.0.0",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/nom-8.0.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "num-complex@0.4.6",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/num-complex-0.4.6/Cargo.toml [package].license"
+    },
+    {
+      "match": "openssl-macros@0.1.1",
+      "licence": "MIT/Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/openssl-macros-0.1.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "openssl-probe@0.2.2",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/openssl-probe-0.2.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "openssl-sys@0.9.118",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/openssl-sys-0.9.118/Cargo.toml [package].license"
+    },
+    {
+      "match": "openssl@0.10.82",
+      "licence": "Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/openssl-0.10.82/Cargo.toml [package].license"
     },
     {
       "match": "os_pipe@1.2.3",
@@ -117,14 +427,64 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/os_pipe-1.2.3/Cargo.toml [package].license"
     },
     {
+      "match": "paste@1.0.15",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/paste-1.0.15/Cargo.toml [package].license"
+    },
+    {
+      "match": "pem-rfc7468@1.0.0",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/pem-rfc7468-1.0.0/Cargo.toml [package].license"
+    },
+    {
       "match": "petgraph@0.8.3",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/petgraph-0.8.3/Cargo.toml [package].license"
     },
     {
+      "match": "phf@0.11.3",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/phf-0.11.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "phf_codegen@0.11.3",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/phf_codegen-0.11.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "phf_generator@0.11.3",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/phf_generator-0.11.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "phf_shared@0.11.3",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/phf_shared-0.11.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "ppv-lite86@0.2.21",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/ppv-lite86-0.2.21/Cargo.toml [package].license"
+    },
+    {
+      "match": "pulp-wasm-simd-flag@0.1.1",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/pulp-wasm-simd-flag-0.1.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "pulp@0.22.3",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/pulp-0.22.3/Cargo.toml [package].license"
+    },
+    {
       "match": "pxfm@0.1.30",
       "licence": "BSD-3-Clause OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/pxfm-0.1.30/Cargo.toml [package].license"
+    },
+    {
+      "match": "qoi@0.4.1",
+      "licence": "MIT/Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/qoi-0.4.1/Cargo.toml [package].license"
     },
     {
       "match": "quick-error@2.0.1",
@@ -135,6 +495,106 @@
       "match": "quick-xml@0.41.0",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/quick-xml-0.41.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "rand@0.8.8",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/rand-0.8.8/Cargo.toml [package].license"
+    },
+    {
+      "match": "rand_chacha@0.3.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/rand_chacha-0.3.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "rand_core@0.6.4",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.6.4/Cargo.toml [package].license"
+    },
+    {
+      "match": "raw-cpuid@11.6.0",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/raw-cpuid-11.6.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "reborrow@0.5.5",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/reborrow-0.5.5/Cargo.toml [package].license"
+    },
+    {
+      "match": "rustls-pki-types@1.15.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/rustls-pki-types-1.15.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "schannel@0.1.30",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/schannel-0.1.30/Cargo.toml [package].license"
+    },
+    {
+      "match": "security-framework-sys@2.17.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/security-framework-sys-2.17.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "security-framework@3.7.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/security-framework-3.7.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "selectors@0.38.0",
+      "licence": "MPL-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.38.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "sevenz-rust2@0.25.0",
+      "licence": "Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/sevenz-rust2-0.25.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "sha2@0.11.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.11.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "simdutf8@0.1.5",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/simdutf8-0.1.5/Cargo.toml [package].license"
+    },
+    {
+      "match": "static_vcruntime@3.0.0",
+      "licence": "MIT OR Apache-2.0 OR Zlib",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/static_vcruntime-3.0.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "swift-rs@1.0.9",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/swift-rs-1.0.9/Cargo.toml [package].license"
+    },
+    {
+      "match": "tao@0.37.2",
+      "licence": "Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tao-0.37.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "tar@0.4.46",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tar-0.4.46/Cargo.toml [package].license"
+    },
+    {
+      "match": "tauri-build@2.7.4",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-build-2.7.4/Cargo.toml [package].license"
+    },
+    {
+      "match": "tauri-codegen@2.7.4",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-codegen-2.7.4/Cargo.toml [package].license"
+    },
+    {
+      "match": "tauri-macros@2.7.4",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-macros-2.7.4/Cargo.toml [package].license"
     },
     {
       "match": "tauri-plugin-clipboard-manager@2.3.3",
@@ -157,14 +617,74 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-2.6.3/Cargo.toml [package].license"
     },
     {
+      "match": "tauri-runtime-wry@2.12.3",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-runtime-wry-2.12.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "tauri-runtime@2.12.2",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-runtime-2.12.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "tauri-utils@2.10.2",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-utils-2.10.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "tauri@2.12.5",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.12.5/Cargo.toml [package].license"
+    },
+    {
       "match": "tiff@0.11.3",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tiff-0.11.3/Cargo.toml [package].license"
     },
     {
+      "match": "tray-icon@0.25.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tray-icon-0.25.1/Cargo.toml [package].license"
+    },
+    {
       "match": "tree_magic_mini@3.2.2",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tree_magic_mini-3.2.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "unicode_names2@4.0.0",
+      "licence": "(MIT OR Apache-2.0) AND Unicode-DFS-2016",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/unicode_names2-4.0.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "unicode_names2_generator@4.0.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/unicode_names2_generator-4.0.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "ureq-proto@0.7.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/ureq-proto-0.7.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "ureq@3.5.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/ureq-3.5.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "urlpattern@0.6.0",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/urlpattern-0.6.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "utf8-zero@0.8.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/utf8-zero-0.8.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "vcpkg@0.2.15",
+      "licence": "MIT/Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/vcpkg-0.2.15/Cargo.toml [package].license"
     },
     {
       "match": "wayland-backend@0.3.17",
@@ -197,14 +717,64 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/wayland-sys-0.31.11/Cargo.toml [package].license"
     },
     {
+      "match": "web-time@1.1.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/web-time-1.1.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "webview2-com-sys@0.39.1",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/webview2-com-sys-0.39.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "webview2-com@0.39.1",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/webview2-com-0.39.1/Cargo.toml [package].license"
+    },
+    {
       "match": "weezl@0.1.12",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/weezl-0.1.12/Cargo.toml [package].license"
     },
     {
+      "match": "window-vibrancy@0.8.1",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/window-vibrancy-0.8.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "windows-collections@0.3.2",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-collections-0.3.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "windows-future@0.3.2",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.3.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "windows-numerics@0.3.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-numerics-0.3.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "windows-threading@0.2.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-threading-0.2.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "windows@0.62.2",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-0.62.2/Cargo.toml [package].license"
+    },
+    {
       "match": "wl-clipboard-rs@0.9.3",
       "licence": "MIT/Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/wl-clipboard-rs-0.9.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "wry@0.57.1",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/wry-0.57.1/Cargo.toml [package].license"
     },
     {
       "match": "x11rb-protocol@0.13.2",
@@ -227,9 +797,19 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/zerocopy-0.8.57/Cargo.toml [package].license"
     },
     {
+      "match": "zeroize@1.9.1",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.9.1/Cargo.toml [package].license"
+    },
+    {
       "match": "zune-core@0.5.3",
       "licence": "MIT OR Apache-2.0 OR Zlib",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/zune-core-0.5.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "zune-inflate@0.2.54",
+      "licence": "MIT OR Apache-2.0 OR Zlib",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/zune-inflate-0.2.54/Cargo.toml [package].license"
     },
     {
       "match": "zune-jpeg@0.5.15",
@@ -357,16 +937,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/blocking-1.7.0/Cargo.toml [package].license"
     },
     {
-      "match": "brotli-decompressor@5.0.3",
-      "licence": "BSD-3-Clause/MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/brotli-decompressor-5.0.3/Cargo.toml [package].license"
-    },
-    {
-      "match": "brotli@8.0.4",
-      "licence": "BSD-3-Clause AND MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/brotli-8.0.4/Cargo.toml [package].license"
-    },
-    {
       "match": "bs58@0.5.1",
       "licence": "MIT/Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/bs58-0.5.1/Cargo.toml [package].license"
@@ -417,11 +987,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cargo_metadata-0.19.2/Cargo.toml [package].license"
     },
     {
-      "match": "cargo_toml@0.22.3",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cargo_toml-0.22.3/Cargo.toml [package].license"
-    },
-    {
       "match": "cc@1.4.6",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cc-1.4.6/Cargo.toml [package].license"
@@ -430,11 +995,6 @@
       "match": "cesu8@1.1.0",
       "licence": "Apache-2.0/MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cesu8-1.1.0/Cargo.toml [package].license"
-    },
-    {
-      "match": "cfb@0.7.3",
-      "licence": "MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cfb-0.7.3/Cargo.toml [package].license"
     },
     {
       "match": "cfg-expr@0.15.8",
@@ -512,28 +1072,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/crypto-common-0.1.7/Cargo.toml [package].license"
     },
     {
-      "match": "cssparser-macros@0.6.1",
-      "licence": "MPL-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cssparser-macros-0.6.1/Cargo.toml [package].license",
-      "reason": "file-level copyleft, permitted by ADR-0006 and used unmodified"
-    },
-    {
-      "match": "cssparser@0.36.0",
-      "licence": "MPL-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cssparser-0.36.0/Cargo.toml [package].license",
-      "reason": "file-level copyleft, permitted by ADR-0006 and used unmodified"
-    },
-    {
-      "match": "ctor-proc-macro@0.0.7",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/ctor-proc-macro-0.0.7/Cargo.toml [package].license"
-    },
-    {
-      "match": "ctor@0.8.0",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/ctor-0.8.0/Cargo.toml [package].license"
-    },
-    {
       "match": "darling@0.24.1",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/darling-0.24.1/Cargo.toml [package].license"
@@ -552,6 +1090,11 @@
       "match": "dbus@0.9.12",
       "licence": "Apache-2.0/MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dbus-0.9.12/Cargo.toml [package].license"
+    },
+    {
+      "match": "deflate64@0.1.12",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/deflate64-0.1.12/Cargo.toml [package].license"
     },
     {
       "match": "defmt-macros@1.1.1",
@@ -594,11 +1137,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dirs-sys-0.5.0/Cargo.toml [package].license"
     },
     {
-      "match": "dirs@6.0.0",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dirs-6.0.0/Cargo.toml [package].license"
-    },
-    {
       "match": "dispatch2@0.3.1",
       "licence": "Zlib OR Apache-2.0 OR MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dispatch2-0.3.1/Cargo.toml [package].license"
@@ -619,11 +1157,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dlopen2_derive-0.4.3/Cargo.toml [package].license"
     },
     {
-      "match": "dom_query@0.27.0",
-      "licence": "MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dom_query-0.27.0/Cargo.toml [package].license"
-    },
-    {
       "match": "dpi@0.1.2",
       "licence": "Apache-2.0 AND MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dpi-0.1.2/Cargo.toml [package].license"
@@ -632,22 +1165,12 @@
       "match": "dtoa-short@0.3.5",
       "licence": "MPL-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dtoa-short-0.3.5/Cargo.toml [package].license",
-      "reason": "file-level copyleft, permitted by ADR-0006 and used unmodified"
+      "reason": "file-level copyleft, allowed when used unmodified"
     },
     {
       "match": "dtoa@1.0.11",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dtoa-1.0.11/Cargo.toml [package].license"
-    },
-    {
-      "match": "dtor-proc-macro@0.0.6",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dtor-proc-macro-0.0.6/Cargo.toml [package].license"
-    },
-    {
-      "match": "dtor@0.3.0",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/dtor-0.3.0/Cargo.toml [package].license"
     },
     {
       "match": "dunce@1.0.5",
@@ -940,11 +1463,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/hex-0.4.3/Cargo.toml [package].license"
     },
     {
-      "match": "html5ever@0.38.0",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/html5ever-0.38.0/Cargo.toml [package].license"
-    },
-    {
       "match": "http-body-util@0.1.5",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/http-body-util-0.1.5/Cargo.toml [package].license"
@@ -953,11 +1471,6 @@
       "match": "http-body@1.1.0",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/http-body-1.1.0/Cargo.toml [package].license"
-    },
-    {
-      "match": "http-range@0.1.5",
-      "licence": "MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/http-range-0.1.5/Cargo.toml [package].license"
     },
     {
       "match": "http@1.5.0",
@@ -988,11 +1501,6 @@
       "match": "iana-time-zone@0.1.65",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/iana-time-zone-0.1.65/Cargo.toml [package].license"
-    },
-    {
-      "match": "ico@0.5.0",
-      "licence": "MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/ico-0.5.0/Cargo.toml [package].license"
     },
     {
       "match": "icu_collections@2.3.0",
@@ -1077,11 +1585,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/inotify-sys-0.1.8/Cargo.toml [package].license"
     },
     {
-      "match": "infer@0.19.0",
-      "licence": "MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/infer-0.19.0/Cargo.toml [package].license"
-    },
-    {
       "match": "ipnet@2.12.2",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/ipnet-2.12.2/Cargo.toml [package].license"
@@ -1152,21 +1655,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.105/Cargo.toml [package].license"
     },
     {
-      "match": "json-patch@3.0.1",
-      "licence": "MIT/Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/json-patch-3.0.1/Cargo.toml [package].license"
-    },
-    {
-      "match": "jsonptr@0.6.3",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/jsonptr-0.6.3/Cargo.toml [package].license"
-    },
-    {
-      "match": "keyboard-types@0.7.0",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/keyboard-types-0.7.0/Cargo.toml [package].license"
-    },
-    {
       "match": "kqueue@1.2.1",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/kqueue-1.2.1/Cargo.toml [package].license"
@@ -1228,11 +1716,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.34/Cargo.toml [package].license"
     },
     {
-      "match": "markup5ever@0.38.0",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/markup5ever-0.38.0/Cargo.toml [package].license"
-    },
-    {
       "match": "memchr@2.8.3",
       "licence": "Unlicense OR MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.8.3/Cargo.toml [package].license"
@@ -1271,11 +1754,6 @@
       "match": "notify-types@2.1.0",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/notify-types-2.1.0/Cargo.toml [package].license"
-    },
-    {
-      "match": "muda@0.19.3",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/muda-0.19.3/Cargo.toml [package].license"
     },
     {
       "match": "ndk-sys@0.6.0+11769913",
@@ -1406,7 +1884,7 @@
       "match": "option-ext@0.2.0",
       "licence": "MPL-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/option-ext-0.2.0/Cargo.toml [package].license",
-      "reason": "file-level copyleft, permitted by ADR-0006 and used unmodified"
+      "reason": "file-level copyleft, allowed when used unmodified"
     },
     {
       "match": "ordered-stream@0.2.0",
@@ -1487,11 +1965,6 @@
       "match": "plist@1.10.1",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/plist-1.10.1/Cargo.toml [package].license"
-    },
-    {
-      "match": "png@0.17.16",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/png-0.17.16/Cargo.toml [package].license"
     },
     {
       "match": "png@0.18.1",
@@ -1647,6 +2120,11 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/rustix-1.1.5/Cargo.toml [package].license"
     },
     {
+      "match": "ruzstd@0.9.1",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/ruzstd-0.9.1/Cargo.toml [package].license"
+    },
+    {
       "match": "rustversion@1.0.23",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/rustversion-1.0.23/Cargo.toml [package].license"
@@ -1680,12 +2158,6 @@
       "match": "scopeguard@1.2.0",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/scopeguard-1.2.0/Cargo.toml [package].license"
-    },
-    {
-      "match": "selectors@0.36.1",
-      "licence": "MPL-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/selectors-0.36.1/Cargo.toml [package].license",
-      "reason": "file-level copyleft, permitted by ADR-0006 and used unmodified"
     },
     {
       "match": "semver@1.0.28",
@@ -1838,11 +2310,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/strsim-0.11.1/Cargo.toml [package].license"
     },
     {
-      "match": "swift-rs@1.0.8",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/swift-rs-1.0.8/Cargo.toml [package].license"
-    },
-    {
       "match": "syn@1.0.109",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/syn-1.0.109/Cargo.toml [package].license"
@@ -1878,30 +2345,10 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tao-macros-0.1.4/Cargo.toml [package].license"
     },
     {
-      "match": "tao@0.35.3",
-      "licence": "Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tao-0.35.3/Cargo.toml [package].license"
-    },
-    {
       "match": "target-lexicon@0.12.16",
       "licence": "Apache-2.0 WITH LLVM-exception",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/target-lexicon-0.12.16/Cargo.toml [package].license",
       "reason": "the LLVM exception removes the patent-notice obligation; permissive"
-    },
-    {
-      "match": "tauri-build@2.6.3",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-build-2.6.3/Cargo.toml [package].license"
-    },
-    {
-      "match": "tauri-codegen@2.6.3",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-codegen-2.6.3/Cargo.toml [package].license"
-    },
-    {
-      "match": "tauri-macros@2.6.3",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-macros-2.6.3/Cargo.toml [package].license"
     },
     {
       "match": "tauri-plugin-single-instance@2.4.5",
@@ -1909,29 +2356,9 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-plugin-single-instance-2.4.5/Cargo.toml [package].license"
     },
     {
-      "match": "tauri-runtime-wry@2.11.4",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-runtime-wry-2.11.4/Cargo.toml [package].license"
-    },
-    {
-      "match": "tauri-runtime@2.11.3",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-runtime-2.11.3/Cargo.toml [package].license"
-    },
-    {
-      "match": "tauri-utils@2.9.3",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-utils-2.9.3/Cargo.toml [package].license"
-    },
-    {
       "match": "tauri-winres@0.3.6",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-winres-0.3.6/Cargo.toml [package].license"
-    },
-    {
-      "match": "tauri@2.11.5",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tauri-2.11.5/Cargo.toml [package].license"
     },
     {
       "match": "tempfile@3.27.0",
@@ -2090,11 +2517,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.44/Cargo.toml [package].license"
     },
     {
-      "match": "tray-icon@0.24.2",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/tray-icon-0.24.2/Cargo.toml [package].license"
-    },
-    {
       "match": "try-lock@0.2.5",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/try-lock-0.2.5/Cargo.toml [package].license"
@@ -2115,31 +2537,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/uds_windows-1.2.1/Cargo.toml [package].license"
     },
     {
-      "match": "unic-char-property@0.9.0",
-      "licence": "MIT/Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-property-0.9.0/Cargo.toml [package].license"
-    },
-    {
-      "match": "unic-char-range@0.9.0",
-      "licence": "MIT/Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/unic-char-range-0.9.0/Cargo.toml [package].license"
-    },
-    {
-      "match": "unic-common@0.9.0",
-      "licence": "MIT/Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/unic-common-0.9.0/Cargo.toml [package].license"
-    },
-    {
-      "match": "unic-ucd-ident@0.9.0",
-      "licence": "MIT/Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/unic-ucd-ident-0.9.0/Cargo.toml [package].license"
-    },
-    {
-      "match": "unic-ucd-version@0.9.0",
-      "licence": "MIT/Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/unic-ucd-version-0.9.0/Cargo.toml [package].license"
-    },
-    {
       "match": "unicode-ident@1.0.26",
       "licence": "(MIT OR Apache-2.0) AND Unicode-3.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.26/Cargo.toml [package].license",
@@ -2154,11 +2551,6 @@
       "match": "url@2.5.8",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/url-2.5.8/Cargo.toml [package].license"
-    },
-    {
-      "match": "urlpattern@0.3.0",
-      "licence": "MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/urlpattern-0.3.0/Cargo.toml [package].license"
     },
     {
       "match": "utf8_iter@1.0.4",
@@ -2268,16 +2660,6 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/webview2-com-macros-0.8.1/Cargo.toml [package].license"
     },
     {
-      "match": "webview2-com-sys@0.38.2",
-      "licence": "MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/webview2-com-sys-0.38.2/Cargo.toml [package].license"
-    },
-    {
-      "match": "webview2-com@0.38.2",
-      "licence": "MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/webview2-com-0.38.2/Cargo.toml [package].license"
-    },
-    {
       "match": "winapi-i686-pc-windows-gnu@0.4.0",
       "licence": "MIT/Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/winapi-i686-pc-windows-gnu-0.4.0/Cargo.toml [package].license"
@@ -2298,29 +2680,9 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/winapi-0.3.9/Cargo.toml [package].license"
     },
     {
-      "match": "window-vibrancy@0.6.0",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/window-vibrancy-0.6.0/Cargo.toml [package].license"
-    },
-    {
-      "match": "windows-collections@0.2.0",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-collections-0.2.0/Cargo.toml [package].license"
-    },
-    {
-      "match": "windows-core@0.61.2",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-core-0.61.2/Cargo.toml [package].license"
-    },
-    {
       "match": "windows-core@0.62.2",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-core-0.62.2/Cargo.toml [package].license"
-    },
-    {
-      "match": "windows-future@0.2.1",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.1/Cargo.toml [package].license"
     },
     {
       "match": "windows-implement@0.60.2",
@@ -2333,34 +2695,14 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-interface-0.59.3/Cargo.toml [package].license"
     },
     {
-      "match": "windows-link@0.1.3",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-link-0.1.3/Cargo.toml [package].license"
-    },
-    {
       "match": "windows-link@0.2.1",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-link-0.2.1/Cargo.toml [package].license"
     },
     {
-      "match": "windows-numerics@0.2.0",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-numerics-0.2.0/Cargo.toml [package].license"
-    },
-    {
-      "match": "windows-result@0.3.4",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-result-0.3.4/Cargo.toml [package].license"
-    },
-    {
       "match": "windows-result@0.4.1",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-result-0.4.1/Cargo.toml [package].license"
-    },
-    {
-      "match": "windows-strings@0.4.2",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-strings-0.4.2/Cargo.toml [package].license"
     },
     {
       "match": "windows-strings@0.5.1",
@@ -2403,19 +2745,9 @@
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-targets-0.53.5/Cargo.toml [package].license"
     },
     {
-      "match": "windows-threading@0.1.0",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-threading-0.1.0/Cargo.toml [package].license"
-    },
-    {
       "match": "windows-version@0.1.7",
       "licence": "MIT OR Apache-2.0",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-version-0.1.7/Cargo.toml [package].license"
-    },
-    {
-      "match": "windows@0.61.3",
-      "licence": "MIT OR Apache-2.0",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/windows-0.61.3/Cargo.toml [package].license"
     },
     {
       "match": "windows_aarch64_gnullvm@0.42.2",
@@ -2565,11 +2897,6 @@
       "reason": "Unicode License v3, permissive; the Unicode character tables"
     },
     {
-      "match": "wry@0.55.1",
-      "licence": "Apache-2.0 OR MIT",
-      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/wry-0.55.1/Cargo.toml [package].license"
-    },
-    {
       "match": "x11-dl@2.21.0",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/x11-dl-2.21.0/Cargo.toml [package].license"
@@ -2665,6 +2992,116 @@
       "match": "zvariant_utils@4.2.0",
       "licence": "MIT",
       "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/zvariant_utils-4.2.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "atoi_simd@0.18.1",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/atoi_simd-0.18.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "bytemuck_derive@1.12.1",
+      "licence": "Zlib OR Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/bytemuck_derive-1.12.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "calamine@0.38.0",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/calamine-0.38.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "cfg_aliases@0.2.2",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/cfg_aliases-0.2.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "codepage@0.1.3",
+      "licence": "Apache-2.0 OR MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/codepage-0.1.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "debug_unsafe@0.1.4",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/debug_unsafe-0.1.4/Cargo.toml [package].license"
+    },
+    {
+      "match": "fallible-iterator@0.3.0",
+      "licence": "MIT/Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/fallible-iterator-0.3.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "fallible-streaming-iterator@0.1.9",
+      "licence": "MIT/Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/fallible-streaming-iterator-0.1.9/Cargo.toml [package].license"
+    },
+    {
+      "match": "fast-float2@0.2.4",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/fast-float2-0.2.4/Cargo.toml [package].license"
+    },
+    {
+      "match": "font-types@0.12.7",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/font-types-0.12.7/Cargo.toml [package].license"
+    },
+    {
+      "match": "hashlink@0.12.2",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/hashlink-0.12.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "libsqlite3-sys@0.39.1",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.39.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "nix@0.31.3",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/nix-0.31.3/Cargo.toml [package].license"
+    },
+    {
+      "match": "read-fonts@0.46.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/read-fonts-0.46.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "rsqlite-vfs@0.2.0",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/rsqlite-vfs-0.2.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "rusqlite@0.41.1",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/rusqlite-0.41.1/Cargo.toml [package].license"
+    },
+    {
+      "match": "skrifa@0.49.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/skrifa-0.49.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "sqlite-wasm-rs@0.6.2",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/sqlite-wasm-rs-0.6.2/Cargo.toml [package].license"
+    },
+    {
+      "match": "typed-path@0.13.0",
+      "licence": "MIT OR Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/typed-path-0.13.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "wuff@0.2.9",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/wuff-0.2.9/Cargo.toml [package].license"
+    },
+    {
+      "match": "zip@9.3.0",
+      "licence": "MIT",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/zip-9.3.0/Cargo.toml [package].license"
+    },
+    {
+      "match": "zopfli@0.8.4",
+      "licence": "Apache-2.0",
+      "source": "$CARGO_HOME/registry/src/index.crates.io-1949cf8c6b5b557f/zopfli-0.8.4/Cargo.toml [package].license"
     }
   ]
 }

@@ -1,5 +1,5 @@
-// The glyph for each kind of notice (U-02): drawn here, as SVG elements, so no markup is parsed. A glyph and a word
-// say what kind of news it is; the status colour only adds to them (X-21 ruling 5, never colour alone).
+// The glyph for each kind of notice: drawn here, as SVG elements, so no markup is parsed. A glyph and a word
+// say what kind of news it is; the status colour only adds to them (never colour alone).
 import type { NoticeKind } from './index.ts';
 
 const NS = 'http://www.w3.org/2000/svg';

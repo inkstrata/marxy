@@ -1,4 +1,4 @@
-// MARXY-235: artifact fence rendering — ESC glyph, long-line elision, diff continuation hang.
+// artifact fence rendering — ESC glyph, long-line elision, diff continuation hang.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -8,13 +8,14 @@ import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from '../../../apps/desktop/node_modules/vite/dist/node/index.js';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const corpusPath = join(repoRoot, 'fixtures', 'corpus', '28-artifact-fences.md');
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-artifact-fences-'));
 let server;
@@ -64,7 +65,7 @@ async function waitHighlight(page, selector = 'pre > code') {
   );
 }
 
-test('MARXY-235: ESC renders as the control picture, any other control keeps its hex label, and copy text keeps the bytes', async () => {
+test('ESC renders as the control picture, any other control keeps its hex label, and copy text keeps the bytes', async () => {
   const esc = '\u001b';
   const docPath = '/ansi.md';
   const body = `\`\`\`text\n${esc}[31mFAIL${esc}[0m\u0007\n\`\`\`\n`;
@@ -84,7 +85,7 @@ test('MARXY-235: ESC renders as the control picture, any other control keeps its
       return { visible, labels, bytes, hasCtrl: Boolean(ctrl) };
     });
     assert.ok(r.hasCtrl);
-    // K-08 (#690): ESC is drawn as the control picture; every other control keeps its hex label.
+    // ESC is drawn as the control picture; every other control keeps its hex label.
     assert.equal(r.visible, '\u241b');
     assert.deepEqual(r.labels, ['\u241b', '\u241b', '0007']);
     assert.ok(r.bytes.includes(0x1b));
@@ -94,18 +95,19 @@ test('MARXY-235: ESC renders as the control picture, any other control keeps its
   }
 });
 
-test('MARXY-235: a line over 1,000 characters shows 200 plus a count marker; copy keeps every byte', async () => {
+test('a line over 1,000 characters shows 200 plus a count marker; copy keeps every byte', async () => {
   const payload = 'a'.repeat(5000);
   const docPath = '/long.json.md';
-  const body = `\`\`\`json\n{"p":"${payload}"}\n\`\`\`\n`;
+  // A `js` fence: a `json` one is a data part now, read as a tree rather than set as code.
+  const body = `\`\`\`js\n{"p":"${payload}"}\n\`\`\`\n`;
   const files = { [docPath]: Buffer.from(body, 'utf8').toString('base64') };
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 720, height: 600 } });
     await boot(page, files, [docPath]);
-    await waitHighlight(page, 'code.language-json');
+    await waitHighlight(page, 'code.language-js');
     const r = await page.evaluate(() => {
-      const code = document.querySelector('code.language-json');
+      const code = document.querySelector('code.language-js');
       const elided = code?.querySelector('.marxy-elided')?.textContent ?? '';
       const omitted = code?.querySelector('.marxy-line-omitted')?.textContent?.length ?? 0;
       const head = code?.querySelector('.marxy-line')?.firstChild?.textContent?.length ?? 0;
@@ -120,7 +122,7 @@ test('MARXY-235: a line over 1,000 characters shows 200 plus a count marker; cop
   }
 });
 
-test('MARXY-235: diff continuation hangs at least 2ch past the marker column (28-artifact-fences)', async () => {
+test('diff continuation hangs at least 2ch past the marker column (28-artifact-fences)', async () => {
   const docPath = '/corpus/28-artifact-fences.md';
   const files = { [docPath]: b64(corpusPath) };
   const browser = await launchWebkit();

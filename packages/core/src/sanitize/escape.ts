@@ -1,6 +1,6 @@
 // Escaping and character-reference decoding. Small on purpose: everything the sanitiser decides is
 // decided on a decoded value, and everything it emits is escaped once, so no value can mean one
-// thing to this code and another to the parser that reads the output (ADR-0009).
+// thing to this code and another to the parser that reads the output.
 
 /** Text that is not markup: the three characters that could become markup again. */
 export function escapeText(value: string): string {
@@ -29,7 +29,7 @@ export function escapeAttributeKeepingReferences(value: string): string {
  * table does not know stays as the literal text `&name;`, which keeps an `&` in the value, and an
  * `&` in the part of a URL that decides its scheme is refused outright (`urls.ts`). A partial table
  * is therefore safe here in a way a partial deny-list never is. Named references outside the table
- * (e.g. `&copy;`) are emitted literally: old behaviour, the safe direction, not part of F-02.
+ * (e.g. `&copy;`) are emitted literally: old behaviour, the safe direction.
  */
 const NAMED_REFERENCES: ReadonlyMap<string, string> = new Map([
   ['amp', '&'], ['AMP', '&'], ['lt', '<'], ['LT', '<'], ['gt', '>'], ['GT', '>'], ['quot', '"'],
@@ -43,18 +43,30 @@ const NAMED_REFERENCES: ReadonlyMap<string, string> = new Map([
 const REFERENCE = /&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});?/g;
 
 /**
- * Decodes character references to a true fixed point, so a value that only becomes dangerous after
- * many decoding passes (`&amp;&amp;&amp;&amp;&amp;#106;avascript:`) is judged in its final form. It
- * terminates without a cap: every pass that changes the string makes it strictly shorter.
+ * How many decoding passes `decodeReferences` makes. Each pass is the whole string, and `&amp;amp;amp;…`
+ * sheds one level a pass, so without a budget n levels cost n squared (40, 000 took 4 s). No value a
+ * person wrote nests more than a few; one that still decodes after this many is refused where it matters.
+ */
+export const MAX_DECODING_PASSES = 32;
+
+/**
+ * Decodes character references to a fixed point, so a value that only becomes dangerous after many
+ * decoding passes (`&amp;&amp;&amp;&amp;&amp;#106;avascript:`) is judged in its final form, within
+ * `MAX_DECODING_PASSES`. A value still changing then comes back as far as it got: `decodesFurther` says so,
+ * and the URL decision refuses it.
  */
 export function decodeReferences(value: string): string {
   let current = value;
-  for (;;) {
+  for (let pass = 0; pass < MAX_DECODING_PASSES; pass++) {
     const next = decodeOnce(current);
     if (next === current) return current;
     current = next;
   }
+  return current;
 }
+
+/** Whether `value` holds a character reference that one more pass would decode. */
+export const decodesFurther = (value: string): boolean => decodeOnce(value) !== value;
 
 function decodeOnce(value: string): string {
   if (!value.includes('&')) return value;

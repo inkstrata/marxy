@@ -1,184 +1,139 @@
-// V-13 (ADR-0068): Source (Lezer) and Rendered (Shiki) give the same token the same role. Each fixture is
-// tokenised by both engines, and for every listed construct the role at its first character is asserted in
-// each. A construct one engine cannot tell apart is a named gap with its reason, never a silent difference.
+// One tokenizer for both modes, so a token is one role in Read and in Source, in every
+// language. Read's roles are the token lines its spans are built from; Source's are the marks its colour lays from the
+// worker's runs, read a piece at a time. Every grammar on the allow-list is held to it, with the role at each character
+// compared, and the constructs named (where Lezer and Shiki once disagreed) now agree with no gaps left.
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { EditorState } from '@codemirror/state';
+import { EditorState, RangeSet } from '@codemirror/state';
 import { ensureSyntaxTree } from '@codemirror/language';
-import { highlightTree, tagHighlighter } from '@lezer/highlight';
+import { highlight } from '@marxy/core/src/highlight/grammar.ts';
+import { GRAMMAR_SAMPLES, POLYGLOT_SAMPLE } from '@marxy/core/src/highlight/grammar-samples.ts';
 import { ROLES } from '@marxy/core/src/highlight/roles.ts';
-import { tokenizeWithAllowList } from '@marxy/core/src/highlight/highlighter.ts';
-import { marxyScopeForTokenColor } from '@marxy/core/src/highlight/scopes.ts';
+import { runsFromTokens } from '@marxy/core/src/highlight/runs.ts';
+import { langOfFence } from '@marxy/core/src/kind/registry.ts';
+import { readRoles, rolesOfMarks, sourceRoles } from '../../test/support/source-roles.mjs';
+import { fenceBodies, marksFromRuns } from './colour.ts';
 import { languageExtension } from './language.ts';
-import { lezerTag, ROLE_ORDER } from './highlight-style.ts';
+import { lezerTag } from './highlight-style.ts';
 
-const highlighter = tagHighlighter(
-  ROLE_ORDER.map((role) => ({ tag: ROLES[role].lezer.map(lezerTag), class: `role-${role}` })),
-);
+const allowlist = JSON.parse(readFileSync(new URL('../../../../scripts/allowlists/shiki-languages.json', import.meta.url), 'utf8'));
 
-/** Role of every character, in Source: the last role class a token carries wins, as in the style sheet. */
-async function sourceRoles(path, doc) {
-  const state = EditorState.create({ doc, extensions: [await languageExtension(path, doc.length)] });
+/** One language id per grammar on the allow-list, the one the list names first. */
+function idPerGrammar() {
+  const ids = new Map();
+  for (const { id, grammar } of allowlist.languages) if (!ids.has(grammar)) ids.set(grammar, id);
+  return [...ids.values()];
+}
+
+test('D1 role-parity: in every language on the allow-list, each character has one role in Read and in Source', async () => {
+  const ids = idPerGrammar();
+  assert.ok(ids.length > 240, `${ids.length} grammars`);
+  let coloured = 0;
+  for (const id of ids) {
+    const doc = GRAMMAR_SAMPLES[id] ?? POLYGLOT_SAMPLE;
+    const [read, source] = [await readRoles(id, doc), await sourceRoles(id, doc)];
+    assert.deepEqual(source, read, `${id}: Source and Read disagree`);
+    if (read.some((r) => r !== null)) coloured++;
+  }
+  // A parity of two blank pages proves nothing: nearly every grammar colours something of its sample.
+  assert.ok(coloured > ids.length * 0.9, `${coloured} of ${ids.length} grammars coloured their sample`);
+});
+
+test('D1 role-parity: a file read in several pieces keeps parity across their joins', async () => {
+  const doc = `${GRAMMAR_SAMPLES.ruby}=begin\na block\ncomment\n=end\n`.repeat(600);
+  // Several pieces in Source, one block (under its 200,000-character cap) in Read.
+  assert.ok(doc.length > 60_000 && doc.length < 200_000, `${doc.length}`);
+  assert.deepEqual(await sourceRoles('ruby', doc), await readRoles('ruby', doc));
+});
+
+// The constructs checked, each now the same role in both modes. Those with a `was` were a named gap between Lezer
+// and Shiki when Source coloured with Lezer; the gap closed because both modes read Shiki.
+const c = (label, needle, role, was) => ({ label, needle, role, was });
+const CONSTRUCTS = {
+  python: [
+    c('keyword', 'class', 'keyword'), c('decorator name', 'decorator', 'decorator'), c('class definition', 'Foo', 'type'),
+    c('def name', 'run', 'function'), c('escape', '\\n', 'escape'), c('comment', '# c', 'comment'),
+    c('self', 'self', 'self', 'Lezer gave self no tag in Python'), c('builtin, called', 'print', 'builtin', 'Lezer could not tell a builtin from a call'),
+    c('builtin, uncalled', 'int', 'builtin', 'Lezer had no list of Python builtins'),
+  ],
+  typescript: [
+    c('decorator mark', '@', 'decorator'), c('keyword', 'class', 'keyword'), c('self (this)', 'this', 'self'), c('call', 'log', 'function'),
+    c('escape', '\\n', 'escape'), c('constant', 'true', 'constant'), c('comment', '// c', 'comment'),
+  ],
+  rust: [
+    c('keyword', 'struct', 'keyword'), c('fn name', 'main', 'function'), c('macro', 'println', 'function'),
+    c('escape', '\\n', 'escape', 'the Lezer Rust grammar left an escape untagged'), c('self', 'self', 'self'),
+    c('field', 'a;', null, 'Lezer called a field access a property; Shiki gives it no scope'),
+  ],
+  go: [
+    c('keyword', 'func', 'keyword'), c('comment', '// c', 'comment'),
+    c('method name', 'Run', 'function', 'lang-go tagged a method name as a property'),
+    c('builtin type', 'int', 'builtin', 'Lezer had no list of Go predeclared types'),
+    c('builtin call', 'len', 'builtin', 'Lezer could not tell a predeclared function from a call'),
+    c('escape', '\\n', 'escape', 'the Lezer Go grammar did not split an escape out of a string'),
+  ],
+  shellscript: [c('keyword', 'if', 'keyword'), c('builtin', 'echo', 'builtin'), c('comment', '# c', 'comment')],
+  ruby: [c('keyword', 'def', 'keyword'), c('string', '"hi', 'string'), c('comment', '# say', 'comment')],
+};
+
+for (const [lang, constructs] of Object.entries(CONSTRUCTS)) {
+  test(`D1 role-parity: ${lang}'s named constructs take their role in both modes`, async () => {
+    const doc = GRAMMAR_SAMPLES[lang];
+    const [read, source] = [await readRoles(lang, doc), await sourceRoles(lang, doc)];
+    for (const k of constructs) {
+      const at = doc.indexOf(k.needle);
+      assert.ok(at >= 0, `${k.needle} is not in the sample`);
+      assert.equal(read[at], k.role, `${lang} ${k.label}: Read`);
+      assert.equal(source[at], k.role, `${lang} ${k.label}: Source`);
+    }
+  });
+}
+
+test('D1 role-parity: a Markdown fence in Source takes the runs Read paints for that fence', async () => {
+  const doc = '# T\n\n```ruby\ndef hi(name) # c\n  "hi"\nend\n```\n\n```ts\nconst a = 1; // c\n```\n\n```nope\nfunc b\n```\n\n> ```py\n> x = 1\n> ```\n';
+  const { markdown } = await import('@codemirror/lang-markdown');
+  const state = EditorState.create({ doc, extensions: [markdown()] });
+  ensureSyntaxTree(state, doc.length, 10_000);
+  const fences = fenceBodies(state, [{ from: 0, to: doc.length }]);
+  // The unknown fence and the quoted one are left plain, as Read leaves an unknown fence.
+  assert.deepEqual(fences.map((f) => f.lang), ['ruby', 'typescript']);
+  for (const fence of fences) {
+    const text = state.doc.sliceString(fence.from, fence.to, '\n');
+    const marks = RangeSet.of(marksFromRuns(runsFromTokens(await highlight(text, fence.lang)), fence.from, fence.to), true);
+    const source = rolesOfMarks(marks, doc.length).slice(fence.from, fence.to);
+    const open = doc.lastIndexOf('```', fence.from);
+    const word = doc.slice(open + 3, doc.indexOf('\n', open));
+    assert.equal(langOfFence(word), fence.lang);
+    assert.deepEqual(source, await readRoles(word, text), `${word}: the fence's roles`);
+  }
+});
+
+test('Lezer colours nothing in a code file; it stays for structure (folding) and Markdown', async () => {
+  const ext = await languageExtension('a.ts', 10, undefined, async () => []);
+  const state = EditorState.create({ doc: 'function f() {\n  return 1;\n}\n', extensions: [ext] });
+  // The tree is there (folding reads it), and no highlighter is installed for it.
+  assert.ok(ensureSyntaxTree(state, state.doc.length, 10_000)?.length > 0);
+  const { highlightingFor } = await import('@codemirror/language');
+  const { tags } = await import('@lezer/highlight');
+  assert.equal(highlightingFor(state, [tags.keyword]), null);
+});
+
+test('in Markdown, Lezer colours the marks and leaves a fence\'s body to its runs', async () => {
+  const doc = '# T\n\n```ruby\ndef hi\n```\n\nsome `code`\n';
+  const ext = await languageExtension('a.md', doc.length);
+  const state = EditorState.create({ doc, extensions: [ext] });
   const tree = ensureSyntaxTree(state, doc.length, 10_000);
-  const roles = new Array(doc.length).fill(null);
-  highlightTree(tree, highlighter, (from, to, classes) => {
-    const names = classes.split(' ').map((c) => c.slice('role-'.length));
-    const winner = [...names].sort((a, b) => ROLE_ORDER.indexOf(b) - ROLE_ORDER.indexOf(a))[0];
-    for (let i = from; i < to; i++) roles[i] = winner;
-  });
-  return roles;
-}
+  const { highlightTree } = await import('@lezer/highlight');
+  const { highlightingFor } = await import('@codemirror/language');
+  const styled = [];
+  highlightTree(tree, { style: (tags) => highlightingFor(state, tags) }, (from, to) => styled.push([from, to]));
+  const styledAt = (needle) => styled.some(([from, to]) => from <= doc.indexOf(needle) && doc.indexOf(needle) < to);
+  assert.ok(styledAt('T\n'), 'the heading keeps its Lezer style');
+  assert.ok(styledAt('code`'), 'inline code keeps its Lezer style');
+  assert.ok(!styledAt('def hi') && !styledAt('hi\n```'), `the fence body has no Lezer colour: ${JSON.stringify(styled)}`);
+});
 
-/** Role of every character, in Rendered. */
-async function renderedRoles(lang, doc) {
-  const lines = await tokenizeWithAllowList(doc, lang);
-  const roles = new Array(doc.length).fill(null);
-  let offset = 0;
-  for (const line of lines) {
-    for (const tok of line) {
-      const role = marxyScopeForTokenColor(tok.color) ?? null;
-      for (let i = 0; i < tok.content.length; i++) roles[offset + i] = role;
-      offset += tok.content.length;
-    }
-    offset += 1; // the newline
-  }
-  return roles;
-}
-
-function indexOfNth(doc, needle, nth = 1) {
-  let at = -1;
-  for (let i = 0; i < nth; i++) {
-    at = doc.indexOf(needle, at + 1);
-    assert.ok(at >= 0, `${JSON.stringify(needle)} #${nth} is not in the fixture`);
-  }
-  return at;
-}
-
-// `c(label, needle, role)` expects both engines to say `role` for the needle's first character.
-// `gap(label, needle, { rendered, source }, why)` records a place the engines cannot agree.
-const c = (label, needle, role, nth = 1) => ({ label, needle, rendered: role, source: role, nth });
-const gap = (label, needle, { rendered, source }, why, nth = 1) => ({ label, needle, rendered, source, nth, why });
-
-const PYTHON = `@decorator(1)
-class Foo(Base):
-    def run(self, x: int = 3):
-        s = "plain"
-        print(f"a\\n{x!r} {self.y}")
-        return len([1])  # c
-`;
-const TYPESCRIPT = `@Component({a:1})
-class A { b = 1; run(this: A) { console.log("a\\n", this.b, \`t\${1}\`); } }
-const o = { k: 1 }; const t = true; // c
-`;
-const RUST = `#[derive(Debug)]
-struct S { a: i32 }
-fn main() {
-    println!("hi\\n");
-    let x: Vec<u8> = Vec::new();
-    self.a;
-}
-`;
-
-const GO = 'package main\nfunc (s *S) Run(x int) string {\n\tfmt.Println("a\\n", s.y)\n\treturn len(x)\n}\n// c\n';
-const SHELL = 'if [ -n "$X" ]; then echo hi ; fi # c\n';
-
-const FIXTURES = [
-  {
-    name: 'Python', lang: 'python', path: 'a.py', doc: PYTHON,
-    constructs: [
-      c('keyword', 'class', 'keyword'),
-      c('keyword (return)', 'return', 'keyword'),
-      c('decorator mark', '@', 'decorator'),
-      c('decorator name', 'decorator', 'decorator'),
-      c('class definition', 'Foo', 'type'),
-      c('def name', 'run', 'function'),
-      c('number', '3', 'number'),
-      c('number in a decorator argument', '1', 'number'),
-      c('string', 'plain', 'string'),
-      c('escape', '\\n', 'escape'),
-      c('f-string placeholder', '{x', 'punctuation'),
-      c('property', 'y}', 'property'),
-      c('comment', '# c', 'comment'),
-      gap('self', 'self', { rendered: 'self', source: 'variable' }, 'Lezer gives self no tag in Python; it is a plain VariableName'),
-      gap('builtin, called', 'print', { rendered: 'builtin', source: 'function' }, 'Lezer cannot tell a builtin from any other call'),
-      gap('builtin, uncalled', 'int', { rendered: 'builtin', source: 'variable' }, 'Lezer has no list of Python builtins'),
-    ],
-  },
-  {
-    name: 'TypeScript', lang: 'typescript', path: 'a.ts', doc: TYPESCRIPT,
-    constructs: [
-      c('decorator mark', '@', 'decorator'),
-      c('decorator name', 'Component', 'decorator'),
-      c('keyword', 'class', 'keyword'),
-      c('keyword (const)', 'const', 'keyword'),
-      c('class definition', 'A', 'type'),
-      c('field definition', 'b =', 'property'),
-      c('self (this)', 'this', 'self'),
-      c('call', 'log', 'function'),
-      c('property', 'b,', 'property'),
-      c('object key', 'k:', 'property'),
-      c('escape', '\\n', 'escape'),
-      c('template placeholder', '${', 'punctuation'),
-      c('number', '1; run', 'number'),
-      c('constant', 'true', 'constant'),
-      c('comment', '// c', 'comment'),
-    ],
-  },
-  {
-    name: 'Rust', lang: 'rust', path: 'a.rs', doc: RUST,
-    constructs: [
-      c('decorator mark', '#', 'decorator'),
-      c('decorator name', 'derive', 'decorator'),
-      c('keyword', 'struct', 'keyword'),
-      c('keyword (let)', 'let', 'keyword'),
-      c('type definition', 'S ', 'type'),
-      c('type', 'i32', 'type'),
-      c('type (Vec)', 'Vec<', 'type'),
-      c('fn name', 'main', 'function'),
-      c('macro', 'println', 'function'),
-      gap('escape', '\\n', { rendered: 'escape', source: null }, 'the Rust grammar leaves an escape inside a string untagged'),
-      c('self', 'self', 'self'),
-      gap('field', 'a;', { rendered: null, source: 'property' }, 'the Rust grammar leaves a field access with no scope'),
-    ],
-  },
-  {
-    name: 'Go', lang: 'go', path: 'a.go', doc: GO,
-    constructs: [
-      c('keyword', 'func', 'keyword'),
-      c('keyword (return)', 'return', 'keyword'),
-      c('comment', '// c', 'comment'),
-      gap('method name', 'Run', { rendered: 'function', source: 'property' }, 'lang-go tags a method name as a property, not a function definition'),
-      gap('builtin type', 'int', { rendered: 'builtin', source: 'type' }, 'Lezer has no list of Go predeclared types'),
-      gap('builtin call', 'len', { rendered: 'builtin', source: 'function' }, 'Lezer cannot tell a predeclared function from any other call'),
-      gap('escape', '\\n', { rendered: 'escape', source: 'string' }, 'the Go grammar does not split an escape out of an interpreted string'),
-    ],
-  },
-  {
-    name: 'shell', lang: 'bash', path: 'a.sh', doc: SHELL,
-    constructs: [
-      c('keyword', 'if', 'keyword'),
-      c('keyword (then)', 'then', 'keyword'),
-      c('builtin', 'echo', 'builtin'),
-      c('comment', '# c', 'comment'),
-    ],
-  },
-];
-
-for (const fx of FIXTURES) {
-  test(`V-13 parity: ${fx.name}, Source and Rendered give each construct one role`, async () => {
-    const [source, rendered] = [await sourceRoles(fx.path, fx.doc), await renderedRoles(fx.lang, fx.doc)];
-    for (const k of fx.constructs) {
-      const at = indexOfNth(fx.doc, k.needle, k.nth);
-      assert.equal(source[at], k.source, `${fx.name} ${k.label}: Source`);
-      assert.equal(rendered[at], k.rendered, `${fx.name} ${k.label}: Rendered`);
-      if (!k.why) assert.equal(source[at], rendered[at], `${fx.name} ${k.label}: the modes disagree`);
-      else assert.notEqual(source[at], rendered[at], `${fx.name} ${k.label}: the gap closed, so remove it from the list`);
-    }
-  });
-}
-
-test('V-13 parity: every Lezer tag and TextMate scope in the role table is accepted by its engine', () => {
-  for (const [role, spec] of Object.entries(ROLES)) {
-    for (const tag of spec.lezer) assert.ok(lezerTag(tag), `${role}: ${tag}`);
-  }
+test('every Lezer tag in the role table is accepted (Markdown\'s marks still use them)', () => {
+  for (const [role, spec] of Object.entries(ROLES)) for (const tag of spec.lezer) assert.ok(lezerTag(tag), `${role}: ${tag}`);
 });

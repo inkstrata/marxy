@@ -1,4 +1,4 @@
-// copy-section: markdown source for a heading section or the whole document (ADR-0004, MARXY-42).
+// copy-section: markdown source for a heading section or the whole document.
 import type { Document, Heading } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
 import { sectionOf, stripRendererProvenance } from './html-clean.ts';
@@ -48,7 +48,7 @@ export const copySection: Operation = {
       }
     }
     // The source slice less its trailing blank lines: never a newline the source did not have
-    // (MARXY-230), and the last content line's own trailing whitespace and ending (CRLF too) kept.
+    // and the last content line's own trailing whitespace and ending (CRLF too) kept.
     const clipText = withoutTrailingBlankLines(input.text);
     const html = stripRendererProvenance(renderDocumentSafeHtml(sectionOf(input)).html);
     return {

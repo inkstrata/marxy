@@ -1,0 +1,320 @@
+// The Outline tab's pure parts: the rows `outlineModelOf` gives (levels, the words of each section, tables under their
+// section), and the actions `applyOutlineAction` runs on a real store: a move is the reference
+// splice byte for byte over random Markdown, is one undo step, is refused with the file untouched when it would change the blocks
+// of the document or the range holds bytes that are not text. What the reader sees is outline-tab.test.mjs, in WebKit.
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { createBuffer, parseMarkdown, sectionRange } from '@marxy/core';
+import { blockKeys } from '@marxy/core/src/operations/move-section.ts';
+import { corpusDocuments } from '@marxy/core/src/operations/testing/corpus.ts';
+import { generate, reference, sectionIndexAfterDown, sectionIndexAfterUp } from '@marxy/core/src/operations/testing/sections.ts';
+import { openDocumentStore } from '../../document/store.ts';
+import { countsAsMarkdown, countWords } from './facts.ts';
+import { applyOutlineAction, currentRow, type HeadingRow, type OutlineAction, outlineModelFor, outlineModelOf, tableLabel } from './outline.ts';
+import { cpuNow } from '../../testing/cpu-clock.ts';
+import { OUTLINE_MAX } from '@marxy/core/src/outline/outline.ts';
+
+const enc = new TextEncoder();
+const dec = new TextDecoder('utf-8', { ignoreBOM: true });
+const modelOf = (md: string | Uint8Array) => {
+  const bytes = typeof md === 'string' ? enc.encode(md) : md;
+  return outlineModelOf(parseMarkdown(bytes, { file: 'o.md' }), createBuffer('o.md', bytes));
+};
+const headings = (md: string) => modelOf(md).rows.filter((r): r is HeadingRow => r.kind === 'heading');
+const storeOf = (md: string, path = '/o.md') => openDocumentStore({ writeFileAtomic: async () => {} }, path, enc.encode(md));
+const textOfStore = (store: ReturnType<typeof storeOf>) => dec.decode(store.snapshot().buffer.bytes);
+
+// ---- the rows ---------------------------------------------------------------------------------------------------------
+
+test('outlineModelOf: headings in order with their levels, indented from the shallowest, and the words of each section including its sub-sections', () => {
+  const md = '## Method\n\nHow it was done.\n\n### Detail\n\nOne two three.\n\n## Results\n\nFour five.\n';
+  const rows = headings(md);
+  assert.deepEqual(rows.map((r) => [r.text, r.level, r.depth, r.words]), [
+    ['Method', 2, 0, 9],
+    ['Detail', 3, 1, 4],
+    ['Results', 2, 0, 3],
+  ]);
+});
+
+test('outlineModelOf: a heading in a fence or in front matter is not a row; one in a quote or a list item is, as the folded outline lists it; a title held only by front matter is not a heading', () => {
+  const md = '---\ntitle: Held by front matter\n# nor this\n---\n\n# Real\n\n```md\n# in a fence\n```\n\n> ## Quoted\n\n- ### Listed\n';
+  const rows = headings(md);
+  assert.deepEqual(rows.map((r) => r.text), ['Real', 'Quoted', 'Listed']);
+});
+
+test('outlineModelOf: a table is listed under the section that holds it, as "Table: its first header cells"', () => {
+  const md = '| Intro | Cell |\n|---|---|\n| 1 | 2 |\n\n# A\n\n| Place | Count | `code` | [link](x) | five |\n|---|---|---|---|---|\n| n | 1 | | | |\n\n## B\n\n|  | x |\n|--|--|\n| 1 | 2 |\n';
+  const rows = modelOf(md).rows;
+  assert.deepEqual(rows.map((r) => (r.kind === 'heading' ? `#${r.text}` : r.kind === 'table' ? r.label : `title ${r.text}`)), [
+    'Table: Intro, Cell',
+    '#A',
+    'Table: Place, Count, code, link, …',
+    '#B',
+    'Table: (empty), x',
+  ]);
+  assert.deepEqual(rows.map((r) => r.depth), [0, 0, 1, 1, 2], 'a table sits one step in from its section');
+  const table = parseMarkdown('| a |\n|---|\n', { file: 't.md' }).children[0]!;
+  assert.equal(tableLabel(table as never), 'Table: a');
+});
+
+test('outlineModelOf: a title that only front matter holds is the top row, so "where you are" has a row to mark; with an h1 there is none', () => {
+  const md = '---\ntitle: Front title\n---\n\nIntro words.\n\n## Section\n\ntext\n';
+  const rows = modelOf(md).rows;
+  assert.deepEqual(rows.map((r) => [r.kind, r.kind === 'table' ? r.label : r.text]), [['title', 'Front title'], ['heading', 'Section']]);
+  assert.equal(modelOf(md).headings, 1, 'a title is not a heading');
+  // The preamble is the title\'s, as the status bar says: the title row is marked above the first heading.
+  assert.equal(currentRow(rows, md.indexOf('Intro')), 0);
+  assert.equal(currentRow(rows, md.indexOf('text\n')), 1);
+  assert.deepEqual(modelOf('---\ntitle: Front title\n---\n\n# Real h1\n').rows.map((r) => r.kind), ['heading']);
+});
+
+test('outlineModelOf: the sections of a large outline end where the card says, and the model is made once per buffer', () => {
+  const md = Array.from({ length: 4000 }, (_, i) => `${'#'.repeat(1 + (i % 3))} H${i}\n\nword ${i}\n`).join('\n');
+  const bytes = enc.encode(md);
+  const ast = parseMarkdown(bytes, { file: 'o.md' });
+  const buffer = createBuffer('o.md', bytes);
+  const t0 = cpuNow();
+  const model = outlineModelOf(ast, buffer);
+  const took = cpuNow() - t0;
+  assert.ok(took < 400, `${took.toFixed(0)} ms for 4,000 headings`);
+  // Each section's end is `sectionRange`'s.
+  const heads = ast.children.filter((b) => b.type === 'heading');
+  const rows = model.rows.filter((r): r is HeadingRow => r.kind === 'heading');
+  heads.forEach((h, i) => assert.equal(rows[i]!.end, sectionRange(ast, h as never).end, `heading ${i}`));
+  assert.equal(outlineModelFor(ast, buffer), outlineModelFor(ast, buffer));
+});
+
+test('outlineModelOf: 200,000 headings in one quote give the first OUTLINE_MAX rows and say so, tables stopping with them', () => {
+  const md = `| t |\n|---|\n\n${'> ## h\n'.repeat(OUTLINE_MAX)}\n| after |\n|---|\n\n${'> ## h\n'.repeat(200_000 - OUTLINE_MAX)}\n| late |\n|---|\n`;
+  const model = modelOf(md);
+  assert.equal(model.capped, true);
+  assert.equal(model.headings, OUTLINE_MAX);
+  assert.deepEqual(model.rows.filter((r) => r.kind === 'table').map((r) => (r as { label: string }).label), ['Table: t', 'Table: after']);
+  assert.equal(model.rows.length, OUTLINE_MAX + 2);
+  assert.equal(modelOf('# a\n\n## b\n').capped, false);
+});
+
+test('outlineModelOf: a document with no heading has no heading rows', () => {
+  assert.deepEqual(modelOf('Just a paragraph.\n').rows, []);
+  assert.equal(modelOf('').headings, 0);
+});
+
+test('words per section are the status bar\'s count over the section\'s bytes, for every heading of every corpus file', () => {
+  let checked = 0;
+  for (const { file, bytes, document } of corpusDocuments()) {
+    const buffer = createBuffer(file, bytes);
+    const model = outlineModelOf(document, buffer);
+    const rows = model.rows.filter((r): r is HeadingRow => r.kind === 'heading');
+    for (const row of rows) {
+      const section = dec.decode(bytes.subarray(row.start, row.end));
+      assert.equal(row.words, countWords(section, { markdown: countsAsMarkdown(file) }), `${file}: ${row.text}`);
+      checked++;
+    }
+    // The sections that no other section holds, with the text before the first, are the whole text: no word is counted twice or dropped.
+    if (rows.length > 0) {
+      const outer = rows.filter((r) => !rows.some((o) => o !== r && o.start <= r.start && r.end <= o.end && (o.start < r.start || r.end < o.end)));
+      const before = countWords(dec.decode(bytes.subarray(0, outer[0]!.start)), { markdown: countsAsMarkdown(file) });
+      assert.equal(before + outer.reduce((n, r) => n + r.words, 0), countWords(buffer.text, { markdown: countsAsMarkdown(file) }), `${file}: the sections tile the text`);
+    }
+  }
+  assert.ok(checked > 200, `${checked} sections checked`);
+});
+
+test('currentRow: the last heading that starts at or before the byte; none above the first heading', () => {
+  const rows = headings('Intro.\n\n# A\n\na\n\n## B\n\nb\n\n# C\n\nc\n');
+  assert.equal(currentRow(rows, 0), -1);
+  assert.equal(currentRow(rows, rows[0]!.start), 0);
+  assert.equal(currentRow(rows, rows[1]!.start - 1), 0);
+  assert.equal(currentRow(rows, rows[1]!.start), 1);
+  assert.equal(currentRow(rows, 10_000), 2);
+});
+
+// ---- the actions ------------------------------------------------------------------------------------------------------
+
+const startOf = (md: string, title: string): number => headings(md).find((r) => r.text === title)!.start;
+
+test('Move up and Move down: the other section is the other way round, in one undo step, and undo gives the exact bytes back', async () => {
+  const md = '# Intro\n\ni\n\n## One\n\n1\n\n## Two\n\n2\n\n## Three\n\n3\n';
+  const store = storeOf(md);
+  const before = store.snapshot();
+  const up = await applyOutlineAction(store, startOf(md, 'Two'), 'move-up');
+  assert.deepEqual(up.applied, true);
+  const after = textOfStore(store);
+  assert.equal(after, '# Intro\n\ni\n\n## Two\n\n2\n\n## One\n\n1\n\n## Three\n\n3\n');
+  assert.equal(up.applied && startOf(after, 'Two'), up.applied && up.start, 'the result says where the heading is now');
+  assert.equal(store.snapshot().version, before.version + 1, 'one transition');
+  await store.undo();
+  assert.equal(textOfStore(store), md, 'one undo gives the original bytes');
+  assert.equal(store.snapshot().canUndo, false);
+  const down = await applyOutlineAction(store, startOf(md, 'One'), 'move-down');
+  assert.equal(textOfStore(store), after, 'down from the other side is the same swap');
+  assert.equal(down.applied && down.start, startOf(after, 'One'));
+  // The first section has nowhere to go up, the last none to go down; the document is untouched and the reason is in words.
+  const first = await applyOutlineAction(store, startOf(after, 'Two'), 'move-up');
+  assert.equal(first.applied, false);
+  assert.match(first.applied ? '' : first.why, /first section at its level/);
+  const last = await applyOutlineAction(store, startOf(after, 'Three'), 'move-down');
+  assert.match(last.applied ? '' : last.why, /last section at its level/);
+  assert.equal(textOfStore(store), after);
+});
+
+// Store-walk seed 817: a byte-order mark is the file's, not the first section's. Moving section 0 down must leave the mark
+// first; the walk's reference used to carry it down with the section (the product was right, the oracle wrong).
+test('Move down of the first section of a file with a byte-order mark and CRLF keeps the mark at byte 0', async () => {
+  const first = '# Field notes\r\n\r\nA paragraph.\r\n\r\n';
+  const second = '# List\r\n\r\n- one\r\n- two\r\n\r\nEnd.\r\n';
+  const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...enc.encode(first + second)]);
+  const store = openDocumentStore({ writeFileAtomic: async () => {} }, '/o.md', bytes);
+  const result = await applyOutlineAction(store, 3, 'move-down');
+  assert.equal(result.applied, true);
+  const after = store.snapshot().buffer.bytes;
+  assert.deepEqual([...after.subarray(0, 3)], [0xef, 0xbb, 0xbf], 'the mark is still the first three bytes');
+  assert.equal(dec.decode(after), '\ufeff' + second + first, 'the second section, then the first, after the mark');
+  assert.equal(after.length, bytes.length, 'no byte is added or lost');
+});
+
+test('Promote and Demote: the # runs of the section move one level, and a setext heading is declined in words', async () => {
+  const store = storeOf('# A\n\n## B\n\n### C\n\n## D\n');
+  const demote = await applyOutlineAction(store, startOf(textOfStore(store), 'B'), 'demote');
+  assert.equal(demote.applied, true);
+  assert.equal(textOfStore(store), '# A\n\n### B\n\n#### C\n\n## D\n');
+  await store.undo();
+  const promote = await applyOutlineAction(store, startOf(textOfStore(store), 'B'), 'promote');
+  assert.equal(promote.applied, true);
+  assert.equal(textOfStore(store), '# A\n\n# B\n\n## C\n\n## D\n');
+  const refused = await applyOutlineAction(storeOf('# A\n\nSub\n---\n'), startOf('# A\n\nSub\n---\n', 'A'), 'demote');
+  assert.equal(refused.applied, false);
+  assert.match(refused.applied ? '' : refused.why, /setext/);
+});
+
+test('a setext section moves like any other, because a move does not rewrite a heading', async () => {
+  const md = 'One\n===\n\nfirst\n\nTwo\n===\n\nsecond\n\n';
+  const store = storeOf(md);
+  assert.equal((await applyOutlineAction(store, startOf(md, 'Two'), 'move-up')).applied, true);
+  assert.equal(textOfStore(store), 'Two\n===\n\nsecond\n\nOne\n===\n\nfirst\n\n');
+  // With one line ending after the last paragraph and a setext heading to sit above, the paragraph would join the heading: refused.
+  const tight = 'One\n===\n\nfirst\n\nTwo\n===\n\nsecond\n';
+  const other = storeOf(tight);
+  const refused = await applyOutlineAction(other, startOf(tight, 'Two'), 'move-up');
+  assert.equal(refused.applied, false);
+  assert.equal(textOfStore(other), tight);
+});
+
+test('the last section with no final line ending: moved up the file still has none, and moved back the bytes return', async () => {
+  const md = '# A\n\na\n\n# B\n\nb';
+  const store = storeOf(md);
+  assert.equal((await applyOutlineAction(store, startOf(md, 'B'), 'move-up')).applied, true);
+  assert.equal(textOfStore(store), '# B\n\nb\n\n# A\n\na');
+  assert.equal((await applyOutlineAction(store, startOf(textOfStore(store), 'B'), 'move-down')).applied, true);
+  assert.equal(textOfStore(store), md);
+});
+
+test('a move that would run a paragraph into a setext heading is refused, with the file untouched', async () => {
+  const md = '# A\na\n\nB\n===\nb\n# C\nc';
+  const store = storeOf(md);
+  const result = await applyOutlineAction(store, startOf(md, 'C'), 'move-up');
+  assert.equal(result.applied, false);
+  assert.match(result.applied ? '' : result.why, /code or a heading/);
+  assert.equal(textOfStore(store), md);
+  assert.equal(store.snapshot().canUndo, false);
+});
+
+test('a move that flips a fence\'s parity is refused: code would become a heading and a heading code (commitment 4)', async () => {
+  for (const md of ['# A\n~~~\n# H\n~~~\n# B\n~~~\ny\n', '# A\n```\n# H\n```\n# B\n```\ny\n']) {
+    const store = storeOf(md);
+    const result = await applyOutlineAction(store, startOf(md, 'B'), 'move-up');
+    assert.equal(result.applied, false, md);
+    assert.equal(result.applied ? '' : result.why, 'Not moved · the file is unchanged · moving it would change what is code or a heading here');
+    assert.equal(textOfStore(store), md);
+    assert.equal(store.snapshot().canUndo, false);
+  }
+});
+
+test('a move that would draw a link reference definition into a setext heading is refused', async () => {
+  const md = 'x\n\n[ref]: http://x.example\n# P\n\nTitle\n===\n';
+  const store = storeOf(md);
+  const result = await applyOutlineAction(store, startOf(md, 'Title'), 'move-up');
+  assert.equal(result.applied, false);
+  assert.match(result.applied ? '' : result.why, /code or a heading/);
+  assert.equal(textOfStore(store), md);
+});
+
+test('a heading in a quote or a list item is not moved, and the reason says so', async () => {
+  const md = '# A\n\n> ## Q\n> text\n\n- ### L\n\n# B\n';
+  const store = storeOf(md);
+  for (const [title, action] of [['Q', 'move-up'], ['Q', 'move-down'], ['L', 'move-up'], ['L', 'move-down']] as const) {
+    const result = await applyOutlineAction(store, startOf(md, title), action);
+    assert.equal(result.applied, false);
+    assert.match(result.applied ? '' : result.why, /inside a quote or a list item/, `${title} ${action}`);
+  }
+  assert.equal(textOfStore(store), md);
+});
+
+test('a range that holds a byte that is not UTF-8 is not moved: the splice would write U+FFFD over it', async () => {
+  const bytes = new Uint8Array([...enc.encode('# A\n\n'), 0xff, ...enc.encode('\n\n# B\n\nb\n')]);
+  const store = openDocumentStore({ writeFileAtomic: async () => {} }, '/o.md', bytes);
+  const start = store.snapshot().ast.children.filter((b) => b.type === 'heading')[1]!.src.start;
+  const before = [...store.snapshot().buffer.bytes];
+  const result = await applyOutlineAction(store, start, 'move-up');
+  assert.equal(result.applied, false);
+  assert.match(result.applied ? '' : result.why, /not text/);
+  assert.deepEqual([...store.snapshot().buffer.bytes], before);
+});
+
+test('a heading that is no longer there, and a file that is not Markdown, are refused', async () => {
+  const store = storeOf('# A\n\n# B\n');
+  const gone = await applyOutlineAction(store, 999, 'move-up');
+  assert.equal(gone.applied, false);
+  assert.match(gone.applied ? '' : gone.why, /no longer there/);
+  const code = openDocumentStore({ writeFileAtomic: async () => {} }, '/x.py', enc.encode('# not a heading\n\n# nor this\n'), undefined, { lazy: true });
+  const refused = await applyOutlineAction(code, 0, 'move-down');
+  assert.equal(refused.applied, false);
+});
+
+// ---- the differential: the app's move against the reference splice -----------------------------------------------------
+
+test('differential: over random Markdown the app\'s move is the reference splice byte for byte, one undo step restores the file, and a refusal is one the reparse justifies', async () => {
+  let moves = 0;
+  let refused = 0;
+  const actions: [OutlineAction, 'up' | 'down'][] = [['move-up', 'up'], ['move-down', 'down']];
+  for (let seed = 1; seed <= 300; seed++) {
+    const { text, gen } = generate(seed);
+    const top = parseMarkdown(enc.encode(text), { file: 'o.md' }).children.filter((b) => b.type === 'heading');
+    assert.equal(top.length, gen.sections.length, `seed ${seed}: the parse and the generator agree on the sections`);
+    // The list holds those and the headings the generator hid in a quote and a list item, and nothing from a fence or front matter.
+    const listed = headings(text).length;
+    assert.ok(listed >= top.length && listed <= top.length + 2 * gen.sections.length, `seed ${seed}: ${listed} rows for ${top.length} sections`);
+    for (let at = 0; at < gen.sections.length; at++) {
+      for (const [action, direction] of actions) {
+        const want = reference(text, gen, at, direction);
+        const store = storeOf(text);
+        const where = `seed ${seed}, ${action} section ${at}: ${JSON.stringify(text)}`;
+        const result = await applyOutlineAction(store, top[at]!.src.start, action);
+        if (want === null) {
+          assert.equal(result.applied, false, `moved where the reference has no move: ${where}`);
+          assert.equal(textOfStore(store), text, where);
+          continue;
+        }
+        if (!result.applied) {
+          // Only the shape check may refuse a move the reference makes: the reference's bytes must really have changed the blocks.
+          assert.match(result.why, /code or a heading/, where);
+          const keys = (t: string) => { const b = enc.encode(t); return blockKeys(parseMarkdown(b, { file: 'o.md' }), b).sort().join('\n'); };
+          assert.notEqual(keys(want), keys(text), `refused a move that keeps the blocks: ${where}`);
+          assert.equal(textOfStore(store), text, where);
+          refused++;
+          continue;
+        }
+        assert.equal(textOfStore(store), want, where);
+        assert.equal(store.snapshot().version, 1, 'one transition');
+        const to = direction === 'up' ? sectionIndexAfterUp(gen, at) : sectionIndexAfterDown(gen, at);
+        const landed = parseMarkdown(store.snapshot().buffer.bytes, { file: 'o.md' }).children.filter((b) => b.type === 'heading')[to]!;
+        assert.equal(landed.src.start, result.start, `the heading is where the result says: ${where}`);
+        await store.undo();
+        assert.equal(textOfStore(store), text, `one undo restores the bytes: ${where}`);
+        moves++;
+      }
+    }
+  }
+  assert.ok(moves > 400, `${moves} moves were compared`);
+  assert.ok(refused < moves / 5, `${refused} refusals against ${moves} moves`);
+});

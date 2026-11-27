@@ -1,8 +1,8 @@
-// Palette session: MRU, pins, and document history. No tab bar (ADR-0011, ADR-0012).
+// Palette session: MRU, pins, and document history. No tab bar.
 
 import { INDEX_LIMITS } from '@marxy/core';
 
-/** Matches history.json: opens capped at 500, oldest dropped (design §07). */
+/** Matches history.json: opens capped at 500, oldest dropped. */
 export const OPENS_CAP = 500;
 
 /** In-memory palette state. Pinning lives here; the frozen index entry has no pin field. */
@@ -19,19 +19,47 @@ export interface PaletteSession {
 }
 
 let paletteHydration: PaletteSession | null = null;
+let hydrationListener: ((session: PaletteSession) => void) | undefined;
 
-/** Seeds the next `emptySession` call (used when history.json loads before the palette mounts). */
+/**
+ * Kept for the palette's mount (`takePaletteHydration`) when history.json loads before it; a palette already
+ * mounted (history.json is read after first text, the palette mounts at it) is handed the session instead.
+ */
 export function setPaletteHydration(session: PaletteSession): void {
-  paletteHydration = session;
+  if (hydrationListener) hydrationListener(session);
+  else paletteHydration = session;
+}
+
+/**
+ * The session history.json gave before the palette mounted, once. Only the mount takes it: `emptySession`
+ * is also the placeholder read before there is a palette, and taking it there lost the file's pins.
+ */
+export function takePaletteHydration(): PaletteSession | null {
+  const session = paletteHydration;
+  paletteHydration = null;
+  return session;
+}
+
+/** The mounted palette's ear for a history.json that arrives after it. One listener. */
+export function setHydrationListener(cb: ((session: PaletteSession) => void) | undefined): void {
+  hydrationListener = cb;
+}
+
+/**
+ * `disk` (history.json, read late) with what `live` saw before it arrived on top: its opens, newest first,
+ * its pins added, and the roots its opens are under. Without this the file was dropped or wrote over them.
+ */
+export function adoptHistory(disk: PaletteSession, live: PaletteSession): PaletteSession {
+  let session = disk;
+  for (const path of [...live.mru].reverse()) session = recordOpen(session, path, undefined, live.readAt[path] ?? Date.now());
+  for (const root of [...live.recentRoots].reverse()) {
+    if (live.mru.some((path) => path.startsWith(`${root}/`))) session = rememberRoot(session, root);
+  }
+  return { ...session, pinned: [...disk.pinned, ...live.pinned.filter((path) => !disk.pinned.includes(path))] };
 }
 
 /** An empty session for a root. History is vacant until the first open (or hydration from disk). */
 export function emptySession(currentRoot: string): PaletteSession {
-  if (paletteHydration) {
-    const session = paletteHydration;
-    paletteHydration = null;
-    return session;
-  }
   return {
     pinned: [],
     mru: [],
@@ -136,7 +164,7 @@ function touchMru(session: PaletteSession, path: string, now: number): PaletteSe
 
 /**
  * The documents "open beside" offers when nothing is typed: the MRU, newest first, without those already
- * on screen (D-07). Pins do not lift a row here; the list is what was read last.
+ * on screen. Pins do not lift a row here; the list is what was read last.
  */
 export function recentExcluding(session: PaletteSession, paths: Iterable<string>): readonly string[] {
   const shown = new Set(paths);

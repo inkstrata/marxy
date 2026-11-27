@@ -1,4 +1,4 @@
-// Formatting commands, inserts, show whitespace and the column guide in Source (V-08), in the running app over the
+// Formatting commands, inserts, show whitespace and the column guide in Source, in the running app over the
 // memory shell, WebKit. Commitment 3: a formatting command changes only the bytes it is asked to, as one undo step;
 // show whitespace and the guide are a view and change no byte, no copy and no buffer.
 import { strict as assert } from 'node:assert';
@@ -274,6 +274,36 @@ test('the column guide toggles, follows .editorconfig max_line_length, and chang
       return Math.abs(parseFloat(getComputedStyle(content, '::after').left) - 100 * probe.getBoundingClientRect().width) < 1.5;
     });
   }, { '/r/.editorconfig': '[*]\nmax_line_length = 100\n' });
+});
+
+test('the column ruler shows only while the column guide is on', async () => {
+  await withApp('/r/long.rs', async (page) => {
+    const ruler = () => page.evaluate(() => document.querySelector('#marxy-source .marxy-source-ruler')?.getClientRects().length > 0);
+    assert.equal(await ruler(), true, 'a code file has the guide, and the ruler with it');
+    await run(page, 'view.toggle-column-guide');
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#marxy-source .cm-content'), '::after').content === 'none');
+    await page.waitForFunction(() => document.querySelector('#marxy-source .marxy-source-ruler').getClientRects().length === 0);
+    // The text rises into the row the ruler held.
+    const top = await page.evaluate(() => [document.querySelector('#marxy-source .marxy-source-top').getBoundingClientRect().bottom, document.querySelector('#marxy-source .cm-scroller').getBoundingClientRect().top]);
+    assert.ok(Math.abs(top[0] - top[1]) < 1.5, `the text begins under the top bar (${top})`);
+    await run(page, 'view.toggle-column-guide');
+    await page.waitForFunction(() => document.querySelector('#marxy-source .marxy-source-ruler').getClientRects().length > 0);
+    await page.waitForFunction(() => document.querySelectorAll('#marxy-source .marxy-source-ruler-tick').length > 5);
+  });
+});
+
+test('with soft wrap there is no ruler even with the guide on; with the guide off a code file has none from its first frame', async () => {
+  await withApp('/r/note.md', async (page) => {
+    await run(page, 'view.toggle-column-guide');
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#marxy-source .cm-content'), '::after').content !== 'none');
+    assert.equal(await page.evaluate(() => document.querySelector('#marxy-source .marxy-source-ruler')), null, 'a wrapped row is no line to count columns on');
+  });
+  await withApp('/r/long.rs', async (page) => {
+    assert.equal(await guide(page), null, 'column_guide = false');
+    assert.equal(await page.evaluate(() => document.querySelector('#marxy-source .marxy-source-ruler')?.getClientRects().length ?? 0), 0);
+    await run(page, 'view.toggle-column-guide');
+    await page.waitForFunction(() => document.querySelector('#marxy-source .marxy-source-ruler')?.getClientRects().length > 0);
+  }, { '/config': 'column_guide = false\n' });
 });
 
 test('in Markdown the guide, once chosen, sits at 80 too', async () => {

@@ -1,11 +1,10 @@
-// The DOM of a pane (D-01; docs/design/09-app-shell.md §DOM skeleton): `section.marxy-pane` inside
+// The DOM of a pane: `section.marxy-pane` inside
 // `#marxy-main`, holding its notices region, its article, its Source mount and an empty find slot. The
 // first pane's elements keep the ids every test and script has always named (`#doc`, `#marxy-notices`,
 // `#marxy-source`); the second pane's carry a `-2`.
 
 import { KINDS, type Kind } from '@marxy/core/src/contracts/kinds.ts';
 import { ensureNoticesRegion } from '../notices/index.ts';
-import { applyLinkDestinations } from '../render/link-dest.ts';
 
 export type Slot = 0 | 1;
 
@@ -14,7 +13,7 @@ export interface PaneParts {
   readonly notices: HTMLElement;
   readonly article: HTMLElement;
   readonly source: HTMLElement;
-  /** Empty and zero-height at rest; Rendered find (D-13) fills it. */
+  /** Empty and zero-height at rest; Rendered find fills it. */
   readonly findSlot: HTMLElement;
 }
 
@@ -36,19 +35,16 @@ export function applySlot(parts: PaneParts, slot: Slot): void {
   parts.source.id = ids.source;
 }
 
-/** The pane root's kind attribute (K-05a, ADR-0060): the kind its document was decided to be when it opened. */
+/** The pane root's kind attribute: the kind its document was decided to be when it opened. */
 export const KIND_ATTRIBUTE = 'data-marxy-kind';
 
-/** Sets (or, with null, removes) the pane's kind. Nothing is styled by it until a theme or K-05b writes a rule. */
+/** Sets (or, with null, removes) the pane's kind. Nothing is styled by it until a theme writes a rule. */
 export function setPaneKind(host: Element | null, kind: Kind | null): void {
   if (host === null) return;
-  // The same kind again writes nothing, so a style recalculation is spent only on a kind that changed (K-05a.1).
+  // The same kind again writes nothing, so a style recalculation is spent only on a kind that changed.
   if (host.getAttribute(KIND_ATTRIBUTE) === kind) return;
   if (kind === null) host.removeAttribute(KIND_ATTRIBUTE);
   else host.setAttribute(KIND_ATTRIBUTE, kind);
-  // A byline's source is a link in an article only (K-20): a kind decided again after the render makes or undoes it.
-  const article = host.querySelector('.marxy-article');
-  if (article !== null) applyLinkDestinations(article);
 }
 
 /** The kind a pane root carries, or null when it carries none (nothing open) or a name outside the set. */
@@ -70,6 +66,7 @@ export function createPaneElement(slot: Slot): PaneParts {
   host.tabIndex = -1;
   const notices = document.createElement('div');
   notices.setAttribute('role', 'status');
+  notices.setAttribute('aria-atomic', 'false');
   const article = document.createElement('article');
   article.className = 'marxy-article';
   const source = document.createElement('div');

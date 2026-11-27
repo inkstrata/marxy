@@ -1,8 +1,9 @@
-// The level filter of a log (K-08), as pure functions: which lines a level keeps, how the lines it hides group into runs,
+// The level filter of a log, as pure functions: which lines a level keeps, how the lines it hides group into runs,
 // and what a run says. No DOM. A level shows itself and everything above it; a continuation line (a stack frame, a
 // wrapped message, a blank line) has the rank of the head before it, so an error keeps its frames. The ranks come from
 // `logRanks` (core, the one pattern detection uses): this file only decides what to do with them.
 import { logHead, logRanks, type LogRank } from '@marxy/core/src/highlight/line-classes.ts';
+import { LOG_HEAD_CHARS } from '@marxy/core/src/log/head.ts';
 
 export type LevelId = 'all' | 'info' | 'warn' | 'error';
 
@@ -91,7 +92,7 @@ export async function countHidden(
   let total = 0;
   let at = 0;
   const visit = (start: number, end: number): void => {
-    const head = logHead(text.slice(start, Math.min(end, start + 200)));
+    const head = logHead(text.slice(start, Math.min(end, start + LOG_HEAD_CHARS)));
     if (head !== null) rank = head.rank;
     total++;
     if (rank < min) hidden++;
@@ -113,24 +114,20 @@ export function firstErrorOffset(text: string): number {
   while (at < text.length && found < 0) {
     at = eachLine(text, (start, end) => {
       if (found >= 0) return;
-      const first = text.charCodeAt(start);
-      if (!(first === 0x5b || (first >= 0x30 && first <= 0x39))) return;
-      if (logHead(text.slice(start, Math.min(end, start + 200)))?.rank === 3) found = start;
+      if (logHead(text.slice(start, Math.min(end, start + LOG_HEAD_CHARS)))?.rank === 3) found = start;
     }, at, Math.min(text.length, at + 65_536));
   }
   return found;
 }
 
-/** Whether any line of `text` opens with a timestamp and a level word. A log with none cannot be filtered by level. */
+/** Whether any line of `text` opens with a level (`logHead`). A log with none, or whose shape writes none, cannot be filtered by level. */
 export function hasLevelWords(text: string): boolean {
   let found = false;
   let at = 0;
   while (at < text.length && !found) {
     at = eachLine(text, (start, end) => {
       if (found) return;
-      const first = text.charCodeAt(start);
-      if (!(first === 0x5b || (first >= 0x30 && first <= 0x39))) return;
-      if (logHead(text.slice(start, Math.min(end, start + 200))) !== null) found = true;
+      if (logHead(text.slice(start, Math.min(end, start + LOG_HEAD_CHARS)))?.level) found = true;
     }, at, Math.min(text.length, at + 65_536));
   }
   return found;

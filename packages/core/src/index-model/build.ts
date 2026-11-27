@@ -1,9 +1,9 @@
-// Assemble a snapshot from walked candidates. Pure: first paint cannot wait on this (ADR-0013).
+// Assemble a snapshot from walked candidates. Pure: first paint cannot wait on this.
 
 import type { IndexEntry } from '../contracts/index-entry.ts';
 import { applyCeiling, type IndexNotice } from './ceiling.ts';
 import { isDeniedPath } from './deny.ts';
-import { type IndexCandidate, entryFromCandidate } from './entry.ts';
+import { type IndexCandidate, type ReaderKinds, entryFromCandidate } from './entry.ts';
 import { classify } from './kinds.ts';
 import { INDEX_SNAPSHOT_VERSION, type IndexSnapshot } from './persist.ts';
 
@@ -17,14 +17,14 @@ export interface IndexBuild {
  * Filter, cap, and turn candidates into entries. Callers decide when; importing this file
  * does not start a walk.
  */
-export function buildIndex(root: string, candidates: readonly IndexCandidate[]): IndexBuild {
+export function buildIndex(root: string, candidates: readonly IndexCandidate[], kinds: ReaderKinds = {}): IndexBuild {
   const usable = candidates.filter(
     (candidate) => !isDeniedPath(candidate.relativePath) && classify(candidate.relativePath) !== undefined,
   );
   const { kept, notice } = applyCeiling(usable);
   return {
     root,
-    entries: kept.map((candidate) => entryFromCandidate(root, candidate)),
+    entries: kept.map((candidate) => entryFromCandidate(root, candidate, kinds)),
     notice,
   };
 }

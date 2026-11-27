@@ -1,0 +1,75 @@
+{
+  "title": "Two calls waiting on you",
+  "intro": "The tracker's **Waiting on Ian** rows, as of master `47513544`. Each says what it decides and what happens if it stays open.",
+  "questions": [
+    {
+      "id": "S11",
+      "title": "What may a sweep of leftover save files remove?",
+      "from": "tracker, Waiting on Ian",
+      "context": [
+        "A save writes the new bytes to a hidden staging file beside the document, then renames it over the original. If Marxy is killed between the two, the staging file stays: `.<name>.marxy-tmp-<pid>-<attempt>-<nanos>`, in the user's own folder.",
+        "Nothing removes these today. A sweep would delete files in folders Marxy does not own, so it needs a rule for which ones."
+      ],
+      "visual": [
+        {
+          "table": {
+            "head": ["Folder after a crash mid-save", "Size", "What it is"],
+            "rows": [
+              ["`notes.md`", "18 KB", "the document, old bytes intact"],
+              ["`.notes.md.marxy-tmp-8812-0-401223110`", "18 KB", "the new bytes that never landed"]
+            ]
+          },
+          "caption": "What a reader finds today: the document is safe; the staging file is the unsaved edit"
+        }
+      ],
+      "choices": [
+        { "id": "none", "label": "Never sweep", "detail": "Leftovers stay until someone deletes them. Nothing outside the document is ever removed." },
+        { "id": "own-pid", "label": "Only this run's own leftovers", "detail": "A staging name carrying a process id that is no longer running, in a folder this run saved to. Removes nothing another program made.", "recommended": true },
+        { "id": "age", "label": "Any Marxy staging file older than an age", "detail": "Any `.marxy-tmp-` name in a folder Marxy opens, once old enough.", "specify": "How old?" },
+        { "id": "ask", "label": "Show them and let the reader decide", "detail": "A notice on the folder: a leftover save, with Delete and Restore.", "specify": "Should Restore put the unsaved bytes back as the document?" }
+      ],
+      "multi": false,
+      "default": "Never sweep: the row stays here and leftovers accumulate."
+    },
+    {
+      "id": "F12",
+      "title": "Idle typesetting slice: 24 ms or 40 ms?",
+      "from": "tracker, Waiting on Ian; `packages/typeset` scheduler",
+      "context": [
+        "While the reader is idle, the typesetter sets paragraphs in slices. A bigger slice finishes a long page sooner but holds the main thread longer, so a frame drawn mid-slice is slower.",
+        "Measured on a 1 MB page under the same load. The setting is one constant."
+      ],
+      "visual": [
+        {
+          "bars": {
+            "unit": " s",
+            "rows": [
+              { "label": "master", "value": 112, "note": "112 to 147" },
+              { "label": "24 ms slice", "value": 86, "mark": true, "note": "today" },
+              { "label": "40 ms slice", "value": 57 }
+            ]
+          },
+          "caption": "Time to set the whole 1 MB page (shorter is better)"
+        },
+        {
+          "bars": {
+            "unit": " ms",
+            "rows": [
+              { "label": "master", "value": 125, "note": "64 to 125" },
+              { "label": "24 ms slice", "value": 93, "mark": true, "note": "63 to 93" },
+              { "label": "40 ms slice", "value": 171 }
+            ]
+          },
+          "caption": "Worst frame at rest while setting (shorter is better)"
+        }
+      ],
+      "choices": [
+        { "id": "24", "label": "Keep 24 ms", "detail": "Smoother at rest; the full page takes 86 s.", "recommended": true },
+        { "id": "40", "label": "Move to 40 ms", "detail": "The full page in 57 s; frames at rest up to 171 ms." },
+        { "id": "setting", "label": "Make it a setting", "detail": "A Settings row; 24 ms by default.", "specify": "What should the row be called?" },
+        { "id": "other", "label": "Something else", "specify": "What?" }
+      ],
+      "default": "Keep 24 ms and remove the row."
+    }
+  ]
+}

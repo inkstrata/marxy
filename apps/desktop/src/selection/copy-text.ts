@@ -1,8 +1,9 @@
-// DOM selection text for copy: marker glyphs and the long-line elision note are display-only (MARXY-236, F-01).
+// DOM selection text for copy: marker glyphs and the long-line elision note are display-only.
 // A range is copied into an inert document, never cloned in the page's own: a clone made there is a live
-// element, and an image clone fetches its source again (C-06 review).
+// element, and an image clone fetches its source again.
 
-const SKIP = new Set(['marxy-elided', 'marxy-invisible-glyph', 'marxy-link-dest', 'marxy-link-host-label', 'marxy-log-hidden-run']);
+// A diagram copies as its source: its drawing and its note are the page's own (render/diagram.ts).
+const SKIP = new Set(['marxy-elided', 'marxy-invisible-glyph', 'marxy-link-dest', 'marxy-link-host-label', 'marxy-log-hidden-run', 'marxy-diagram', 'marxy-diagram-note', 'marxy-note-margin', 'marxy-note-here']);
 
 let inertDoc: Document | null = null;
 
@@ -40,23 +41,17 @@ export function cloneRangeInert(range: Range): DocumentFragment {
 
 /** Text for the clipboard from a range; invisible marker labels are omitted. */
 export function textFromRange(range: Range): string {
-  return textFromFragment(cloneRangeInert(range), inArticleKind(range));
-}
-
-/** True when the range lies in a pane whose document is an `article`, whose profile sets the head's byline (K-20). */
-function inArticleKind(range: Range): boolean {
-  const node = range.commonAncestorContainer;
-  const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
-  return el?.closest('[data-marxy-kind]')?.getAttribute('data-marxy-kind') === 'article';
+  return textFromFragment(cloneRangeInert(range));
 }
 
 /**
- * What an article's head does not show and so does not copy (K-20): the key of a byline or dek row (with the newline
- * after it) and a byline value's one pair of outer quotes. A web source's scheme and path are hidden too but copied,
- * so a copied source is the whole URL as the bytes hold it.
+ * What the front-matter head does not show and so does not copy: every key and every row but the byline's (with the
+ * newline after each), and a byline value's one pair of outer quotes.
  */
-function hiddenInArticle(el: Element): boolean {
-  return (el.localName === 'dt' && el.hasAttribute('data-marxy-fm-part')) || el.getAttribute('data-marxy-fm-part') === 'quote';
+function hiddenInHead(el: Element): boolean {
+  if (el.getAttribute('data-marxy-fm-part') === 'quote') return true;
+  if (el.parentElement?.getAttribute('data-marxy-fm-part') !== 'head') return false;
+  return el.localName === 'dt' || el.getAttribute('data-marxy-fm-part') !== 'byline';
 }
 
 /** Text for the clipboard from a DOM selection; invisible marker labels are omitted. */
@@ -65,7 +60,7 @@ export function textFromDomSelection(sel: Selection): string {
   return textFromRange(sel.getRangeAt(0));
 }
 
-function textFromFragment(root: DocumentFragment | Node, article = false): string {
+function textFromFragment(root: DocumentFragment | Node): string {
   const parts: string[] = [];
   let afterLabel = false;
   const walk = (node: Node): void => {
@@ -73,8 +68,8 @@ function textFromFragment(root: DocumentFragment | Node, article = false): strin
     afterLabel = false;
     if (node.nodeType === Node.ELEMENT_NODE) {
       for (const cls of (node as Element).classList) if (SKIP.has(cls)) return;
-      if (article && hiddenInArticle(node as Element)) {
-        afterLabel = (node as Element).localName === 'dt';
+      if (hiddenInHead(node as Element)) {
+        afterLabel = (node as Element).localName !== 'span';
         return;
       }
     }
@@ -94,7 +89,7 @@ const RUN_PIECE = 'pre.marxy-run > code';
 const FENCE_CODE = 'pre:not(.marxy-run) > code[data-marxy-s]';
 
 /**
- * The one Markdown code fence a selection lies wholly inside (F-68), as a one-piece list for `codeRunSourceText`'s
+ * The one Markdown code fence a selection lies wholly inside, as a one-piece list for `codeRunSourceText`'s
  * mapping, else none: a selection that takes any prose, another block or a second fence copies the page's text. The
  * fence's bytes must be its page text's source: a fence in a quote or a list item has its container's marks between
  * its lines, and an indented block loses its indent on the page, so those are left to the page's text.
@@ -119,23 +114,23 @@ function fenceCode(range: Range, article: HTMLElement, bytes: Uint8Array): HTMLE
 }
 
 /**
- * The source text of `range` when it touches a code file's pieces (V-10), else null: the file's own bytes between
+ * The source text of `range` when it touches a code file's pieces, else null: the file's own bytes between
  * the two ends of the selection, line endings as they are, not the page's text. The page's text is a poorer copy
  * of the file: the HTML parser turned a CRLF into LF, and the pieces are separate blocks with a break between
  * them. A piece's page text is its source text with each line ending (CRLF, CR or LF) as one newline and each NUL as
  * U+FFFD, so an offset in one maps to the other; the selection's ends are found by that map. `bytes` are those the
- * page was set from. Failing that, a selection wholly inside one Markdown code fence is that fence's piece (F-68).
+ * page was set from. Failing that, a selection wholly inside one Markdown code fence is that fence's piece.
  */
 export function codeRunSourceText(range: Range, article: HTMLElement, bytes: Uint8Array): string | null {
   const runPieces = [...article.querySelectorAll<HTMLElement>(RUN_PIECE)].filter((code) => range.intersectsNode(code));
   const pieces = runPieces.length > 0 ? runPieces : fenceCode(range, article, bytes);
   if (pieces.length === 0) return null;
-  // A fence's last line ending is a character the reader can select, so a fence's selection ends where it ends (F-68).
+  // A fence's last line ending is a character the reader can select, so a fence's selection ends where it ends.
   const exactEnd = runPieces.length === 0;
   const decoder = new TextDecoder('utf-8', { fatal: false, ignoreBOM: true });
   const out: string[] = [];
   for (const code of pieces) {
-    // A piece the log filter hides whole (K-08) is not on the page: a copy of what is shown has none of it.
+    // A piece the log filter hides whole is not on the page: a copy of what is shown has none of it.
     if (code.parentElement?.classList.contains('marxy-log-hidden-piece')) continue;
     const start = Number(code.dataset.marxyS);
     const end = Number(code.dataset.marxyE);
@@ -167,7 +162,7 @@ export function codeRunSourceText(range: Range, article: HTMLElement, bytes: Uin
     const reachesEnd = range.compareBoundaryPoints(Range.END_TO_END, whole) >= 0 || (!exactEnd && /^\n?$/.test(textFromRange(after)));
     const to = reachesEnd ? Number.POSITIVE_INFINITY : upTo('end');
     // The first source index at or after each page index; past the end of the source is the end of it.
-    // A page index just past a newline is just past the whole CRLF in the source, not between its CR and its LF (F-68).
+    // A page index just past a newline is just past the whole CRLF in the source, not between its CR and its LF.
     const sourceIndex = (p: number): number => {
       // `pageAt` never decreases: the first index at or after `p` by bisection (a log piece has thousands of lines).
       let low = 0;
@@ -198,7 +193,7 @@ function pageLength(node: Node): number {
 }
 
 /**
- * `source` from `first` to `last`, less the runs of lines the log filter hides in `code` (K-08). A copy takes what the
+ * `source` from `first` to `last`, less the runs of lines the log filter hides in `code`. A copy takes what the
  * reader sees as well as the bytes of it: a selection from the first line to the last of a filtered log is the lines
  * shown, each as the file has it, and not the thousands between. A hidden run is one element holding its lines' text and
  * newlines (`kinds/log-view.ts`), so it is a range of the page's text, and that maps to the source like any other.

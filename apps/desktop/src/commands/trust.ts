@@ -1,4 +1,4 @@
-// Palette commands to revoke per-document trust grants (docs/design/13-trust.md §Revoking).
+// Palette commands to revoke per-document trust grants.
 
 import type { Command } from './registry.ts';
 import { notify } from '../notices/index.ts';

@@ -1,0 +1,56 @@
+$ pnpm lint:rust   (in .)
+
+$ cd apps/desktop/src-tauri && cargo fmt --check && cargo clippy --locked --quiet -- -D warnings
+error: field `fast` is never read
+   --> src/atomic_write.rs:359:9
+    |
+352 |     pub struct Hasher {
+    |                ------ field in this struct
+...
+359 |         fast: bool,
+    |         ^^^^
+    |
+    = note: `-D dead-code` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[expect(dead_code)]` or `#[allow(dead_code)]`
+
+error: function `within_pixels` is never used
+  --> src/decode/mod.rs:95:8
+   |
+95 | pub fn within_pixels(pixels: u64) -> Result<(), String> {
+   |        ^^^^^^^^^^^^^
+
+error: function `is_heic` is never used
+   --> src/facts/mod.rs:355:8
+    |
+355 | pub fn is_heic(head: &[u8]) -> bool {
+    |        ^^^^^^^
+
+error: function `heic_layout` is never used
+   --> src/facts/mod.rs:361:8
+    |
+361 | pub fn heic_layout<R: Read + Seek>(r: &mut R) -> io::Result<Option<isobmff::Heif>> {
+    |        ^^^^^^^^^^^
+
+error: variant `Over` is never constructed
+   --> src/pasteboard/mod.rs:105:5
+    |
+102 | pub enum Taken {
+    |          ----- variant in this enum
+...
+105 |     Over(usize),
+    |     ^^^^
+    |
+    = note: `Taken` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+error: using `contains()` instead of `iter().any()` is more efficient
+   --> src/commands/search.rs:164:9
+    |
+164 |     if !expected.iter().any(|c| *c == canonical) {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `expected.contains(&canonical)`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.98.0/index.html#manual_contains
+    = note: `-D clippy::manual-contains` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::manual_contains)]`
+
+error: could not compile `marxy` (bin "marxy") due to 6 previous errors
+[ELIFECYCLE] Command failed with exit code 101.

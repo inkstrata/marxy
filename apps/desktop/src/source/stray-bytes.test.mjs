@@ -1,7 +1,7 @@
 // A Source session over a file with bytes that are not UTF-8 writes exactly the bytes the editor's text names
-// (F-34.1, commitment 3). Each case starts from the editor's own text (`cmDocText`) and edits it as the reader would
+// (commitment 3). Each case starts from the editor's own text (`cmDocText`) and edits it as the reader would
 // (typing, deleting, moving and copying lines), then folds it (`leaveSourceMode`) and checks every byte. The cases are
-// the F-33 walk's finding and every case the three reviews of #576 (F-34) wrote down; on main each one writes a stray
+// the walk's finding and every case the reviews wrote down; on main each one writes a stray
 // byte as EF BF BD or loses it.
 
 import { test } from 'node:test';
@@ -34,7 +34,7 @@ function assertSameBytes(actual, expected, what = '') {
 
 const lines = (text) => text.split('\n');
 
-test('the F-33 finding: two changes either side of a byte that is not UTF-8 keep that byte', () => {
+test('two changes either side of a byte that is not UTF-8 keep that byte', () => {
   const got = folded(bytesOf('alpha\n', [0xff], '\nomega\n'), (t) => `ALPHA${t.slice(5, t.length - 6)}OMEGA\n`);
   assert.equal(hex(got), '41 4c 50 48 41 0a ff 0a 4f 4d 45 47 41 0a');
 });
@@ -86,7 +86,7 @@ test('a BOM and CRLF endings are kept around a stray, and a typed LF is written 
   );
 });
 
-// The second review of #576 (3a08c006): each of these wrote another stray's value in a stray's place.
+// Each of these wrote another stray's value in a stray's place.
 test('a line moved to the end takes its own stray with it, and every other line keeps its own', () => {
   const bytes = bytesOf('L0 ', [0xff], '\nL1 ', [0xfe], '\nL2 \nL3 \nL4 ', [0xf5], '\n');
   const got = folded(bytes, (t) => {
@@ -177,7 +177,7 @@ test('lines inserted before and after a line that holds a stray leave it whole',
 });
 
 test('deleting the code unit of a lone continuation byte deletes that byte, at the start of the file and inside it', () => {
-  // `splice` refuses a boundary on a continuation byte (F-35); the fold never puts one there.
+  // `splice` refuses a boundary on a continuation byte; the fold never puts one there.
   assert.equal(hex(folded(bytesOf([0x80], 'a\n'), (t) => t.slice(1))), hex(bytesOf('a\n')));
   assert.equal(hex(folded(bytesOf('a', [0x80], 'b', [0x80], 'c\n'), (t) => `${t.slice(0, 1)}${t.slice(2)}`)), hex(bytesOf('ab', [0x80], 'c\n')));
   assert.equal(hex(folded(bytesOf('a', [0xe2, 0x82], 'b\n'), (t) => t.replace('b', 'B'))), hex(bytesOf('a', [0xe2, 0x82], 'B\n')));
@@ -299,7 +299,7 @@ test('Copy table at caret as CSV in Source writes U+FFFD for a stray byte, never
   assert.ok(!/[\uD800-\uDFFF]/u.test(csv));
 });
 
-// The second review of #584: the private pasteboard type may name stray bytes and nothing else. A lone high surrogate
+// The private pasteboard type may name stray bytes and nothing else. A lone high surrogate
 // in it fused with a stray byte already in the text (a valid pair) and rewrote FF as F0 90 83 BF.
 test('a pasted private item may hold stray bytes and no other lone surrogate; anything else is refused', async () => {
   const { heldTextOf, holdsOnlyStrayLones, SOURCE_TEXT_TYPE } = await import('./stray-bytes.ts');

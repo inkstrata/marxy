@@ -1,4 +1,4 @@
-// The Clean group (J-03): remove, normalise and tidy. Bodies run on LF text (see types.ts).
+// The Clean group: remove, normalise and tidy. Bodies run on LF text (see types.ts).
 // Structure comes from the parser: a thematic break is a node (so a setext underline is not one), a heading
 // is a node, a code block is a span the prose transforms step around. Where an E operation already does the
 // job on a node (promote/demote, list markers), the transform calls that operation.
@@ -8,6 +8,7 @@ import { markerSpans, mergesWithNeighbour } from '../operations/list-markers.ts'
 import { applyEdits, atxHeadings, indexOf, gapsOf, mapInline, mapOutsideCodeSpans, mapProse, mapProseWithTail, nodesOf, parseText, walk } from './prose.ts';
 import type { TransformDef } from './types.ts';
 import { wrap80 } from './wrap.ts';
+import { trailingRun, trimEndOf } from '../util/text.ts';
 
 // An emoji, with its joiners and modifiers. `\p{Extended_Pictographic}` alone would take the copyright sign and
 // the trade mark, so a bare pictograph counts only when it is emoji-presentation or carries U+FE0F.
@@ -20,7 +21,7 @@ export const stripEmoji: TransformDef = {
   outsideCode: true,
   idempotent: true,
   run(lf) {
-    // Nothing to strip means no parse: the parse is the cost of this transform on a large text (W-21.2), and a text
+    // Nothing to strip means no parse: the parse is the cost of this transform on a large text, and a text
     // with no emoji needs neither the protected spans nor the code spans to come back unchanged.
     if (!new RegExp(EMOJI.source, 'u').test(lf)) return lf;
     return mapInline(lf, (p) => p.replace(EMOJI, ''));
@@ -56,7 +57,7 @@ export const stripCitations: TransformDef = {
   idempotent: true,
   run(lf) {
     // Nothing a citation could be: no `[1]`, `[^note]` or `【…】`, so no parse (the parse is this transform's cost on a
-    // large text, W-21.2).
+    // large text).
     if (!/\[(?:\d+|\^[^\]\n]+)\]|【/.test(lf)) return lf;
     // `[1]` is a marker unless it is a link's text, a reference's label or a definition; `[^note]` unless it opens a definition.
     // A `[1]` whose label the document defines is a reference link, not a marker.
@@ -147,9 +148,9 @@ export const collapseBlank: TransformDef = {
       // what the hard-break test below has always read there.
       const nextOf = (i: number): string => (i === lines.length - 2 && tail !== '' ? tail : lines[i + 1]!);
       const stripped = lines.map((line, i) => {
-        const bare = line.replace(/[ \t]+$/, '');
+        const bare = trimEndOf(line, ' \t');
         // Two spaces at the end of a line inside a paragraph are a hard break, not stray space: keep them.
-        const hardBreak = bare !== '' && / {2,}$/.test(line) && i < lines.length - 1 && nextOf(i).trim() !== '';
+        const hardBreak = bare !== '' && trailingRun(line, ' ') >= 2 && i < lines.length - 1 && nextOf(i).trim() !== '';
         return hardBreak ? line : bare;
       });
       return stripped.join('\n').replace(/\n{3,}/g, '\n\n');
@@ -199,7 +200,7 @@ export const normalizeHeadings: TransformDef = {
   run(lf) {
     const heads = atxHeadings(lf);
     if (heads.length === 0) return lf;
-    const min = Math.min(...heads.map((h) => h.heading.level));
+    const min = heads.reduce((low, h) => Math.min(low, h.heading.level), Infinity);
     let last = 0;
     const edits: { start: number; end: number; text: string }[] = [];
     for (const { heading, span } of heads) {
@@ -243,14 +244,14 @@ export const unwrap: TransformDef = {
     for (const { node, span } of nodesOf(lf, doc, ['paragraph'])) {
       if (!top.has(node)) continue;
       const text = lf.slice(span.start, span.end);
-      const body = text.replace(/\n+$/, '');
+      const body = trimEndOf(text, '\n');
       const lines = body.split('\n');
       if (lines.length < 2) continue;
       let flat = lines[0]!;
       for (let i = 1; i < lines.length; i++) {
         // A hard break (two spaces or a backslash at the end of the line) stays a line break.
-        const hard = / {2,}$/.test(lines[i - 1]!) || /\\$/.test(lines[i - 1]!);
-        flat = hard ? `${flat}\n${lines[i]}` : `${flat.replace(/[ \t]+$/, '')} ${lines[i]!.replace(/^[ \t]+/, '')}`;
+        const hard = trailingRun(lines[i - 1]!, ' ') >= 2 || /\\$/.test(lines[i - 1]!);
+        flat = hard ? `${flat}\n${lines[i]}` : `${trimEndOf(flat, ' \t')} ${lines[i]!.replace(/^[ \t]+/, '')}`;
       }
       if (flat !== body) edits.push({ start: span.start, end: span.start + body.length, text: flat });
     }

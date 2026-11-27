@@ -1,4 +1,4 @@
-// Step 1 of docs/design/04-typeset.md: a paragraph's inline content as the pieces a line breaker
+// Step 1: a paragraph's inline content as the pieces a line breaker
 // sees. A piece is text between two break opportunities; between pieces is either a space (glue)
 // or the point after an explicit hyphen or dash (a penalty). Positions are kept as (text node,
 // offset) so a chosen break can be applied to the DOM exactly where it was measured.
@@ -44,7 +44,7 @@ const DASHES = new Set(['-', '–', '—']);
 
 /**
  * Tokens for `p`'s inline content, in document order. Text inside `code`, `kbd` and math is one
- * unbreakable piece with its neighbours: a code span never breaks inside itself (§04 step 1).
+ * unbreakable piece with its neighbours: a code span never breaks inside itself.
  * Leading and trailing whitespace makes no token, so the stream starts and ends with a piece.
  */
 export function collectTokens(p: HTMLElement): Token[] {

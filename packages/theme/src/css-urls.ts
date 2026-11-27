@@ -1,4 +1,4 @@
-// Rewrites theme CSS url() and @import values: local asset URLs only (MARXY-47, docs/design/05-theme.md §Loader).
+// Rewrites theme CSS url() and @import values: local asset URLs only.
 
 function normalizePath(path: string): string {
   const slash = path.replace(/\\/g, '/');
@@ -29,7 +29,7 @@ export interface RewriteUrlsResult {
 const REMOTE_URL = /^(?:https?:)?\/\//i;
 // Raster formats only: they cannot embed a further url()/@import/href of their own. `image/svg+xml`
 // (and anything else) is refused, because an SVG payload can reference a remote resource from
-// inside itself and no check here ever sees it (MARXY-47's "nothing phones home" rule).
+// inside itself and no check here ever sees it (the "nothing phones home" rule).
 const INERT_DATA_URL = /^data:image\/(?:png|jpe?g|gif|webp|bmp|x-icon|avif)[;,]/i;
 
 function isRemote(spec: string): boolean {
@@ -77,7 +77,7 @@ function unquoteUrl(raw: string): string {
  * (`urlurl()(https://x)`). Rather than guess every splice, the result is scanned again: a clean
  * output produces no warnings (a rewritten asset is an inert placeholder, an inert data: url is kept),
  * so any warning on the second pass means the first left a reference behind, and the theme fails
- * closed (F-16).
+ * closed.
  */
 export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsResult {
   // Pass 1 emits an inert placeholder for each local asset and records its path, so the second pass
@@ -108,7 +108,7 @@ export function rewriteUrls(css: string, opts: RewriteUrlsOptions): RewriteUrlsR
 }
 
 /**
- * Escapes a caller-supplied URL for the inside of a CSS double-quoted string (F-16.1). A backslash
+ * Escapes a caller-supplied URL for the inside of a CSS double-quoted string. A backslash
  * and a quote take a backslash; a line break would end the string, so it becomes a hex escape
  * (with the trailing space that ends it). The value the engine reads back is the original text.
  */
@@ -257,7 +257,7 @@ function findParenClose(text: string, start: number): number {
   while (j < text.length && depth > 0) {
     const c = text[j];
     // Skip a string the way the engine's tokenizer does, so a parenthesis inside quotes does not
-    // count and a line break ends the string (F-16).
+    // count and a line break ends the string.
     if (c === '"' || c === "'") {
       j = skipString(text, j);
       continue;
@@ -281,7 +281,7 @@ function rewriteOneUrl(
   }
   // A raw newline inside a url() value ends the string in the engine's tokenizer, which then closes
   // the url( at the next `)` and reads the rest as live CSS; this scanner counts parentheses and
-  // would have swallowed that rest as part of the value (F-16). No real path or raster has one.
+  // would have swallowed that rest as part of the value. No real path or raster has one.
   if (/[\n\r\f]/.test(spec)) {
     warnings.push('theme referenced a url() containing a line break; not loaded');
     return null;

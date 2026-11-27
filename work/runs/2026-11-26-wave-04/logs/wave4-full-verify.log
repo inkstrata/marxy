@@ -1,0 +1,65 @@
+$ node scripts/verify.mjs "--tier" "full"
+verify full in C:\Dev\reader\worktrees\wave4
+55 files changed against master; unit suites: desktop, core, scripts; browser files: 270; rust changed
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\wave4-2026-11-26T06-49-52
+
+PASS    install        0.4s      
+PASS    typecheck      11.0s     
+PASS    lint           2.2s      
+PASS    check          11.1s     10 pass, 0 fail
+PASS    golden         1.5s      
+PASS    fidelity       13.2s     
+PASS    licences       0.6s      
+verify: holding place 1 of 2 (--no-lock skips it)
+
+PASS    unit-core      201.7s    4241 pass, 0 fail, 3 skip
+PASS    unit-theme     47.3s     305 pass, 0 fail
+PASS    unit-typeset   47.6s     90 pass, 0 fail
+PASS    unit-scripts   58.0s     289 pass, 0 fail
+PASS    unit-desktop   46.3s     1268 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 88.0s     44 pass, 0 fail, 1 skip
+PASS    lint-rust      55.9s     
+FAIL    browser        2260.1s   2531 pass, 5 fail, 4 skip
+PASS    cargo          90.3s     643 pass, 0 fail, 6 skip
+PASS    build          318.4s    
+PASS    tauri          94.1s     117 pass, 0 fail
+
+step                  result  wall     tests
+--------------------  ------  -------  -------------------------
+install               pass    0.4s
+typecheck             pass    11.0s
+lint                  pass    2.2s
+check                 pass    11.1s    10 pass, 0 fail
+golden                pass    1.5s
+fidelity              pass    13.2s
+licences              pass    0.6s
+unit-core             pass    201.7s   4241 pass, 0 fail, 3 skip
+unit-theme            pass    47.3s    305 pass, 0 fail
+unit-typeset          pass    47.6s    90 pass, 0 fail
+unit-scripts          pass    58.0s    289 pass, 0 fail
+unit-desktop          pass    46.3s    1268 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    88.0s    44 pass, 0 fail, 1 skip
+lint-rust             pass    55.9s
+browser               FAIL    2260.1s  2531 pass, 5 fail, 4 skip
+cargo                 pass    90.3s    643 pass, 0 fail, 6 skip
+build                 pass    318.4s
+tauri                 pass    94.1s    117 pass, 0 fail
+--------------------  ------  -------  -------------------------
+total                         3347.9s
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\wave4-2026-11-26T06-49-52\15-browser.log)
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/wave4/apps/desktop/test/typeset-defaults.test.mjs:68:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+verify full: 17/18 steps passed; failed: browser; rerun with --from browser
+[ELIFECYCLE] Command failed with exit code 1.

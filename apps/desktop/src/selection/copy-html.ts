@@ -1,4 +1,4 @@
-// Rich text for the clipboard from a drag selection (ADR-0054, design 03 §Rich copy of a drag, C-06).
+// Rich text for the clipboard from a drag selection.
 // The cloned range loses every display-only mark and every attribute a paste target has no use for,
 // then passes the core sanitiser: nothing raw from the page reaches the clipboard.
 import { DEFAULT_POLICY, sanitizeHtml } from '@marxy/core/src/sanitize/index.ts';

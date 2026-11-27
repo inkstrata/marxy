@@ -1,10 +1,10 @@
-// The standing data-safety walk over the document store (F-33): seeded, model-based, node only.
+// The standing data-safety walk over the document store: seeded, model-based, node only.
 //
-//   MARXY_WALK_SEEDS=<n>  runs seeds 1..n (default 40; the nightly run sets 2000)
+//   MARXY_WALK_SEEDS=<n>  runs seeds 1..n (default 40; a long hunt sets 2000)
 //   MARXY_WALK_SEED=<n>   replays that one seed and nothing else
 //
-// A failure names its seed and lists the steps. Every later data-safety story adds an op or an invariant to
-// test/support/store-walk.mjs instead of writing a probe of its own; the story's PR runs 200 seeds and says so.
+// A failure names its seed and lists the steps. Every later data-safety test adds an op or an invariant to
+// test/support/store-walk.mjs instead of writing a probe of its own.
 import { strict as assert } from 'node:assert';
 import { runInNewContext } from 'node:vm';
 import { setFlagsFromString } from 'node:v8';
@@ -49,7 +49,7 @@ test('MARXY_WALK_SEED replays exactly one seed; MARXY_WALK_SEEDS counts from 1',
   assert.equal(seedsFromEnv({}).length, 40, 'the default is forty');
 });
 
-test('a story plugs in by adding to OPS and INVARIANTS, which are plain objects of plain entries', () => {
+test('a test plugs in by adding to OPS and INVARIANTS, which are plain objects of plain entries', () => {
   for (const [key, op] of Object.entries(OPS)) {
     assert.equal(Object.getPrototypeOf(op), Object.prototype, key);
     assert.equal(typeof op.name, 'string', key);
@@ -71,9 +71,9 @@ test('a long run does not leak: the heap after a collection does not grow with t
   assert.ok(late - early < 25, `heap grew from ${early.toFixed(1)} MB to ${late.toFixed(1)} MB over ${seeds.length - 100} more seeds`);
 });
 
-// Found by the F-33 walk (seeds 57, 79, 108): a Source session with typed changes either side of a byte that is not
+// Found by the walk (seeds 57, 79, 108): a Source session with typed changes either side of a byte that is not
 // UTF-8 folded as one splice and rewrote the byte as U+FFFD (ff -> ef bf bd). The editor's text now holds each such byte
-// as its own code unit (F-34.1), so the fold is exact, and the walk types around stray bytes without restriction.
+// as its own code unit, so the fold is exact, and the walk types around stray bytes without restriction.
 test('two changes in one Source session, either side of a byte that is not UTF-8, keep that byte', async () => {
   const enc = new TextEncoder();
   const bytes = new Uint8Array([...enc.encode('alpha\n'), 0xff, ...enc.encode('\nomega\n')]);
@@ -83,7 +83,7 @@ test('two changes in one Source session, either side of a byte that is not UTF-8
   assert.deepEqual([...store.snapshot().buffer.bytes], [...enc.encode('ALPHA\n'), 0xff, ...enc.encode('\nOMEGA\n')]);
 });
 
-// F-33.1: a failing seed prints what the app peeked at (the store's stale-write comparison, a live reload's read), so the
+// a failing seed prints what the app peeked at (the store's stale-write comparison, a live reload's read), so the
 // failure explains itself: which path, in which step, and the bytes it saw.
 test('the app\'s peeks are logged by step, and a failure prints the last of them', async () => {
   const { peeks, trace } = await runWalk(2);

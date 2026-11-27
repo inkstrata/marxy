@@ -1,11 +1,10 @@
-// The composition root (B-15): `startApp` builds one app instance from a shell and connects its parts:
-// the shell wrapper, the launch measurement, trust, persistence, the panes (each a view and an open path,
-// D-01), the selection, the close guard, the commands and the handle. Everything that means "the open
-// document" reads the focused pane. It holds no module state (ADR-0037): a second `startApp` in one page
-// releases the first instance and starts clean.
+// The composition root: `startApp` builds one app instance from a shell and connects its parts: the shell
+// wrapper, the launch measurement, trust, persistence, the panes (each a view and an open path), the selection,
+// the close guard, the commands and the handle. Everything that means "the open document" reads the focused pane. It
+// holds no module state: a second `startApp` in one page releases the first instance and starts clean.
 import { appHandle, setAppHandle } from './commands/app-handle.ts';
 import { applyDocumentMutation, redoDocumentEdit, undoDocumentEdit } from './commands/edits.ts';
-import { buildAppContext, installCommandKeys } from './selection/bind.ts';
+import { buildAppContext, installCommandKeys, uninstallCommandKeys } from './selection/bind.ts';
 import { createRenderedSelection, type RenderedSelection, type SelectionShell } from './selection/view.ts';
 import { guardPaneClose, installCloseGuard } from './close.ts';
 import { openScratchIn } from './document/scratch.ts';
@@ -14,70 +13,39 @@ import { resetDismissedNotices } from './notices/blocked.ts';
 import { commands as appCommands } from './commands/index.ts';
 import { wireTrustRevokeCommands } from './commands/trust.ts';
 import { createTrustController } from './trust/controller.ts';
-import { createAppConfig } from './theme/app-config.ts';
+import { createAppConfig, launchReaderKinds } from './theme/app-config.ts';
 import { createLaunchMeasure } from './startup/measure.ts';
 import { createIndexService, indexShellFor } from './index/service.ts';
 import { createLayoutKeeper, launch, writerFor } from './layout/restore.ts';
+import { layoutRowOf } from './frame/row-layout.ts';
 import { createReadingPersistence } from './position/reading-persistence.ts';
 import { pinDocumentOnPaletteSession } from './palette/history.ts';
 import { emptySession, type PaletteSession } from './palette/session.ts';
 import type { PieceSource } from './frontispiece/pieces.ts';
 import { splitRefusal } from './pane/fit.ts';
-import { createPanes, type AppPanes } from './pane/index.ts';
-import { installWorkspaceFills, loadPanels } from './workspace/fill.ts';
-import { createWorkspace, workspaceStoreFor } from './workspace/state.ts';
+import { createPanes } from './pane/index.ts';
+import { followPaneModes } from './pane/modes.ts';
+import { mountFrame, type Frame } from './frame/frame.ts';
+import { onTabRemoved } from './frame/window-tabs.ts';
+import { pathsOnce } from './shell/paths-once.ts';
+import { holdSystemOpens } from './startup/system-opens.ts';
+import { createFrameStore, firstLeftMode } from './frame/state.ts';
+import { keepPartChoices } from './render/readings-file.ts';
+import { flushingOnExit } from './startup/exit-flush.ts';
+import { flushNotesAtExit } from './notes/margin.ts';
+import { flushLooks } from './look/store.ts';
 import type { AppHandle, AppShell } from './app-types.ts';
-
 export type { AppAction, AppHandle, AppShell, OpenDocument, OpenDocumentState } from './app-types.ts';
 
-/**
- * Each pane has its own mode (D-11). `<body>`'s `data-marxy-mode` mirrors the focused pane's, so it is
- * written again whenever focus moves (a view writes it itself only while its pane has focus). And Source
- * text reaches the other view of the same document when focus leaves the editor it was typed in, not
- * per keystroke: it is folded into the store then, one history entry, as leaving Source folds it. A
- * Source pane that is the only view of its store keeps folding only on leaving Source. Returns what
- * takes both off.
- */
-function followPaneModes(panes: AppPanes): () => void {
-  const off = panes.onChange((e) => {
-    if (e.kind === 'focus' || e.kind === 'close') document.body.dataset.marxyMode = panes.focused.view.mode;
-  });
-  const left = (event: FocusEvent): void => {
-    const from = event.target instanceof Node ? event.target : null;
-    const to = event.relatedTarget instanceof Node ? event.relatedTarget : null;
-    for (const pane of panes.panes) {
-      const mount = pane.parts.source;
-      if (!from || !mount.contains(from) || (to && mount.contains(to))) continue;
-      const store = pane.content.store();
-      const shared = panes.panes.some((other) => other !== pane && other.content.store() === store);
-      if (store && shared && pane.view.sourceHasUnfoldedEdits()) void pane.content.foldSource();
-    }
-  };
-  document.addEventListener('focusout', left, true);
-  // Two views of one store never both hold unfolded Source text: a pane that comes to show a document
-  // another pane holds unfolded in Source folds the holder first, so the newcomer's bytes include it.
-  // Each pane's open path says when its page shows a new store (`onDocumentChange` also fires on every
-  // transition, so the store is compared with the last one seen).
-  const watchOpens = (pane: AppPanes['panes'][number]): (() => void) => {
-    let last = pane.content.store();
-    return pane.content.onDocumentChange(() => {
-      const now = pane.content.store();
-      if (now === last) return;
-      last = now;
-      for (const other of panes.panes) {
-        if (other !== pane && now && other.content.store() === now && other.view.sourceHasUnfoldedEdits()) {
-          void other.content.foldSource();
-        }
-      }
-    });
-  };
-  const offFirst = watchOpens(panes.panes[0]!);
-  panes.onSplit(() => (panes.panes[1] ? watchOpens(panes.panes[1]) : () => {}));
-  return () => {
-    off();
-    offFirst();
-    document.removeEventListener('focusout', left, true);
-  };
+/** The page's measure in px as the reader's look sets it, read from a page laid out for no file and taken away at once. */
+function pageColumn(): number {
+  const probe = document.createElement('article');
+  probe.className = 'marxy-article';
+  probe.style.cssText = 'position: absolute; visibility: hidden; inset: 0 auto auto 0;';
+  document.body.append(probe);
+  const column = Number.parseFloat(getComputedStyle(probe).getPropertyValue('--marxy-column'));
+  probe.remove();
+  return Number.isFinite(column) && column > 0 ? column : 680;
 }
 
 /**
@@ -94,41 +62,49 @@ export async function startApp(
 ): Promise<AppHandle> {
   // The instance this one replaces in the page (the tests start several): nothing of it keeps running.
   appHandle()?.destroy();
+  // This instance's lifetime: what it listens for on the window goes with `destroy`.
+  const life = new AbortController();
+  let resizing = 0;
   const argv = opts?.argv ? [...opts.argv] : [];
-  // The mounted palette's session, once main.ts has said where it is (B-14).
+  // The mounted palette's session, once main.ts has said where it is.
   let paletteSession: (() => PaletteSession) | null = null;
   const shell: AppShell = {
     ...injected,
-    quit: async (code) => {
-      await persistence.flush();
-      await workspace.flush();
-      return injected.quit(code);
-    },
+    configPaths: pathsOnce(injected.configPaths?.bind(injected)),
+    ...flushingOnExit(injected, () => [persistence, frameStore, readings, { flush: flushNotesAtExit }, { flush: flushLooks }]),
   };
   const persistence = createReadingPersistence(shell, () => paletteSession?.());
-  const index = createIndexService(indexShellFor(shell));
+  // Read beside config.toml; the frame waits for both (so it is never drawn in Night first), for this one briefly.
+  const frameStore = createFrameStore(shell.configPaths ? shell : null);
+  const frameLoaded = Promise.race([frameStore.load(), new Promise((r) => setTimeout(r, 80))]);
+  const readings = keepPartChoices(shell.configPaths ? shell : null);
+  const index = createIndexService(indexShellFor(shell), {
+    readerKinds: launchReaderKinds({ launchKindInputs: () => config.launchKindInputs() }),
+    // Panes and tabs: Places lists every open tab under its root.
+    inUse: () => [...panes.panes.flatMap((p) => p.content.currentPath() ?? []), ...(frame?.tabs.model.tabs.map((t) => t.path) ?? [])],
+  });
   const measure = createLaunchMeasure(shell, argv);
   resetDismissedNotices();
   // Made below, once the panes they read exist; read only when the page changes.
   let selection: RenderedSelection | null = null;
   let handleRef: AppHandle | null = null;
   const focused = () => panes.focused.content;
+  const at = (paneHost?: HTMLElement) => (paneHost ? panes.panes.find((p) => p.host === paneHost)?.content ?? null : focused());
   const trust = createTrustController({
     shell,
-    currentPath: () => focused().currentPath(),
-    buffer: () => focused().store()?.snapshot().buffer ?? null,
-    position: (path) => focused().view.blockPosition(path),
-    rerender: (at) => focused().view.rerender(at),
-    showSource: (byteOffset) => focused().view.showSource(byteOffset),
+    currentPath: (host) => at(host)?.currentPath() ?? null,
+    buffer: (host) => at(host)?.store()?.snapshot().buffer ?? null,
+    position: (path, host) => (at(host) ?? focused()).view.blockPosition(path),
+    rerender: (pos, host) => at(host)?.view.rerender(pos),
+    panes: () => panes.panes.map((p) => ({ host: p.host, path: p.content.currentPath() })),
+    showSource: async (byteOffset, host) => at(host)?.view.showSource(byteOffset),
   });
   wireTrustRevokeCommands({
-    grantsForPath: () => {
-      const path = focused().currentPath();
-      return path ? trust.grantsFor(path) : null;
-    },
+    grantsForPath: () => (focused().currentPath() ? trust.grantsFor(focused().currentPath()!) : null),
     revokeHtml: trust.revokeHtml,
   });
   const config = createAppConfig(shell, () => panes.panes.map((pane) => pane.view));
+  const configApplied = config.applyOnce(document.documentElement);
   const panes = createPanes({
     shell,
     view: {
@@ -142,28 +118,26 @@ export async function startApp(
     selection: () => selection,
     context: () => buildAppContext(handleRef),
   });
-  // A second pane is made only where two columns fit at the typography floor (D-07).
+  // A second pane is made only where two columns fit at the typography floor.
   panes.canSplit = () => splitRefusal(panes) === null;
-  // The window's first pane: the selection, the reader's place and the launch are its (D-05, D-06 move them per pane).
+  // The window's first pane: the selection, the reader's place and the launch are its.
   const first = panes.panes[0]!;
   const openPath = first.content;
   const view = first.view;
-  // Only the pane that writes a path's place keeps it: the focused pane if it shows the path, else the lowest slot (D-12).
+  // Only the pane that writes a path's place keeps it: the focused pane if it shows the path, else the lowest slot.
   const writes = (pane: typeof first) => (): boolean => {
     const path = pane.path();
     return path !== null && writerFor(panes, path) === pane;
   };
   persistence.follow(view, { writes: writes(first) });
   panes.onSplit(() => persistence.follow(panes.panes[1]!.view, { writes: writes(panes.panes[1]!) }));
-  const layout = createLayoutKeeper(panes, persistence);
+  const layout = createLayoutKeeper(panes, persistence, () => layoutRowOf(frame));
   // Settles once the saved layout is back (the second pane opens after first text, never before).
   let layoutSettled!: (done: Promise<void>) => void;
   const layoutRestored = new Promise<void>((resolve) => { layoutSettled = resolve; });
-  injected.onOpenFiles?.((paths) => {
-    const file = paths.find((p) => p.length > 0 && !p.startsWith('-'));
-    if (file) void panes.openIn('focused', file);
-  });
-  // The repository root once the index has said (F-14), else the document's folder.
+  const systemOpens = holdSystemOpens((file) => void panes.openIn('focused', file));
+  const offOpenFiles = injected.onOpenFiles?.((paths) => systemOpens.take(paths));
+  // The repository root once the index has said, else the document's folder.
   const imageRootFor = (path: string): string => pathsForDocument(path).imageRoot;
   const renderedSelection = createRenderedSelection({
     article: first.article,
@@ -177,13 +151,7 @@ export async function startApp(
     imageRoot: imageRootFor,
   });
   selection = renderedSelection;
-  // Folded until the reader unfolds; the panels they last had are read then, never here (W-02).
-  const workspace = createWorkspace({
-    body: document.body,
-    main: first.host.parentElement ?? document.body,
-    store: workspaceStoreFor(shell),
-    windowWidth: () => window.innerWidth, ready: loadPanels,
-  });
+  let frame: Frame | null = null;
   const offPaneMode = followPaneModes(panes);
   // The open document is the focused pane's; with one pane that is the first pane, as it always was.
   const handle: AppHandle = {
@@ -244,7 +212,7 @@ export async function startApp(
     document: () => focused().store(),
     save: (opts) => focused().save(opts),
     openScratch: (text, opts) => openScratchIn(panes, text, opts),
-    // The first pane's, as the selection is (D-06 moves both with focus).
+    // The first pane's alone, as the selection is; `panes().onAnyDocumentChange` is every pane's.
     onDocumentChange: openPath.onDocumentChange,
     selection: renderedSelection,
     commitEdit: (buffer) => focused().commitEdit(buffer),
@@ -254,7 +222,9 @@ export async function startApp(
     mountThrough: (byteOffset) => focused().view.mountThrough(byteOffset),
     toggleMode: () => focused().view.toggleMode(),
     jumpToSource: (byteOffset) => focused().view.jumpToSource(byteOffset),
-    relayout: () => focused().view.relayout(),
+    focusSource: () => focused().view.focusSource(),
+    // Every pane: nothing else sets an unfocused pane's paragraphs again for a new size or face.
+    relayout: async () => void (await Promise.all(panes.panes.map((p) => p.view.relayout()))),
     pinPaletteDocument(path: string) {
       pinDocumentOnPaletteSession(paletteSession?.() ?? emptySession('/'), path);
     },
@@ -263,11 +233,19 @@ export async function startApp(
     },
     index,
     panes: () => panes,
-    workspace: () => workspace,
+    frame: () => frame!,
+    restartTheme: () => config.startUserTheme(),
     destroy() {
-      workspace.destroy();
+      life.abort();
+      offOpenFiles?.();
+      offCloseGuard();
+      uninstallCommandKeys(handle);
+      cancelAnimationFrame(resizing);
+      frame?.destroy();
+      frameStore.destroy();
       renderedSelection.destroy();
       offPaneMode();
+      offTabRemoved();
       layout.stop();
       panes.destroy();
       persistence.close();
@@ -279,20 +257,36 @@ export async function startApp(
   // here); the palette mount and the selection harness call the same idempotent install.
   setAppHandle(handle);
   installCommandKeys(handle);
-  installWorkspaceFills(handle);
+  await Promise.all([frameLoaded, configApplied]);
+  frameStore.assume({ leftMode: firstLeftMode(window.innerWidth, pageColumn()) });
+  // A window resized before the reader chose a left section starts as one opened at the new width would: the drawer
+  // assumed open at 800 px docked when widened to 1,000, where a window opened at 1,000 shows the rail alone.
+  window.addEventListener(
+    'resize',
+    () => {
+      cancelAnimationFrame(resizing);
+      resizing = requestAnimationFrame(() => frameStore.assume({ leftMode: firstLeftMode(window.innerWidth, pageColumn()) }));
+    },
+    { signal: life.signal },
+  );
+  frame = mountFrame(handle, frameStore, { sayGuess: () => true });
+  // A closed tab may leave a repository nothing shows: the index lets go of it.
+  const offTabRemoved = onTabRemoved(() => void setTimeout(() => void index.sweep().catch(() => undefined), 0));
   // The close guard asks about each pane's document, in that pane: quitting walks every unsaved one,
-  // closing a pane asks about its own (D-08).
-  installCloseGuard({ shell, panes: () => panes.panes });
+  // closing a pane asks about its own.
+  const offCloseGuard = installCloseGuard({ shell, panes: () => panes.panes });
   guardPaneClose(panes);
   try {
-    // The launch opens the first pane's document first; the rest of the saved layout follows it (D-12).
-    const { rest } = await launch({ shell, panes, persistence, keeper: layout, boot: (a) => openPath.boot(a), argv });
+    // The launch opens the first pane's document first; the rest of the saved layout follows it.
+    const { rest } = await launch({ shell, panes, persistence, keeper: layout, boot: (a) => openPath.boot(a), argv, row: () => layoutRowOf(frame) });
     layoutSettled(rest.catch((e: unknown) => console.warn(`marxy: the saved layout could not be restored: ${String(e)}`)));
   } catch (e) {
     layoutSettled(Promise.resolve());
     first.article.textContent = String(e);
     await shell.mark('error', Date.now(), String(e));
     await measure.finish(1);
+  } finally {
+    systemOpens.release();
   }
   return handle;
 }

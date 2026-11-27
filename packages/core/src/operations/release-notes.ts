@@ -1,4 +1,4 @@
-// The newest release of a changelog (K-22): the section of its first version heading, skipping an "Unreleased" one, as
+// The newest release of a changelog: the section of its first version heading, skipping an "Unreleased" one, as
 // the bytes the file holds. A pure read over the parse: nothing is edited and nothing is rewritten, so what a copy of it
 // carries is the file's own text from the heading to the line before the next heading of the same or a higher level
 // (`sectionRange`, the range Copy section takes).

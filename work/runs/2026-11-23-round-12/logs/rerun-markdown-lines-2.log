@@ -1,0 +1,26 @@
+﻿✔ a 6 MB Markdown file opens as lines, its Outline from the scan, and a heading clicked lands on its line (8930.2901ms)
+✖ g r shows it rendered and the Outline becomes the parsed one; g r again comes back to lines (261776.726ms)
+✔ under 5 MB Markdown opens as its page, with the parsed Outline, as before (39852.0025ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 2
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 311038.9638
+
+✖ failing tests:
+
+test at test\markdown-lines.test.mjs:11:28
+✖ g r shows it rendered and the Outline becomes the parsed one; g r again comes back to lines (261776.726ms)
+  page.waitForSelector: Timeout 180000ms exceeded.
+  Call log:
+  [2m  - waiting for locator('.marxy-article .marxy-lines-row') to be visible[22m
+  
+      at C:\Dev\reader\worktrees\round12\apps\desktop\test\markdown-lines.test.mjs:144:16
+      at async withMarkdown (C:\Dev\reader\worktrees\round12\apps\desktop\test\markdown-lines.test.mjs:51:5)
+      at async TestContext.<anonymous> (C:\Dev\reader\worktrees\round12\apps\desktop\test\markdown-lines.test.mjs:114:3) {
+    name: 'TimeoutError',
+    log: [ "  - waiting for locator('.marxy-article .marxy-lines-row') to be visible" ]
+  }

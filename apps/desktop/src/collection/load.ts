@@ -1,4 +1,4 @@
-// collection.toml into the index (C-10, ADR-0053): read the reader's declared folders beside
+// collection.toml into the index: read the reader's declared folders beside
 // config.toml, hold each in the index service in file order, then the recent roots, and follow the
 // file while Marxy runs. A missing file is an empty collection; a malformed one costs one notice.
 import type { Collection, SavedQuery } from '@marxy/core/src/index-model/collection.ts';
@@ -6,8 +6,10 @@ import { appendQuery, denyRulesFor, parseCollection, queryRange } from '@marxy/c
 import { dirname, joinPath } from '@marxy/core/src/index-model/paths.ts';
 import { parseQuery } from '@marxy/core/src/index-model/query.ts';
 import { staleWriteError } from '@marxy/core/src/position/stale-write.ts';
+import { failureText, readOrMissing } from '@marxy/core/src/util/read-or-missing.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import { isUntitled } from '../document/untitled.ts';
+import { isArchiveEntry } from '../document/entries.ts';
 import type { IndexService } from '../index/service.ts';
 import { SMART_SAYS, type Said } from '../notices/config-copy.ts';
 import { notify as showNotice, type NoticeInput } from '../notices/index.ts';
@@ -44,29 +46,28 @@ const EMPTY: Collection = { roots: [], denyGlobs: [], queries: [], captures: [] 
 /** parseCollection's warning for a file that is not TOML at all (core `collection.ts`). */
 export const UNPARSEABLE_WARNING = 'collection.toml could not be parsed; no extra folders';
 
+const COLLECTION_SAYS_UNREADABLE = (error: unknown): string =>
+  `${COLLECTION_FILE} could not be read · ${failureText(error)} · what Marxy last read from it stands, and the file is not written over`;
+
 /** `/` or a bare drive: walking one would walk the whole disk. */
 export const isFilesystemRoot = (path: string): boolean => path === '/' || /^[A-Za-z]:\/?$/.test(path);
 
 /**
  * The declared collection. No file (or no config directory) is an empty collection and says
  * nothing; every warning the parse gave goes into one info notice, and the folders that did parse
- * still count.
+ * still count. A file that is there and could not be read is `unreadable` (its error), with the
+ * empty collection: the caller keeps what it had and says so.
  */
 export async function loadCollection(
   shell: CollectionShell,
   opts: { readonly notify?: Notify } = {},
-): Promise<{ collection: Collection; warnings: readonly string[]; unparseable?: boolean }> {
+): Promise<{ collection: Collection; warnings: readonly string[]; unparseable?: boolean; unreadable?: unknown }> {
   const file = await collectionFile(shell);
   if (file === undefined) return { collection: EMPTY, warnings: [] };
-  let bytes: Uint8Array;
-  try {
-    bytes = await shell.readFile(file);
-  } catch (e) {
-    if ((e as { code?: string } | null)?.code !== 'not-found') {
-      console.warn(`marxy: could not read ${file}: ${String(e)}`);
-    }
-    return { collection: EMPTY, warnings: [] };
-  }
+  const read = await readOrMissing(() => shell.readFile(file));
+  if (read.kind === 'absent') return { collection: EMPTY, warnings: [] };
+  if (read.kind === 'failed') return { collection: EMPTY, warnings: [], unreadable: read.error };
+  const bytes = read.bytes;
   const { config } = await shell.configPaths!();
   const parsed = parseCollection(bytes, { home: inferHomeFromConfig(config) });
   const warnings = [...parsed.warnings];
@@ -127,7 +128,7 @@ export interface CollectionHandle {
   readonly recentLoaded: Promise<void>;
   /** Resolves once a reload after a change to collection.toml has been applied (tests). */
   settled(): Promise<void>;
-  /** The saved queries (Smart collections) of the last collection.toml that parsed, in file order (Q-07). */
+  /** The saved queries (Smart collections) of the last collection.toml that parsed, in file order. */
   queries(): readonly SavedQuery[];
   /** Calls `cb` when the saved queries change (a hand edit to the file, or a save); returns what stops it. */
   onQueries(cb: () => void): () => void;
@@ -156,8 +157,8 @@ export function startCollection(deps: CollectionDeps): CollectionHandle {
   };
 
   const followCurrent = async (path: string | null) => {
-    // A scratch document is in no repository: the folder the reader was in stays current (E-13).
-    if (isUntitled(path)) return;
+    // A scratch document is in no repository: the folder the reader was in stays current.
+    if (isUntitled(path) || isArchiveEntry(path)) return;
     const root = path === null ? undefined : await index.rootFor(path);
     if (stopped || root === current) return;
     current = root;
@@ -177,7 +178,7 @@ export function startCollection(deps: CollectionDeps): CollectionHandle {
     feed.setDeclared(next);
     const keep = new Set([...(current === undefined ? [] : [current]), ...deps.recentRoots()]);
     // A folder that leaves the file but stays in scope (current or recent) keeps its entries and
-    // loses the watch its declaration gave it (C-11).
+    // loses the watch its declaration gave it.
     for (const root of gone) {
       if (keep.has(root)) index.undeclare(root);
       else index.dropRoot(root);
@@ -190,13 +191,25 @@ export function startCollection(deps: CollectionDeps): CollectionHandle {
     }
   };
 
+  /** Said once while collection.toml stays unreadable; a good read lets the next failure be said again. */
+  let saidUnreadable = false;
+  const unreadable = (error: unknown): boolean => {
+    if (error === undefined) {
+      saidUnreadable = false;
+      return false;
+    }
+    if (!saidUnreadable) (deps.notify ?? showNotice)({ kind: 'refused', text: COLLECTION_SAYS_UNREADABLE(error) });
+    saidUnreadable = true;
+    return true;
+  };
+
   const reload = () =>
     serially(async () => {
       if (stopped) return;
-      const { collection, unparseable } = await loadCollection(shell, { notify: deps.notify });
-      // A file broken mid-edit keeps the last good collection; its one notice says what is wrong.
-      if (unparseable) return;
-      await apply(collection);
+      const loaded = await loadCollection(shell, { notify: deps.notify });
+      // A file broken mid-edit, or one that could not be read just now, keeps the last good collection.
+      if (unreadable(loaded.unreadable) || loaded.unparseable) return;
+      await apply(loaded.collection);
     });
 
   const unfollow = deps.onDocumentChange?.((open) => {
@@ -206,7 +219,8 @@ export function startCollection(deps: CollectionDeps): CollectionHandle {
   const loaded = serially(async () => {
     const started = performance.now();
     await followCurrent(deps.currentPath());
-    const { collection } = await loadCollection(shell, { notify: deps.notify });
+    const { collection, unreadable: error } = await loadCollection(shell, { notify: deps.notify });
+    unreadable(error);
     await apply(collection);
     await shell.mark(
       'collection_loaded',
@@ -248,7 +262,7 @@ export function startCollection(deps: CollectionDeps): CollectionHandle {
   };
 }
 
-// --- Smart collections (Q-07): the one writer of a saved query, and the door to its table in Source ----------------------
+// --- Smart collections: the one writer of a saved query, and the door to its table in Source ----------------------
 
 /** The `CollectionShell` that can also write; the app's shell is one. */
 export interface CollectionWriterShell extends CollectionShell {
@@ -382,7 +396,7 @@ export async function editQueryInSource(app: QueryEditor, name: string, opts: { 
     return sayWith(opts.notify, SMART_SAYS.editReadFailed(e));
   }
   const at = queryRange(bytes, name)?.start ?? 0;
-  // Over unsaved edits the open waits for the reader's choice: Source is shown once collection.toml is the document (F-21).
+  // Over unsaved edits the open waits for the reader's choice: Source is shown once collection.toml is the document.
   await app.open(file, { onLanded: () => void app.jumpToSource(at) });
 }
 

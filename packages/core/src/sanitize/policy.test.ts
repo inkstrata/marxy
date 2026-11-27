@@ -1,4 +1,4 @@
-// MARXY-96: the wide allow-list matches §12 and shares the default policy's network boundary.
+// the wide allow-list shares the default policy's network boundary.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';

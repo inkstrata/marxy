@@ -1,12 +1,13 @@
-// Local image paths, reserved boxes, and the hosts a blocked-content notice will name (MARXY-26).
-// Pure: no shell, no DOM. The renderer stays shell-free (ADR-0020); the app asks the shell for bytes
-// and an asset URL after this module has decided the path is inside the image root (ADR-0027 §5).
+// Local image paths, reserved boxes, and the hosts a blocked-content notice will name.
+// Pure: no shell, no DOM. The renderer stays shell-free; the app asks the shell for bytes
+// and an asset URL after this module has decided the path is inside the image root.
 
 import { normalizePath } from '../index-model/paths.ts';
 import { DEFAULT_POLICY } from '../sanitize/policy.ts';
 import type { Removal } from '../sanitize/sanitize-html.ts';
 import { sanitizeUrl } from '../sanitize/urls.ts';
 import { hostForms } from './link-host.ts';
+import { own } from '../util/text.ts';
 
 export interface BlockedImage {
   readonly host: string;
@@ -102,12 +103,19 @@ export function blockedImageNoticeText(images: readonly BlockedImage[]): string 
   return clause === '' ? '' : `${clause}.`;
 }
 
+/** `//?/C:` or `//?/UNC/server/share` (a Windows long path), or `//server/share` (a share): the part `..` may not climb out of. */
+const PATH_ANCHOR = /^\/\/(?:\?\/(?:UNC\/[^/]+\/[^/]+|[A-Za-z]:)|[^/?.][^/]*\/[^/]+)(?=\/|$)/;
+/** A drive's root, plain or as a long path (`C:/`, `//?/C:/`). */
+const DRIVE_ROOT = /^(?:\/\/\?\/)?[A-Za-z]:\/$/;
+
 /** Collapse `.` / `..` so a `../` that leaves the root is visible as `null` rather than as a string. */
 export function collapsePath(path: string): string | null {
   const normalized = normalizePath(path);
-  const drive = /^[A-Za-z]:/.exec(normalized);
-  const rest = drive === null ? normalized : normalized.slice(2);
-  const absolute = rest.startsWith('/');
+  // A share or a long path keeps its own first segments: reading them as empty parts of `/` named another file.
+  const anchor = PATH_ANCHOR.exec(normalized)?.[0];
+  const drive = anchor === undefined ? /^[A-Za-z]:/.exec(normalized)?.[0] : undefined;
+  const rest = anchor !== undefined ? normalized.slice(anchor.length) : drive === undefined ? normalized : normalized.slice(2);
+  const absolute = anchor !== undefined || rest.startsWith('/');
   const out: string[] = [];
   for (const part of rest.split('/')) {
     if (part === '' || part === '.') continue;
@@ -118,8 +126,14 @@ export function collapsePath(path: string): string | null {
     }
     out.push(part);
   }
+  if (anchor !== undefined) {
+    const body = out.join('/');
+    // A share's root has no trailing slash (`//server/share`), a long path's drive root has one, as `C:/` does.
+    if (body === '') return /^\/\/\?\/[A-Za-z]:$/.test(anchor) ? `${anchor}/` : anchor;
+    return `${anchor}/${body}`;
+  }
   const body = `${absolute ? '/' : ''}${out.join('/')}`;
-  const joined = `${drive?.[0] ?? ''}${body === '' && absolute ? '/' : body}`;
+  const joined = `${drive ?? ''}${body === '' && absolute ? '/' : body}`;
   return joined === '' ? (absolute ? '/' : null) : joined;
 }
 
@@ -127,19 +141,19 @@ export function isInsideImageRoot(path: string, imageRoot: string): boolean {
   const resolved = collapsePath(path);
   const root = collapsePath(imageRoot);
   if (resolved === null || root === null) return false;
-  if (root === '/' || /^[A-Za-z]:\/$/.test(root)) return resolved.startsWith(root);
+  if (root === '/' || DRIVE_ROOT.test(root)) return resolved.startsWith(root);
   return resolved === root || resolved.startsWith(`${root}/`);
 }
 
 function joinUnder(base: string, rel: string): string {
   const root = normalizePath(base);
   if (rel === '') return root;
-  if (root === '/' || /^[A-Za-z]:\/$/.test(root)) return `${root}${rel.replace(/^\/+/, '')}`;
+  if (root === '/' || DRIVE_ROOT.test(root)) return `${root}${rel.replace(/^\/+/, '')}`;
   return `${root}/${rel.replace(/^\/+/, '')}`;
 }
 
 /**
- * Resolve an image `src` the way GitHub does inside a repository (ADR-0027 §5): `/x.png` against
+ * Resolve an image `src` the way GitHub does inside a repository: `/x.png` against
  * the image root, relative paths against the document directory, anything that leaves the root
  * refused, anything with its own host treated as remote.
  */
@@ -292,7 +306,46 @@ function webpSize(bytes: Uint8Array): ImageSize | null {
   return null;
 }
 
+const SVG_HEAD_BYTES = 64 * 1024;
+const SVG_UNIT_PX: Readonly<Record<string, number>> = {
+  '': 1, px: 1, pt: 4 / 3, pc: 16, in: 96, cm: 96 / 2.54, mm: 96 / 25.4, q: 96 / 101.6, em: 16, rem: 16, ex: 8,
+};
+
+function svgLengthPx(value: string | undefined): number | null {
+  const m = /^\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s*([a-zA-Z%]*)\s*$/.exec(value ?? '');
+  const factor = m ? own(SVG_UNIT_PX, (m[2] ?? '').toLowerCase()) : undefined;
+  if (!m || factor === undefined) return null;
+  const px = Number(m[1]) * factor;
+  return Number.isFinite(px) && px > 0 ? px : null;
+}
+
+/**
+ * An SVG's intrinsic size as `<img>` draws it, from the root element in the first 64 KB (the Rust `svg_dimensions`
+ * applies the same rule): width and height, a missing or percentage side from the viewBox, else the viewBox itself.
+ */
+function svgSize(bytes: Uint8Array): ImageSize | null {
+  const text = new TextDecoder().decode(bytes.subarray(0, SVG_HEAD_BYTES)).replace(/<!--[\s\S]*?(?:-->|$)/g, '');
+  const root = /<svg(?=[\s>/])((?:"[^"]*"|'[^']*'|[^>"'])*)/.exec(text);
+  if (!root) return null;
+  const attrs = new Map<string, string>();
+  for (const a of (root[1] ?? '').matchAll(/([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) attrs.set(a[1] ?? '', a[2] ?? a[3] ?? '');
+  const box = (attrs.get('viewBox') ?? '').split(/[\s,]+/).filter(Boolean).map(Number);
+  const ok = box.length === 4 && box.every(Number.isFinite) && (box[2] ?? 0) > 0 && (box[3] ?? 0) > 0;
+  const vw = ok ? (box[2] as number) : 0;
+  const vh = ok ? (box[3] as number) : 0;
+  const w = svgLengthPx(attrs.get('width'));
+  const h = svgLengthPx(attrs.get('height'));
+  const width = w ?? (ok ? (h !== null ? (h * vw) / vh : vw) : null);
+  const height = h ?? (ok ? (w !== null ? (w * vh) / vw : vh) : null);
+  if (width === null || height === null) return null;
+  const out = { width: Math.round(width), height: Math.round(height) };
+  return out.width >= 1 && out.height >= 1 ? out : null;
+}
+
 /** Natural pixel size from the file's own header. `null` when the bytes are not a recognised image. */
 export function imageSizeFromBytes(bytes: Uint8Array): ImageSize | null {
-  return pngSize(bytes) ?? gifSize(bytes) ?? jpegSize(bytes) ?? webpSize(bytes);
+  return pngSize(bytes) ?? gifSize(bytes) ?? jpegSize(bytes) ?? webpSize(bytes) ?? svgSize(bytes);
 }
+
+/** Drawn when an SVG's size cannot be read: the 300x150 a browser gives an `<img>` whose SVG names none. */
+export const SVG_DEFAULT_SIZE: ImageSize = { width: 300, height: 150 };

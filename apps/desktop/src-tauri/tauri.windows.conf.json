@@ -1,0 +1,34 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Marxy",
+        "width": 960,
+        "height": 760,
+        "minWidth": 564,
+        "minHeight": 480,
+        "resizable": true,
+        "visible": false,
+        "backgroundColor": "#000000",
+        "dragDropEnabled": false
+      }
+    ]
+  },
+  "bundle": {
+    "windows": {
+      "signCommand": {
+        "cmd": "node",
+        "args": ["../scripts/sign-windows.mjs", "%1"]
+      }
+    },
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown", "mdown", "mkd", "mdx"],
+        "name": "Markdown",
+        "description": "Markdown document",
+        "role": "Viewer"
+      }
+    ]
+  }
+}

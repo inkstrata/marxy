@@ -1,4 +1,4 @@
-// The 35 tree-construction shapes measured in review (MARXY-84): each input exercises implied end
+// The 35 tree-construction shapes measured in review: each input exercises implied end
 // tags, table insertion, or the writer stack, and the list length is asserted so adding or removing
 // a shape is a deliberate diff.
 
@@ -7,7 +7,7 @@ export interface TreeDepthCase {
   readonly html: string;
 }
 
-/** Exactly the shapes from the MARXY-12 review measurement; do not grow or shrink without intent. */
+/** Exactly the shapes from the measurement; do not grow or shrink without intent. */
 export const TREE_DEPTH_CASES: readonly TreeDepthCase[] = [
   { id: 'solidus-anchor-tail', html: '<a href="https://example.com/" />para' },
   { id: 'solidus-blockquote-tail', html: '<blockquote />textmore' },

@@ -1,4 +1,4 @@
-// The verb menu (C-13, ADR-0054): right-click, the context-menu key, Shift+F10 or Enter opens one themed
+// The verb menu: right-click, the context-menu key, Shift+F10 or Enter opens one themed
 // menu of the selection's verbs; nothing of it exists at rest. Palette harness, WebKit.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -8,7 +8,7 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { createBuffer, parseMarkdown, textOf } from '../../../packages/core/src/index.ts';
 import { copyTableTsv } from '../../../packages/core/src/operations/copy-table.ts';
@@ -125,7 +125,7 @@ function byteDiffs(a, b) {
   return ranges;
 }
 
-test('C-13: nothing of the menu is in the DOM at rest, after it closes, or after a verb runs', async () => {
+test('nothing of the menu is in the DOM at rest, after it closes, or after a verb runs', async () => {
   const page = await boot('28-llm-answer.md');
   try {
     assert.equal(await menuExists(page), false, 'at rest');
@@ -151,7 +151,7 @@ test('C-13: nothing of the menu is in the DOM at rest, after it closes, or after
   }
 });
 
-test("C-13: right-click a table cell offers the table's verbs, TSV first, and choosing it copies the TSV", async () => {
+test("right-click a table cell offers the table's verbs, TSV first, and choosing it copies the TSV", async () => {
   const file = '28-llm-answer.md';
   const bytes = readFileSync(join(corpusDir, file));
   const ast = parseMarkdown(bytes, { file });
@@ -181,7 +181,7 @@ test("C-13: right-click a table cell offers the table's verbs, TSV first, and ch
   }
 });
 
-test("C-13: right-click a task item's text offers Toggle task, which changes only the marker bytes", async () => {
+test("right-click a task item's text offers Toggle task, which changes only the marker bytes", async () => {
   const file = '03-ai-plan.md';
   const words = 'Attestation policy decided';
   const source = readFileSync(join(corpusDir, file), 'utf8');
@@ -217,7 +217,7 @@ test("C-13: right-click a task item's text offers Toggle task, which changes onl
   }
 });
 
-test('C-13: Enter on a clicked code block opens the menu with the first row focused; ArrowDown, Enter runs the second', async () => {
+test('Enter on a clicked code block opens the menu with the first row focused; ArrowDown, Enter runs the second', async () => {
   const file = '28-llm-answer.md';
   const bytes = readFileSync(join(corpusDir, file));
   const ast = parseMarkdown(bytes, { file });
@@ -295,7 +295,7 @@ async function focusBlock(page) {
   return pre;
 }
 
-test('C-13.1: focus returns to the focused block after Escape and after a verb runs', async () => {
+test('focus returns to the focused block after Escape and after a verb runs', async () => {
   const page = await boot('28-llm-answer.md');
   try {
     await focusBlock(page);
@@ -315,7 +315,7 @@ test('C-13.1: focus returns to the focused block after Escape and after a verb r
   }
 });
 
-test('C-13.1: "All actions…" is the last row, and choosing it opens the palette on >', async () => {
+test('"All actions…" is the last row, and choosing it opens the palette on >', async () => {
   const page = await boot('28-llm-answer.md');
   try {
     await page.locator('#doc td').nth(1).click({ button: 'right' });
@@ -333,7 +333,7 @@ test('C-13.1: "All actions…" is the last row, and choosing it opens the palett
   }
 });
 
-test('C-13.1: a key the menu does not own closes it and goes on: Mod+P opens the palette, Mod+C copies', async () => {
+test('a key the menu does not own closes it and goes on: Mod+P opens the palette, Mod+C copies', async () => {
   const page = await boot('28-llm-answer.md');
   const mod = await modKey(page);
   try {
@@ -363,7 +363,7 @@ test('C-13.1: a key the menu does not own closes it and goes on: Mod+P opens the
   }
 });
 
-test("C-13: every command in the menu is also in the palette's > list, for three selections", async () => {
+test("every command in the menu is also in the palette's > list, for three selections", async () => {
   const page = await boot('28-llm-answer.md');
   const mod = await modKey(page);
   try {
@@ -390,7 +390,7 @@ test("C-13: every command in the menu is also in the palette's > list, for three
   }
 });
 
-test('C-13: a contextmenu event inside the article is always prevented; WebKit never shows its own menu', async () => {
+test('a contextmenu event inside the article is always prevented; WebKit never shows its own menu', async () => {
   const page = await boot('28-llm-answer.md');
   try {
     await page.evaluate(() => {
@@ -414,7 +414,7 @@ test('C-13: a contextmenu event inside the article is always prevented; WebKit n
   }
 });
 
-test('C-13: right-click a link selects it and never follows it; the menu offers Jump to source', async () => {
+test('right-click a link selects it and never follows it; the menu offers Jump to source', async () => {
   const page = await boot('09-gfm-everything.md');
   try {
     const link = page.locator('#doc p a[href]').first();
@@ -436,7 +436,7 @@ test('C-13: right-click a link selects it and never follows it; the menu offers 
   }
 });
 
-test('C-13: a right-click inside a drag keeps the drag and offers its verbs', async () => {
+test('a right-click inside a drag keeps the drag and offers its verbs', async () => {
   const page = await boot('28-llm-answer.md');
   try {
     const p = page.locator('#doc p').first();
@@ -458,7 +458,7 @@ test('C-13: a right-click inside a drag keeps the drag and offers its verbs', as
   }
 });
 
-test('C-06 review: a plain click in the margin after a drag drops the recorded drag, so Mod+C copies nothing', async () => {
+test('a plain click in the margin after a drag drops the recorded drag, so Mod+C copies nothing', async () => {
   const page = await boot('28-llm-answer.md');
   try {
     const p = page.locator('#doc p').first();
@@ -469,7 +469,9 @@ test('C-06 review: a plain click in the margin after a drag drops the recorded d
     await page.mouse.up();
     assert.equal(await page.evaluate(() => window.marxySelection.getSelectionState().selection.kind), 'text');
     const doc = await page.locator('#doc').boundingBox();
-    await page.mouse.click(Math.max(2, doc.x - 40), bb.y + 4);
+    // The page's own margin, between the panes' grid and the article: the frame's rail stands left of the grid.
+    const main = await page.locator('#marxy-main').boundingBox();
+    await page.mouse.click(Math.max(main.x + 2, doc.x - 40), bb.y + 4);
     await page.waitForFunction(() => window.getSelection()?.isCollapsed ?? true);
     // The drop waits one task after the press (WebKit collapses the highlight as its default action).
     await page.evaluate(() => new Promise((r) => setTimeout(r, 50)));
@@ -481,7 +483,7 @@ test('C-06 review: a plain click in the margin after a drag drops the recorded d
   }
 });
 
-test('C-13: forced colours keep the menu border and the focused row', async () => {
+test('forced colours keep the menu border and the focused row', async () => {
   const page = await boot('28-llm-answer.md');
   try {
     const rules = await page.evaluate(() => {
@@ -498,7 +500,7 @@ test('C-13: forced colours keep the menu border and the focused row', async () =
       }
       return found.join('\n');
     });
-    assert.match(rules, /\.marxy-verb-menu\s*[,{][^}]*border-color: canvastext/i); // the one forced-colours rule of the surfaces (W-04) lists it
+    assert.match(rules, /\.marxy-verb-menu\s*[,{][^}]*border-color: canvastext/i); // the one forced-colours rule of the surfaces lists it
     assert.match(rules, /\.marxy-verb-menu-item:focus\s*\{[^}]*background(?:-color)?: highlight/i);
   } finally {
     await page.close();

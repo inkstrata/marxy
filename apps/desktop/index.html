@@ -3,22 +3,24 @@
 <head>
 <meta charset="utf-8">
 <title>Marxy</title>
+<!-- No icon of the page's own: a browser would otherwise ask the server for /favicon.ico, which there is none of. -->
+<link rel="icon" href="data:,">
 <!-- marxy:fonts -->
 <!-- marxy:default-theme -->
 <style>
-  /* The empty state only; the document is styled by the default theme above (MARXY-20). */
+  /* The empty state only; the document is styled by the default theme above. */
   .marxy-empty { color: var(--marxy-color-text-secondary); font: 15px/1.5 system-ui, sans-serif; padding: 2rem; }
   #marxy-main { min-height: 100vh; }
-  /* A pane (D-01): the box its article's margins are measured against (--marxy-room). One pane fills
+  /* A pane: the box its article's margins are measured against (--marxy-room). One pane fills
      #marxy-main exactly, so a single document is laid out as it always was. */
   .marxy-pane { container-type: inline-size; min-width: 0; min-height: inherit; }
   .marxy-pane:focus { outline: none; }
   .marxy-pane > [role="status"]:empty { display: none; }
-  /* Notices are pills at the pane's foot, off the column (U-02): the region is the pane's last child, a zero-height
+  /* Notices are pills at the pane's foot, off the column: the region is the pane's last child, a zero-height
      layer pinned to the bottom edge of what the reader sees of the pane (sticky, so it holds as the pane or the window
      scrolls; the pane is at least a screen tall, so it holds for a short page too). The pills stack upward from it, newest
      nearest the edge, and centre on the pane. Nothing here is in the column's flow, so raising or dismissing one moves
-     nothing (F-45's guard). Positioning only; the pill's own look is the theme's. */
+     nothing. Positioning only; the pill's own look is the theme's. */
   .marxy-pane > [role="status"] {
     position: sticky; bottom: var(--marxy-notice-foot, calc(var(--marxy-size-chrome) * 40 / 13)); z-index: 10; height: 0; box-sizing: border-box;
     display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
@@ -29,8 +31,8 @@
   .marxy-find-slot { position: sticky; top: 0; height: 0; }
   .marxy-find-slot:empty { display: none; }
   #marxy-palette:not([open]) { display: none; }
-  #marxy-outline:not([open]), #marxy-find[hidden], .marxy-source-mount[hidden] { display: none; }
-  /* One pane: Source covers the window (§09); the pane's notices stay above it at the window's foot. */
+  #marxy-find[hidden], .marxy-source-mount[hidden] { display: none; }
+  /* One pane: Source covers the window; the pane's notices stay above it at the window's foot. */
   #marxy-main:not([data-marxy-split]) .marxy-source-mount:not([hidden]) { position: fixed; inset: 0; overflow: auto; }
   /* Two panes, side by side: each scrolls on its own, and Source covers only its pane. */
   #marxy-main[data-marxy-split] { display: grid; height: 100vh; }
@@ -49,11 +51,10 @@
       <article id="doc" class="marxy-article"></article>
       <div id="marxy-source" class="marxy-source-mount" hidden></div>
       <div class="marxy-find-slot"></div>
-      <div id="marxy-notices" role="status"></div>
+      <div id="marxy-notices" role="status" aria-atomic="false"></div>
     </section>
   </main>
   <dialog id="marxy-palette"></dialog>
-  <dialog id="marxy-outline"></dialog>
   <div id="marxy-find" hidden></div>
   <script type="module" src="./src/main.ts"></script>
 </body>

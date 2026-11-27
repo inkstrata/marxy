@@ -1,13 +1,14 @@
-// Line operations for the Source editor (V-01): join, sort, toggle task, toggle quote. Pure: the editor's
+// Line operations for the Source editor: join, sort, toggle task, toggle quote. Pure: the editor's
 // text and its selections in, a list of splices out, so every byte outside a splice stays as it was.
 //
 // Text is as CodeMirror holds it: lines joined by "\n" whatever the file's separator is, and the editor
-// writes a splice's "\n" back as the file's own separator (F-25's `lineSeparatorFor`). So nothing here
+// writes a splice's "\n" back as the file's own separator (`lineSeparatorFor`). So nothing here
 // knows or says CRLF or CR; a mixed-ending file, whose "\r" is a character at the end of a line, keeps it
 // (a trailing "\r" counts as the end of the line's text, never as content to sort on or strip into).
 // Offsets are UTF-16 indexes.
 
 import type { TextRange } from './select.ts';
+import { trimEndOf } from '../util/text.ts';
 
 export interface TextSplice {
   readonly from: number;
@@ -66,7 +67,7 @@ export function joinLines(text: string, ranges: readonly TextRange[]): LineEdit 
     const lines = text.slice(span.from, to).split('\n');
     let joined = lines[0]!;
     for (const line of lines.slice(1)) {
-      const left = joined.replace(/[ \t\r]+$/, '');
+      const left = trimEndOf(joined, ' \t\r');
       const right = line.replace(/^[ \t]+/, '');
       joined = left + (left === '' || splitCr(right).body === '' ? '' : ' ') + right;
     }

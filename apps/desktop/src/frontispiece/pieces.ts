@@ -1,6 +1,6 @@
-// The Commonplace as the empty window reads it (MARXY-257): which piece to show, and the few
+// The Commonplace as the empty window reads it: which piece to show, and the few
 // front-matter fields the layout needs. Pure: no DOM, no Vite, so it runs in Node for tests. The piece
-// format is apps/desktop/src/commonplace/FORMAT.md (MARXY-256).
+// format is apps/desktop/src/commonplace/FORMAT.md.
 
 /** One piece, not yet read: `load` fetches its markdown only when the piece is chosen. */
 export interface PieceSource {

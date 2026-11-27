@@ -1,4 +1,4 @@
-// Remember the layout and each pane's place, and restore them at launch (D-12). Booted on the shipped
+// Remember the layout and each pane's place, and restore them at launch. Booted on the shipped
 // skeleton and CSS (test/support/two-pane.mjs) over the memory shell: the panes, modes, ratio and focus
 // are what `startApp` puts back from /data/layout.json, and positions.json is written by the pane the
 // writer rule names.
@@ -21,11 +21,12 @@ const para = (word) =>
 const doc = (word) =>
   `# ${word}\n\n${Array.from({ length: 12 }, (_, i) => para(`${word} ${i + 1}`).repeat(2).trim()).join('\n\n')}\n`;
 const files = { '/r/A.md': doc('Alpha'), '/r/B.md': doc('Bravo'), '/r/C.md': doc('Charlie') };
-const layout = (columns, ratio = 0.4, focused = 1, version = 1) =>
+const layout = (columns, ratio = 0.42, focused = 1, version = 1) =>
   JSON.stringify({ version, columns, ratio, focused });
 const rendered = (path) => ({ path, mode: 'rendered' });
 const source = (path) => ({ path, mode: 'source' });
 
+// At 1470 the rail leaves the panes 1422 px, where 45 characters and two gutters are 0.41 of it: the ratios used stay above that.
 const WIDE = { width: 1470, height: 700 };
 const NARROW = { width: 900, height: 700 };
 
@@ -112,6 +113,9 @@ const dataOf = (page) =>
     return out;
   });
 
+/** The window's row of tabs, in order. */
+const rowNow = (page) => page.evaluate(() => window.__marxyHandle.frame().tabs.model.tabs.map((t) => t.path));
+
 const quit = (page) => page.evaluate(() => window.__marxyHandle.shell.quit(0));
 const wait = (page, ms) => page.waitForTimeout(ms);
 
@@ -122,7 +126,7 @@ test('two documents, modes, ratio and focus come back, and first text came befor
       const set = window.__marxyHandle.panes();
       await set.openIn('other', '/r/B.md');
       await set.panes[1].view.toggleMode();
-      set.setRatio(0.4);
+      set.setRatio(0.42);
       set.focus(set.panes[1]);
     });
     await quit(first);
@@ -130,15 +134,17 @@ test('two documents, modes, ratio and focus come back, and first text came befor
     assert.deepEqual(JSON.parse(saved['/data/layout.json']), {
       version: 1,
       columns: [rendered('/r/A.md'), source('/r/B.md')],
-      ratio: 0.4,
+      ratio: 0.42,
       focused: 1,
+      tabs: ['/r/A.md', '/r/B.md'],
     });
 
     const second = await boot(browser, { files: { ...files, ...saved }, argv: [] });
     const now = await shown(second);
     assert.deepEqual(now.paths, ['/r/A.md', '/r/B.md']);
+    assert.deepEqual(await rowNow(second), ['/r/A.md', '/r/B.md']);
     assert.deepEqual(now.modes, ['rendered', 'source']);
-    assert.equal(now.ratio, 0.4);
+    assert.equal(now.ratio, 0.42);
     assert.equal(now.focused, 1);
     const marks = await second.evaluate(() =>
       window.__marxyHandle.shell.calls.filter((c) => c.method === 'mark').map((c) => c.args[0]),
@@ -221,7 +227,7 @@ test('a layout from a newer version is restored and left on disk as it was', asy
 
 test('at 900 px one pane (the focused column) is shown and nothing is written; a later change writes', async () => {
   await withBrowser(async (browser) => {
-    const saved = layout([rendered('/r/A.md'), rendered('/r/B.md')], 0.4, 1);
+    const saved = layout([rendered('/r/A.md'), rendered('/r/B.md')], 0.42, 1);
     const page = await boot(browser, { files: { ...files, '/data/layout.json': saved }, argv: [], viewport: NARROW });
     assert.deepEqual((await shown(page)).paths, ['/r/B.md']);
     await wait(page, 1000);
@@ -242,18 +248,35 @@ test('at 900 px one pane (the focused column) is shown and nothing is written; a
 
 test('a launch with a file puts it in the focused pane and keeps the other pane', async () => {
   await withBrowser(async (browser) => {
-    const right = layout([rendered('/r/A.md'), rendered('/r/B.md')], 0.4, 1);
+    const right = layout([rendered('/r/A.md'), rendered('/r/B.md')], 0.42, 1);
     const a = await boot(browser, { files: { ...files, '/data/layout.json': right }, argv: ['/r/C.md'] });
     assert.deepEqual((await shown(a)).paths, ['/r/A.md', '/r/C.md']);
     assert.equal((await shown(a)).focused, 1);
-    assert.equal((await shown(a)).ratio, 0.4);
+    assert.equal((await shown(a)).ratio, 0.42);
 
-    const left = layout([rendered('/r/A.md'), source('/r/B.md')], 0.6, 0);
+    const left = layout([rendered('/r/A.md'), source('/r/B.md')], 0.58, 0);
     const b = await boot(browser, { files: { ...files, '/data/layout.json': left }, argv: ['/r/C.md'] });
     const now = await shown(b);
     assert.deepEqual(now.paths, ['/r/C.md', '/r/B.md']);
     assert.deepEqual(now.modes, ['rendered', 'source']);
     assert.equal(now.focused, 0);
+  });
+});
+
+test('a launch with the file the other pane showed keeps both documents and focuses the file', async () => {
+  await withBrowser(async (browser) => {
+    const right = layout([rendered('/r/A.md'), source('/r/B.md')], 0.42, 1);
+    const a = await boot(browser, { files: { ...files, '/data/layout.json': right }, argv: ['/r/A.md'] });
+    const one = await shown(a);
+    assert.deepEqual(one.paths, ['/r/A.md', '/r/B.md']);
+    assert.equal(one.modes[1], 'source');
+    assert.equal(one.focused, 0);
+
+    const left = layout([rendered('/r/A.md'), rendered('/r/B.md')], 0.58, 0);
+    const b = await boot(browser, { files: { ...files, '/data/layout.json': left }, argv: ['/r/B.md'] });
+    const two = await shown(b);
+    assert.deepEqual(two.paths, ['/r/A.md', '/r/B.md']);
+    assert.equal(two.focused, 1);
   });
 });
 
@@ -342,5 +365,51 @@ test('a layout read that never settles does not hold up first text, with or with
     // With no argument the read is waited for only within its budget; the launch then shows what it always did.
     const none = await boot(browser, { files: { ...files, '/data/layout.json': saved }, argv: [], stall: true });
     assert.deepEqual((await shown(none)).paths, [null]);
+  });
+});
+
+test('the row of tabs comes back in its order with what each pane showed; a file gone is left out quietly; an old layout gives its columns', async () => {
+  await withBrowser(async (browser) => {
+    const four = { ...files, '/r/D.md': doc('Delta') };
+    const first = await boot(browser, { files: four, argv: ['/r/A.md'] });
+    await first.evaluate(async () => {
+      const h = window.__marxyHandle;
+      for (const p of ['/r/B.md', '/r/C.md', '/r/D.md']) await h.open(p);
+      await h.panes().openIn('other', '/r/B.md');
+    });
+    await first.waitForFunction(() => window.__marxyHandle.frame().tabs.model.tabs.length === 4);
+    // The reader drags D to the front of the row.
+    await first.evaluate(() => {
+      const tabs = window.__marxyHandle.frame().tabs;
+      tabs.model.move(tabs.model.byPath('/r/D.md').id, 0);
+      tabs.render();
+    });
+    assert.deepEqual(await rowNow(first), ['/r/D.md', '/r/A.md', '/r/B.md', '/r/C.md']);
+    await wait(first, 700);
+    await quit(first);
+    const saved = await dataOf(first);
+    const kept = JSON.parse(saved['/data/layout.json']);
+    assert.deepEqual(kept.tabs, ['/r/D.md', '/r/A.md', '/r/B.md', '/r/C.md']);
+    assert.deepEqual(kept.columns.map((c) => c.path), ['/r/D.md', '/r/B.md']);
+
+    const { '/r/C.md': _gone, ...withoutC } = four;
+    const second = await boot(browser, { files: { ...withoutC, ...saved }, argv: [] });
+    await second.waitForFunction(() => window.__marxyHandle.frame().tabs.model.tabs.length === 3);
+    assert.deepEqual(await rowNow(second), ['/r/D.md', '/r/A.md', '/r/B.md']);
+    assert.deepEqual((await shown(second)).paths, ['/r/D.md', '/r/B.md']);
+    const notices = await second.evaluate(() => document.querySelector('#marxy-notices')?.textContent ?? '');
+    assert.doesNotMatch(notices, /C\.md/, 'a tab gone from disk is not said');
+    assert.equal(await writesTo(second, '/data/layout.json'), 0, 'restoring the row wrote nothing');
+    // Showing A where D was is written as the row and the panes are now.
+    await second.evaluate(() => window.__marxyHandle.panes().openIn(0, '/r/A.md'));
+    await wait(second, 800);
+    const after = JSON.parse((await dataOf(second))['/data/layout.json']);
+    assert.deepEqual(after.tabs, ['/r/D.md', '/r/A.md', '/r/B.md']);
+    assert.deepEqual(after.columns.map((c) => c.path), ['/r/A.md', '/r/B.md']);
+
+    const old = await boot(browser, { files: { ...four, '/data/layout.json': layout([rendered('/r/C.md'), rendered('/r/A.md')], 0.5, 0) }, argv: [] });
+    await old.waitForFunction(() => window.__marxyHandle.panes().panes.length === 2);
+    await wait(old, 300);
+    assert.deepEqual(await rowNow(old), ['/r/C.md', '/r/A.md'], 'one path per pane gives the row in column order');
   });
 });

@@ -1,5 +1,5 @@
-// F-103: the kind chip's menu says why a file is read as it is, in whole words. Each reason row's title is
-// wide enough for its whole text (no ellipsis), at 800 and 1,400 px, and the `Show as …` choices keep one line.
+// the kind chip's menu says why a file is read as it is, in whole words. Each reason row's title is
+// wide enough for its whole text (no ellipsis), at 800 and 1,400 px, and the `Read as …` choices keep one line.
 // Booted on the shipped skeleton over the memory shell; the menu is the verb menu's, so the right-click menu
 // is checked to lay out as before.
 import { strict as assert } from 'node:assert';
@@ -61,8 +61,8 @@ for (const width of [800, 1400]) {
         assert.ok(r.inside);
         for (const h of r.hint) assert.ok(!h.cut && h.right <= h.menuRight, `hint "${h.text}" is cut`);
       }
-      // The choices keep one line: every `Show as` row is as tall as the 28 px row.
-      const choices = rows.filter((r) => /^Show as /.test(r.text));
+      // The choices keep one line: every `Read as` row is as tall as the 28 px row.
+      const choices = rows.filter((r) => /^Read as /.test(r.text));
       assert.ok(choices.length > 5);
       for (const r of choices) assert.ok(r.height <= 30, `${r.text}: ${r.height} px`);
       assert.ok(notes.some((r) => r.hint.length > 0));

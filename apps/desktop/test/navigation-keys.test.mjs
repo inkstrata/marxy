@@ -1,4 +1,4 @@
-// Mod+E, back and forward are registry commands (A-13): same chords, same exceptions in Source.
+// Mod+E, back and forward are registry commands: same chords, same exceptions in Source.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -7,7 +7,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { chordMatches } from '../src/palette/commands.ts';
 import { navigationCommands } from '../src/commands/navigation.ts';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
@@ -170,7 +170,7 @@ test('Mod+[ and Mod+] move through the session history after two palette opens',
   }
 });
 
-test('> in the palette lists Toggle Rendered / Source, Back and Forward with their keys', async () => {
+test('> in the palette lists Switch between Read and Source, Back and Forward with their keys', async () => {
   const browser = await launchWebkit();
   try {
     const { page, mod } = await boot(browser, '/repo/a.md');
@@ -180,7 +180,7 @@ test('> in the palette lists Toggle Rendered / Source, Back and Forward with the
       els.map((el) => [el.querySelector('.marxy-palette-title')?.textContent, el.querySelector('.marxy-palette-key')?.textContent]));
     const mac = mod === 'Meta';
     const find = (t) => rows.find((r) => r[0] === t);
-    assert.deepEqual(find('Toggle Rendered / Source'), ['Toggle Rendered / Source', mac ? '⌘E' : 'Ctrl+E']);
+    assert.deepEqual(find('Switch between Read and Source'), ['Switch between Read and Source', mac ? '⌘E' : 'Ctrl+E']);
     assert.deepEqual(find('Back'), ['Back', mac ? '⌘[' : 'Ctrl+[']);
     assert.deepEqual(find('Forward'), ['Forward', mac ? '⌘]' : 'Ctrl+]']);
   } finally {

@@ -1,4 +1,4 @@
-// Table tools for the Source editor (V-02): with the caret in a GFM table, align its columns, add a row, add a
+// Table tools for the Source editor: with the caret in a GFM table, align its columns, add a row, add a
 // column, sort the body rows, or read it as CSV. Pure: the editor's text and a caret offset in, one splice
 // (and the caret's new place) or null out; never the DOM.
 //
@@ -186,7 +186,7 @@ interface Ctx extends Located {
 
 const DELIMITER_CELL = /^:?-+:?$/;
 
-/** Why a table tool declined a table it found under the caret (V-02.1); a caret in no table, or nothing to do, is not a refusal. */
+/** Why a table tool declined a table it found under the caret; a caret in no table, or nothing to do, is not a refusal. */
 export type TableRefusal = 'columns' | 'shape' | 'closing-pipe' | 'rewrite';
 interface Refused {
   readonly refused: TableRefusal;
@@ -261,7 +261,7 @@ const encoder = new TextEncoder();
 
 /**
  * The table of the edited text that starts where the old one did, as the parse reads it. The edited text is
- * parsed by the reparse (B-23), which gives the parse of the whole text and parses only the blocks the edit
+ * parsed by the reparse, which gives the parse of the whole text and parses only the blocks the edit
  * touches (a 300 KB document takes seconds to parse whole), so the check is cheap where the document is large.
  */
 function factsAfter(c: Located, before: string, after: string): Facts | null {
@@ -374,7 +374,7 @@ export function alignTable(text: string, caret: number): LineEdit | null {
   return out && !('refused' in out) ? out : null;
 }
 
-/** `alignTable` with the reason when it declines a table it found (V-02.1). */
+/** `alignTable` with the reason when it declines a table it found. */
 export function alignTableOutcome(text: string, caret: number): TableOutcome {
   const c = contextOf(text, caret);
   if (!c || 'refused' in c) return c;
@@ -417,7 +417,7 @@ export function addTableRow(text: string, caret: number): LineEdit | null {
   return out && !('refused' in out) ? out : null;
 }
 
-/** `addTableRow` with the reason when it declines a table it found (V-02.1). */
+/** `addTableRow` with the reason when it declines a table it found. */
 export function addTableRowOutcome(text: string, caret: number): TableOutcome {
   const c = contextOf(text, caret);
   if (!c || 'refused' in c) return c;
@@ -462,7 +462,7 @@ export function addTableColumn(text: string, caret: number): LineEdit | null {
   return out && !('refused' in out) ? out : null;
 }
 
-/** `addTableColumn` with the reason when it declines a table it found (V-02.1). */
+/** `addTableColumn` with the reason when it declines a table it found. */
 export function addTableColumnOutcome(text: string, caret: number): TableOutcome {
   const c = contextOf(text, caret);
   if (!c || 'refused' in c) return c;
@@ -496,7 +496,7 @@ export function sortTableRows(text: string, caret: number): LineEdit | null {
   return out && !('refused' in out) ? out : null;
 }
 
-/** `sortTableRows` with the reason when it declines a table it found (V-02.1). */
+/** `sortTableRows` with the reason when it declines a table it found. */
 export function sortTableRowsOutcome(text: string, caret: number): TableOutcome {
   const c = contextOf(text, caret);
   if (!c || 'refused' in c) return c;
@@ -525,7 +525,7 @@ export function sortTableRowsOutcome(text: string, caret: number): TableOutcome 
 
 // ---- copy as CSV -----------------------------------------------------------------------------------------------
 
-/** The table as CSV, the text C-07's copy-table-csv puts on the clipboard (`csvOf` over the same cell grid), or null outside a table. */
+/** The table as CSV, the text copy-table-csv puts on the clipboard (`csvOf` over the same cell grid), or null outside a table. */
 export function tableCsv(text: string, caret: number): string | null {
   const loc = locate(text, caret);
   return loc ? csvOf(cellGrid(loc.table)) : null;

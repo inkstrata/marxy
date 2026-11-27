@@ -1,0 +1,36 @@
+verify-turn: slot a, block-cache, pnpm verify --tier changed (2026-11-25T16:33:04-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\block-cache
+8 files changed against master; unit suites: desktop, scripts; browser files: 51
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\block-cache-2026-11-26T00-33-04
+
+PASS    install        0.4s      
+PASS    typecheck      13.5s     
+PASS    lint           2.5s      
+PASS    check          12.5s     10 pass, 0 fail
+PASS    golden         1.7s      
+PASS    fidelity       14.9s     
+PASS    licences       0.7s      
+PASS    unit-scripts   27.9s     263 pass, 0 fail
+PASS    unit-desktop   51.4s     1256 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 93.8s     44 pass, 0 fail, 1 skip
+PASS    browser        638.5s    489 pass, 0 fail, 3 skip
+
+step                  result  wall    tests
+--------------------  ------  ------  -------------------------
+install               pass    0.4s
+typecheck             pass    13.5s
+lint                  pass    2.5s
+check                 pass    12.5s   10 pass, 0 fail
+golden                pass    1.7s
+fidelity              pass    14.9s
+licences              pass    0.7s
+unit-scripts          pass    27.9s   263 pass, 0 fail
+unit-desktop          pass    51.4s   1256 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    93.8s   44 pass, 0 fail, 1 skip
+browser               pass    638.5s  489 pass, 0 fail, 3 skip
+--------------------  ------  ------  -------------------------
+total                         857.9s
+
+verify changed: 11/11 steps passed
+verify-turn: exit 0 (2026-11-25T16:47:22-08:00)

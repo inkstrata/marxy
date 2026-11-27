@@ -1,4 +1,4 @@
-// Palette input guards (MARXY-337): history keys leave editors alone, the open flag follows the
+// Palette input guards: history keys leave editors alone, the open flag follows the
 // native dialog, result rows are clickable, and an IME's keys stay the IME's. Real WebKit.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -8,7 +8,7 @@ import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const desktopRoot = join(dirname(fileURLToPath(import.meta.url)), '..');

@@ -1,0 +1,2 @@
+#!/usr/bin/env -S deno run
+const x: number = 1;

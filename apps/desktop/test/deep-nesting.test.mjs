@@ -1,4 +1,4 @@
-// A document nested too deep to draw is shown as its source, with a notice, not as a blank page (F-54).
+// A document nested too deep to draw is shown as its source, with a notice, not as a blank page.
 // The hunt's 508-quote tower and a 12,000-level list open through the app's own path (startApp + the memory
 // shell + the mounted palette in Playwright WebKit), and a shallow tower beside them stays markup.
 import { strict as assert } from 'node:assert';
@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { fileURLToPath } from 'node:url';
 
@@ -101,7 +101,7 @@ test('the hunt\'s 508-quote tower shows its text in a <pre> and says why', () =>
     assert.ok(seen.text.includes('word'), `the text is on the page: ${JSON.stringify(seen.text.slice(0, 40))}`);
     assert.ok(seen.boxHeight > 0, 'the source has a box');
     assert.ok(seen.boxLeft < 960, 'and it starts on the page');
-    // The notice says what happened, what is unchanged, and what to do (rulings-x21 Q10).
+    // The notice says what happened, what is unchanged, and what to do.
     assert.ok(seen.notices.some((t) => /nested too deeply.*The file is unchanged.*edit in Source/.test(t)), JSON.stringify(seen.notices));
   }));
 

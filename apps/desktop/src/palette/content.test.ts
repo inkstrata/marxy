@@ -1,4 +1,4 @@
-// Content search in the palette (C-17): which queries are content queries, the three notices, the pause
+// Content search in the palette: which queries are content queries, the three notices, the pause
 // before a search, and that an answer arriving after a newer query is dropped.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -6,6 +6,7 @@ import type { ContentHit, ContentSearchOptions, ContentSearchResult } from '@mar
 import { invisibleSegments, type InvisibleSegment } from '@marxy/core/src/render/index.ts';
 import {
   contentQuery,
+  countNotice,
   createContentSearch,
   HINT_NOTICE,
   splitSegments,
@@ -14,7 +15,7 @@ import {
 } from './content.ts';
 
 const hit = (path: string): ContentHit => ({ path, line: 1, byteOffset: 0, preview: 'x', matchStart: 0, matchEnd: 1 });
-const result = (hits: ContentHit[], truncated = false): ContentSearchResult => ({ hits, scannedFiles: 3, truncated });
+const result = (hits: ContentHit[], truncated = false): ContentSearchResult => ({ hits, scannedFiles: 3, skippedFiles: 0, truncated, stopped: null });
 
 interface Pending {
   readonly query: string;
@@ -43,11 +44,12 @@ function fake() {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-test('a query starting with / is a content query; anything else is fuzzy', () => {
-  assert.equal(contentQuery('/foo'), 'foo');
-  assert.equal(contentQuery('  /baseline grid '), 'baseline grid');
-  assert.equal(contentQuery('/'), '');
-  assert.equal(contentQuery('foo/bar'), null);
+test('a query starting with # is a content query (the workspace search of the Line); anything else is not', () => {
+  assert.equal(contentQuery('#foo'), 'foo');
+  assert.equal(contentQuery('  #baseline grid '), 'baseline grid');
+  assert.equal(contentQuery('#'), '');
+  assert.equal(contentQuery('foo#bar'), null);
+  assert.equal(contentQuery('/foo'), null);
   assert.equal(contentQuery('>foo'), null);
   assert.equal(contentQuery(''), null);
 });
@@ -96,6 +98,17 @@ test('the notices: Searching…, N matches in M files, No matches, Showing the f
   pending[2]!.resolve(result(Array.from({ length: 200 }, () => hit('/r/a.md')), true));
   await wait(5);
   assert.equal(states.at(-1)!.notice, 'Showing the first 200 matches');
+});
+
+test('a budget stop and the skipped files are said after the count, and a hit limit is not a budget stop', () => {
+  const two = [hit('/r/a.md'), hit('/r/b.md')];
+  const base = { hits: two, scannedFiles: 9, truncated: true };
+  assert.equal(countNotice({ ...base, skippedFiles: 0, stopped: 'bytes' }, false), '2 matches in 2 files. Stopped after reading 1 GB.');
+  assert.equal(countNotice({ ...base, skippedFiles: 0, stopped: 'time' }, false), '2 matches in 2 files. Stopped after 15 seconds.');
+  assert.equal(countNotice({ hits: [], scannedFiles: 1, skippedFiles: 0, truncated: true, stopped: 'time' }, false), 'No matches. Stopped after 15 seconds.');
+  assert.equal(countNotice({ ...base, skippedFiles: 3, stopped: null }, false), 'Showing the first 2 matches. 3 files skipped.');
+  assert.equal(countNotice({ ...base, truncated: false, skippedFiles: 1, stopped: null }, false), '2 matches in 2 files. 1 file skipped.');
+  assert.equal(countNotice({ ...base, truncated: false, skippedFiles: 0, stopped: null }, false), '2 matches in 2 files');
 });
 
 test('a slow first response arriving after a second query is dropped, and the first search is aborted', async () => {

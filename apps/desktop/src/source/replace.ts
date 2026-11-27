@@ -1,4 +1,4 @@
-// Find and replace in Source (V-03): the pure half. Given the editor's text, a query and a replacement, the matches and
+// Find and replace in Source: the pure half. Given the editor's text, a query and a replacement, the matches and
 // the change set that Replace all makes, and the rows its preview shows. Nothing here touches an editor or the DOM;
 // `replace-sheet.ts` shows the rows and applies the change set as one CodeMirror transaction.
 //

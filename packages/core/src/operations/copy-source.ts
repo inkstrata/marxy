@@ -1,4 +1,4 @@
-// copy-source: the exact markdown bytes of a block, section or the whole document (C-07).
+// copy-source: the exact markdown bytes of a block, section or the whole document.
 import type { Document } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
 import { BLOCK_TYPES } from './plain-text.ts';

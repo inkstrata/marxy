@@ -1,4 +1,4 @@
-<dl data-marxy-s="0" data-marxy-e="66">
+<dl data-marxy-fm-part="head" data-marxy-s="0" data-marxy-e="66">
 <dt data-marxy-fm-key="title">title</dt>
 <dd data-marxy-fm-key="title">Sections</dd>
 </dl>
@@ -7,7 +7,7 @@
 <p data-marxy-s="149" data-marxy-e="218">Two sibling sections follow, and the second has a section of its own.</p>
 <h2 id="method" data-marxy-s="220" data-marxy-e="229">Method</h2>
 <p data-marxy-s="231" data-marxy-e="295">How the notes were taken, in a paragraph of a dozen or so words.</p>
-<pre class="language-md" data-marxy-s="297" data-marxy-e="337"><code class="language-md" data-marxy-s="303" data-marxy-e="334"># a heading in a fence is text
+<pre class="language-md" data-marxy-lang="markdown" data-marxy-s="297" data-marxy-e="337"><code class="language-md" data-marxy-s="303" data-marxy-e="334"># a heading in a fence is text
 </code></pre>
 <h2 id="results" data-marxy-s="339" data-marxy-e="349">Results</h2>
 <table data-marxy-s="351" data-marxy-e="411">

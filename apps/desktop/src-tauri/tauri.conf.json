@@ -13,20 +13,19 @@
     "withGlobalTauri": false,
     "windows": [
       {
+        "label": "main",
         "title": "Marxy",
         "width": 960,
         "height": 760,
+        "minWidth": 564,
+        "minHeight": 480,
         "resizable": true,
-        "visible": true,
+        "visible": false,
         "backgroundColor": "#000000"
       }
     ],
     "security": {
-      "csp": "default-src 'none'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: asset: http://asset.localhost; font-src 'self' asset: http://asset.localhost; connect-src ipc: http://ipc.localhost",
-      "assetProtocol": {
-        "enable": true,
-        "scope": []
-      }
+      "csp": "default-src 'none'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob: marxy-file: http://marxy-file.localhost marxy-remote: http://marxy-remote.localhost; font-src 'self' marxy-file: http://marxy-file.localhost; media-src blob: marxy-file: http://marxy-file.localhost; connect-src ipc: http://ipc.localhost marxy-file: http://marxy-file.localhost"
     }
   },
   "bundle": {
@@ -34,14 +33,16 @@
     "targets": [
       "dmg",
       "appimage",
-      "deb"
+      "deb",
+      "nsis"
     ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.png",
-      "icons/icon.icns"
+      "icons/icon.icns",
+      "icons/icon.ico"
     ],
     "category": "Productivity",
     "fileAssociations": [
@@ -60,7 +61,7 @@
           "public.json",
           "public.xml"
         ],
-        "ext": ["txt", "text", "ts", "tsx", "js", "jsx", "mjs", "cjs", "mts", "cts", "rs", "py", "go", "java", "kt", "kts", "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "rb", "php", "swift", "sh", "bash", "zsh", "json", "toml", "yaml", "yml", "html", "htm", "xml", "sql", "graphql", "lua", "r", "ex", "exs", "hs", "vue", "svelte", "css", "scss", "log", "out", "diff", "patch", "term", "session", "csv", "tsv", "jsonl"],
+        "ext": ["txt", "text", "ts", "tsx", "js", "jsx", "mjs", "cjs", "mts", "cts", "rs", "py", "go", "java", "kt", "kts", "c", "h", "cc", "cpp", "cxx", "hpp", "hh", "rb", "php", "swift", "sh", "bash", "zsh", "json", "toml", "yaml", "yml", "html", "htm", "xml", "sql", "graphql", "lua", "r", "ex", "exs", "hs", "vue", "svelte", "css", "scss", "log", "out", "diff", "patch", "term", "session", "csv", "tsv", "jsonl", "ndjson", "atom", "rss"],
         "role": "Viewer"
       }
     ],
@@ -74,6 +75,13 @@
     "macOS": {
       "minimumSystemVersion": "13.0",
       "signingIdentity": "-"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "installer-hooks.nsh",
+        "displayLanguageSelector": false
+      }
     }
   }
 }

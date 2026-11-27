@@ -1,4 +1,4 @@
-// check-csp rejects a bad policy and runtime <style> creation (MARXY-250).
+// check-csp rejects a bad policy and runtime <style> creation.
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -27,7 +27,7 @@ test('runtime style paths do not create <style> elements', () => {
   assert.deepEqual(runtimeStyleProblems(loadRuntimeStyleSources()), []);
 });
 
-test('a second EditorView without a style nonce beside baseExtensions in the same file fails the scanner (F-98.1)', () => {
+test('a second EditorView without a style nonce beside baseExtensions in the same file fails the scanner', () => {
   const problems = runtimeStyleProblems({
     'x.ts': [
       "import { baseExtensions } from './editor.ts';",
@@ -39,7 +39,7 @@ test('a second EditorView without a style nonce beside baseExtensions in the sam
   assert.match(problems[0], /without a style nonce/);
 });
 
-test('one EditorView beside one baseExtensions call in the same file passes the scanner (F-98.1)', () => {
+test('one EditorView beside one baseExtensions call in the same file passes the scanner', () => {
   const problems = runtimeStyleProblems({
     'x.ts': [
       "import { baseExtensions } from './editor.ts';",
@@ -67,7 +67,7 @@ test('--selftest exits zero', () => {
   main(['--selftest']);
 });
 
-test('the runtime style scan walks every runtime source, including code added after it was written (MARXY-337)', () => {
+test('the runtime style scan walks every runtime source, including code added after it was written', () => {
   const sources = loadRuntimeStyleSources();
   assert.ok('apps/desktop/src/frontispiece/index.ts' in sources);
   assert.ok(!Object.keys(sources).some((rel) => /\.test\./.test(rel)));

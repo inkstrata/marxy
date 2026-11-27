@@ -1,0 +1,35 @@
+✔ a 1.1 MB page is painted before the panel reads it, and its links come after in the Links panel, every one counted (21432.8638ms)
+Port 5173 is in use, trying another one...
+Port 5174 is in use, trying another one...
+✔ main.rs registers single-instance and handles RunEvent::Opened (94.4841ms)
+✔ tauri.conf.json declares markdown file associations (0.3788ms)
+✔ tauri.conf.json lets Finder offer Marxy for source and text files (0.2501ms)
+✔ main.rs queues Finder opens until take_pending_opens (0.3825ms)
+✔ tauri.ts drains pending opens after listen resolves (0.2444ms)
+✔ tauri.ts listens for marxy:open-files (0.2109ms)
+✖ a Finder open that arrives before the listener exists is not lost (12112.6226ms)
+✖ second launch, Finder open, and Dock drop replace the open document (5651.5352ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 7
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 40510.0076
+
+✖ failing tests:
+
+test at test\single-instance.test.mjs:16:28
+✖ a Finder open that arrives before the listener exists is not lost (12112.6226ms)
+  page.evaluate: Error: expected heading early open
+      at TestContext.<anonymous> (C:\Dev\reader\worktrees\wave4\apps\desktop\test\single-instance.test.mjs:102:31) {
+    log: []
+  }
+
+test at test\single-instance.test.mjs:16:28
+✖ second launch, Finder open, and Dock drop replace the open document (5651.5352ms)
+  page.evaluate: Error: expected heading second doc
+      at TestContext.<anonymous> (C:\Dev\reader\worktrees\wave4\apps\desktop\test\single-instance.test.mjs:175:31) {
+    log: []
+  }

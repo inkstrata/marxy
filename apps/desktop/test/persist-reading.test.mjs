@@ -1,12 +1,13 @@
-// Reading position, palette history, and config theme survive relaunch (MARXY-195).
+// Reading position, palette history, and config theme survive relaunch.
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { createServer } from 'vite';
+import { createServer } from './support/shared-vite.mjs';
 import { createMemoryShell } from '../src/shell/memory.ts';
+import { fileURLToPath } from 'node:url';
 import {
   HISTORY_FILE_VERSION,
   emptyHistoryEnvelope,
@@ -17,13 +18,14 @@ import {
   POSITIONS_FILE_VERSION,
   parsePositionsFile,
 } from '@marxy/core/src/position/storage.ts';
+import { createReadingPersistence } from '../src/position/reading-persistence.ts';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const longMd = readFileSync(join(repoRoot, 'fixtures', 'corpus', '01-long-technical.md'));
 const quietToml = readFileSync(join(repoRoot, 'fixtures', 'themes', 'quiet', 'theme.toml'));
 const quietCss = readFileSync(join(repoRoot, 'fixtures', 'themes', 'quiet', 'theme.css'));
@@ -104,12 +106,12 @@ nodeTest('memory shell hasFile does not record a call', () => {
   assert.deepEqual(shell.calls, []);
 });
 
-nodeTest('tauri shell exposes configPaths (ADR-0026)', () => {
+nodeTest('tauri shell exposes configPaths', () => {
   const src = readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'shell', 'tauri.ts'), 'utf8');
   assert.match(src, /configPaths:\s*\(\)\s*=>\s*invoke<\{ config: string; data: string \}>/);
 });
 
-nodeTest('history.json serialises the design §07 envelope at version 1', () => {
+nodeTest('history.json serialises the envelope at version 1', () => {
   const bytes = serializeHistoryFile({
     ...emptyHistoryEnvelope(),
     opens: [{ path: '/r/a.md', at: 1 }],
@@ -122,6 +124,83 @@ nodeTest('history.json serialises the design §07 envelope at version 1', () => 
   assert.deepEqual(parsed.envelope.opens, [{ path: '/r/a.md', at: 1 }]);
   assert.deepEqual(parsed.envelope.pins, ['/r/a.md']);
   assert.deepEqual(parsed.envelope.recentRoots, ['/r']);
+});
+
+// A quit (or a close) before history.json is read, between first paint and the open's end or with no document, has nothing
+// read to merge this launch's opens into: the file is left byte for byte, never rewritten from defaults.
+for (const [name, version, withDocument] of [
+  ['with a document', 1, true],
+  ['with no document', 1, false],
+  ['a newer version, with a document', 9, true],
+  ['a newer version, with no document', 9, false],
+]) {
+  nodeTest(`a quit before history.json is read leaves its bytes as they were: ${name}`, async () => {
+    const before = serializeHistoryFile({ version, opens: [{ path: '/r/a.md', at: 1 }, { path: '/r/b.md', at: 2 }], pins: ['/r/a.md'], recentRoots: ['/r'] });
+    const shell = createMemoryShell({ '/data/history.json': before, '/r/x.md': new TextEncoder().encode('# x') });
+    const persistence = createReadingPersistence(shell, () => undefined);
+    if (withDocument) persistence.trackOpen('/r/x.md', async () => '/r');
+    await persistence.flush();
+    persistence.close();
+    assert.equal(shell.calls.filter((c) => c.method === 'writeFileAtomic' && c.args[0] === '/data/history.json').length, 0);
+    assert.deepEqual(await shell.peekFile('/data/history.json'), before);
+  });
+}
+
+nodeTest('a newer version of history.json read at launch is left byte for byte by the quit', async () => {
+  const before = serializeHistoryFile({ version: 9, opens: [{ path: '/r/a.md', at: 1 }], pins: ['/r/a.md'], recentRoots: ['/r'] });
+  const shell = createMemoryShell({ '/data/history.json': before, '/r/x.md': new TextEncoder().encode('# x') });
+  globalThis.window ??= { addEventListener() {}, removeEventListener() {} };
+  const persistence = createReadingPersistence(shell, () => undefined);
+  await persistence.ensureLoaded('/r');
+  persistence.trackOpen('/r/x.md', async () => '/r');
+  await persistence.flush();
+  persistence.close();
+  assert.deepEqual(await shell.peekFile('/data/history.json'), before);
+});
+
+test('a window close writes what quit writes: the pins and a part read another way survive a relaunch', async () => {
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    const a = '/r/a.md';
+    const b = '/r/b.md';
+    const body = '# Title\n\nBody.\n';
+    const files = { [a]: b64(Buffer.from(body)), [b]: b64(Buffer.from(body)) };
+    const entries = [a, b].map((path) => ({ path, root: '/r', title: path, headings: [], mtimeMs: 1, size: 100, kind: 'markdown' }));
+    await bootApp(page, files, [a], { mountPalette: true });
+    await page.evaluate(async ({ a, b, entries }) => {
+      const handle = window.__marxyHandle;
+      handle.palette.setIndexEntries(entries);
+      await handle.open(b);
+      // Both reach their files only through a flush: a pin waits for one, a part's choice for 400 ms.
+      handle.pinPaletteDocument(a);
+      const { choosePart } = await import('/src/render/parts.ts');
+      choosePart(a, 'part-1', 'table');
+      handle.shell.emitCloseRequested();
+    }, { a, b, entries });
+    await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'confirmClose'));
+    const kept = await page.evaluate(async () => {
+      const read = async (p) => [...await window.__marxyHandle.shell.peekFile(p)];
+      return { history: await read('/data/history.json'), readings: await read('/data/readings.json') };
+    });
+    assert.deepEqual(parseHistoryFile(new Uint8Array(kept.history)).envelope.pins, [a]);
+    assert.deepEqual(JSON.parse(Buffer.from(kept.readings).toString('utf8')).parts, { [a]: { 'part-1': 'table' } });
+    await page.close();
+
+    const page2 = await browser.newPage({ viewport: { width: 960, height: 800 } });
+    await bootApp(page2, {
+      ...files,
+      '/data/history.json': b64(Buffer.from(kept.history)),
+      '/data/readings.json': b64(Buffer.from(kept.readings)),
+    }, [b], { mountPalette: true });
+    await page2.evaluate(async () => {
+      window.__parts = await import('/src/render/parts.ts');
+    });
+    await page2.waitForFunction((a) => window.__marxyHandle.palette.session.pinned.includes(a), a);
+    await page2.waitForFunction((a) => window.__parts.partChoice(a, 'part-1') === 'table', a);
+  } finally {
+    await browser.close();
+  }
 });
 
 test('first launch without store files records only the document and config reads', async () => {
@@ -139,15 +218,22 @@ test('first launch without store files records only the document and config read
       window.__marxyHandle.shell.calls
         .filter((c) => c.method === 'readFile' && !String(c.args[0]).startsWith('/data/index-'))
         .map((c) => c.args[0])
-        // collection.toml is the reader's file, read for the index's deny list (C-10), not a store file.
+        // collection.toml is the reader's file, read for the index's deny list, not a store file.
         .filter((p) => p !== '/collection.toml')
-        // `.git` and `.git/HEAD` are the probes that tell checkouts of one repository apart (C-15).
+        // `.git` and `.git/HEAD` are the probes that tell checkouts of one repository apart.
         .filter((p) => !/\/\.git(\/HEAD)?$/.test(String(p))),
     );
-    // K-05a.1: config.toml is read once (the pre-paint read, whose bytes also give the kind rules) and kinds.json
-    // once, both before the launch's kind is decided; neither is read again.
-    assert.deepEqual(reads.filter((p) => p !== '/data/kinds.json'), [path, '/config', '/data/trust.json']);
+    // config.toml is read once (the pre-paint read, whose bytes also give the kind rules) and kinds.json
+    // once, both before the launch's kind is decided; neither is read again. config.toml comes first: the frame waits
+    // for it beside frame.json, so the chrome is drawn in the configured theme (Fixed in passing).
+    // readings.json is asked for beside frame.json and never waited for (render/readings-file.ts): once, in any order.
+    // notes.json (margin notes) is read once at launch beside frame.json, and look.toml (the look) once beside
+    // config.toml; neither is waited for, so their place among the reads is not fixed.
+    const unordered = ['/data/kinds.json', '/data/readings.json', '/data/notes.json', '/look.toml'];
+    assert.deepEqual(reads.filter((p) => !unordered.includes(p)), ['/config', path, '/data/trust.json']);
+    assert.equal(reads.filter((p) => p === '/data/readings.json').length, 1);
     assert.equal(reads.filter((p) => p === '/data/kinds.json').length, 1);
+    for (const f of ['/data/notes.json', '/look.toml']) assert.ok(reads.filter((p) => p === f).length <= 1, `${f} is read once at most`);
   } finally {
     await browser.close();
   }
@@ -193,6 +279,8 @@ test('scroll position survives quit and relaunch on the long corpus doc', async 
     await page.close();
     const page2 = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await bootApp(page2, relaunchFiles, [path]);
+    // `ready` is first text; the stored place is put back after the page is typeset (document/open.ts), so wait for it.
+    await page2.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'mark' && c.args[0] === 'position_restored'));
 
     const launch2 = await page2.evaluate(() => window.__marxyHandle.sourceHarness());
     const tol = lineTolerance(longMd, launch1.byteOffset);
@@ -339,7 +427,7 @@ test('config.toml is read once before first_text, and its theme applies after it
     assert.equal(result.hasTheme, true);
     assert.equal(result.quietBg, '#121210');
     assert.ok(result.firstText >= 0);
-    // A-14: the variant and size come from config.toml before the first text, so the file is read
+    // the variant and size come from config.toml before the first text, so the file is read
     // once, before first_text, and the theme directory is taken from those bytes.
     assert.ok(result.configIdx >= 0 && result.configIdx < result.firstText, 'configPaths before first_text');
     assert.ok(result.readConfig >= 0 && result.readConfig < result.firstText, 'config read before first_text');
@@ -362,7 +450,7 @@ test('no persistence read or write precedes first_text in the shell call record'
         .map((c, i) => (c.method === 'mark' && c.args[0] === 'first_text' ? i : -1))
         .filter((i) => i >= 0);
       const firstTextCall = markPositions[0] ?? -1;
-      // The first configPaths is the pre-paint read of config.toml's variant and size (A-14).
+      // The first configPaths is the pre-paint read of config.toml's variant and size.
       const firstConfigPaths = calls.findIndex((c) => c.method === 'configPaths');
       const persistence = calls
         .map((c, i) => ({ i, c }))

@@ -1,4 +1,4 @@
-// Browser entry that boots startApp against createMemoryShell (MARXY-95).
+// Browser entry that boots startApp against createMemoryShell.
 import { startApp, type AppHandle } from '../app.ts';
 import { installReadinessFlags, installTestHooks } from './test-hooks.ts';
 import { createMemoryShell } from '../shell/memory.ts';
@@ -16,8 +16,8 @@ function decodeBase64(b64: string): Uint8Array {
 }
 
 /**
- * `pieces` (slug → markdown) stands in for the bundled Commonplace on a launch with no document
- * (MARXY-257); `{}` is a build with none.
+ * `pieces` (slug → markdown) stands in for the bundled Commonplace on a launch with no document;
+ * `{}` is a build with none.
  */
 async function start(
   files: Record<string, string>,
@@ -26,7 +26,8 @@ async function start(
 ): Promise<AppHandle> {
   const bytes: Record<string, Uint8Array> = {};
   for (const [path, b64] of Object.entries(files)) bytes[path] = decodeBase64(b64);
-  const shell = createMemoryShell(bytes);
+  // Scoped as the desktop shell is, so a flow that reads before it tells the shell fails here too.
+  const shell = createMemoryShell(bytes, { scoped: true });
   const sources = pieces
     ? Object.entries(pieces).map(([name, text]) => ({ name, load: async () => text }))
     : undefined;
@@ -36,9 +37,9 @@ async function start(
 }
 
 /**
- * Test-only (B-13): a view on a fresh article of its own, beside whatever else is on the page, with a
+ * Test-only: a view on a fresh article of its own, beside whatever else is on the page, with a
  * store for `text` at `path`. Two calls make two views that share nothing but the window, as two
- * panes will (Phase D). `wire` gives the view a command context of its own (the task click).
+ * panes will. `wire` gives the view a command context of its own (the task click).
  */
 function view(path: string, text: string, opts?: { wire?: boolean }): {
   readonly view: RenderedView;
@@ -55,7 +56,7 @@ function view(path: string, text: string, opts?: { wire?: boolean }): {
   sourceHost.hidden = true;
   pane.append(article, sourceHost);
   document.body.append(pane);
-  const store = openDocumentStore({ writeFileAtomic: (p, b) => shell.writeFileAtomic(p, b) }, path, bytes);
+  const store = openDocumentStore({ writeFileAtomic: (p, b, expected) => shell.writeFileAtomic(p, b, expected) }, path, bytes);
   let rendered: RenderedView | null = null;
   const trust = createTrustController({
     shell,

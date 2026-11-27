@@ -1,0 +1,178 @@
+﻿diff --git a/apps/desktop/src/proposals/notes-in-place.ts b/apps/desktop/src/proposals/notes-in-place.ts
+index fc453279..faf5629e 100644
+--- a/apps/desktop/src/proposals/notes-in-place.ts
++++ b/apps/desktop/src/proposals/notes-in-place.ts
+@@ -81,6 +81,12 @@ function noteIn(article: HTMLElement, id: string): HTMLElement | null {
+   return byId ? article.querySelector<HTMLElement>(`[id="${CSS.escape(id)}"]`) : null;
+ }
+ 
++/** The text each margin box was copied from, to tell a box that still copies its note from one whose note was rewritten. */
++const copies = new WeakMap<HTMLElement, string>();
++
++const sameCopy = (box: HTMLElement, article: HTMLElement, id: string, label: string, note: HTMLElement): boolean =>
++  box.parentElement === article && box.dataset.marxyNote === id && box.firstElementChild?.textContent === label && copies.get(box) === note.textContent;
++
+ function takeOut(article: HTMLElement): void {
+   const state = laid.get(article);
+   if (state) for (const box of state.boxes.splice(0)) box.remove();
+@@ -135,30 +141,38 @@ function relayOut(article: HTMLElement): void {
+  */
+ function layOut(article: HTMLElement): void {
+   const state = laid.get(article)!;
+-  takeOut(article);
+   const room = roomOf(article);
+   mark(article, room >= ROOM_PX);
+-  if (room < ROOM_PX) return;
++  if (room < ROOM_PX) {
++    takeOut(article);
++    return;
++  }
+   const width = Math.min(room - 12, WIDEST_PX);
+-  const placed: { readonly box: HTMLElement; readonly link: HTMLAnchorElement }[] = [];
++  const wanted: { readonly link: HTMLAnchorElement; readonly id: string; readonly note: HTMLElement; readonly label: string }[] = [];
+   let opened = false;
+   for (const link of article.querySelectorAll<HTMLAnchorElement>('sup.marxy-footnote-ref a[href^="#"]')) {
+     if (link.parentElement!.hasAttribute('data-marxy-note-open')) opened = true;
+     const id = noteId(link);
+     const note = noteIn(article, id);
+-    if (!note) continue;
+-    const box = copyOf(MARGIN, id, link.textContent ?? '', note);
+-    box.style.width = `${width}px`;
+-    placed.push({ box, link });
++    if (note) wanted.push({ link, id, note, label: link.textContent ?? '' });
+   }
+   // A note opened under its line is in the margin now, and its number no longer says it is open.
+   if (opened) {
+     for (const open of article.querySelectorAll(`.${OPEN}`)) open.remove();
+     for (const ref of article.querySelectorAll('[data-marxy-note-open]')) ref.removeAttribute('data-marxy-note-open');
+   }
+-  if (placed.length === 0) return;
+-  article.append(...placed.map((p) => p.box));
+-  state.boxes = placed.map((p) => p.box);
++  // The boxes already there stay when they still copy the same notes: a page that is still being set calls this every
++  // frame, and taking them out and putting them back made the browser lay the whole page out twice each time.
++  const kept = state.boxes.length === wanted.length && wanted.every((w, i) => sameCopy(state.boxes[i]!, article, w.id, w.label, w.note));
++  if (!kept) {
++    takeOut(article);
++    state.boxes = wanted.map((w) => copyOf(MARGIN, w.id, w.label, w.note));
++    for (const [i, box] of state.boxes.entries()) copies.set(box, wanted[i]!.note.textContent ?? '');
++    if (state.boxes.length > 0) article.append(...state.boxes);
++  }
++  if (state.boxes.length === 0) return;
++  for (const box of state.boxes) if (box.style.width !== `${width}px`) box.style.width = `${width}px`;
++  const placed = wanted.map((w, i) => ({ box: state.boxes[i]!, link: w.link }));
+   const column = article.getBoundingClientRect();
+   const top = column.top;
+   const read = placed.map(({ box, link }) => ({ box, line: link.getBoundingClientRect().top - top, height: box.getBoundingClientRect().height }));
+@@ -181,7 +195,8 @@ function layOut(article: HTMLElement): void {
+         }
+       }
+     }
+-    box.style.top = `${Math.round(at)}px`;
++    const top = `${Math.round(at)}px`;
++    if (box.style.top !== top) box.style.top = top;
+     below = at + height;
+   }
+ }
+diff --git a/apps/desktop/src/selection/verb-bar.ts b/apps/desktop/src/selection/verb-bar.ts
+index ec93113d..5191b838 100644
+--- a/apps/desktop/src/selection/verb-bar.ts
++++ b/apps/desktop/src/selection/verb-bar.ts
+@@ -61,10 +61,12 @@ function contentFor(sel: RenderedSelection): { readonly where: string; readonly
+ 
+ const SHOWS_BAR = 'data-marxy-verb-bar';
+ /**
+- * On the root while the bar stands over the one pane, whose page the window scrolls. Said on the root itself, not found
+- * by a `:root:has()` over the pane's mark: that made Chromium restyle every element of the window as the bar came and went.
++ * While the bar stands over the one pane, whose page the window scrolls, the root keeps this much scroll padding at the
++ * foot: the band's height (`--marxy-verb-room` in base.css, 64 px at 13 px chrome), in bar font sizes. A length set on the
++ * root, never a rule that reads `var()` or a `:root:has()` over the pane's mark: either made Chromium restyle every
++ * element of the window as the bar came and went.
+  */
+-const ROOM_ON_ROOT = 'data-marxy-verb-room';
++const ROOM_EMS = 64 / 12;
+ 
+ const span = (cls: string, text = ''): HTMLSpanElement => {
+   const el = document.createElement('span');
+@@ -74,12 +76,16 @@ const span = (cls: string, text = ''): HTMLSpanElement => {
+ };
+ 
+ /** Marks the pane the bar stands over, so its page keeps a foot for it (the theme's `.marxy-pane::after`); none, with null. */
+-function showsBar(host: HTMLElement | null): void {
++function showsBar(host: HTMLElement | null, bar: HTMLElement): void {
+   for (const pane of document.querySelectorAll<HTMLElement>(`section.marxy-pane[${SHOWS_BAR}]`)) if (pane !== host) pane.removeAttribute(SHOWS_BAR);
+   if (host && !host.hasAttribute(SHOWS_BAR)) host.setAttribute(SHOWS_BAR, '');
+-  const root = document.documentElement;
++  const style = document.documentElement.style;
+   const one = host !== null && host.parentElement?.id === 'marxy-main' && !host.parentElement.hasAttribute('data-marxy-split');
+-  if (root.hasAttribute(ROOM_ON_ROOT) !== one) root.toggleAttribute(ROOM_ON_ROOT, one);
++  if (!one) {
++    if (style.scrollPaddingBottom) style.removeProperty('scroll-padding-bottom');
++  } else if (!style.scrollPaddingBottom) {
++    style.scrollPaddingBottom = `${parseFloat(getComputedStyle(bar).fontSize) * ROOM_EMS}px`;
++  }
+ }
+ 
+ /** Mounts the bar once for the window; it follows whichever selection and pane `deps` name when it redraws. */
+@@ -132,7 +138,7 @@ export function installVerbBar(deps: VerbBarDeps, signal: AbortSignal): { refres
+     if (!content) {
+       if (!bar.hidden) bar.hidden = true;
+       bar.replaceChildren();
+-      showsBar(null);
++      showsBar(null, bar);
+       return;
+     }
+     const ctx = deps.context();
+@@ -162,7 +168,7 @@ export function installVerbBar(deps: VerbBarDeps, signal: AbortSignal): { refres
+     setMarked(what, content.what);
+     bar.replaceChildren(where, what, span('marxy-verb-bar-sep'), ...buttons);
+     if (bar.hidden) bar.hidden = false;
+-    showsBar(host);
++    showsBar(host, bar);
+     place();
+   };
+ 
+@@ -183,7 +189,7 @@ export function installVerbBar(deps: VerbBarDeps, signal: AbortSignal): { refres
+       mutations.disconnect();
+       resized.disconnect();
+       bar.remove();
+-      showsBar(null);
++      showsBar(null, bar);
+     },
+     { once: true },
+   );
+diff --git a/packages/theme/src/base.css b/packages/theme/src/base.css
+index ddf7a1df..01250335 100644
+--- a/packages/theme/src/base.css
++++ b/packages/theme/src/base.css
+@@ -1039,7 +1039,9 @@ p > img:only-child { display: block; margin-inline: auto; }
+    the bar and the room around it (the bar sits 16 px above the pane's foot), pinned to the bottom of what the reader sees
+    of the pane. No line of the page is under the bar, and the last line clears it. The band is sticky at the end of the
+    pane, so it moves no line above it as it comes and goes. Whatever scrolls a part into view keeps it above the band:
+-   the window's or the pane's scroll padding, and that of a viewer's own scrollers, which have no band. */
++   the window's scroll padding (set on the root by verb-bar.ts as a length, never through `var()`: a `var()` in the root's
++   style makes Chromium restyle every element when it changes), the pane's, and that of a viewer's own scrollers, which
++   have no band. */
+ :root { --marxy-verb-room: calc(var(--marxy-size-chrome) * 64 / 13); }
+ .marxy-pane[data-marxy-verb-bar]:not([data-marxy-mode="source"]):not(:has(> .marxy-viewer-mount:not([hidden])))::after {
+   content: "";
+@@ -1051,7 +1053,6 @@ p > img:only-child { display: block; margin-inline: auto; }
+   background: var(--marxy-color-bg);
+   pointer-events: none;
+ }
+-:root[data-marxy-verb-room],
+ #marxy-main[data-marxy-split] > .marxy-pane[data-marxy-verb-bar],
+ .marxy-pane[data-marxy-verb-bar] .marxy-viewer-mount :is(.marxy-imgstage, .marxy-pdf-stage, .marxy-hexscroll, .marxy-fcard, .marxy-atree, .marxy-arch-preview, .marxy-arch-sheet, .marxy-fontpage, .marxy-mailpage, .marxy-htmlpage, .marxy-mediapage, .marxy-office, .marxy-tpage) {
+   scroll-padding-bottom: var(--marxy-verb-room);
+diff --git a/scripts/registry.json b/scripts/registry.json
+index ec8ee0af..e2e3f2de 100644
+--- a/scripts/registry.json
++++ b/scripts/registry.json
+@@ -247,7 +247,6 @@
+     "data-marxy-account",
+     "data-marxy-account-open",
+     "data-marxy-verb-bar",
+-    "data-marxy-verb-room",
+     "data-marxy-btn",
+     "data-marxy-size"
+   ],

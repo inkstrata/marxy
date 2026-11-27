@@ -1,8 +1,9 @@
-// layout.json lifecycle: debounced atomic writes of the remembered split (07 §4.6, §6.5). A twin of
+// layout.json lifecycle: debounced atomic writes of the remembered split. A twin of
 // PositionPersistence: same io, same debounce, same quarantine of a corrupt file, same refusal to overwrite
 // a file written by a newer version.
 
 import { POSITIONS_DEBOUNCE_MS, type PositionPersistenceIo } from '../position/persistence.ts';
+import { isNotFound } from '../position/storage.ts';
 import {
   LAYOUT_FILE_VERSION,
   emptyLayoutEnvelope,
@@ -23,7 +24,8 @@ export interface LayoutPersistenceIo extends PositionPersistenceIo {
 
 export class LayoutPersistence {
   private current: LayoutEnvelope;
-  private readonly newerVersion: boolean;
+  /** Written by a newer Marxy, or there but not readable. */
+  private readonly unwritable: boolean;
   private readonly filePath: string;
   private readonly io: LayoutPersistenceIo;
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -31,11 +33,11 @@ export class LayoutPersistence {
   private dirty = false;
   private closed = false;
 
-  private constructor(io: LayoutPersistenceIo, filePath: string, current: LayoutEnvelope, newerVersion: boolean) {
+  private constructor(io: LayoutPersistenceIo, filePath: string, current: LayoutEnvelope, unwritable: boolean) {
     this.io = io;
     this.filePath = filePath;
     this.current = current;
-    this.newerVersion = newerVersion;
+    this.unwritable = unwritable;
   }
 
   static async open(io: LayoutPersistenceIo): Promise<LayoutPersistence> {
@@ -43,8 +45,9 @@ export class LayoutPersistence {
     let bytes: Uint8Array;
     try {
       bytes = io.readHead ? await io.readHead(filePath, LAYOUT_MAX_BYTES + 1) : await io.readFile(filePath);
-    } catch {
-      return new LayoutPersistence(io, filePath, emptyLayoutEnvelope(), false);
+    } catch (e) {
+      // Only a missing file starts empty: one that is there and could not be read is the reader's still.
+      return new LayoutPersistence(io, filePath, emptyLayoutEnvelope(), !isNotFound(e));
     }
     if (bytes.length > LAYOUT_MAX_BYTES) {
       // Not a layout. Quarantined as a corrupt file is: the shell has no rename, so the start of it (the
@@ -70,24 +73,25 @@ export class LayoutPersistence {
     return this.current;
   }
 
-  /** The file was written by a newer Marxy: it is read, never written. */
+  /** The file was written by a newer Marxy, or could not be read: it is never written this session. */
   get readOnly(): boolean {
-    return this.newerVersion;
+    return this.unwritable;
   }
 
   note(envelope: LayoutEnvelope): void {
-    if (this.closed || this.newerVersion) return;
+    if (this.closed || this.unwritable) return;
     this.current = { ...envelope, version: LAYOUT_FILE_VERSION };
     this.dirty = true;
     if (this.timer !== undefined) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
       this.timer = undefined;
-      void this.flush();
+      // No caller to tell: a write refused or failed is said, not thrown into the page.
+      this.flush().catch((e: unknown) => console.warn(`marxy: layout.json was not written: ${e instanceof Error ? e.message : String(e)}`));
     }, LAYOUT_DEBOUNCE_MS);
   }
 
   async flush(): Promise<void> {
-    if (this.closed || this.newerVersion) return;
+    if (this.closed || this.unwritable) return;
     if (this.timer !== undefined) {
       clearTimeout(this.timer);
       this.timer = undefined;

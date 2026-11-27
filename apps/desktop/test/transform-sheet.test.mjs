@@ -1,4 +1,4 @@
-// W-21: Transform. Mod+/ opens the palette on `>Transform` and lists every transform core can run; choosing one runs it
+// Transform. Mod+/ opens the palette on `>Transform` and lists every transform core can run; choosing one runs it
 // on the selection, else the document, and opens the result sheet (Before and After with counts). Return copies the
 // result as one pasteboard item; Mod+Return applies it over the input range as one undo step (edit transforms only);
 // Esc changes nothing. The real app over the memory shell, in WebKit, with real keys (test/support/two-pane.mjs).
@@ -68,7 +68,7 @@ async function withApp(files, fn, { open = [A], width = 1280 } = {}) {
         await page.keyboard.press(`${mod}+Slash`);
         await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
         await page.locator('#marxy-palette .marxy-palette-query').fill(`>Transform: ${name}`);
-        // Rows run alphabetically, so J-06's `Transform clipboard: …` row comes first: click the exact title.
+        // Rows run alphabetically, so the `Transform clipboard: …` row comes first: click the exact title.
         const row = page.locator('#marxy-palette .marxy-palette-title').filter({ hasText: new RegExp(`^Transform: ${name}$`) });
         await row.waitFor();
         await row.click();
@@ -127,8 +127,11 @@ test('Mod+/ opens the palette on >Transform and lists exactly TRANSFORMS.length 
     const rows = got.titles.filter((t) => t.startsWith('Transform: '));
     assert.equal(rows.length, TRANSFORMS.length, 'one row per transform that can run');
     assert.deepEqual(rows, TRANSFORMS.map((t) => `Transform: ${t.name}`).sort());
-    // J-06's `Transform clipboard: …` rows share the group and the word; they are the only other rows under the query.
-    assert.deepEqual(got.titles.filter((t) => !t.startsWith('Transform clipboard: ')), rows, 'and nothing else is listed under the query');
+    // The `Transform clipboard: …` rows share the group and the word, and the left section's panel (commands/frame.ts) is
+    // the Transform door; they are the only other rows under the query.
+    const others = got.titles.filter((t) => !t.startsWith('Transform clipboard: ') && t !== 'Transforms: show the panel');
+    assert.deepEqual(others, rows, 'and nothing else is listed under the query');
+    assert.ok(got.titles.includes('Transforms: show the panel'), "the left section's Transforms panel is offered");
     await page.keyboard.press(`${s.mod}+Slash`);
     assert.equal(await page.evaluate(() => document.getElementById('marxy-palette').open), false);
     // Mod+Shift+P still opens on every command.
@@ -137,7 +140,7 @@ test('Mod+/ opens the palette on >Transform and lists exactly TRANSFORMS.length 
   });
 });
 
-test('the five transforms J-03.1 built have rows, and the palette does not list the toolbar door', async () => {
+test('the five deferred transforms have rows, and the palette does not list the toolbar door', async () => {
   await withApp({ [A]: LIST_DOC }, async (page, s) => {
     await page.keyboard.press(`${s.mod}+Slash`);
     await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
@@ -152,28 +155,9 @@ test('the five transforms J-03.1 built have rows, and the palette does not list 
   });
 });
 
-// --- the toolbar's door -------------------------------------------------------------------------------------------
-
-test('the toolbar shows Transform once transform.open is registered, and the button opens the palette on >Transform', async () => {
-  await withApp({ [A]: LIST_DOC }, async (page) => {
-    assert.equal(await page.locator('[data-marxy-toolbar-item="transform"]').count(), 0, 'folded: no toolbar at all');
-    await page.evaluate(() => window.__marxyHandle.workspace().unfold());
-    const items = await page.evaluate(() => [...document.querySelectorAll('[data-marxy-toolbar-item]')].map((el) => el.getAttribute('data-marxy-toolbar-item')));
-    // The full list and its order are toolbar.test.mjs's to pin; here only that Transform is drawn, after Copy.
-    assert.ok(items.includes('transform') && items.indexOf('transform') > items.indexOf('copy') && items.includes('copy'), items.join());
-    const button = page.locator('[data-marxy-toolbar-item="transform"] button');
-    assert.equal(await button.getAttribute('aria-label'), 'Transform');
-    assert.equal(await button.getAttribute('aria-disabled'), null, 'a document is open');
-    await button.click();
-    await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
-    assert.equal(await page.evaluate(() => document.querySelector('#marxy-palette .marxy-palette-query').value), '>Transform');
-    assert.equal(await page.locator('#marxy-palette .marxy-palette-row').filter({ hasNotText: /^Transform clipboard: / }).count(), TRANSFORMS.length);
-  });
-});
-
 // --- the sheet ----------------------------------------------------------------------------------------------------
 
-test('U-05: chrome face on the headings, counts and a named close button in the header, wrapped columns, the primary action filled at the right', async () => {
+test('chrome face on the headings, counts and a named close button in the header, wrapped columns, the primary action filled at the right', async () => {
   const long = `- ${'zebra '.repeat(400)}\n- apple\n`;
   const doc = `# T\n\n${long}\nTail.\n`;
   await withApp({ [A]: doc }, async (page, s) => {
@@ -621,7 +605,7 @@ test('in Source: editing after the sheet opened, then Apply, changes nothing and
   });
 });
 
-// --- Source and bytes that are not UTF-8 (F-34.1) ---------------------------------------------------------------------
+// --- Source and bytes that are not UTF-8 ---------------------------------------------------------------------
 
 const LONE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
 const hexOf = (bytes) => [...bytes].map((b) => b.toString(16).padStart(2, '0')).join(' ');
@@ -736,7 +720,7 @@ test('Add another step runs only the new step, on the step before it', async () 
   });
 });
 
-test('F-60.1: the sheet on the whole document reads the store\'s parse (no parse is made), a selection parses its own text, and the output is the same', async () => {
+test('the sheet on the whole document reads the store\'s parse (no parse is made), a selection parses its own text, and the output is the same', async () => {
   const DOC = '# Shopping 日本\n\nSome intro.\n\n---\n\n- pear\n- apple\n- mango\n\n---\n\nTail paragraph.\n';
   await withApp({ [A]: DOC }, async (page, s) => {
     await page.evaluate(async () => {

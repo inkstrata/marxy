@@ -1,14 +1,22 @@
-// Diff line classes and log-level detection for fenced code (MARXY-235, ADR-0036), and the lines of a log (K-08).
+// Diff line classes and log-level detection for fenced code, and the lines of a log.
 
-import { TIMESTAMP } from '../kind/detect.ts';
+import { ANSI_ESC_CLASS } from '../log/ansi.ts';
+import { logHead, type LogRank } from '../log/head.ts';
 
 export const DIFF_LINE_ADD = 'marxy-diff-add';
 export const DIFF_LINE_DEL = 'marxy-diff-del';
 export const LOG_LEVEL_CLASS = 'marxy-log-level';
-/** A log line's leading timestamp: the comment colour, no hue of its own (K-08). */
+/** A log line's leading timestamp: the comment colour, no hue of its own. */
 export const LOG_TIME_CLASS = 'marxy-log-time';
-/** A line at ERROR or above, and the continuation lines after it: a rule at its left edge (K-08). */
+/** A line at ERROR or above, and the continuation lines after it: a rule at its left edge. */
 export const LOG_ERROR_LINE_CLASS = 'marxy-log-error';
+/** The brackets, spaces and colon around a head's timestamp and level: Read's log page sets the time and the level in
+ * columns of their own, so there they take no room. */
+export const LOG_SPACE_CLASS = 'marxy-log-space';
+/** A level that stands inside its line (an access log's status), not in the level column: drawn in the line's flow. */
+export const LOG_INLINE_CLASS = 'marxy-log-inline';
+/** An escape sequence (ESC, `[`, its parameters, a final letter): the log page hides it, and draws what it styles in a tone. */
+export const LOG_ESC_CLASS = ANSI_ESC_CLASS;
 
 const LOG_LEVEL_WORD = /^(?:ERROR|FATAL|WARN|WARNING|INFO|DEBUG|TRACE)$/;
 
@@ -31,38 +39,16 @@ export function logLevelClassForToken(lang: string, tokenText: string): string |
   return LOG_LEVEL_WORD.test(word) ? LOG_LEVEL_CLASS : undefined;
 }
 
-/** Marker column width for diff continuation hang (ADR-0036 clause 10). */
+/** Marker column width for diff continuation hang. */
 export function diffMarkerIndentCh(lineClass: string | undefined): number | undefined {
   if (lineClass === DIFF_LINE_ADD || lineClass === DIFF_LINE_DEL) return 1;
   return undefined;
 }
 
-/** A level's rank: 0 trace and debug, 1 info and notice, 2 warn, 3 error, fatal, critical, severe, alert and emergency. */
-export type LogRank = 0 | 1 | 2 | 3;
-
-const RANK_OF_WORD: Readonly<Record<string, LogRank>> = {
-  trace: 0, debug: 0, info: 1, notice: 1, warn: 2, warning: 2, error: 3, err: 3, fatal: 3, critical: 3, crit: 3, severe: 3, alert: 3, emerg: 3, emergency: 3,
-};
-
-/** A line that opens with a timestamp and a level word: its rank and where the timestamp and the level word sit (UTF-16 offsets). */
-export interface LogHead {
-  readonly rank: LogRank;
-  readonly time: readonly [number, number];
-  readonly level: readonly [number, number];
-}
+export { logHead, logHeadParts, logRankOf, type LogHead, type LogHeadParts, type LogRank } from '../log/head.ts';
 
 /** What a continuation line (a stack frame, a wrapped message, a blank line) before any head belongs to. */
 export const LOG_ORPHAN_RANK: LogRank = 1;
-
-/** `line` as a log head, or null for a continuation line. The one pattern is detection's (`TIMESTAMP`, kind/detect.ts). */
-export function logHead(line: string): LogHead | null {
-  const m = TIMESTAMP.exec(line);
-  if (m === null) return null;
-  const timeStart = m[1]!.length;
-  const timeEnd = timeStart + m[2]!.length;
-  const levelStart = timeEnd + m[3]!.length;
-  return { rank: RANK_OF_WORD[m[4]!.toLowerCase()]!, time: [timeStart, timeEnd], level: [levelStart, levelStart + m[4]!.length] };
-}
 
 /**
  * The rank of every line: a head's own, and a continuation line takes the rank of the head before it (a stack trace

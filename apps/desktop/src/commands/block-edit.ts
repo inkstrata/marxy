@@ -1,4 +1,4 @@
-// Edit one block in Source, in place (E-04, ADR-0048). With a block selected in Rendered, `Mod+Enter` opens a
+// Edit one block in Source, in place. With a block selected in Rendered, `Mod+Enter` opens a
 // CodeMirror editor where the block was, over exactly the block's bytes, in the code face. Leaving (`Esc`,
 // `Mod+Enter` again, a click elsewhere) folds what was typed back into the document as one `apply`, one undo
 // step, and the page is set again by the view's one render path with the reader where they were. The typeset
@@ -15,6 +15,7 @@ import type { DocumentSnapshot, DocumentStore, Transition } from '../document/st
 import { diskChangedEditsKeptNotice } from '../notices/disk.ts';
 import { notify } from '../notices/index.ts';
 import { appHandle } from './app-handle.ts';
+import { caretOffset } from './block-edit-caret.ts';
 import type { AppContext, Command } from './registry.ts';
 
 /** A block longer than this is a Source-mode job: the keystroke latency of a long block is CodeMirror's to bear. */
@@ -118,6 +119,53 @@ function slice(buffer: Buffer, range: Source): string | null {
   }
 }
 
+/** How many times a put-back is refused because the bytes moved before it gives up folding in and adds the text beside. */
+export const PUT_BACK_PASSES = 5;
+
+/**
+ * Puts `text`, a block's Source text, back into `store`: folded over the block when the block is still `original` at
+ * `at` (`'folded'`), else added beside where it stood (`'beside'`); `'unchanged'` when there is nothing to fold.
+ *
+ * A change queued ahead of an apply moves the bytes under its range: the store refuses it (`baseVersion`), and the block
+ * is found again through what changed. After `PUT_BACK_PASSES` refusals a fold gives way to adding the text beside;
+ * an add refused that often too is `'failed'`, and nothing was written.
+ */
+export async function putTextBack(
+  store: Pick<DocumentStore, 'snapshot' | 'apply'>,
+  at: Source,
+  conflict: boolean,
+  original: string,
+  text: string,
+): Promise<'folded' | 'beside' | 'unchanged' | 'failed'> {
+  let snap = store.snapshot();
+  for (let pass = 1; ; pass++) {
+    // Where it should land is the block's bytes as they were opened; anything else is another change's block.
+    if (!conflict && slice(snap.buffer, at) !== original) conflict = true;
+    let applied: boolean;
+    if (conflict) {
+      // The block is not there to fold into: add the reader's text beside it, replace nothing.
+      const place = insertionFor(snap, at.start, text);
+      const range = { file: snap.path, start: place.start, end: place.start };
+      applied = await store.apply({ range, replacement: encodeSourceText(place.replacement), label: LABEL, baseVersion: snap.version });
+    } else {
+      const fold = foldSlice(snap.buffer, at, text);
+      if (fold === null) return 'unchanged';
+      applied = await store.apply({ range: fold.range, replacement: fold.replacement, label: LABEL, baseVersion: snap.version });
+    }
+    if (applied) return conflict ? 'beside' : 'folded';
+    const now = store.snapshot();
+    if (now.buffer.bytes === snap.buffer.bytes) return 'failed';
+    if (pass >= PUT_BACK_PASSES) {
+      if (conflict) return 'failed';
+      conflict = true;
+    }
+    const again = rebaseRange(at, runBetween(snap.buffer.bytes, now.buffer.bytes));
+    at = again.range;
+    conflict ||= again.conflict;
+    snap = now;
+  }
+}
+
 /** The first byte of the block or section the focused pane has selected, if that pane shows `store`; else null. */
 function selectedStart(store: DocumentStore): number | null {
   const handle = appHandle();
@@ -209,7 +257,7 @@ async function openResolved(ctx: AppContext): Promise<void> {
     ctx.showNotice(NO_BLOCK_TO_EDIT, { kind: 'refused' });
     return;
   }
-  // The block's Source text (ADR-0069): each byte that is not UTF-8 is a code unit of its own, so the fold is exact (F-34.2).
+  // The block's Source text: each byte that is not UTF-8 is a code unit of its own, so the fold is exact.
   const original = sourceTextOfRange(snapshot.buffer, range);
   const { openBlockEditor } = await import('../source/block-editor.ts');
   const host = document.createElement('div');
@@ -260,22 +308,9 @@ async function openResolved(ctx: AppContext): Promise<void> {
     if (change?.kind === 'reload' && !moved.conflict) diskChangedEditsKeptNotice();
     void (async () => {
       try {
-        const snap = store.snapshot();
-        let at = moved.range;
-        let conflict = moved.conflict;
-        // Where it should land is the block's bytes as they were opened; anything else is another change's block.
-        if (!conflict && slice(snap.buffer, at) !== original) conflict = true;
-        if (conflict) {
-          // The block is not there to fold into: add the reader's text beside it, replace nothing, say which text it is.
-          const place = insertionFor(snap, at.start, text);
-          const range = { file: snap.path, start: place.start, end: place.start };
-          if (await store.apply({ range, replacement: encodeSourceText(place.replacement), label: LABEL })) notify({ kind: 'error', text: changedUnderneath(text) });
-          else notify({ kind: 'error', text: COULD_NOT_KEEP });
-          return;
-        }
-        const fold = foldSlice(snap.buffer, at, text);
-        if (fold === null) return;
-        if (!(await store.apply({ range: fold.range, replacement: fold.replacement, label: LABEL }))) notify({ kind: 'error', text: COULD_NOT_KEEP });
+        const done = await putTextBack(store, moved.range, moved.conflict, original, text);
+        if (done === 'beside') notify({ kind: 'error', text: changedUnderneath(text) });
+        else if (done === 'failed') notify({ kind: 'error', text: COULD_NOT_KEEP });
       } catch (e) {
         console.warn(`marxy: a block edited in place could not be put back: ${String(e)}`);
         notify({ kind: 'error', text: COULD_NOT_KEEP });
@@ -351,7 +386,12 @@ async function openResolved(ctx: AppContext): Promise<void> {
     // The key that leaves finishes its trip through the page first: the registry's handler on `document` reads
     // the key's target, which must still be the editor (a detached one is no text field, and `Esc` would clear
     // the selection and `Mod+Enter` would open the block again).
-    editor = await openBlockEditor(host, snapshot.buffer, range, { leave: () => void setTimeout(() => void self.leave(), 0) });
+    const nested = node.type === 'listItem' ? node.children?.find((c) => c.type === 'list') : undefined;
+    const nestedAt = nested && nested.src.start > range.start ? sourceTextOfRange(snapshot.buffer, { ...range, end: nested.src.start }).length : null;
+    editor = await openBlockEditor(host, snapshot.buffer, range, {
+      leave: () => void setTimeout(() => void self.leave(), 0),
+      caret: caretOffset(original, nestedAt),
+    });
   } catch (e) {
     console.warn(`marxy: the block editor could not open: ${String(e)}`);
     ctx.showNotice('The block editor could not open; Mod+E opens Source', { kind: 'error' });

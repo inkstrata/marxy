@@ -1,9 +1,10 @@
-// The kind icon set (K-18): one glyph per kind, drawn on a 16-unit grid for 14 to 16 px.
+// The kind icon set: one glyph per kind, drawn on a 16-unit grid for 14 to 16 px.
 // Stroke 1.5, round caps and joins, no page outline, `currentColor` only so a theme's text roles
-// colour it. Glyph geometry follows the author's prototype (mock-v2 shared/app.js, `GL`), except
+// colour it. Glyph geometry follows the author's prototype (`GL`), except
 // `html`, which the prototype has no kind for (see HTML_GUESS below).
 
 import type { Kind } from '@marxy/core';
+import { langOf } from '@marxy/core';
 
 export const ICON_GRID = 16;
 export const ICON_STROKE = 1.5;
@@ -41,7 +42,7 @@ export const KIND_GLYPHS: Readonly<Record<Kind, string>> = {
   html: '<rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 6.5h12"/>',
 };
 
-/** Where each glyph came from, so the taste review sees the guesses. */
+/** Where each glyph came from, so a reviewer sees the guesses. */
 export const GLYPH_SOURCE: Readonly<Record<Kind, 'prototype' | 'guess'>> = {
   article: 'prototype', report: 'prototype', book: 'prototype', readme: 'prototype', docs: 'prototype',
   code: 'prototype', transcript: 'prototype', data: 'prototype', notes: 'prototype',
@@ -50,26 +51,19 @@ export const GLYPH_SOURCE: Readonly<Record<Kind, 'prototype' | 'guess'>> = {
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-/** A common file extension to the language id `data-marxy-lang` carries (ADR-0059 item 8). */
-const LANG_BY_EXT: Readonly<Record<string, string>> = {
-  ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript',
-  js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript',
-  rs: 'rust', py: 'python', rb: 'ruby', go: 'go', java: 'java', kt: 'kotlin', swift: 'swift',
-  c: 'c', h: 'c', cc: 'cpp', cpp: 'cpp', hpp: 'cpp', cs: 'csharp', php: 'php', lua: 'lua',
-  sh: 'shellscript', bash: 'shellscript', zsh: 'shellscript', css: 'css', scss: 'scss',
-  sql: 'sql', zig: 'zig', ex: 'elixir', exs: 'elixir', hs: 'haskell', dart: 'dart', r: 'r',
-};
-
-/** The language id of a code file's path, or undefined when unknown. */
+/** The language id of a code file's path (the registry's), or undefined when it has none. */
 export function langOfPath(path: string): string | undefined {
-  const dot = path.lastIndexOf('.');
-  if (dot < 0 || path.lastIndexOf('/') > dot) return undefined;
-  return LANG_BY_EXT[path.slice(dot + 1).toLowerCase()];
+  return langOf(path);
 }
 
 /** The glyph's SVG markup for a kind. Pure. */
 export function kindIconSvg(kind: Kind): string {
-  return `<svg class="marxy-kind-icon" data-marxy-kind="${kind}" xmlns="${SVG_NS}" viewBox="0 0 ${ICON_GRID} ${ICON_GRID}" width="16" height="16" fill="none" stroke="currentColor" stroke-width="${ICON_STROKE}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${KIND_GLYPHS[kind]}</svg>`;
+  return glyphSvg(KIND_GLYPHS[kind], ` data-marxy-kind="${kind}"`);
+}
+
+/** The svg markup of one glyph's inner shapes, on the set's grid and stroke; `attrs` is extra attributes, led by a space. */
+export function glyphSvg(inner: string, attrs = ''): string {
+  return `<svg class="marxy-kind-icon"${attrs} xmlns="${SVG_NS}" viewBox="0 0 ${ICON_GRID} ${ICON_GRID}" width="16" height="16" fill="none" stroke="currentColor" stroke-width="${ICON_STROKE}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 }
 
 /** The `data-marxy-lang` value an icon carries: only `code`, and only when its language is known. */
@@ -79,16 +73,22 @@ export function iconLang(kind: Kind, lang: string | undefined): string | undefin
 
 /** The icon as an element: `aria-hidden`, and for `code` with a known language, `data-marxy-lang`. */
 export function kindIconElement(doc: Document, kind: Kind, lang?: string): HTMLSpanElement {
+  const span = glyphElement(doc, kindIconSvg(kind), KIND_GLYPHS[kind]);
+  const language = iconLang(kind, lang);
+  if (language !== undefined) span.dataset.marxyLang = language;
+  return span;
+}
+
+/** A glyph as an element from its svg markup and inner shapes. */
+export function glyphElement(doc: Document, markup: string, inner: string): HTMLSpanElement {
   const span = doc.createElement('span') as HTMLSpanElement;
   span.className = 'marxy-kind-glyph';
   span.setAttribute('aria-hidden', 'true');
-  const language = iconLang(kind, lang);
-  if (language !== undefined) span.dataset.marxyLang = language;
   // Built node by node (createElementNS), never parsed: glyphs are self-closing <path> and <rect> only.
   const svg = doc.createElementNS(SVG_NS, 'svg');
-  const root = /^<svg ([^>]*)>/.exec(kindIconSvg(kind))?.[1] ?? '';
+  const root = /^<svg ([^>]*)>/.exec(markup)?.[1] ?? '';
   for (const [, name, value] of root.matchAll(/([\w:-]+)="([^"]*)"/g)) svg.setAttribute(name!, value!);
-  for (const [, tag, attrs] of KIND_GLYPHS[kind].matchAll(/<(path|rect) ([^>]*?)\/>/g)) {
+  for (const [, tag, attrs] of inner.matchAll(/<(path|rect) ([^>]*?)\/>/g)) {
     const node = doc.createElementNS(SVG_NS, tag!);
     for (const [, name, value] of attrs!.matchAll(/([\w:-]+)="([^"]*)"/g)) node.setAttribute(name!, value!);
     svg.appendChild(node);

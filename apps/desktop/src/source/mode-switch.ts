@@ -1,4 +1,4 @@
-// Position and selection mapping across Rendered ↔ Source (§08, §09).
+// Position and selection mapping across Rendered ↔ Source.
 
 import { type Buffer, byteToUtf16, utf16ToByte } from '@marxy/core';
 import { EditorView } from '@codemirror/view';
@@ -11,9 +11,10 @@ export function renderedByteToCmPos(buffer: Buffer, state: CmStateLike, byteOffs
 
 /**
  * The reader's place in Source: the start of the line on the reading line, `readingLinePx` below the
- * top of the window, and how far down that line the reading line falls. In the app the window scrolls,
- * not CodeMirror's scroller (whose `scrollTop` stays 0), so the line is found from the document's
- * top in window coordinates, which follows either. `scrollSourceToByte` puts the byte back there.
+ * top of the window, and how far down that line the reading line falls. In the frame CodeMirror's own
+ * scroller moves (frame.css fixes the mount under the head); elsewhere the window may. The line is found
+ * from the document's top in window coordinates, which follows either. `scrollSourceToByte` puts the
+ * byte back there.
  */
 export function sourceReadingPosition(
   buffer: Buffer,
@@ -26,14 +27,9 @@ export function sourceReadingPosition(
   return { byteOffset: utf16ToByte(buffer, cmPosToUtf16(buffer, view.state, line.from)), fraction };
 }
 
-/** Byte offset of the start of the first line in the window (the Source harness's round trip). */
-export function sourceVisibleByteOffset(buffer: Buffer, view: EditorView): number {
-  return sourceReadingPosition(buffer, view, 0).byteOffset;
-}
-
 /**
  * Scroll CodeMirror so `byteOffset` sits at `readingLinePx` from the viewport top. The reading line is a place in the
- * window; the editor's scroller may start below the window's top (the Source frame's bars sit above it, V-05), and
+ * window; the editor's scroller may start below the window's top (the Source frame's bars sit above it), and
  * CodeMirror measures its margin from the scroller's own top, so the scroller's offset comes off the margin.
  */
 export function scrollSourceToByte(
@@ -50,33 +46,4 @@ export function scrollSourceToByte(
   view.dispatch({
     effects: EditorView.scrollIntoView(pos, { y: 'start', yMargin: Math.max(0, readingLinePx - scrollerTop) }),
   });
-}
-
-/** Map a rendered node/section selection to a CM selection range (bytes → UTF-16). */
-export function selectionToCmRange(
-  buffer: Buffer,
-  state: CmStateLike,
-  range: { start: number; end: number },
-): { anchor: number; head: number } {
-  return {
-    anchor: renderedByteToCmPos(buffer, state, range.start),
-    head: renderedByteToCmPos(buffer, state, range.end),
-  };
-}
-
-/** Map CM selection anchors to byte offsets. */
-export function cmSelectionToBytes(
-  buffer: Buffer,
-  state: CmStateLike,
-  anchor: number,
-  head: number,
-): { start: number; end: number } {
-  const a = utf16ToByte(buffer, cmPosToUtf16(buffer, state, anchor));
-  const h = utf16ToByte(buffer, cmPosToUtf16(buffer, state, head));
-  return a <= h ? { start: a, end: h } : { start: h, end: a };
-}
-
-/** Best-effort rendered selection from a byte cursor when no node map is available. */
-export function byteToRenderedSelection(_buffer: Buffer, _byte: number): { kind: 'none' } {
-  return { kind: 'none' };
 }

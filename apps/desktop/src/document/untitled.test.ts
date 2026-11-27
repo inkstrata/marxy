@@ -1,4 +1,4 @@
-// A scratch document, node only (E-13): the path shape, and the store transition that makes one. The app
+// A scratch document, node only: the path shape, and the store transition that makes one. The app
 // around it (render, close guard, Save As, links, layout) is test/scratch-document.test.mjs.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -15,7 +15,12 @@ function recordingIo(disk?: { bytes: Uint8Array }): StoreIo & { writes: { path: 
   return {
     writes,
     reads,
-    async writeFileAtomic(path, bytes) {
+    async writeFileAtomic(path, bytes, expected) {
+      // The shell's check: a write whose baseline is no longer on disk is refused and writes nothing.
+      const there = disk?.bytes;
+      if (expected && there && (there.length !== expected.length || there.some((v, i) => v !== expected[i]))) {
+        throw Object.assign(new Error(`${path}: changed on disk since it was opened; refusing to overwrite`), { code: 'changed' });
+      }
       writes.push({ path, bytes: new Uint8Array(bytes) });
     },
     recordRead(path) {
@@ -117,7 +122,7 @@ test('a scratch store ignores a reload: there is no file to change under it', as
   assert.equal(await store.reload(enc.encode('two\n')), 'kept');
   assert.equal(dec.decode(store.snapshot().buffer.bytes), 'one\n');
   assert.deepEqual(io.reads, []);
-  // V-07: nothing is ever pending on a scratch, so no choice is offered and none does anything.
+  // nothing is ever pending on a scratch, so no choice is offered and none does anything.
   assert.equal(store.conflict(), null);
   assert.deepEqual(await store.resolveConflict('theirs'), { result: 'none' });
 });
@@ -128,7 +133,7 @@ test('an ordinary store is unchanged by the scratch guards', async () => {
   assert.equal(await store.reload(enc.encode('two\n')), 'reloaded');
 });
 
-test('F-108: an Untitled document takes the Markdown default for line numbers, as a saved .md does', async () => {
+test('an Untitled document takes the Markdown default for line numbers, as a saved .md does', async () => {
   const { defaultLineNumbersForPath } = await import('../source/line-numbers.ts');
   for (const scratch of ['untitled', 'untitled:2', 'untitled:7']) assert.equal(defaultLineNumbersForPath(scratch), defaultLineNumbersForPath('/d/note.md'), scratch);
   assert.equal(defaultLineNumbersForPath('untitled'), false);

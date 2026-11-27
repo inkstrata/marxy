@@ -1,12 +1,12 @@
-// The Linux weight offset (docs/design/05-theme.md §Weight offset, ADR-0010). WebKitGTK sets text
+// The Linux weight offset. WebKitGTK sets text
 // lighter than macOS at reading sizes; the offset is added to every weight so the page reads at the
 // weight it was designed at. Set on :root by the app, never by a theme.
 
 export type Platform = 'macos' | 'linux' | 'windows' | 'other';
 
 /**
- * The Linux weight offset. Unmeasured: it was chosen in D-A9 and has not been checked on a Linux
- * desktop. It is to be measured when one exists (ADR-0046 makes Linux parity a release criterion,
+ * The Linux weight offset. Unmeasured: it has not been checked on a Linux
+ * desktop. It is to be measured when one exists (Linux parity is a release criterion,
  * not a pull-request gate). Config `[linux] weight_offset` overrides it.
  */
 export const LINUX_WEIGHT_OFFSET = 100;

@@ -7,6 +7,7 @@ import { decodeReferences, escapeAttribute, escapeText } from './escape.ts';
 import { DEFAULT_POLICY, FOREIGN_ROOTS, RAW_TEXT_ELEMENTS, withProvenance } from './policy.ts';
 import { sanitizeHtml } from './sanitize-html.ts';
 import { sanitizeUrl } from './urls.ts';
+import { cpuNow } from '../testing/cpu-clock.ts';
 
 const clean = (html: string): string => sanitizeHtml(html).html;
 
@@ -68,7 +69,7 @@ test('a javascript: target goes, through whatever spelling reaches the parser', 
   }
 });
 
-test('MARXY-96: https images defer to data-marxy-remote with a full-url removal; http images refuse both attributes', () => {
+test('https images defer to data-marxy-remote with a full-url removal; http images refuse both attributes', () => {
   const https = sanitizeHtml('<img src="https://a/b.png" alt="a">');
   assert.equal(https.html, '<img data-marxy-remote="https://a/b.png" alt="a" />');
   assert.ok(https.removed.some((removal) => removal.url === 'https://a/b.png' && removal.reason === 'remote image, not loaded'));
@@ -77,7 +78,7 @@ test('MARXY-96: https images defer to data-marxy-remote with a full-url removal;
   assert.ok(http.removed.some((removal) => removal.url === 'http://a/b.png' && removal.reason.includes('plain http')));
 });
 
-test('MARXY-96: reserved marxy- ids go on islands; renderer footnote ids stay', () => {
+test('reserved marxy- ids go on islands; renderer footnote ids stay', () => {
   assert.equal(clean('<a id="marxy-fnref-1">x</a>'), '<a>x</a>');
   assert.equal(clean('<a name="MARXY-x">x</a>'), '<a>x</a>');
   const footnote = sanitizeHtml(
@@ -123,7 +124,7 @@ test('comments, declarations and processing instructions are not content', () =>
   assert.equal(clean('<!doctype html><p>x</p>'), '<p>x</p>');
   // A CDATA section is a bogus comment to the HTML parser, which ends it at the first `>`; what
   // follows is inert text in both readings, and no element survives either way.
-  assert.equal(clean('<![CDATA[<script>alert(1)</script>]]><p>x</p>'), 'alert(1)]]><p>x</p>');
+  assert.equal(clean('<![CDATA[<script>alert(1)</script>]]><p>x</p>'), 'alert(1)]]&gt;<p>x</p>');
   assert.equal(clean('<?php echo 1; ?><p>x</p>'), '<p>x</p>');
 });
 
@@ -227,7 +228,7 @@ test('the default policy names no bad thing: every rule in it is a permission', 
 // policy is: `onclick` on `p`, `svg` moved to the transparent list and a widened id pattern each
 // passed 27 vectors and 178 tests. The assertions below are written against what the allow-list is
 // *intended* to be, so a one-line widening has to be argued for here before it can ship, which is
-// the property MARXY-26 and MARXY-44 need to hold as they grow it.
+// the property that has to hold as they grow it.
 // ---------------------------------------------------------------------------------------------
 
 test('the element list is exactly this, and growing it is a decision someone has to make here', () => {
@@ -349,8 +350,8 @@ test('a removed element ends where the parser would end it, not at a close tag i
   // A raw-text element is not parsed, so both engines really do end the style at the `</style>`
   // inside the quotes and the `<img>` after it is a live element there too. Matching the parser is
   // the point: what escapes still meets the allow-list, and a remote src does not survive it.
-  assert.equal(clean('<style><b title="</style>"><img src="local.png" alt="s"></style>'), '"><img src="local.png" alt="s" />');
-  assert.equal(clean('<title><b title="</title>"><img src="/\\evil.example/p.png" alt="x">'), '"><img alt="x" />');
+  assert.equal(clean('<style><b title="</style>"><img src="local.png" alt="s"></style>'), '&quot;&gt;<img src="local.png" alt="s" />');
+  assert.equal(clean('<title><b title="</title>"><img src="/\\evil.example/p.png" alt="x">'), '&quot;&gt;<img alt="x" />');
 });
 
 test('a removed raw-text element ends exactly where both engines end it', () => {
@@ -399,7 +400,7 @@ test('an absolute link is emitted in the form the browser will use, so a host re
   assert.equal(clean('<a href="https://g\u043eogle.com/">x</a>'), '<a href="https://xn--gogle-jye.com/">x</a>');
 });
 
-test('F-02: a link query keeps parameters named like references, through the real pipeline', async () => {
+test('a link query keeps parameters named like references, through the real pipeline', async () => {
   const { renderSafeHtml } = await import('../render/pipeline.ts');
   const href = (md: string): string => renderSafeHtml(md, { file: 't.md' }).html.match(/href="([^"]*)"/)![1]!;
   assert.equal(href('[a](https://example.com/?q=1&sol=2)\n'), 'https://example.com/?q=1&amp;sol=2');
@@ -409,18 +410,30 @@ test('F-02: a link query keeps parameters named like references, through the rea
   assert.equal(href('[a](https://example.com/?foo=1&bar=2)\n'), 'https://example.com/?foo=1&amp;bar=2');
 });
 
-test('F-02: a scheme hidden behind doubled references is still refused', () => {
+test('a scheme hidden behind doubled references is still refused', () => {
   for (const raw of ['&amp;#x6a;avascript:alert(1)', '&#x26;#106;avascript:alert(1)', '&amp;#106avascript:alert(1)',
     '&amp;#x6a;avascript&colon;alert(1)', 'java&amp;Tab;script:alert(1)']) {
     assert.equal(sanitizeUrl(raw, 'link', DEFAULT_POLICY).allowed, false, raw);
   }
 });
 
-test('F-02: many layers of references cannot hide a scheme, in the helper or on the emit path', () => {
+test('many layers of references cannot hide a scheme, in the helper or on the emit path', () => {
   const deep = '&amp;amp;amp;amp;amp;#106;avascript:alert(1)';
   assert.equal(decodeReferences(deep), 'javascript:alert(1)');
   assert.equal(sanitizeUrl(deep, 'link', DEFAULT_POLICY).allowed, false);
   for (const href of ['&amp;#x6a;avascript:alert(1)', deep]) {
     assert.ok(!/href=/.test(sanitizeHtml(`<a href="${href}">x</a>`).html), href);
   }
+});
+
+test('references nested past the pass budget are refused in time, not decoded in the square of their length', () => {
+  const deep = `http://x.example/?&${'amp;'.repeat(40_000)}y`;
+  const t0 = cpuNow();
+  assert.equal(sanitizeUrl(deep, 'link', DEFAULT_POLICY).allowed, false);
+  assert.ok(!/href=/.test(sanitizeHtml(`<a href="${deep}">x</a>`).html));
+  assert.ok(cpuNow() - t0 < 500, `${(cpuNow() - t0).toFixed(0)} ms`);
+  const hidden = `&${'amp;'.repeat(40_000)}#106;avascript:alert(1)`;
+  assert.equal(sanitizeUrl(hidden, 'link', DEFAULT_POLICY).allowed, false);
+  // A few layers, as a pasted URL can carry, still decode and are judged as before.
+  assert.equal(sanitizeUrl('https://x.example/?a=1&amp;amp;b=2', 'link', DEFAULT_POLICY).allowed, true);
 });

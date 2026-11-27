@@ -1,4 +1,4 @@
-// Copy operations keep invisible bytes and omit display markers (MARXY-236).
+// Copy operations keep invisible bytes and omit display markers.
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';

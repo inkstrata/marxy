@@ -1,0 +1,57 @@
+verify-turn: slot a, near-typeset, pnpm verify --tier changed --base master (2026-11-26T08:20:48-08:00)
+$ node scripts/verify.mjs "--tier" "changed" "--base" "master"
+verify changed in C:\Dev\reader\worktrees\near-typeset
+36 files changed against master; unit suites: desktop, core, typeset, scripts; browser files: 100
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\near-typeset-2026-11-26T16-20-49
+
+PASS    install        0.4s      
+PASS    typecheck      13.8s     
+PASS    lint           2.5s      
+PASS    check          12.3s     10 pass, 0 fail
+PASS    golden         1.8s      
+PASS    fidelity       14.6s     
+PASS    licences       0.7s      
+verify: holding place 1 of 2 (--no-lock skips it)
+
+PASS    unit-core      213.9s    4249 pass, 0 fail, 3 skip
+FAIL    unit-typeset   52.0s     102 pass, 1 fail
+PASS    unit-scripts   27.2s     271 pass, 0 fail
+PASS    unit-desktop   46.6s     1270 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 92.1s     44 pass, 0 fail, 1 skip
+PASS    browser        1109.1s   753 pass, 0 fail
+
+step                  result  wall     tests
+--------------------  ------  -------  -------------------------
+install               pass    0.4s
+typecheck             pass    13.8s
+lint                  pass    2.5s
+check                 pass    12.3s    10 pass, 0 fail
+golden                pass    1.8s
+fidelity              pass    14.6s
+licences              pass    0.7s
+unit-core             pass    213.9s   4249 pass, 0 fail, 3 skip
+unit-typeset          FAIL    52.0s    102 pass, 1 fail
+unit-scripts          pass    27.2s    271 pass, 0 fail
+unit-desktop          pass    46.6s    1270 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    92.1s    44 pass, 0 fail, 1 skip
+browser               pass    1109.1s  753 pass, 0 fail
+--------------------  ------  -------  -------------------------
+total                         1587.1s
+
+--- unit-typeset (C:\Users\<user>\AppData\Local\Temp\marxy-verify\near-typeset-2026-11-26T16-20-49\09-unit-typeset.log)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+C:\Dev\reader\worktrees\near-typeset\packages\typeset:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @marxy/typeset@0.0.0 test: `node --test "src/**/*.test.ts" "test/**/*.test.mjs"`
+Exit status 1
+
+verify changed: 12/13 steps passed; failed: unit-typeset; rerun with --from unit-typeset
+[ELIFECYCLE] Command failed with exit code 1.
+verify-turn: exit 1 (2026-11-26T08:47:16-08:00)

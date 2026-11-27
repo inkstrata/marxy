@@ -2,7 +2,7 @@
 
 marxy is MIT (`LICENSE`). The fonts it ships are not: each is under the SIL Open Font License 1.1,
 and its licence travels with it — in `fonts/<family>/LICENSE` in this repository and as
-`fonts/<Family>-OFL.txt` beside the font in the built app (ADR-0006, ADR-0015). The font files are
+`fonts/<Family>-OFL.txt` beside the font in the built app. The font files are
 shipped unmodified.
 
 | Component | Version / source | Licence | Shipped as |

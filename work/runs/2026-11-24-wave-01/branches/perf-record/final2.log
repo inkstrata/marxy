@@ -1,0 +1,66 @@
+  warming the dev server
+  long-reference: open 1/3
+  long-reference: open 2/3
+  long-reference: open 3/3
+  long-reference: first click
+  long-reference: cursor keys
+  long-reference: undo 1/3
+  long-reference: undo 2/3
+  long-reference: undo 3/3
+  long-reference: reload 1/3
+  long-reference: reload 2/3
+  long-reference: reload 3/3
+  long-reference: tabs
+  long-reference: Source and Read
+  long-reference-plain: open 1/3
+  long-reference-plain: open 2/3
+  long-reference-plain: open 3/3
+  long-reference-plain: undo 1/3
+  long-reference-plain: undo 2/3
+  long-reference-plain: undo 3/3
+  long-reference-plain: reload 1/3
+  long-reference-plain: reload 2/3
+  long-reference-plain: reload 3/3
+  short-document: open 1/3
+  short-document: open 2/3
+  short-document: open 3/3
+  short-document: first click
+  short-document: cursor keys
+  short-document: undo 1/3
+  short-document: undo 2/3
+  short-document: undo 3/3
+  short-document: reload 1/3
+  short-document: reload 2/3
+  short-document: reload 3/3
+  short-document: tabs
+  short-document: Source and Read
+measure-interactions: 9bed3e34, 2026-11-24T23:40:30.962Z, win32-x64, 16 x AMD Ryzen 7 8845HS w/ Radeon 780M Graphics, 31 GB, msedge 158.0.4370.33, 3 runs
+
+long-reference
+  open               firstContentMs 337.6  taskMs 6373.75  scriptMs 935.48  layoutMs 1279.58  styleMs 1555.27  longestTaskMs 347  settleMs 6593.3  nodes 10080
+  cursor key (j)     handlerMs 67.05  taskMs 67.55  scriptMs 44.49  layoutMs 1  layouts 4  recalcs 5
+  first click        handlerMs 184.8  taskMs 390.04  scriptMs 65.8  layoutMs 22.32  styleMs 251.52  layouts 9  recalcs 13
+  undo               taskMs 8690.18  scriptMs 1369.58  layoutMs 1501.47  longestTaskMs 614  replacedTop 2733
+  reload from disk   taskMs 8174.29  scriptMs 1216.91  layoutMs 1357.82  longestTaskMs 870  replacedTop 2765
+  tab switch to it   shownMs 839  taskMs 7200.84  scriptMs 1185.58  layoutMs 1238.52  layouts 661  recalcs 1216
+  tab switch away    shownMs 315  taskMs 361.68  scriptMs 36.22  layoutMs 22.5  layouts 61  recalcs 121
+  Source to Read     shownMs 442.2  taskMs 669.53  scriptMs 48.62  layoutMs 160.17  layouts 61  recalcs 65
+  Read to Source     shownMs 51.2  taskMs 145.48  scriptMs 28.92  layoutMs 9.9  layouts 9  recalcs 13
+
+long-reference-plain
+  open               firstContentMs 267.3  taskMs 2417.58  scriptMs 474.44  layoutMs 509.98  styleMs 360.39  longestTaskMs 274  settleMs 2656.6  nodes 9841
+  undo               taskMs 6352.17  scriptMs 1233  layoutMs 1174.62  longestTaskMs 565  replacedTop 2513
+  reload from disk   taskMs 735.88  scriptMs 124.51  layoutMs 140.49  longestTaskMs 193  replacedTop 0
+
+short-document
+  open               firstContentMs 109.1  taskMs 410.2  scriptMs 62.24  layoutMs 83.57  styleMs 74.49  longestTaskMs 114  settleMs 490.7  nodes 1908
+  cursor key (j)     handlerMs 13.5  taskMs 14.13  scriptMs 6.33  layoutMs 0.6  layouts 4  recalcs 5
+  first click        handlerMs 24.2  taskMs 61.8  scriptMs 10.09  layoutMs 5.23  styleMs 31.31  layouts 9  recalcs 13
+  undo               taskMs 362.41  scriptMs 60.94  layoutMs 34.02  longestTaskMs 121  replacedTop 202
+  reload from disk   taskMs 391.32  scriptMs 61.19  layoutMs 39.39  longestTaskMs 138  replacedTop 204
+  tab switch to it   shownMs 200  taskMs 340.47  scriptMs 60.96  layoutMs 36.49  layouts 86  recalcs 166
+  tab switch away    shownMs 159  taskMs 197.56  scriptMs 33.17  layoutMs 22.23  layouts 66  recalcs 126
+  Source to Read     shownMs 59.6  taskMs 103.13  scriptMs 8.13  layoutMs 20.23  layouts 19  recalcs 23
+  Read to Source     shownMs 24.7  taskMs 45.53  scriptMs 8.76  layoutMs 4.96  layouts 9  recalcs 13
+record written to C:\Dev\reader\work\wave1\interactions-master-17cfe661.json
+exit 0

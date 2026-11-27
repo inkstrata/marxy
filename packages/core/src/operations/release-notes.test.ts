@@ -1,4 +1,4 @@
-// The newest release of a changelog (K-22): the first version heading, skipping "Unreleased", and the bytes of its section.
+// The newest release of a changelog: the first version heading, skipping "Unreleased", and the bytes of its section.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseMarkdown } from '../parse/parse.ts';

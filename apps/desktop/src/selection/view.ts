@@ -1,19 +1,21 @@
-// Rendered-mode clicks, `.marxy-selected`, and re-render restore (MARXY-41); keys are in the command registry.
-// One controller per window (B-12, D-06): it holds what the reader selected and where links have taken
+// Rendered-mode clicks, `.marxy-selected`, and re-render restore; keys are in the command registry.
+// One controller per window: it holds what the reader selected and where links have taken
 // them, and reads the open document from its store whenever it needs it, so nothing here can go stale.
 // It listens on every pane's article and acts on the focused one's: focusing another pane clears it.
 
 import {
+  sectionRange,
   type Block,
   type Buffer,
   type Document,
+  type Heading,
   type Inline,
   type Node,
 } from '@marxy/core';
 import { headingIdsForDocument } from '@marxy/core/src/render/heading-ids.ts';
-import { basename, normalizePath } from '@marxy/core/src/index-model/paths.ts';
-import { isInsideImageRoot } from '@marxy/core/src/render/images.ts';
 import { readingLine } from '@marxy/core/src/position/blocks.ts';
+import { offsetThroughEdit } from '@marxy/core/src/position/restore.ts';
+import { readingPage } from '../parts/reading-parts.ts';
 import type { AppShell } from '../app.ts';
 import type { OpenOptions } from '../document/open.ts';
 import type { DocumentStore } from '../document/store.ts';
@@ -21,23 +23,29 @@ import { appHandle } from '../commands/app-handle.ts';
 import { notify } from '../notices/index.ts';
 import { splitRefusal } from '../pane/fit.ts';
 import { defaultModeForPath, isNamedTextFamily } from '../source/default-mode.ts';
-import { isUntitled } from '../document/untitled.ts';
-import { pathsForDocument } from '../render/images.ts';
+import { localLinkTarget } from './link-target.ts';
 import type { NodeMap } from '../render/post.ts';
 import {
+  blockAt,
   extendRun,
   extendRunTo,
   moveSibling,
   parentOf,
   runBlocks,
+  runHull,
   runRange,
   select,
   type Selection,
   type SelectionState,
 } from './selection.ts';
+import { blockSpanning } from '../changes/part-edits.ts';
+import { cursorSelection, edgePart, extendHead, headingPart, intoPart, outPart, stepPart, type PartOk } from './cursor.ts';
 import { applyInvisibleMarkers } from '../render/invisibles-dom.ts';
+import { depthHidden, dressDepths, exposeAt, standIn } from '../depths/dress.ts';
+import { mapRange, type Range } from '../depths/depth-maths.ts';
 import { applyLinkDestinations } from '../render/link-dest.ts';
 import { recordDrag } from './drag.ts';
+import { linesViewIn } from '../view/reading-lines.ts';
 import { resolve } from './resolve.ts';
 
 const INLINE_TYPES: ReadonlySet<Inline['type']> = new Set([
@@ -68,17 +76,30 @@ function elementForRange(article: HTMLElement, start: number, end: number): Elem
   return article.querySelector(`[data-marxy-s="${start}"][data-marxy-e="${end}"]`);
 }
 
+const PAINTED = ['marxy-selected', 'marxy-cursor', 'marxy-in-section'];
+
 function clearSelectedClass(article: HTMLElement): void {
-  for (const el of article.querySelectorAll('.marxy-selected')) el.classList.remove('marxy-selected');
+  for (const el of article.querySelectorAll('.marxy-selected, .marxy-cursor, .marxy-in-section')) el.classList.remove(...PAINTED);
 }
 
-function paintSelected(article: HTMLElement, selection: Selection): void {
+/**
+ * `head` is the block the cursor is on: a run's free end. `held` are the carriers of what a section holds, marked faintly
+ * beside it (the prototype's `insec`).
+ */
+function paintSelected(article: HTMLElement, selection: Selection, head: Element | null, held: readonly Element[]): void {
   clearSelectedClass(article);
-  if (selection.kind === 'node') selection.el.classList.add('marxy-selected');
-  else if (selection.kind === 'blocks') for (const el of selection.els) el.classList.add('marxy-selected');
+  if (selection.kind === 'node') selection.el.classList.add('marxy-selected', 'marxy-cursor');
+  else if (selection.kind === 'blocks') {
+    for (const el of selection.els) el.classList.add('marxy-selected');
+    (head && selection.els.includes(head) ? head : selection.els.at(-1))?.classList.add('marxy-cursor');
+  } else if (selection.kind === 'section') {
+    const { heading } = selection;
+    elementForRange(article, heading.src.start, heading.src.end)?.classList.add('marxy-selected', 'marxy-cursor');
+    for (const el of held) el.classList.add('marxy-in-section');
+  }
 }
 
-/** A derived view's root (K-12, ADR-0061; scripts/registry.json): the app's selection never resolves inside one. */
+/** A derived view's root (scripts/registry.json): the app's selection never resolves inside one. */
 const DERIVED = '[data-marxy-derived]';
 
 export type SelectionShell = AppShell & {
@@ -94,15 +115,15 @@ export interface SelectionRuntime {
   readonly buffer: Buffer;
   /**
    * The store version the page on the article, and so every selection resolved on it, was set from:
-   * an edit passes it as `baseVersion` (ADR-0037 Amendment 1). It is recorded when the page is set
+   * an edit passes it as `baseVersion`. It is recorded when the page is set
    * (`afterRender`), not read when the edit is made, so a page that has not yet caught up with the
-   * store's bytes cannot hand an edit offsets the store has moved past (the B-12 review).
+   * store's bytes cannot hand an edit offsets the store has moved past.
    */
   readonly version: number;
   readonly shell: SelectionShell;
 }
 
-/** One pane's article as the selection reads it (D-06): its page, its scroller and its open path. */
+/** One pane's article as the selection reads it: its page, its scroller and its open path. */
 export interface SelectionTarget {
   readonly article: HTMLElement;
   readonly scroller: HTMLElement;
@@ -110,7 +131,7 @@ export interface SelectionTarget {
   store(): DocumentStore | null;
   /**
    * Opens a document through this pane's open path. Over unsaved edits the promise settles once the reader
-   * is asked, so anything that must follow the move goes in the options (`OpenOptions`, F-21).
+   * is asked, so anything that must follow the move goes in the options (`OpenOptions`).
    */
   open(path: string, opts?: Pick<OpenOptions, 'onCommitted' | 'onLanded'>): Promise<void>;
   currentPath(): string | null;
@@ -121,7 +142,7 @@ export interface SelectionTarget {
 /** The first pane's article, which the selection starts on, and what every pane shares. */
 export interface RenderedSelectionOptions extends SelectionTarget {
   readonly shell: SelectionShell;
-  /** The root a link from `path` may not leave: `AppHandle.imageRoot` (F-14). */
+  /** The root a link from `path` may not leave: `AppHandle.imageRoot`. */
   imageRoot(path: string): string;
 }
 
@@ -133,16 +154,27 @@ export interface RenderedSelection {
   moveDown(): void;
   moveUp(): void;
   moveParent(): void;
-  /** `Alt+Shift+↓`: the selected block, or run of blocks, grows by the next sibling block (E-05). */
+  /** `Alt+Shift+↓`: the selected block, or run of blocks, grows by the next sibling block. */
   extendDown(): void;
+  /** Whether the focused pane's page can hold the cursor now: Rendered, a document of blocks, no derived view. */
+  cursorReady(): boolean;
+  /**
+   * Moves the cursor and scrolls its part into view, only as far as it must. With no cursor, every move
+   * but `out` starts it on the first part at or below the reading line. False when it did not move.
+   */
+  cursorMove(move: CursorMove): boolean;
+  /** Puts the cursor on the innermost block at `byte` (after an edit moved its part there); false when it is not on the page. */
+  cursorAt(byte: number, length?: number): boolean;
+  /** `cb` runs after each change of the selection, or of the pane it acts on. Returns the off switch. */
+  onChange(cb: () => void): () => void;
   /**
    * Select what a click on `target` selects, without following a link when `link` is `'select'` (the verb
-   * menu's right-click, C-13). Synchronous for `'select'`.
+   * menu's right-click). Synchronous for `'select'`.
    */
   selectAt(target: Element, opts: { readonly link: 'select' | 'follow' }): Promise<void>;
   /**
-   * Select the innermost block whose `[data-marxy-s, data-marxy-e)` holds `byte` (a content-search hit,
-   * C-17). The caller has already mounted the page through `byte` (the open's `landOn`). Nothing is
+   * Select the innermost block whose `[data-marxy-s, data-marxy-e)` holds `byte` (a content-search hit).
+   * The caller has already mounted the page through `byte` (the open's `landOn`). Nothing is
    * selected when no mounted block holds the byte (a gap between blocks, or a byte past the end).
    */
   selectBlockAtByte(byte: number): void;
@@ -154,10 +186,15 @@ export interface RenderedSelection {
   onHistoryChange(cb: () => void): () => void;
   /** The block carrier (`[data-marxy-s]`) last pressed on in this article, or null: where Jump to source starts. */
   lastPointerCarrier(): Element | null;
+  /**
+   * Records a keyboard-made DOM selection now rather than at its `selectionchange`, which is a queued task: a
+   * Mod+C pressed right after Mod+A would otherwise copy the selection made before it.
+   */
+  recordLive?(): void;
   /** The first pane's page was set again: re-resolve the selection on it and mark it. */
   afterRender(): void;
   /**
-   * Listens on another pane's article too (D-06): the selection acts on it once `focusArticle` names it.
+   * Listens on another pane's article too: the selection acts on it once `focusArticle` names it.
    * Returns what takes it off again; a selection on it goes with it.
    */
   attach(target: SelectionTarget): () => void;
@@ -169,58 +206,31 @@ export interface RenderedSelection {
   /** The article the selection acts on: the focused pane's. */
   article(): HTMLElement;
   /**
-   * The selection as the view on `article` tells it (D-06): `afterRender` re-sets that article and
+   * The selection as the view on `article` tells it: `afterRender` re-sets that article and
    * `runtime` reads that pane's store, whichever pane is focused. Null for an article not attached.
    */
   forArticle(article: HTMLElement): RenderedSelection | null;
   destroy(): void;
 }
 
+export type CursorMove = 'next' | 'prev' | 'in' | 'out' | 'extend-down' | 'extend-up' | 'next-heading' | 'prev-heading' | 'first' | 'last';
+
 const DRAG_THRESHOLD_PX = 4;
 
-/** A right-click, or a Ctrl-click on a Mac: it opens the verb menu (C-13), and is not a click that selects. */
+/** A right-click, or a Ctrl-click on a Mac: it opens the verb menu, and is not a click that selects. */
 export function isSecondaryClick(ev: MouseEvent): boolean {
   if (ev.button === 2) return true;
   const mac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
   return mac && ev.ctrlKey && ev.button === 0;
 }
-const MARKDOWN_LINK = /\.(md|markdown|mdx|txt)$/i;
 
 function isExternalHref(href: string): boolean {
   return /^(https?:|mailto:)/i.test(href);
 }
 
-/**
- * Where a relative link from the document at `path` leads, or the notice that says why it does not open.
- * `imageRoot` is the app's answer for `path` (`AppHandle.imageRoot`): the repository root when the
- * document is in one, else its folder (F-14, ADR-0027 §5).
- */
-export function localLinkTarget(
-  path: string,
-  href: string,
-  imageRoot: string,
-  /** A link followed beside (D-09): a file that opens in Source is a target too; whether it is text is for the caller. */
-  opts?: { readonly allowSource?: boolean },
-): { readonly target: string; readonly fragment: string | undefined } | { readonly refused: string } {
-  // A scratch document has no folder for a relative link to be relative to: refused, nothing read (E-13).
-  if (isUntitled(path)) return { refused: 'That link points outside this folder and was not opened.' };
-  const hash = href.indexOf('#');
-  const pathPart = hash === -1 ? href : href.slice(0, hash);
-  const fragment = hash === -1 ? undefined : href.slice(hash + 1);
-  const { documentDir } = pathsForDocument(path);
-  const base = documentDir.endsWith('/') ? documentDir : `${documentDir}/`;
-  const target = normalizePath(new URL(pathPart, `file://${base}`).pathname);
-  if (!isInsideImageRoot(target, imageRoot)) {
-    const where = normalizePath(imageRoot) === normalizePath(documentDir) ? 'folder' : 'repository';
-    return { refused: `That link points outside this ${where} and was not opened.` };
-  }
-  if (!MARKDOWN_LINK.test(basename(target)) && !(opts?.allowSource && (defaultModeForPath(target) === 'source' || isNamedTextFamily(target)))) {
-    return { refused: 'Only markdown documents open inside Marxy.' };
-  }
-  return { target, fragment };
-}
+export { localLinkTarget };
 
-/** Where links have taken one pane (D-09): back walks this pane's, whichever pane the key is pressed in. */
+/** Where links have taken one pane: back walks this pane's, whichever pane the key is pressed in. */
 interface PaneNav {
   history: string[];
   index: number;
@@ -240,9 +250,9 @@ function looksLikeText(bytes: Uint8Array): boolean {
   return !bytes.subarray(0, 8192).includes(0);
 }
 
-/** What the selection keeps for one pane's article (D-06): what was last pressed there and the page it shows. */
+/** What the selection keeps for one pane's article: what was last pressed there and the page it shows. */
 interface PaneRecord {
-  /** The links followed in this pane (D-09). */
+  /** The links followed in this pane. */
   readonly nav: PaneNav;
   readonly target: SelectionTarget;
   lastClickTarget: Element | null;
@@ -261,7 +271,7 @@ interface PaneRecord {
 /**
  * The selection controller for the window. Listeners attach to the first pane's article here, and to a
  * second one's through `attach`, and come off in `destroy`; one selection state acts on the focused
- * pane's article (`focusArticle`). Keyboard chords live in the command registry (MARXY-42); they reach
+ * pane's article (`focusArticle`). Keyboard chords live in the command registry; they reach
  * this through `AppHandle.selection`.
  */
 export function createRenderedSelection(first: RenderedSelectionOptions): RenderedSelection {
@@ -288,7 +298,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     if (!snap) return null;
     const version = record.shownVersion ?? snap.version;
     // `nodeMap` and `document` are read when asked for, not when the runtime is made: a Source-default file's parse is
-    // made on its first read (V-11.1), and the toolbar's strip makes this runtime at every document change (W-09).
+    // made on its first read, and the toolbar's strip makes this runtime at every document change.
     return {
       article: record.target.article,
       get nodeMap() { return snap.nodeMap; },
@@ -300,11 +310,70 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
   };
   const runtime = (): SelectionRuntime | null => runtimeOf(active);
 
-  const paint = (): void => paintSelected(active.target.article, state.selection);
+  const changeListeners = new Set<() => void>();
+  const changed = (): void => {
+    for (const cb of [...changeListeners]) cb();
+  };
+
+  /**
+   * The selection last painted and the bytes it named: a page set again maps the cursor's range from them to the bytes
+   * now (a line added above, an undo, a reload, a Line transform). Read off the bytes, not the transition: the page is
+   * set inside the store's commit, before a subscriber here would hear of it.
+   */
+  let paintedOn: { readonly selection: Selection; readonly bytes: Uint8Array } | null = null;
+  const cursorRange = (sel: Selection): Range | null =>
+    sel.kind === 'node' ? sel.node.src : sel.kind === 'section' ? sel.heading.src : null;
+  /** `sel`'s range in `after`, or null when it names nothing or nothing changed. */
+  const carriedRange = (sel: Selection, after: Uint8Array): Range | null => {
+    const from = cursorRange(sel);
+    if (!from || paintedOn?.selection !== sel || paintedOn.bytes === after) return null;
+    const before = paintedOn.bytes;
+    // A splice over the part (a whole-file transform) keeps the place its start maps to.
+    const start = offsetThroughEdit(from.start, before, after);
+    return mapRange({ kind: 'reload' }, from, { before, after }) ?? { start, end: start };
+  };
+
+  /**
+   * The run the cursor made with `J` and `K`: which end stays and which moves. Blocks are matched by their bytes, so a
+   * page set again keeps it; a run made another way (Shift+click, Alt+Shift+↓) is anchored at its first block.
+   */
+  let runEnds: { anchor: Block; head: Block } | null = null;
+  const runOf = (sel: Extract<Selection, { kind: 'blocks' }>): { anchor: Block; head: Block } => {
+    if (runEnds) {
+      const { anchor, head } = runEnds;
+      const lo = anchor.src.start <= head.src.start ? anchor : head;
+      const hi = lo === anchor ? head : anchor;
+      if (lo.src.start === sel.first.src.start && hi.src.end === sel.last.src.end) {
+        return anchor === lo ? { anchor: sel.first, head: sel.last } : { anchor: sel.last, head: sel.first };
+      }
+    }
+    return { anchor: sel.first, head: sel.last };
+  };
+
+  const paint = (): void => {
+    const painted = opts.store()?.snapshot().buffer.bytes;
+    paintedOn = painted ? { selection: state.selection, bytes: painted } : null;
+    const { article } = active.target;
+    const sel = state.selection;
+    let head: Element | null = null;
+    const held: Element[] = [];
+    if (sel.kind === 'blocks') {
+      const end = runOf(sel).head;
+      head = elementForRange(article, end.src.start, end.src.end);
+    } else if (sel.kind === 'section') {
+      for (const block of opts.store()?.snapshot().ast.children ?? []) {
+        if (block.src.start < sel.heading.src.end || block.src.end > sel.range.end) continue;
+        const el = elementForRange(article, block.src.start, block.src.end);
+        if (el) held.push(el);
+      }
+    }
+    paintSelected(article, sel, head, held);
+    changed();
+  };
 
   /**
    * What `record`'s pane scrolls now: its view's live scroller, which moves from the window to the pane's
-   * own section when a second pane appears (D-05); the one it was attached with is where it began.
+   * own section when a second pane appears; the one it was attached with is where it began.
    */
   const scrollerOf = (record: PaneRecord): HTMLElement =>
     appHandle()?.panes().panes.find((pane) => pane.article === record.target.article)?.view.scroller ?? record.target.scroller;
@@ -317,6 +386,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     if (!id || !record.target.store()) return true;
     const target = article.querySelector(`#${CSS.escape(id)}`);
     if (!(target instanceof HTMLElement)) return false;
+    exposeAt(target);
     const top = target.getBoundingClientRect().top + scroller.scrollTop - readingLine(scroller.clientHeight);
     scroller.scrollTop = Math.max(0, top);
     return true;
@@ -354,7 +424,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
 
   /**
    * `nextPath` joins `record`'s history after the document the pane shows now. Called when the open commits,
-   * before the page flips, so the history and `currentPath()` never disagree across an await (F-21).
+   * before the page flips, so the history and `currentPath()` never disagree across an await.
    */
   const historyListeners = new Set<() => void>();
   const historyMoved = (): void => {
@@ -374,9 +444,9 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
   };
 
   /**
-   * A link followed beside (D-09): `target` opens in the pane that is not `origin`, made when there is only
+   * A link followed beside: `target` opens in the pane that is not `origin`, made when there is only
    * one and two columns fit; the origin pane keeps its document, its place and its focus. The neighbour's
-   * history starts with the target. Unsaved edits in the neighbour go through the pane set's guard (D-08).
+   * history starts with the target. Unsaved edits in the neighbour go through the pane set's guard.
    */
   const openBesideOf = async (origin: PaneRecord, target: string, fragment: string | undefined): Promise<void> => {
     const panes = appHandle()?.panes();
@@ -434,7 +504,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     const { target, fragment } = local;
 
     // A link to a heading of this very document (`[self](a.md#far)`) is the `#` branch with a path: land
-    // on it. No open, no re-read of the file, no history entry, so unsaved edits are left alone (F-21).
+    // on it. No open, no re-read of the file, no history entry, so unsaved edits are left alone.
     if (!beside && target === record.target.currentPath()) {
       if (fragment) landFragment(record, fragment);
       return;
@@ -461,7 +531,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     }
 
     // Over unsaved edits the reader is asked first: the history entry waits for their choice and is made
-    // when the open commits, the landing once the page is set (F-21). A Dismiss leaves both undone.
+    // when the open commits, the landing once the page is set. A Dismiss leaves both undone.
     await record.target.open(target, {
       onCommitted: () => recordNavOpen(record, target),
       onLanded: () => {
@@ -483,13 +553,22 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     paint();
   };
 
-  /** Re-resolve the structured selection after the DOM was replaced (§03). */
+  /** Re-resolve the structured selection after the DOM was replaced. */
   const reresolve = (): void => {
     const snap = opts.store()?.snapshot();
     if (!snap) return;
     const { article } = active.target;
     const sel = state.selection;
-    if (sel.kind === 'node') {
+    const moved = carriedRange(sel, snap.buffer.bytes);
+    if (moved) {
+      const el = elementForRange(article, moved.start, moved.end);
+      const resolved = el ? resolve(el, snap.nodeMap)?.node : null;
+      const block = resolved ? null : blockAt(snap.ast, moved.start);
+      const carrier = block ? elementForRange(article, block.src.start, block.src.end) : null;
+      if (resolved && el) state = select(state, cursorSelection(snap.ast, resolved as Block, el));
+      else if (block && carrier) state = select(state, cursorSelection(snap.ast, block, carrier));
+      else state = select(state, { kind: 'none' });
+    } else if (sel.kind === 'node') {
       const el = elementForRange(article, sel.node.src.start, sel.node.src.end);
       if (el) {
         const resolved = resolve(el, snap.nodeMap);
@@ -500,7 +579,10 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       }
     } else if (sel.kind === 'section') {
       const el = elementForRange(article, sel.heading.src.start, sel.heading.src.end);
-      if (!el) state = select(state, { kind: 'none' });
+      // The heading of the page now, not the one the section was made on: the cursor's moves find it among its siblings.
+      const heading = el ? resolve(el, snap.nodeMap)?.node : null;
+      if (heading?.type === 'heading') state = select(state, { kind: 'section', heading: heading as Heading, range: sectionRange(snap.ast, heading as Heading) });
+      else state = select(state, { kind: 'none' });
     } else if (sel.kind === 'blocks') {
       state = select(state, resolveRun(sel) ?? { kind: 'none' });
     }
@@ -518,7 +600,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
   };
 
   /**
-   * A run again after the page was set (E-05): by its two end ranges, on the new page. Both ends must still be
+   * A run again after the page was set: by its two end ranges, on the new page. Both ends must still be
    * on it as blocks of one container; otherwise null, and nothing stays painted.
    */
   const resolveRun = (sel: Extract<Selection, { kind: 'blocks' }>): Selection | null => {
@@ -528,19 +610,21 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     const firstEl = elementForRange(article, sel.first.src.start, sel.first.src.end);
     const lastEl = elementForRange(article, sel.last.src.start, sel.last.src.end);
     if (!firstEl || !lastEl) return null;
-    const first = resolve(firstEl, snap.nodeMap)?.node;
-    const last = resolve(lastEl, snap.nodeMap)?.node;
-    if (!first || !last || !isBlock(first) || !isBlock(last)) return null;
-    if (first.src.start > last.src.start) return null;
+    const firstNode = resolve(firstEl, snap.nodeMap)?.node;
+    const lastNode = resolve(lastEl, snap.nodeMap)?.node;
+    if (!firstNode || !lastNode || !isBlock(firstNode) || !isBlock(lastNode)) return null;
+    if (firstNode.src.start > lastNode.src.start) return null;
+    const { first, last } = runHull(snap.ast, firstNode, lastNode);
     const blocks = runBlocks(snap.ast, first, last);
     if (blocks.length < 2) return null;
     return { kind: 'blocks', first, last, range: runRange(first, last), els: elementsOfRun(snap.ast, first, last) };
   };
 
   /** Select the run `first`..`last`, painted together; the browser's own selection goes, so nothing competes with it. */
-  const selectRun = (first: Block, last: Block): void => {
+  const selectRun = (from: Block, to: Block): void => {
     const doc = opts.store()?.snapshot().ast;
     if (!doc) return;
+    const { first, last } = runHull(doc, from, to);
     const els = elementsOfRun(doc, first, last);
     if (els.length === 0) return;
     window.getSelection()?.removeAllRanges();
@@ -594,22 +678,30 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
   };
 
   /**
-   * Select what a click on `raw` selects (C-13: a click and a right-click share it). A link is followed
+   * Select what a click on `raw` selects (a click and a right-click share it). A link is followed
    * (`link: 'follow'`, a plain click) or selected as its inline node (`'select'`: Alt+click, and the verb
    * menu, which never follows one). Resolves once a followed link has landed; a selection is made
    * synchronously, before the returned promise is awaited. Only the focused pane's article selects.
    */
+  /** Big Markdown read as lines and not yet parsed: nothing here may ask for its tree. */
+  const unparsedLines = (article: Element): boolean => linesViewIn(article)?.lines.markdown === true && opts.store()?.parsed() !== true;
+
   const selectAt = (raw: Element, how: { readonly link: 'select' | 'follow' }, ev?: MouseEvent): Promise<void> => {
     const snap = opts.store()?.snapshot();
     if (!snap) return Promise.resolve();
-    const { nodeMap } = snap;
     const record = active;
     const { article } = record.target;
+    // Its rows are lines, not nodes, and resolving one would parse the whole file.
+    if (unparsedLines(article)) {
+      selectNone();
+      return Promise.resolve();
+    }
+    const { nodeMap } = snap;
     if (raw === article || !article.contains(raw)) {
       selectNone();
       return Promise.resolve();
     }
-    // A derived view (K-12, ADR-0061) is not a page of AST nodes: nothing in it resolves to one, so no verb that splices
+    // A derived view is not a page of AST nodes: nothing in it resolves to one, so no verb that splices
     // is ever offered on what it shows. It selects its own turns and tools.
     if (raw.closest(DERIVED) !== null) {
       selectNone();
@@ -619,7 +711,8 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     const link = raw.closest('a[href]');
     if (link instanceof HTMLAnchorElement && how.link === 'follow') return followLink(link, ev);
 
-    const carrier = raw.closest('[data-marxy-s]');
+    // Inside a fenced part read as data, the part is what a click selects: its rows name bytes of the fence, not nodes.
+    const carrier = raw.closest('.marxy-part[data-marxy-s]') ?? raw.closest('[data-marxy-s]');
     if (!carrier) {
       selectNone();
       return Promise.resolve();
@@ -664,7 +757,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       return;
     }
     if (raw.closest(DERIVED) !== null) return;
-    // Shift+click grows a block selection into a run of its siblings (E-05).
+    // Shift+click grows a block selection into a run of its siblings.
     if (ev.shiftKey && !ev.altKey && (state.selection.kind === 'node' || state.selection.kind === 'blocks') && active.target.article.contains(raw)) {
       extendTo(raw);
       return;
@@ -674,7 +767,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
 
   /**
    * The DOM selection on the article becomes the `text` selection, recorded now: its range, its text and
-   * the bytes of the blocks it touches, at the version the page shows (C-06). A copy verb run later, from
+   * the bytes of the blocks it touches, at the version the page shows. A copy verb run later, from
    * the palette whose input has taken the DOM selection away, reads this record.
    */
   const recordTextSelection = (): void => {
@@ -682,21 +775,33 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     const snap = opts.store()?.snapshot();
     const domSel = window.getSelection();
     if (!snap || !domSel || article.closest('[hidden]') !== null) return;
-    // A drag over a derived view is `derived-text` (ADR-0061 item 5): the view copies it as displayed, and no byte range of
+    // A drag over a derived view is `derived-text`: the view copies it as displayed, and no byte range of
     // the file is recorded from it, so no operation can be handed the bytes behind decoded text.
     if (article.querySelector(DERIVED) !== null) {
       if (state.selection.kind !== 'none') selectNone();
       return;
     }
-    const drag = recordDrag(article, domSel, snap.buffer.path, snap.ast.children.map((b) => b.src));
+    // A click is no drag: nothing is recorded. Big Markdown read as lines has its rows' own ranges, and asking for its
+    // blocks would parse the whole file, which it is never until it is shown rendered.
+    if (domSel.rangeCount === 0 || domSel.isCollapsed) return;
+    const blocks = unparsedLines(article) ? [] : snap.ast.children.map((b) => b.src);
+    const drag = recordDrag(article, domSel, snap.buffer.path, blocks);
     if (!drag) return;
     state = select(state, { kind: 'text', ...drag, version: active.shownVersion ?? snap.version });
     clearSelectedClass(article);
+    changed();
   };
 
   // A selection made with the keyboard (Cmd+A, Shift+arrows) has no pointer-up: it is recorded when it
   // changes, unless a pointer is down (the pointer-up records that one) or it lies outside the article.
+  // A key that may have moved the selection (Mod+A, Shift+arrows) since the last `selectionchange`; a modifier or the
+  // copy chord's own C cannot.
+  let keyedSinceChange = false;
+  const onKeyDown = (ev: KeyboardEvent): void => {
+    if (ev.key !== 'Shift' && ev.key !== 'Control' && ev.key !== 'Meta' && ev.key !== 'Alt' && ev.key.toLowerCase() !== 'c') keyedSinceChange = true;
+  };
   const onSelectionChange = (): void => {
+    keyedSinceChange = false;
     if (pointerDown) return;
     const domSel = window.getSelection();
     if (!domSel || domSel.isCollapsed || domSel.rangeCount === 0) return;
@@ -704,23 +809,25 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     recordTextSelection();
   };
   // On the document, not the article: a drag that ends in the margin or outside the window's text column
-  // releases off the article, and it is still the selection the reader sees (C-06 review).
+  // releases off the article, and it is still the selection the reader sees.
   const onDocumentMouseUp = (ev: MouseEvent): void => {
     pointerDown = false;
-    // A secondary click (right-click, or Ctrl-click on a Mac) opens the verb menu (C-13): it neither makes
+    // A secondary click (right-click, or Ctrl-click on a Mac) opens the verb menu: it neither makes
     // nor drops a drag, and the word WebKit selects under it is not the reader's selection.
     if (isSecondaryClick(ev)) return;
     // Only a selection that touches the article is recorded (`recordDrag` clamps to it), wherever the
     // pointer came up.
     recordTextSelection();
     // A plain click that takes the highlight away (in the margin, say) takes the recorded drag with it, so
-    // Mod+C cannot copy a passage the reader no longer sees (C-06 review). WebKit collapses the selection as
+    // Mod+C cannot copy a passage the reader no longer sees. WebKit collapses the selection as
     // the press's default action, after this listener, so the check waits a task. A click in a summoned
     // surface (the palette, the verb menu) is not one: they act on the drag made before they were summoned.
     const inSurface = ev.target instanceof Element && ev.target.closest('dialog, .marxy-verb-menu') !== null;
     if (!inSurface) {
       const recorded = state.selection;
       setTimeout(() => {
+        // A surface summoned in the meantime (Mod+P straight after the drag) took the highlight by taking focus.
+        if (document.activeElement?.closest('dialog, .marxy-verb-menu')) return;
         const live = window.getSelection();
         const collapsed = !live || live.isCollapsed || live.rangeCount === 0;
         if (collapsed && state.selection === recorded && recorded.kind === 'text') selectNone();
@@ -737,7 +844,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     const { article } = record.target;
     // A click is not a drag until the pointer has moved a few pixels: a hand's jitter must still select.
     const onMouseDown = (ev: MouseEvent): void => {
-      // Shift+press with a block or a run selected extends the run (E-05): the browser must not extend a text selection.
+      // Shift+press with a block or a run selected extends the run: the browser must not extend a text selection.
       if (ev.shiftKey && ev.button === 0 && record === active && (state.selection.kind === 'node' || state.selection.kind === 'blocks')) {
         ev.preventDefault();
       }
@@ -753,7 +860,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       // click that is not prevented navigates the window whether or not a handler follows it.
       const link = ev.target instanceof Element ? ev.target.closest('a[href]') : null;
       if (link) ev.preventDefault();
-      // Ctrl-click on a Mac is a secondary click: the verb menu's, never a link to follow (C-13).
+      // Ctrl-click on a Mac is a secondary click: the verb menu's, never a link to follow.
       if (isSecondaryClick(ev)) return;
       if (record !== active) return;
       void onClick(ev);
@@ -794,6 +901,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
   active = owner;
   document.addEventListener('selectionchange', onSelectionChange);
   document.addEventListener('mouseup', onDocumentMouseUp);
+  document.addEventListener('keydown', onKeyDown, true);
 
   /** Nothing selected, on the focused pane's page or the browser's: a drag there is the reader's no longer. */
   const dropSelectionOf = (record: PaneRecord): void => {
@@ -813,6 +921,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       record.shownPath = null;
       record.shownVersion = null;
       forgetClick(record);
+      if (focused) changed();
       return;
     }
     record.shownVersion = snap.version;
@@ -829,6 +938,113 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     if (focused) reresolve();
     applyInvisibleMarkers(article);
     applyLinkDestinations(article);
+    dressDepths(record.target);
+  };
+
+  const carrierOf = (block: Block): Element | null => elementForRange(active.target.article, block.src.start, block.src.end);
+
+  /** A block can hold the cursor once it is on the page: a long document is mounted as far as it, first. */
+  const partOk: PartOk = (block) => {
+    active.target.mountThrough(block.src.start);
+    const el = carrierOf(block);
+    // A part a lens left out is depth-hidden too (depths/lens.ts).
+    return el !== null && el.closest(DERIVED) === null && !depthHidden(el);
+  };
+
+  /** The block the cursor is on: a run's free end, a section's heading, an inline's block. */
+  const cursorHead = (doc: Document): Block | null => {
+    const sel = state.selection;
+    if (sel.kind === 'node') return isBlock(sel.node) ? sel.node : blockAt(doc, sel.node.src.start);
+    if (sel.kind === 'section') return sel.heading;
+    if (sel.kind === 'blocks') return runOf(sel).head;
+    return null;
+  };
+
+  /** The window, or the pane's own section once there are two. */
+  const scrollBox = (scroller: HTMLElement): { top: number; bottom: number } =>
+    scroller === document.scrollingElement || scroller === document.documentElement || scroller === document.body
+      ? { top: 0, bottom: window.innerHeight }
+      : scroller.getBoundingClientRect();
+
+  /** The first part at the top level whose bottom is below the reading line; the last one on the page if none is. */
+  const startPart = (doc: Document): Block | null => {
+    const scroller = scrollerOf(active);
+    const line = scrollBox(scroller).top + readingLine(scroller.clientHeight);
+    const byRange = new Map(doc.children.map((b) => [`${b.src.start}-${b.src.end}`, b]));
+    let last: Block | null = null;
+    for (const el of active.target.article.querySelectorAll('[data-marxy-s]')) {
+      const block = byRange.get(`${el.getAttribute('data-marxy-s')}-${el.getAttribute('data-marxy-e')}`);
+      if (!block || el.closest(DERIVED) !== null) continue;
+      last = block;
+      if (el.getBoundingClientRect().bottom > line) return block;
+    }
+    return last;
+  };
+
+  // What the bar at the foot of the pane and a line of room above it take; the head at the top covers the page under it.
+  const REVEAL_FOOT = 64;
+  const REVEAL_TOP = 8;
+
+  /** Scrolls `el` into the visible part of its pane only as far as it must: nothing when it is all in view already. */
+  const reveal = (el: Element): void => {
+    const scroller = scrollerOf(active);
+    const box = scrollBox(scroller);
+    const slot = appHandle()?.panes().panes.find((pane) => pane.article === active.target.article)?.slot ?? 0;
+    const headBottom = document.querySelector(`[data-marxy-head="${slot}"]`)?.getBoundingClientRect().bottom ?? box.top;
+    const top = Math.max(box.top, headBottom) + REVEAL_TOP;
+    const bottom = Math.min(box.bottom, window.innerHeight) - REVEAL_FOOT;
+    const at = standIn(el);
+    const r = (at.closest('pre') ?? at).getBoundingClientRect();
+    // A part taller than the room left is shown from its top.
+    const delta = r.top < top ? r.top - top : r.bottom > bottom ? Math.min(r.bottom - bottom, r.top - top) : 0;
+    if (delta !== 0) scroller.scrollTop += delta;
+  };
+
+  /** Puts the cursor on `block`; with `anchor`, the run from it to `block`. False when `block` is not on the page. */
+  const setCursor = (doc: Document, block: Block, anchor?: Block): boolean => {
+    const el = carrierOf(block);
+    if (!el) return false;
+    // A goto (the Line, Outline, Search) may land in a fold, only-this or a lens: open it first, as a fragment landing does.
+    exposeAt(el);
+    // The cursor takes over from a drag: the browser's own selection would otherwise still be copied.
+    const live = window.getSelection();
+    if (live && !live.isCollapsed) live.removeAllRanges();
+    if (anchor && anchor !== block) {
+      runEnds = { anchor, head: block };
+      const [first, last] = anchor.src.start <= block.src.start ? [anchor, block] : [block, anchor];
+      selectRun(first, last);
+    } else {
+      runEnds = null;
+      active.lastClickTarget = el;
+      state = select(state, cursorSelection(doc, block, el));
+      paint();
+    }
+    reveal(el);
+    return true;
+  };
+
+  const cursorMove = (move: CursorMove): boolean => {
+    const doc = opts.store()?.snapshot().ast;
+    if (!doc || !controller.cursorReady()) return false;
+    const from = cursorHead(doc);
+    let target: Block | null = null;
+    if (move === 'first' || move === 'last') target = edgePart(doc, move, partOk);
+    else if (move === 'next-heading' || move === 'prev-heading') {
+      const at = from ?? startPart(doc);
+      target = headingPart(doc, at?.src.start ?? -1, move === 'next-heading' ? 1 : -1, partOk);
+    } else if (!from) {
+      if (move === 'out') return false;
+      target = startPart(doc);
+    } else if (move === 'next' || move === 'prev') target = stepPart(doc, from, move === 'next' ? 1 : -1, partOk);
+    else if (move === 'in') target = intoPart(doc, from, partOk);
+    else if (move === 'out') target = outPart(doc, from, partOk);
+    else {
+      const sel = state.selection;
+      const ends = sel.kind === 'blocks' ? runOf(sel) : { anchor: from, head: from };
+      const head = extendHead(doc, ends.anchor, ends.head, move === 'extend-down' ? 1 : -1, partOk);
+      return head ? setCursor(doc, head, ends.anchor) : false;
+    }
+    return target ? setCursor(doc, target) : false;
   };
 
   const controller: RenderedSelection = {
@@ -842,7 +1058,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     moveDown() {
       const doc = opts.store()?.snapshot().ast;
       if (!doc) return;
-      // A run collapses to its last block (E-05).
+      // A run collapses to its last block.
       if (state.selection.kind === 'blocks') {
         const { last, els } = state.selection;
         const el = elementForRange(active.target.article, last.src.start, last.src.end) ?? els.at(-1);
@@ -874,6 +1090,28 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     moveParent() {
       const doc = opts.store()?.snapshot().ast;
       if (doc) move(parentOf(doc, state.selection));
+    },
+    cursorReady() {
+      if (!opts.store()) return false;
+      const { article } = active.target;
+      if (article.hidden || article.closest('[hidden]') !== null || article.querySelector(DERIVED) !== null) return false;
+      // A reading's page (a data tree, records, a log's entries) is walked by the parts cursor (parts/cursor.ts).
+      if (readingPage(article)) return false;
+      return article.querySelector('[data-marxy-s]') !== null;
+    },
+    cursorMove,
+    cursorAt(byte, length) {
+      const doc = opts.store()?.snapshot().ast;
+      const block = doc ? (length === undefined ? null : blockSpanning(doc, byte, length)) ?? blockAt(doc, byte) : null;
+      if (!doc || !block || !controller.cursorReady()) return false;
+      active.target.mountThrough(block.src.start);
+      return setCursor(doc, block);
+    },
+    onChange(cb) {
+      changeListeners.add(cb);
+      return () => {
+        changeListeners.delete(cb);
+      };
     },
     onHistoryChange(cb) {
       historyListeners.add(cb);
@@ -919,6 +1157,10 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
     lastPointerCarrier() {
       return active.pointerCarrier;
     },
+    recordLive() {
+      // Only a keyboard change its `selectionchange` has not reached yet: a mouse drag was recorded at its pointer-up.
+      if (keyedSinceChange) onSelectionChange();
+    },
     afterRender() {
       afterRenderOf(owner);
     },
@@ -940,6 +1182,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       if (!record || record === active) return;
       dropSelectionOf(active);
       active = record;
+      changed();
     },
     article: () => active.target.article,
     forArticle(article) {
@@ -961,6 +1204,7 @@ export function createRenderedSelection(first: RenderedSelectionOptions): Render
       records.clear();
       document.removeEventListener('selectionchange', onSelectionChange);
       document.removeEventListener('mouseup', onDocumentMouseUp);
+      document.removeEventListener('keydown', onKeyDown, true);
     },
   };
 

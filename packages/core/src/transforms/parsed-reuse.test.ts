@@ -1,4 +1,4 @@
-// F-60: a parse handed to a transform or to Copy as is a cache and nothing more. With a parse of exactly the text, with
+// a parse handed to a transform or to Copy as is a cache and nothing more. With a parse of exactly the text, with
 // one a character off, or with one of some other text, the bytes out are the bytes out without it; and with the
 // matching parse the body does not parse again (the counter), which is the whole point of handing it in.
 import assert from 'node:assert/strict';
@@ -169,7 +169,7 @@ test('the parse a body is given does not outlive the call: a later run without i
   assert.equal(runTransform('strip-hr', text, { parsed: held }), runTransform('strip-hr', text));
 });
 
-test('the guard: a parse whose root does not end at the text\'s UTF-8 length is ignored, whatever its text says (F-60.1)', () => {
+test('the guard: a parse whose root does not end at the text\'s UTF-8 length is ignored, whatever its text says', () => {
   // `text` has multi-byte characters, so its length in UTF-16 units and in bytes differ; the mismatched parse is the
   // parse of a different document carried under this text, as a stale parse mislabelled with the current text would be.
   const text = '# Café 日本語 🙂\n\n---\n\n* one\n* two\n';

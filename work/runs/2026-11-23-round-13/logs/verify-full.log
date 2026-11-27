@@ -1,0 +1,47 @@
+$ node scripts/verify.mjs "--tier" "full"
+verify full in C:\Dev\reader\worktrees\round13
+23 files changed against master; unit suites: desktop, theme, scripts; browser files: 259; rust changed; unmapped: apps/desktop/test/support/tauri-core-stub.mjs, apps/desktop/test/support/tauri-event-stub.mjs
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\round13-2026-11-24T04-37-21
+
+PASS    install        0.4s      
+PASS    typecheck      11.3s     
+PASS    lint           2.2s      
+PASS    check          11.1s     10 pass, 0 fail
+PASS    golden         1.6s      
+PASS    fidelity       17.6s     
+PASS    licences       0.7s      
+PASS    unit-core      188.5s    4292 pass, 0 fail, 3 skip
+PASS    unit-theme     39.5s     305 pass, 0 fail
+PASS    unit-typeset   41.8s     80 pass, 0 fail
+PASS    unit-scripts   74.0s     261 pass, 0 fail
+PASS    unit-desktop   286.2s    1315 pass, 0 fail, 1 skip
+PASS    lint-rust      54.6s     
+PASS    browser        2013.5s   2482 pass, 0 fail, 4 skip
+PASS    cargo          88.2s     624 pass, 0 fail, 5 skip
+PASS    build          318.3s    
+PASS    tauri          92.8s     117 pass, 0 fail
+
+step          result  wall     tests
+------------  ------  -------  -------------------------
+install       pass    0.4s
+typecheck     pass    11.3s
+lint          pass    2.2s
+check         pass    11.1s    10 pass, 0 fail
+golden        pass    1.6s
+fidelity      pass    17.6s
+licences      pass    0.7s
+unit-core     pass    188.5s   4292 pass, 0 fail, 3 skip
+unit-theme    pass    39.5s    305 pass, 0 fail
+unit-typeset  pass    41.8s    80 pass, 0 fail
+unit-scripts  pass    74.0s    261 pass, 0 fail
+unit-desktop  pass    286.2s   1315 pass, 0 fail, 1 skip
+lint-rust     pass    54.6s
+browser       pass    2013.5s  2482 pass, 0 fail, 4 skip
+cargo         pass    88.2s    624 pass, 0 fail, 5 skip
+build         pass    318.3s
+tauri         pass    92.8s    117 pass, 0 fail
+------------  ------  -------  -------------------------
+total                 3242.1s
+
+verify full: 17/17 steps passed
+exit 0

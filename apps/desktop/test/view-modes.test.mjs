@@ -1,4 +1,4 @@
-// Read, Split and Source on Mod+1, Mod+2, Mod+3 (W-19; ADR-0058 item 7). Booted on the shipped skeleton
+// Read, Split and Source on Mod+1, Mod+2, Mod+3. Booted on the shipped skeleton
 // over the memory shell (test/support/split-same.mjs).
 import { strict as assert } from 'node:assert';
 import { after } from 'node:test';
@@ -51,7 +51,7 @@ test('the reading position survives Read to Source and back', async () => {
   });
 });
 
-test('Mod+1 works from inside the Source editor; over one document twice it leaves Split (F-44)', async () => {
+test('Mod+1 works from inside the Source editor; over one document twice it leaves Split', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
     await page.keyboard.press(`${mod}+3`);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes.length === 1 && window.__marxyHandle.panes().panes[0].view.mode === 'source');
@@ -82,7 +82,7 @@ test('Mod+2 on one pane showing Source puts Read on the left first', async () =>
   });
 });
 
-test('Mod+2 on two panes over one path leaves Split: one pane in Read (F-44)', async () => {
+test('Mod+2 on two panes over one path leaves Split: one pane in Read', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
     await page.keyboard.press(`${mod}+2`);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes.length === 1);
@@ -102,7 +102,7 @@ test('Mod+2 on two panes over two files changes nothing and says why', async () 
   });
 });
 
-test('switching modes changes no bytes (W-19.1)', async () => {
+test('switching modes changes no bytes', async () => {
   await withPanes(['/r/A.md'], async (page, mod) => {
     const bytes = () => page.evaluate(() => new TextDecoder().decode(window.__marxyHandle.panes().panes[0].view.store().snapshot().buffer.bytes));
     const before = await bytes();

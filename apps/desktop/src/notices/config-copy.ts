@@ -1,5 +1,5 @@
 // The words of the notices the collection and kind commands, the layout restore and the disk-conflict choice say, each
-// with the kind it is (U-02.1). One template (X-21 ruling 10): what happened · what is unchanged · what to do. A part
+// with the kind it is. One template: what happened · what is unchanged · what to do. A part
 // that has nothing to say is left out, never padded. Nothing here claims a write that did not happen: an outcome says what
 // was written, and every refusal and failure says the file is as it was.
 import { notify as defaultNotify, type NoticeInput, type NoticeKind } from './index.ts';
@@ -17,7 +17,7 @@ export function said(happened: string, unchanged?: string, todo?: string): strin
 
 const why = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-/** collection.toml: the two palette commands of C-14. */
+/** collection.toml: the two palette commands. */
 export const COLLECTION_SAYS = {
   noConfigAdd: (): Said => ({
     kind: 'refused',
@@ -59,7 +59,7 @@ export const COLLECTION_SAYS = {
   }),
 } as const;
 
-/** collection.toml: *Save as smart collection* and *Edit in collection.toml* (Q-07). Every refusal says the file is as it was. */
+/** collection.toml: *Save as smart collection* and *Edit in collection.toml*. Every refusal says the file is as it was. */
 export const SMART_SAYS = {
   noConfig: (): Said => ({
     kind: 'refused',
@@ -108,7 +108,7 @@ export const SMART_SAYS = {
   }),
 } as const;
 
-/** kinds.json and config.toml: *Show as* and *Always open this folder as* (K-04). */
+/** kinds.json and config.toml: *Show as* and *Always open this folder as*. */
 export const KIND_SAYS = {
   quarantined: (): Said => ({
     kind: 'error',
@@ -163,7 +163,7 @@ export function layoutLeftOut(name: string, gone: boolean): string {
   );
 }
 
-/** What resolving a disk conflict did (V-07). Both are outcomes the reader chose. */
+/** What resolving a disk conflict did. Both are outcomes the reader chose. */
 export function conflictCopySaved(copyName: string, stillDirty: boolean): Said {
   return {
     kind: 'done',
@@ -184,7 +184,17 @@ export const CONFLICT_COPY_FAILED = (reason: string): Said => ({
   text: said(`Could not save a copy: ${reason.replace(/\.$/, '')}`, 'nothing was changed; your edits are still here', 'Try again, or save somewhere else.'),
 });
 
-// K-07.1: `[strip]` and `[[kind]]` parse warnings of config.toml, shown once.
+/** The copy is written only in the file's own encoding, and that cannot hold the edits: trying again or elsewhere would not help. */
+export const CONFLICT_COPY_NOT_IN_ENCODING = (encoding: string, reason: string): Said => ({
+  kind: 'error',
+  text: said(
+    `Could not save a copy in ${encoding}, the file's encoding: ${reason.replace(/\.$/, '')}`,
+    'nothing was changed; your edits are still here',
+    'Open Source (Mod+E) and copy your text out to keep it.',
+  ),
+});
+
+// `[strip]` and `[[kind]]` parse warnings of config.toml, shown once.
 
 const MAX_SHOWN = 3;
 const FIX = 'fix it in config.toml';

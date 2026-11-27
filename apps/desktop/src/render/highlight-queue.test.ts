@@ -1,4 +1,4 @@
-// B-21: a closed document's queued highlight jobs are not run, and the next document does not wait for them.
+// a closed document's queued highlight jobs are not run, and the next document does not wait for them.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { closedJobIds, JobQueue } from './highlight-queue.ts';

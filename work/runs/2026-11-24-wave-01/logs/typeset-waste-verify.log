@@ -1,0 +1,32 @@
+verify-turn: slot a, typeset-waste, pnpm verify --tier changed (2026-11-24T17:09:51-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\typeset-waste
+3 files changed against master; unit suites: typeset; browser files: 5
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\typeset-waste-2026-11-25T01-09-52
+
+PASS    install        0.6s      
+PASS    typecheck      14.0s     
+PASS    lint           2.4s      
+PASS    check          14.3s     10 pass, 0 fail
+PASS    golden         2.3s      
+PASS    fidelity       22.8s     
+PASS    licences       0.8s      
+PASS    unit-typeset   51.7s     90 pass, 0 fail
+PASS    browser        64.9s     16 pass, 0 fail
+
+step          result  wall   tests
+------------  ------  -----  ---------------
+install       pass    0.6s
+typecheck     pass    14.0s
+lint          pass    2.4s
+check         pass    14.3s  10 pass, 0 fail
+golden        pass    2.3s
+fidelity      pass    22.8s
+licences      pass    0.8s
+unit-typeset  pass    51.7s  90 pass, 0 fail
+browser       pass    64.9s  16 pass, 0 fail
+------------  ------  -----  ---------------
+total                 173.8s
+
+verify changed: 9/9 steps passed
+verify-turn: exit 0 (2026-11-24T17:12:46-08:00)

@@ -1,14 +1,30 @@
 //! marxy desktop shell. Everything privileged lives here behind the shell-api contract.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod archive;
 mod atomic_write;
 mod commands;
+mod data_dir;
+mod decode;
+mod detect;
+#[cfg(windows)]
+mod drop_windows;
+mod encoding;
 mod error;
+mod facts;
+mod file_scheme;
+mod font;
+mod legacy_office;
+mod outlook;
 mod pasteboard;
+mod remote;
+mod scope;
+mod tables;
 mod watch;
 #[path = "watch/spawn_notify.rs"]
 mod watch_notify;
 #[path = "watch/tree.rs"]
 mod watch_tree;
+mod window_state;
 
 use std::collections::HashMap;
 use std::io::Write;
@@ -45,7 +61,10 @@ fn args() -> Vec<String> {
             if a.starts_with('-') {
                 a
             } else {
-                absolute_document_path(&cwd, &a).unwrap_or(a)
+                let path = absolute_document_path(&cwd, &a).unwrap_or(a);
+                // The reader opened what they launched with.
+                scope::open_file(file_scheme::opened(), &path);
+                path
             }
         })
         .collect()
@@ -58,8 +77,7 @@ fn absolute_document_path(base: &Path, arg: &str) -> Option<String> {
     } else {
         base.join(path)
     };
-    resolved
-        .canonicalize()
+    dunce::canonicalize(&resolved)
         .unwrap_or(resolved)
         .to_str()
         .map(String::from)
@@ -97,26 +115,41 @@ fn clipboard_payload(text: String, html: Option<String>) -> ClipboardPayload {
 
 /// The document's bytes exactly as they are on disk: no decoding, no line-ending or byte-order-mark
 /// handling, because everything above this reads what the reader's file actually contains. A symlink is
-/// followed; a target that is not a regular file, or is above 256 MB, is refused before it is read (F-52).
+/// followed; a target that is not a regular file, or is above 256 MB, is refused before it is read.
 ///
 /// Returned as a raw IPC body, which the webview receives as an `ArrayBuffer`. A `Vec<u8>` would be
 /// serialised as a JSON array of numbers: about 3.7 bytes of JSON per byte of document, built here
 /// and parsed there, on the cold-start path.
 #[tauri::command]
-fn read_file(path: String) -> Result<tauri::ipc::Response, String> {
-    commands::fs::read_regular_file(&path, commands::fs::MAX_OPEN_BYTES)
+async fn read_file(path: String) -> Result<tauri::ipc::Response, ShellError> {
+    let shown = path.clone();
+    // Reading puts nothing in scope: `mark_opened` and the launch, drop and picker routes do (src/scope.rs).
+    commands::fs::off_main(move || commands::fs::read_file_in(file_scheme::opened(), &path))
+        .await
+        .map_err(|e| ShellError::io(&shown, e))?
         .map(tauri::ipc::Response::new)
 }
 
-/// The first `max_bytes` of a regular file, at most 256 KB, as a raw IPC body (C-11.2). A narrower
-/// form of `read_file`: a symlink or anything that is not a regular file is refused before it is opened.
+/// The first `max_bytes` of a regular file, at most 256 KB, as a raw IPC body. A narrower
+/// form of `read_file`: a symlink or anything that is not a regular file is refused before it is opened. The index reads
+/// heads through it; that never makes a file one the reader opened.
 #[tauri::command]
-fn read_head(path: String, max_bytes: u64) -> Result<tauri::ipc::Response, ShellError> {
-    commands::fs::read_head_bytes(&path, max_bytes).map(tauri::ipc::Response::new)
+async fn read_head(path: String, max_bytes: u64) -> Result<tauri::ipc::Response, ShellError> {
+    let shown = path.clone();
+    commands::fs::off_main(move || {
+        commands::fs::read_head_in(file_scheme::opened(), &path, max_bytes)
+    })
+    .await
+    .map_err(|e| ShellError::io(&shown, e))?
+    .map(tauri::ipc::Response::new)
 }
 
 /// The header `write_file_atomic` reads its destination from, percent-encoded by the webview.
 const WRITE_PATH_HEADER: &str = "x-marxy-path";
+
+/// The header holding what the webview last read at the destination (`atomic_write::Expected` in hex); a save
+/// without it has no precondition.
+const WRITE_EXPECT_HEADER: &str = "x-marxy-expect";
 
 /// The destination and the bytes of a write request: the raw body is the document, the path rides in
 /// `x-marxy-path`. `command` names the caller in a refusal.
@@ -145,28 +178,63 @@ fn write_error(path: &str, e: atomic_write::WriteError) -> ShellError {
         WriteErrorKind::Permission => ShellError::permission(path, e.message),
         WriteErrorKind::Io => ShellError::io(path, e.message),
         WriteErrorKind::Exists => ShellError::exists(path, e.message),
+        WriteErrorKind::Changed => ShellError::changed(path, e.message),
     }
 }
 
 /// Saves exactly the request's raw body and nothing else about the file; see `atomic_write` for the
 /// guarantees and the cases it refuses. The bytes arrive as a raw body, not a JSON array of numbers,
-/// and the path in `x-marxy-path`. Checked end to end over the corpus by `pnpm gate:fidelity`.
+/// and the path in `x-marxy-path`. With `x-marxy-expect`, the save is refused (`changed`) when the file
+/// is no longer what was read, checked on the open file just before it is replaced. Checked end to end
+/// over the corpus by `pnpm gate:fidelity`.
 #[tauri::command]
-fn write_file_atomic(request: tauri::ipc::Request<'_>) -> Result<(), ShellError> {
+async fn write_file_atomic(request: tauri::ipc::Request<'_>) -> Result<(), ShellError> {
     let (path, bytes) = write_request("write_file_atomic", &request)?;
-    atomic_write::write_atomic(std::path::Path::new(&path), bytes)
-        .map_err(|e| write_error(&path, e))
+    let expected = match request.headers().get(WRITE_EXPECT_HEADER) {
+        None => None,
+        Some(value) => Some(
+            value
+                .to_str()
+                .ok()
+                .and_then(atomic_write::Expected::from_hex)
+                .ok_or_else(|| {
+                    ShellError::invalid(
+                        &path,
+                        format!("write_file_atomic: {WRITE_EXPECT_HEADER} is not a length and SHA-256 in hex"),
+                    )
+                })?,
+        ),
+    };
+    // The blocking pool needs owned bytes; `Request` only lends its body.
+    let bytes = bytes.to_vec();
+    let target = path.clone();
+    commands::fs::off_main(move || {
+        let at = scope::admit(&target, scope::Need::Write)?;
+        let _held = scope::hold_parent(file_scheme::opened(), &at, scope::Need::Write)?;
+        atomic_write::write_atomic_unless_changed(&at, &bytes, expected.as_ref())
+            .map_err(|e| write_error(&target, e))
+    })
+    .await
+    .map_err(|e| ShellError::io(&path, e))?
 }
 
 /// Creates a file at the request's path with the request's raw body, only if nothing is at that name:
 /// a file, a folder, a link or a dangling one, and it never follows a link. Fails `exists` and writes
-/// nothing otherwise (F-85, ADR-0074). The same request shape as `write_file_atomic`; the guarantees
+/// nothing otherwise. The same request shape as `write_file_atomic`; the guarantees
 /// are in `atomic_write::write_new`. Never replaces, so it is the write for anything made beside a
 /// reader's file rather than over it.
 #[tauri::command]
-fn write_file_new(request: tauri::ipc::Request<'_>) -> Result<(), ShellError> {
+async fn write_file_new(request: tauri::ipc::Request<'_>) -> Result<(), ShellError> {
     let (path, bytes) = write_request("write_file_new", &request)?;
-    atomic_write::write_new(std::path::Path::new(&path), bytes).map_err(|e| write_error(&path, e))
+    let bytes = bytes.to_vec();
+    let target = path.clone();
+    commands::fs::off_main(move || {
+        let at = scope::admit(&target, scope::Need::Create)?;
+        let _held = scope::hold_parent(file_scheme::opened(), &at, scope::Need::Create)?;
+        atomic_write::write_new(&at, &bytes).map_err(|e| write_error(&target, e))
+    })
+    .await
+    .map_err(|e| ShellError::io(&path, e))?
 }
 
 #[tauri::command]
@@ -179,8 +247,28 @@ fn set_title(app: tauri::AppHandle, title: String) -> Result<(), ShellError> {
         .map_err(|e| ShellError::io("", e.to_string()))
 }
 
+#[tauri::command]
+fn set_fullscreen(app: tauri::AppHandle, on: bool) -> Result<(), ShellError> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| ShellError::invalid("", "no main window"))?;
+    window
+        .set_fullscreen(on)
+        .map_err(|e| ShellError::io("", e.to_string()))
+}
+
+#[tauri::command]
+fn is_fullscreen(app: tauri::AppHandle) -> Result<bool, ShellError> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or_else(|| ShellError::invalid("", "no main window"))?;
+    window
+        .is_fullscreen()
+        .map_err(|e| ShellError::io("", e.to_string()))
+}
+
 /// A save dialog's starting point from the webview's `defaultPath`: a bare name is only a file name, as
-/// it always was; a path with a folder in it starts the dialog in that folder (W-14: *New file here*),
+/// it always was; a path with a folder in it starts the dialog in that folder (*New file here*),
 /// and only when the folder exists, since a name in a folder that is not there would start nowhere.
 /// Nothing is created or written: this only says where the dialog opens.
 fn save_dialog_start(default_path: &str) -> (Option<std::path::PathBuf>, String) {
@@ -217,7 +305,62 @@ async fn save_dialog(
     })
     .await
     .map_err(|e| ShellError::io("", e.to_string()))?;
-    Ok(path.map(|p| p.to_string()))
+    let path = path.map(|p| p.to_string());
+    // The name the reader chose is theirs to write, whether or not a file is there yet.
+    if let Some(p) = &path {
+        scope::open_file(file_scheme::opened(), p);
+    }
+    Ok(path)
+}
+
+/// The webview's own picker (Open file…, Add a folder…): what the reader chose, canonical the way a second
+/// launch's paths are, or nothing when they cancelled. Nothing is opened or read here.
+#[tauri::command]
+async fn open_dialog(
+    app: tauri::AppHandle,
+    directory: Option<bool>,
+    multiple: Option<bool>,
+) -> Result<Vec<String>, ShellError> {
+    use tauri_plugin_dialog::DialogExt;
+    let directory = directory.unwrap_or(false);
+    let multiple = multiple.unwrap_or(false);
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        let picker = app.dialog().file();
+        if directory {
+            return picker
+                .blocking_pick_folder()
+                .into_iter()
+                .collect::<Vec<_>>();
+        }
+        // "All files" first: Marxy reads any file, so the picker starts by showing them all.
+        let picker = picker
+            .add_filter("All files", &["*"])
+            .add_filter("Markdown", DOCUMENT_EXTENSIONS);
+        if multiple {
+            picker.blocking_pick_files().unwrap_or_default()
+        } else {
+            picker.blocking_pick_file().into_iter().collect()
+        }
+    })
+    .await
+    .map_err(|e| ShellError::io("", e.to_string()))?;
+    let picked: Vec<String> = picked
+        .into_iter()
+        .filter_map(|p| p.into_path().ok())
+        .filter_map(|p| {
+            p.to_str()
+                .and_then(|s| absolute_document_path(Path::new("/"), s))
+        })
+        .collect();
+    // What the reader picked is in scope: a file as opened, a folder as a place for the index.
+    for p in &picked {
+        if directory {
+            let _ = scope::open_picked_folder(file_scheme::opened(), p);
+        } else {
+            scope::open_file(file_scheme::opened(), p);
+        }
+    }
+    Ok(picked)
 }
 
 #[tauri::command]
@@ -225,8 +368,9 @@ fn close_confirmed(app: tauri::AppHandle) -> Result<(), ShellError> {
     let window = app
         .get_webview_window("main")
         .ok_or_else(|| ShellError::invalid("", "no main window"))?;
+    save_window_state(&app);
     // `destroy`, not `close`: `close` raises CloseRequested again, the run handler prevents it and asks
-    // the webview again, and confirm -> close -> ask never ends (MARXY-337). `destroy` is Tauri's forced
+    // the webview again, and confirm -> close -> ask never ends. `destroy` is Tauri's forced
     // close; it skips CloseRequested, and the last window going ends the app.
     window
         .destroy()
@@ -333,7 +477,7 @@ fn watch_table() -> &'static Mutex<HashMap<String, WatchEntry>> {
 ///
 /// Lock order: the watch table, then this. A recording is added and dropped with the table lock held,
 /// in the same step as the entry it belongs to, so a watch registered while an older one for the same
-/// key is still stopping keeps its recording (C-11.1).
+/// key is still stopping keeps its recording.
 fn raw_watch_roots() -> &'static Mutex<HashMap<String, String>> {
     static TABLE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
     TABLE.get_or_init(|| Mutex::new(HashMap::new()))
@@ -468,12 +612,12 @@ fn on_tree_refused(
 
 fn canonical_watch_root(root: &str) -> Result<String, String> {
     let path = PathBuf::from(root);
-    let canon = path.canonicalize().map_err(|e| format!("{root}: {e}"))?;
+    let canon = dunce::canonicalize(&path).map_err(|e| format!("{root}: {e}"))?;
     Ok(canon.to_string_lossy().into_owned())
 }
 
 /// Appended to a tree watch's table key, so a tree watch and a folder watch of the same directory
-/// never share a thread (C-05). A NUL cannot occur in a path, so no folder key ever ends this way.
+/// never share a thread. A NUL cannot occur in a path, so no folder key ever ends this way.
 const TREE_KEY_SUFFIX: &str = "\u{0}tree";
 
 /// The table key for a watch of `canonical`: the path itself for a folder, the path and the suffix
@@ -549,41 +693,70 @@ fn emit_fs_watch(app: &tauri::AppHandle, key: &str, events: Vec<watch::WatchEven
 
 /// Starts (or shares) one `notify` thread per table key and returns the key; events go to
 /// `fs-watch` tagged with it. A folder watch (the default) sees the folder's own files; a
-/// `recursive` watch sees the tree. Async, so registering watches, scanning a tree and joining a
-/// stopping thread run off the main thread; the table is not locked while a tree is scanned.
+/// `recursive` watch sees the tree. Registering watches, scanning a tree and joining a stopping
+/// thread run on the blocking pool; the table is not locked while a tree is scanned.
 #[tauri::command]
 async fn watch_root(
     app: tauri::AppHandle,
     root: String,
     recursive: Option<bool>,
+    ignore: Option<Vec<String>>,
 ) -> Result<WatchHandle, String> {
-    let emit_app = app.clone();
-    start_watch(
-        watch_table(),
-        raw_watch_roots(),
-        &root,
-        recursive.unwrap_or(false),
-        move |key, events| emit_fs_watch(&emit_app, &key, events),
-        move |payload| {
-            let _ = app.emit("fs-watch", payload);
-        },
-        watch_notify::spawn_tree_thread,
-    )
+    let recursive_watch = recursive.unwrap_or(false);
+    // A tree is watched only inside a place the reader chose; a folder's own files also in the folder of an opened file.
+    let need = if recursive_watch {
+        scope::Need::Read
+    } else {
+        scope::Need::Folder
+    };
+    on_blocking_pool(move || {
+        scope::admit(&root, need).map_err(|e| e.message)?;
+        let emit_app = app.clone();
+        start_watch(
+            watch_table(),
+            raw_watch_roots(),
+            &root,
+            recursive.unwrap_or(false),
+            ignore
+                .unwrap_or_default()
+                .into_iter()
+                .map(PathBuf::from)
+                .collect(),
+            move |key, events| emit_fs_watch(&emit_app, &key, events),
+            move |payload| {
+                let _ = app.emit("fs-watch", payload);
+            },
+            watch_notify::spawn_tree_thread_ignoring,
+        )
+    })
+    .await
+}
+
+/// Runs a watch command's body on the blocking pool: an async command's body runs on a runtime worker, and a tree
+/// scan of 200,000 files or a join of a stopping thread would hold that worker, and every command queued behind it.
+async fn on_blocking_pool<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    commands::fs::off_main(work).await?
 }
 
 /// The body of `watch_root`: share the running watch of `root` if there is one, else start one (the
 /// tree through `spawn_tree`, so a test can start a small-limit tree) and install it. `emit_events` is
 /// handed the table key and each batch; `emit_payload` the refusal of a tree that outgrew its limit.
 /// Lifted out of the command so a test drives the id through the same path the webview does.
+// Each argument is a seam a test replaces (the emitters, the spawn), so they are not bundled.
+#[allow(clippy::too_many_arguments)]
 fn start_watch(
     table: &'static WatchTable,
     raw_roots: &'static RawRoots,
     root: &str,
     recursive: bool,
+    ignore: Vec<PathBuf>,
     emit_events: impl Fn(String, Vec<watch::WatchEvent>) + Send + Sync + 'static,
     emit_payload: impl FnOnce(serde_json::Value) + Send + 'static,
     spawn_tree: impl FnOnce(
         PathBuf,
+        Vec<PathBuf>,
         Box<dyn FnMut(Vec<watch::WatchEvent>) + Send>,
         Box<dyn FnOnce(String) + Send>,
     ) -> Result<watch::RunningWatch, String>,
@@ -602,7 +775,12 @@ fn start_watch(
         let refuse = move |reason: String| {
             on_tree_refused(table, raw_roots, &refuse_key, id, &reason, emit_payload);
         };
-        spawn_tree(PathBuf::from(&canonical), Box::new(emit), Box::new(refuse))?
+        spawn_tree(
+            PathBuf::from(&canonical),
+            ignore,
+            Box::new(emit),
+            Box::new(refuse),
+        )?
     } else {
         watch_notify::spawn_poll_thread(PathBuf::from(&canonical), emit)?
     };
@@ -614,19 +792,53 @@ fn start_watch(
     Ok(WatchHandle { key, id })
 }
 
+/// Tells the running tree watch the handle `id` holds which folders to leave out from now on, and has it read the tree
+/// again where a folder is no longer left out. Only folders inside the watched root count; the watch drops the rest.
+#[tauri::command]
+async fn watch_ignore(root: String, id: u64, ignore: Vec<String>) -> Result<(), String> {
+    on_blocking_pool(move || set_watch_ignore(watch_table(), raw_watch_roots(), &root, id, ignore))
+        .await
+}
+
+/// The body of `watch_ignore`.
+fn set_watch_ignore(
+    table: &WatchTable,
+    raw_roots: &RawRoots,
+    root: &str,
+    id: u64,
+    ignore: Vec<String>,
+) -> Result<(), String> {
+    let key = {
+        let raw = raw_roots.lock().map_err(|e| e.to_string())?;
+        unwatch_key(&raw, root, true)?
+    };
+    let table = table.lock().map_err(|e| e.to_string())?;
+    let entry = table
+        .get(&key)
+        .filter(|entry| entry.id == id)
+        .ok_or_else(|| format!("{NOT_WATCHING} {root}"))?;
+    entry
+        .running
+        .set_ignore(ignore.into_iter().map(PathBuf::from).collect());
+    Ok(())
+}
+
 #[tauri::command]
 async fn unwatch_root(
     root: String,
     recursive: Option<bool>,
     id: Option<u64>,
 ) -> Result<(), String> {
-    stop_watch(
-        watch_table(),
-        raw_watch_roots(),
-        &root,
-        recursive.unwrap_or(false),
-        id,
-    )
+    on_blocking_pool(move || {
+        stop_watch(
+            watch_table(),
+            raw_watch_roots(),
+            &root,
+            recursive.unwrap_or(false),
+            id,
+        )
+    })
+    .await
 }
 
 /// The body of `unwatch_root`: let go of one reference to the watch the handle `id` holds.
@@ -649,7 +861,7 @@ fn stop_watch(
 /// Ends the process the one sanctioned way: Tauri's own teardown, then `exit(code)`.
 /// `AppHandle::exit` is not enough — it ends the process with status 0 and never returns to
 /// `main` — so the code is applied here. The `quit` command and the native menu's Quit and Close
-/// Window items (MARXY-184; a closed window leaves nothing to open into, since Marxy is
+/// Window items (a closed window leaves nothing to open into, since Marxy is
 /// single-window) all call this, so there is exactly one exit path.
 ///
 /// A harness launch (`quit_after_paint`) prints `MARK quit code=<n>` first, so a launch that stalls
@@ -660,6 +872,7 @@ fn quit_now(app: &tauri::AppHandle, code: i32) {
     if harness {
         mark("quit", now_ms(), Some(format!("code={code}")));
     }
+    save_window_state(app);
     app.cleanup_before_exit();
     if harness {
         harness_exit(code);
@@ -768,18 +981,31 @@ fn document_paths_from_drop(paths: &[PathBuf]) -> Vec<String> {
 /// remote page (or a relative path) into the window that shows it. Links are the app's to follow.
 fn navigation_guard<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
     tauri::plugin::Builder::new("marxy-navigation")
-        .on_navigation(|_, url| navigation_allowed(url))
+        .on_navigation(|_, url| navigation_allowed(url, cfg!(debug_assertions)))
         .build()
 }
 
-fn navigation_allowed(url: &tauri::Url) -> bool {
+/// The app's own origin only; a debug build also loads from the dev server, on whatever port it was given. In a
+/// release build a page on localhost is some other local server, never the app.
+fn navigation_allowed(url: &tauri::Url, debug: bool) -> bool {
     match url.scheme() {
-        "tauri" => true,
-        "http" | "https" => matches!(
-            url.host_str(),
-            Some("localhost") | Some("tauri.localhost") | Some("127.0.0.1")
-        ),
+        "tauri" => url.host_str() == Some("localhost"),
+        "http" | "https" => match url.host_str() {
+            Some("tauri.localhost") => url.port().is_none(),
+            Some("localhost") | Some("127.0.0.1") => debug,
+            _ => false,
+        },
         _ => false,
+    }
+}
+
+/// A harness launch saves nothing: the startup measurement may run on the reader's own data folder.
+fn save_window_state(app: &tauri::AppHandle) {
+    if quit_after_paint() {
+        return;
+    }
+    if let (Some(window), Ok(dir)) = (app.get_webview_window("main"), data_dir::data_dir(app)) {
+        window_state::save(&window, &window_state::state_path(&dir));
     }
 }
 
@@ -812,6 +1038,10 @@ fn deliver_open_files(app: &tauri::AppHandle, paths: Vec<String>) {
     if paths.is_empty() {
         return;
     }
+    // A second launch, a drop, Open with or the jump list: the reader opened these.
+    for p in &paths {
+        scope::open_file(file_scheme::opened(), p);
+    }
     focus_main_window(app);
     if OPENS_LISTENER_READY.load(Ordering::SeqCst) {
         let _ = app.emit("marxy:open-files", paths);
@@ -820,7 +1050,7 @@ fn deliver_open_files(app: &tauri::AppHandle, paths: Vec<String>) {
     }
 }
 
-/// Returns every open batch queued before the page listened, then clears the queue (MARXY-252).
+/// Returns every open batch queued before the page listened, then clears the queue.
 #[tauri::command]
 fn take_pending_opens() -> Vec<Vec<String>> {
     OPENS_LISTENER_READY.store(true, Ordering::SeqCst);
@@ -870,13 +1100,12 @@ fn paint_deadline_selftest() -> i32 {
 /// The extensions "Open File…" offers, matching the documents `marxy` already knows how to open:
 /// the markdown kinds `packages/core/src/index-model/kinds.ts` recognises, plus `txt` (the other extension
 /// `apps/desktop/src/source/default-mode.ts` defaults to Rendered mode).
-#[cfg(target_os = "macos")]
 const DOCUMENT_EXTENSIONS: &[&str] = &["md", "markdown", "mdown", "mkd", "mdx", "txt"];
 
-/// The native menu (W-20, ADR-0073): the menus a Mac reader expects, cut to the commands Marxy has. An item is
+/// The native menu: the menus a Mac reader expects, cut to the commands Marxy has. An item is
 /// either one of the shell's own (Quit, Open File…, Close Window, the two palette doors) or a registry command
 /// (`Cmd`), which shows the key the registry gives it and runs through the registry in the webview, as its key or
-/// its palette row would. The menu never lists documents, tabs or windows (ADR-0011, ADR-0073). `MENU` is the
+/// its palette row would. The menu never lists documents, tabs or windows. `MENU` is the
 /// whole menu as data: `build_app_menu` builds exactly what it lists and `action_for` is the only way a click
 /// turns into work, so the tests below check the menu a reader gets, not a copy.
 #[cfg(target_os = "macos")]
@@ -941,7 +1170,7 @@ mod app_menu {
 
     impl Action {
         /// Quit and Close Window both ask the webview first, so a dirty document gets its notice
-        /// (ADR-0041, MARXY-337); only the webview's confirmation ends the window.
+        /// only the webview's confirmation ends the window.
         pub fn asks_the_webview_first(self) -> bool {
             matches!(self, Action::Quit | Action::CloseWindow)
         }
@@ -963,7 +1192,7 @@ mod app_menu {
             &[
                 N(About),
                 Separator,
-                // Settings (W-12, ADR-0075): a registry command with its own key, as the macOS convention puts it, under the app's name.
+                // Settings: a registry command with its own key, as the macOS convention puts it, under the app's name.
                 Cmd("view.settings", "Settings…", "CmdOrCtrl+,"),
                 Separator,
                 N(Services),
@@ -990,10 +1219,11 @@ mod app_menu {
                 Separator,
                 Cmd("document.save", "Save", "CmdOrCtrl+S"),
                 Cmd("document.save-as", "Save As…", "CmdOrCtrl+Shift+S"),
+                Cmd("document.export", "Export…", ""),
                 Separator,
                 // Not the predefined close_window: Marxy is single-window, so closing the one
                 // window leaves nothing to open into and is the same as quitting (see `quit_now`).
-                // Cmd+W stays Close Window until tabs have their own close (ADR-0073).
+                // Cmd+W stays Close Window until tabs have their own close.
                 Own(CLOSE_WINDOW, "Close Window", "CmdOrCtrl+W"),
             ],
         ),
@@ -1043,14 +1273,9 @@ mod app_menu {
                     "CmdOrCtrl+E",
                 ),
                 Separator,
-                Cmd("view.toggle-sidebar", "Sidebar", "Ctrl+CmdOrCtrl+S"),
-                Cmd("view.toggle-inspector", "Inspector", "CmdOrCtrl+Alt+I"),
-                Cmd("view.outline", "Outline", "CmdOrCtrl+Shift+O"),
-                Cmd(
-                    "view.toggle-workspace",
-                    "Fold or Unfold the Workspace",
-                    "CmdOrCtrl+\\",
-                ),
+                Cmd("view.toggle-drawer", "Drawer", ""),
+                Cmd("view.toggle-panel", "Panel", "CmdOrCtrl+Alt+B"),
+                Cmd("view.toggle-workspace", "The Page Alone", "CmdOrCtrl+\\"),
                 Separator,
                 Cmd("view.toggle-show-whitespace", "Show Whitespace", ""),
                 Cmd("view.toggle-line-numbers", "Line Numbers", ""),
@@ -1145,7 +1370,7 @@ fn build_app_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tau
 }
 
 /// Enables or disables the menu's registry-command items: `states` maps a registry command id to whether it can run
-/// now (W-20, ADR-0073: disabled, never hidden). An id the menu does not carry is ignored. Off a Mac there is no menu.
+/// now (disabled, never hidden). An id the menu does not carry is ignored. Off a Mac there is no menu.
 #[tauri::command]
 fn set_menu_enabled(
     app: tauri::AppHandle,
@@ -1189,7 +1414,7 @@ fn set_menu_enabled(
 /// "Open File…": the native picker, filtered to the documents `marxy` opens. Non-blocking
 /// (`pick_file`'s callback runs off the main thread's event loop turn), so the menu action returns
 /// immediately and the chosen path arrives through the same `marxy:open-files` event a second
-/// launch or a Finder "Open With" would emit (`emit_open_files`, MARXY-183).
+/// launch or a Finder "Open With" would emit (`emit_open_files`).
 #[cfg(target_os = "macos")]
 fn open_file_via_dialog(app: tauri::AppHandle) {
     use tauri_plugin_dialog::DialogExt;
@@ -1277,22 +1502,70 @@ fn main() {
         std::process::exit(paint_deadline_selftest());
     }
     mark("main_start", now_ms(), None);
+    let mut context = tauri::generate_context!();
+    #[cfg(windows)]
+    commands::recent::set_app_user_model_id(&context.config().identifier);
+    let own_data_dir = data_dir::data_dir_override();
+    if let Some(dir) = &own_data_dir {
+        let config = context.config_mut();
+        config.identifier = data_dir::identifier_for(&config.identifier, dir);
+        // Built in `setup` instead, where the webview's profile can be put in the data folder too.
+        for window in &mut config.app.windows {
+            window.create = false;
+        }
+    }
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(navigation_guard())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            // A bare relaunch (Start menu, taskbar) carries no file, so deliver_open_files would not raise the window.
+            if argv.len() <= 1 {
+                focus_main_window(app);
+            }
             deliver_open_files(app, document_paths_from_argv(&argv, &cwd));
-        }));
-    // Only "Open File…" (the macOS menu) calls the dialog plugin; the webview never does, so no
-    // capability is added for it (docs/design/06-shell.md §Capabilities).
+        }))
+        .register_asynchronous_uri_scheme_protocol(file_scheme::SCHEME, file_scheme::handle)
+        // An image from the network the reader asked for, served from memory: the webview never fetches one.
+        .register_asynchronous_uri_scheme_protocol(remote::SCHEME, remote::handle);
+    // The webview never calls the dialog plugin: its pickers go through the app's own `save_dialog` and
+    // `open_dialog`, so no `dialog:*` capability is granted.
     #[cfg(target_os = "macos")]
     {
         builder = builder.on_menu_event(on_app_menu_event);
     }
     builder
-        .setup(|_app| {
+        .setup(move |_app| {
+            if let Some(dir) = &own_data_dir {
+                for window in _app.config().app.windows.clone() {
+                    tauri::WebviewWindowBuilder::from_config(_app.handle(), &window)?
+                        .data_directory(dir.clone())
+                        .build()?;
+                }
+            }
+            if !quit_after_paint() {
+                data_dir::sweep_indexes_later(_app.handle());
+            }
+            // Marxy's own folders are always in the path commands' scope (settings, history, versions, notes).
+            for dir in [
+                data_dir::config_dir(_app.handle()),
+                data_dir::data_dir(_app.handle()),
+            ]
+            .into_iter()
+            .flatten()
+            {
+                let _ = std::fs::create_dir_all(&dir);
+                scope::open_app_folder(file_scheme::opened(), &dir);
+            }
+            if let Some(main) = _app.get_webview_window("main") {
+                let state = data_dir::data_dir(_app.handle())
+                    .ok()
+                    .map(|dir| window_state::state_path(&dir));
+                window_state::restore_and_show(&main, state.as_deref());
+                #[cfg(windows)]
+                drop_windows::listen(&main);
+            }
             if _app.webview_windows().values().next().is_some() {
                 mark("window_shown", now_ms(), None);
             }
@@ -1306,16 +1579,23 @@ fn main() {
             write_file_atomic,
             write_file_new,
             set_title,
+            set_fullscreen,
+            is_fullscreen,
             set_menu_enabled,
             save_dialog,
+            open_dialog,
             close_confirmed,
             mark_from_webview,
             startup_marks,
             quit,
             watch_root,
+            watch_ignore,
             unwatch_root,
             commands::fs::image_size,
+            commands::image::image_facts,
             commands::fs::allow_asset_scope,
+            scope::mark_opened,
+            scope::forget_root,
             config_paths,
             commands::fs::read_dir,
             commands::fs::stat_file,
@@ -1330,8 +1610,29 @@ fn main() {
             commands::os::reveal_in_editor,
             commands::search::search_content,
             commands::search::cancel_content_search,
+            commands::chars::char_name,
+            commands::run::run_command,
+            detect::detect_files,
+            commands::os::open_with_system,
+            commands::recent::note_recent,
+            commands::archive::list_archive,
+            commands::archive::read_archive_entry,
+            commands::archive::read_archive_heads,
+            commands::tables::tables_open,
+            commands::tables::tables_rows,
+            commands::tables::tables_blob,
+            remote::fetch_remote_image,
+            commands::font::font_facts,
+            commands::font::font_glyph,
+            commands::media::media_facts,
+            commands::media::media_envelope,
+            encoding::commands::decode_text,
+            encoding::commands::encode_text,
+            encoding::commands::encoding_readings,
+            outlook::commands::mail_from_msg,
+            legacy_office::office_from_ole,
         ])
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building marxy")
         .run(|app, event| {
             if let RunEvent::WindowEvent {
@@ -1347,7 +1648,8 @@ fn main() {
                     let _ = window.emit("marxy:close-requested", ());
                 }
             }
-            // A file dropped on the window opens the way Finder or a second launch opens it (A-16).
+            // A file dropped on the window opens the way Finder or a second launch opens it. On Windows
+            // dragDropEnabled is off so the tabs' HTML5 drag works, and drops arrive through drop_windows instead.
             if let RunEvent::WindowEvent {
                 event: WindowEvent::DragDrop(tauri::DragDropEvent::Drop { paths, .. }),
                 ..
@@ -1497,6 +1799,24 @@ mod tests {
             "/no/such/deleted-marxy-tree",
             "a gone tree's recording does not resolve a folder watch",
         );
+    }
+
+    /// The watch commands' bodies run where blocking is allowed: a body that blocks on the runtime there works, where
+    /// the same body awaited on a runtime worker panics (the negative control).
+    #[test]
+    fn the_watch_commands_run_their_bodies_off_the_runtime_workers() {
+        let probe =
+            || std::panic::catch_unwind(|| tauri::async_runtime::block_on(async {})).is_ok();
+        let off = tauri::async_runtime::block_on(async move {
+            super::on_blocking_pool(move || Ok(probe())).await
+        });
+        assert_eq!(off, Ok(true), "the body ran on a runtime worker");
+        let on = tauri::async_runtime::block_on(async move {
+            tauri::async_runtime::spawn(async move { probe() })
+                .await
+                .unwrap()
+        });
+        assert!(!on, "the control: blocking on a worker is refused");
     }
 
     fn idle_watch_entry(refs: u32) -> super::WatchEntry {
@@ -1723,11 +2043,12 @@ mod tests {
             raw_roots,
             &root,
             true,
+            Vec::new(),
             |_, _| {},
             move |payload| {
                 let _ = refused_tx.send(payload);
             },
-            |path, emit, refuse| {
+            |path, _ignore, emit, refuse| {
                 crate::watch_notify::spawn_tree_thread_with(path, emit, refuse, 3, || {})
             },
         )
@@ -1750,9 +2071,10 @@ mod tests {
             raw_roots,
             &root,
             true,
+            Vec::new(),
             |_, _| {},
             |_| {},
-            |path, emit, refuse| {
+            |path, _ignore, emit, refuse| {
                 crate::watch_notify::spawn_tree_thread_with(path, emit, refuse, 1000, || {})
             },
         )
@@ -1831,23 +2153,45 @@ mod tests {
     fn the_window_navigates_only_within_the_app() {
         for ok in [
             "tauri://localhost/index.html",
-            "http://localhost:1420/",
+            "http://tauri.localhost/",
             "https://tauri.localhost/",
         ] {
-            assert!(navigation_allowed(&ok.parse().unwrap()), "{ok}");
+            assert!(navigation_allowed(&ok.parse().unwrap(), false), "{ok}");
+            assert!(navigation_allowed(&ok.parse().unwrap(), true), "{ok}");
         }
         for no in [
             "https://example.org/",
             "http://evil.localhost.example/",
+            "http://tauri.localhost:8080/",
+            "tauri://example.org/",
             "file:///etc/passwd",
         ] {
-            assert!(!navigation_allowed(&no.parse().unwrap()), "{no}");
+            assert!(!navigation_allowed(&no.parse().unwrap(), false), "{no}");
+            assert!(!navigation_allowed(&no.parse().unwrap(), true), "{no}");
+        }
+    }
+
+    #[test]
+    fn a_release_build_refuses_a_local_server_that_a_debug_build_loads_from() {
+        for local in [
+            "http://localhost:1234/",
+            "http://localhost:1420/",
+            "http://localhost/",
+            "https://localhost:8443/",
+            "http://127.0.0.1:1420/",
+            "http://127.0.0.1/",
+        ] {
+            assert!(
+                !navigation_allowed(&local.parse().unwrap(), false),
+                "{local}"
+            );
+            assert!(navigation_allowed(&local.parse().unwrap(), true), "{local}");
         }
     }
 
     #[test]
     fn a_relative_document_path_is_made_absolute_against_the_launch_directory() {
-        let dir = std::env::temp_dir().canonicalize().unwrap();
+        let dir = dunce::canonicalize(std::env::temp_dir()).unwrap();
         let file = dir.join(format!("marxy-args-{}.md", std::process::id()));
         std::fs::write(&file, b"# x\n").unwrap();
         let name = file.file_name().unwrap().to_str().unwrap();
@@ -1857,8 +2201,7 @@ mod tests {
 
     #[test]
     fn a_drop_keeps_files_and_drops_folders_and_missing_paths() {
-        let dir = std::env::temp_dir()
-            .canonicalize()
+        let dir = dunce::canonicalize(std::env::temp_dir())
             .unwrap()
             .join(format!("marxy-drop-{}", std::process::id()));
         let folder = dir.join("a folder");
@@ -1888,8 +2231,8 @@ mod tests {
     }
 
     /// A real `Menu` needs a running app on the main thread, so this walks `app_menu::MENU`, the table
-    /// `build_app_menu` builds from item for item (MARXY-184 criterion 4, W-20). Every item of ours resolves to an
-    /// action, ids and accelerators are unique, and the menu lists no document, tab or window (ADR-0073).
+    /// `build_app_menu` builds from item for item. Every item of ours resolves to an
+    /// action, ids and accelerators are unique, and the menu lists no document, tab or window.
     #[cfg(target_os = "macos")]
     #[test]
     fn every_menu_item_resolves_to_an_action_and_no_two_share_a_key() {
@@ -1948,11 +2291,11 @@ mod tests {
                     _ => None,
                 }),
             Some("CmdOrCtrl+W"),
-            "Close Window keeps Cmd+W (ADR-0073)"
+            "Close Window keeps Cmd+W"
         );
     }
 
-    /// *Settings…* (W-12, ADR-0075) is the second item of the Marxy menu, after About, runs the registry command `view.settings`, and
+    /// *Settings…* is the second item of the Marxy menu, after About, runs the registry command `view.settings`, and
     /// carries the macOS key for it. The key table (`keys-table.test.mjs`) holds the key against the registry's own.
     #[cfg(target_os = "macos")]
     #[test]
@@ -1978,7 +2321,7 @@ mod tests {
         );
     }
 
-    /// The menu never carries a list of documents, tabs or windows, and no Open Recent, Export or Share (ADR-0073).
+    /// The menu never carries a list of documents, tabs or windows, and no Open Recent, Export or Share.
     #[cfg(target_os = "macos")]
     #[test]
     fn the_menu_lists_no_documents_tabs_or_windows() {
@@ -1991,7 +2334,7 @@ mod tests {
                         assert!(
                             !["recent", "export", "share", "tab", "tabs", "windows"]
                                 .contains(&word),
-                            "{label} is not a menu item (ADR-0073)"
+                            "{label} is not a menu item"
                         );
                     }
                 }

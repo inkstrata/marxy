@@ -1,0 +1,33 @@
+﻿node :   warming the dev server
+At line:1 char:477
++ ... ig-1mb.md'; node scripts/measure-interactions.mjs --doc $s --runs 1 - ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (  warming the dev server:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  big-1mb.md: open 1/1
+  big-1mb.md: first click
+  big-1mb.md: cursor keys
+  big-1mb.md: undo 1/1
+  big-1mb.md: reload 1/1
+  big-1mb.md: tabs
+  big-1mb.md: Source and Read
+measure-interactions: f428f4f3 (uncommitted changes), 2026-11-26T14:28:52.888Z, win32-x64, 16 x AMD Ryzen 7 8845HS w/ Radeon 780M Graphics, 31 GB, msedge 158.0.4370.33, 1 runs
+
+big-1mb.md
+  open               nodes 38573  layouts 2667  recalcs 2757  firstContentMs 909.7  taskMs 78619.59  scriptMs 13283.68  layoutMs 10709.67  styleMs 13584.73  longestTaskMs 917  settleMs 78827.1
+  cursor key (j)     layouts 6  recalcs 9  handlerMs 105.9  taskMs 165.44  scriptMs 29.6  layoutMs 17.87
+  first click        layouts 6  recalcs 9  handlerMs 33.5  taskMs 240.07  scriptMs 48.05  layoutMs 15.5  styleMs 40.54
+  undo               removedTop 153  addedTop 153  layouts 200  recalcs 211  taskMs 5276.96  scriptMs 90.21  layoutMs 1401.75  styleMs 797.49  longestTaskMs 483
+  reload from disk   removedTop 151  addedTop 153  layouts 206  recalcs 213  taskMs 5385.83  scriptMs 106.76  layoutMs 1416.76  styleMs 845.44  longestTaskMs 513
+  tab switch to it   layouts 3525  recalcs 3756  shownMs 2772  taskMs 97289.42  scriptMs 15490.68  layoutMs 13907.77
+  tab switch away    layouts 67  recalcs 126  shownMs 225  taskMs 273.88  scriptMs 48.59  layoutMs 17.55
+  Source to Read     layouts 242  recalcs 250  shownMs 2495  taskMs 3250.34  scriptMs 117.42  layoutMs 1568.21
+  Read to Source     layouts 18  recalcs 55  shownMs 230.5  taskMs 1877.62  scriptMs 212.35  layoutMs 16.39
+
+Counts first; they do not depend on the machine. removedTop/addedTop: top-level nodes of the article taken out and put in.
+taskMs, scriptMs, layoutMs, styleMs and the counts run from the action until the main thread has been idle for about a second,
+  so they include typesetting that follows it: not the time until the page shows it. A cursor key: the 150 ms after each press.
+shownMs: until the tab or mode is current and two frames have painted. firstContentMs: until the article holds the text.
+handlerMs: event handlers only (a click sees handlers of 16 ms or more). longestTaskMs: tasks of 50 ms or more only.
+record written to C:\Dev\reader\work\wave5\near-typeset\interactions-1mb-near-typeset.json

@@ -1,4 +1,4 @@
-// Hard-wrap at 80 columns (J-03.1). Fills by display width; text with no spaces (CJK without spaces) has no break
+// Hard-wrap at 80 columns. Fills by display width; text with no spaces (CJK without spaces) has no break
 // opportunity and stays on its line. Reflows the paragraphs of the text and nothing else: headings, tables, code and
 // math blocks, raw HTML and front matter are not paragraphs, so their bytes pass through. Structure comes from the
 // parser. A paragraph in a list item or a quote is wrapped inside its container: the continuation lines carry the

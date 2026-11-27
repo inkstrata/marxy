@@ -1,0 +1,5 @@
+# Notes
+
+Some *words*.
+
+<!-- vim: ft=markdown -->

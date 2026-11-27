@@ -2,7 +2,7 @@
 // input we wrote (testing/cases.ts) and every input the seeded generator composes
 // (testing/generate.ts), and every AST_INVARIANTS entry must hold for all of them with GFM on as well
 // as off. The specification's own 652 examples are checked by ../../scripts/commonmark-spec.ts, which
-// reads a file a developer fetches and is never committed (ADR-0006).
+// reads a file a developer fetches and is never committed.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -52,7 +52,7 @@ test('conformance: every generated case renders as the reference implementation 
 // Each input is also rewritten through the three CommonMark line endings. Before the contentRange /
 // infoString / openingFenceLineEnd fix, LF-as-written and LF-to-CRLF produced 0 AST_INVARIANTS
 // violations, and LF-to-CR produced 198 CODE_CONTENT violations across 182 parses (99 violations in
-// 91 of the 527 inputs, counted once with GFM off and once with GFM on). Measured on bd3e0eb.
+// 91 of the 527 inputs, counted once with GFM off and once with GFM on).
 const LINE_ENDING_REWRITES = [
   ['LF as written', (input: string) => input],
   ['LF to CRLF', (input: string) => input.replaceAll('\n', '\r\n')],

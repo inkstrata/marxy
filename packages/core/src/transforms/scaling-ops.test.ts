@@ -1,4 +1,4 @@
-// A count of work, not a clock (F-58). scaling.test.ts times the transforms, and a timer has to leave room for noise: at
+// A count of work, not a clock. scaling.test.ts times the transforms, and a timer has to leave room for noise: at
 // the sizes it can afford, a step that is quadratic only in the top-level blocks (`siblings.indexOf(list)` once per list,
 // `inside.includes(block)` once per block) hid under its bar until a loaded machine flagged it. Here every element an
 // array search may walk is counted instead, so ten times the text must cost about ten times the walking (at most

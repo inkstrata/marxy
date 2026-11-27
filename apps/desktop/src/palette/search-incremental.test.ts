@@ -1,5 +1,5 @@
 // Typing one letter more rescans only the rows the last keystroke matched, and the answer is the
-// one a full scan gives (C-04). Rows can be patched between keystrokes without a rebuild.
+// one a full scan gives. Rows can be patched between keystrokes without a rebuild.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

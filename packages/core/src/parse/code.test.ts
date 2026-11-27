@@ -1,12 +1,16 @@
-// A code file is one code block (V-10): no heading from a `#` comment, every byte in one block, invariants hold.
+// A code file is one code block: no heading from a `#` comment, every byte in one block, invariants hold.
 import { strict as assert } from 'node:assert';
+import { setFlagsFromString } from 'node:v8';
+import { runInNewContext } from 'node:vm';
 import { test } from 'node:test';
 import type { CodeBlock, Node } from '../contracts/ast.ts';
 import { CODE_CHUNK_LINES, codeLanguageOf, isCodeFile, parseCode } from './code.ts';
 import { checkInvariants } from './invariants.ts';
-import { outlineFrom } from '../outline/index.ts';
+import { outlineFrom } from '../outline/outline.ts';
 import { LINE_ENDINGS } from './line-endings.ts';
 import { parseMarkdown } from './parse.ts';
+import { decodeWithOffsets } from './byte-offsets.ts';
+import { lineStartAt } from '../sourcemap/line-starts.ts';
 
 const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
 const walk = (node: Node, into: Node[] = []): Node[] => {
@@ -47,17 +51,20 @@ test('an empty file has no block, and a file with no grammar has no lang', () =>
   assert.equal((parseCode(encode('a\n'), { file: 'x.log' }).children[0] as CodeBlock).lang, undefined);
 });
 
-test('the file-type table decides which files are code', () => {
-  assert.ok(isCodeFile('/r/inventory.py') && isCodeFile('/r/Makefile') && isCodeFile('/r/a.rs'));
-  // Read by their own stories, or trust-gated: they stay as they render today.
-  for (const name of ['a.html', 'a.htm', 'a.csv', 'a.tsv', 'a.jsonl']) assert.ok(!isCodeFile(`/r/${name}`), name);
-  // A log is read as text in lines with its own classes (K-08), so it is code to the parse and not Markdown.
+test('the registry decides which files are code', () => {
+  assert.ok(isCodeFile('/r/inventory.py') && isCodeFile('/r/Makefile') && isCodeFile('/r/a.rs') && isCodeFile('/r/Program.cs'));
+  // HTML is trust-gated and parsed as Markdown's HTML; a table has no grammar and is parsed as plain text.
+  for (const name of ['a.html', 'a.htm', 'a.csv', 'a.tsv']) assert.ok(!isCodeFile(`/r/${name}`), name);
+  // JSON Lines read as records or a transcript in Read; asked for as code, they are code, never Markdown.
+  assert.ok(isCodeFile('/r/a.jsonl') && codeLanguageOf('/r/a.jsonl') === 'jsonl');
+  // A log is read as text in lines with its own classes, so it is code to the parse and not Markdown.
   for (const name of ['a.log', 'a.out']) assert.ok(isCodeFile(`/r/${name}`) && codeLanguageOf(`/r/${name}`) === 'log', name);
-  assert.ok(!isCodeFile('/r/a.md') && !isCodeFile('/r/a.txt') && !isCodeFile('/r/README') && !isCodeFile('/r/theme.css') && !isCodeFile('/r/unknown.xyz'));
-  assert.equal(codeLanguageOf('/r/a.sh'), 'bash');
+  assert.ok(!isCodeFile('/r/a.md') && !isCodeFile('/r/a.txt') && !isCodeFile('/r/README') && !isCodeFile('/r/unknown.xyz'));
+  assert.ok(isCodeFile('/r/theme.css'));
+  assert.equal(codeLanguageOf('/r/a.sh'), 'shellscript');
 });
 
-test('a code file has no outline (symbols are K-13)', () => {
+test('a code file has no outline', () => {
   const bytes = encode(PY);
   assert.deepEqual(outlineFrom(parseCode(bytes, { file: 'x.py', lang: 'python' })), []);
   assert.ok(outlineFrom(parseMarkdown(bytes, { file: 'x.py' })).length > 0, 'precondition: Markdown made an outline from the comments');
@@ -85,7 +92,7 @@ test('a long file is pieces of at most 200 lines that tile its bytes, with no ga
   }
 });
 
-test('a NUL byte stays in the bytes and is the replacement character in the value, with no invariant broken (F-34.1)', () => {
+test('a NUL byte stays in the bytes and is the replacement character in the value, with no invariant broken', () => {
   const bytes = new Uint8Array([0x61, 0x00, 0x62, 0x0a, 0x00, 0x0a]);
   const doc = parseCode(bytes, { file: 'x.py' });
   assert.deepEqual(checkInvariants(doc, bytes), []);
@@ -94,7 +101,7 @@ test('a NUL byte stays in the bytes and is the replacement character in the valu
   assert.deepEqual([block.src.start, block.src.end], [0, bytes.length]);
 });
 
-// K-08: a log's pieces end at the end of a log entry, so every piece but a forced cut begins at a head.
+// a log's pieces end at the end of a log entry, so every piece but a forced cut begins at a head.
 const HEAD = '2026-10-12T09:30:00Z INFO  x message\n';
 const FRAME = '    at frame (a.ts:1:1)\n';
 const pieces = (text: string, lang = 'log'): string[] => {
@@ -106,7 +113,7 @@ const pieces = (text: string, lang = 'log'): string[] => {
   return out;
 };
 
-test('a log is cut after 200 lines at the end of its entry: a stack trace is never cut from its line, and each piece but the first begins at a head (K-08)', () => {
+test('a log is cut after 200 lines at the end of its entry: a stack trace is never cut from its line, and each piece but the first begins at a head', () => {
   // 195 heads, then an entry whose 30 frames cross line 200, then more heads.
   const text = HEAD.repeat(195) + HEAD + FRAME.repeat(30) + HEAD.repeat(10);
   const parts = pieces(text);
@@ -116,7 +123,7 @@ test('a log is cut after 200 lines at the end of its entry: a stack trace is nev
   for (const part of parts.slice(1)) assert.match(part, /^2026-/);
 });
 
-test('an entry of any length stays in one piece with its head; a file with no head at all is cut at 200 lines like any code (K-08)', () => {
+test('an entry of any length stays in one piece with its head; a file with no head at all is cut at 200 lines like any code', () => {
   const long = pieces(HEAD + FRAME.repeat(2500) + HEAD);
   assert.equal(long.length, 2, 'the entry and the head after it');
   assert.equal(long[0]!.split(LINE_ENDINGS).length - 1, 2501, 'the head and all 2,500 frames');
@@ -127,9 +134,49 @@ test('an entry of any length stays in one piece with its head; a file with no he
   assert.deepEqual(pieces(HEAD.repeat(450), 'python').map((p) => p.split(LINE_ENDINGS).length - 1), [200, 200, 50]);
 });
 
-test('a log with CRLF endings, a BOM and a final line without a newline tiles the same way (K-08)', () => {
+test('a log with CRLF endings, a BOM and a final line without a newline tiles the same way', () => {
   const crlf = (HEAD + FRAME).replaceAll('\n', '\r\n');
   const parts = pieces('﻿' + crlf.repeat(150) + HEAD.trimEnd());
   assert.ok(parts.length >= 2);
   assert.ok(parts.slice(1).every((p) => p.startsWith('2026-')));
+});
+
+test('C2 a parse handed the bytes\' own decode equals the parse that decodes them again, BOMs and bad bytes included', () => {
+  const cases: Uint8Array[] = [
+    encode('plain ascii\nlines\n'),
+    encode('\ufeff\ufeffdouble mark \u2014 dash\r\nnext \u{1F600} line\n'),
+    Uint8Array.from([0xef, 0xbb, 0xbf, 0x61, 0xe9, 0x0a, 0x62, 0xf0, 0x9f, 0x0a, 0x63]),
+    encode('# Head\n\n[ref]: /r\n\nsee [ref] and \u00e9\n\n```js\nx\n```\n'),
+    new Uint8Array(0),
+  ];
+  for (const bytes of cases) {
+    const decoded = decodeWithOffsets(bytes);
+    for (const [a, b] of [
+      [parseCode(bytes, { file: '/a.log', lang: 'log' }, decoded), parseCode(bytes, { file: '/a.log', lang: 'log' })],
+      [parseMarkdown(bytes, { file: '/a.md' }, decoded), parseMarkdown(bytes, { file: '/a.md' })],
+    ] as const) {
+      assert.equal(JSON.stringify(a), JSON.stringify(b));
+      for (let at = 0; at <= bytes.length; at++) assert.equal(lineStartAt(a, at), lineStartAt(b, at), `line start at ${at}`);
+    }
+  }
+});
+
+test('C2 a log parsed with its buffer\'s decode holds no second text or table', () => {
+  setFlagsFromString('--expose-gc');
+  const gc = runInNewContext('gc') as () => void;
+  const held = (): number => {
+    gc();
+    gc();
+    const m = process.memoryUsage();
+    return m.heapUsed + m.external;
+  };
+  const line = '2026-11-15T10:00:00.123Z INFO worker request handled in 12 ms path=/api/v1/items\n';
+  const bytes = encode(`${line.repeat(Math.ceil((10 * 1024 * 1024) / line.length))}one dash \u2014 here\n`);
+  const decoded = decodeWithOffsets(bytes);
+  const before = held();
+  const doc = parseCode(bytes, { file: '/a.log', lang: 'log' }, decoded);
+  const per = (held() - before) / bytes.length;
+  // Its own decode was a two-byte string and a 32-bit table: 6 bytes a byte.
+  assert.ok(per < 1, `${per.toFixed(2)} bytes held per byte by the parse`);
+  assert.ok(doc.children.length > 100);
 });

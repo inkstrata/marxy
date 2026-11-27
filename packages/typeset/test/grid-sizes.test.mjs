@@ -1,4 +1,4 @@
-// The grid holds at every text size once the typesetter has set the page (B-22). At most body sizes
+// The grid holds at every text size once the typesetter has set the page. At most body sizes
 // (27 of 15 to 50 px, 16 and 28 among them, never the default 20), WebKit placed a hung grapheme's
 // inline-block (hang.ts) 1/64 px off its line's own box, so every line holding one grew by 1/64 px.
 // The grid pass treats a block within half a pixel of the grid as on it, so the drift climbed to
@@ -15,7 +15,7 @@ import { renderSafeHtml } from '../../core/src/render/pipeline.ts';
 import { startHarness } from './harness.mjs';
 
 /**
- * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+ * A run without Playwright's WebKit skips these tests and says why, unless
  * MARXY_BROWSER_TESTS_REQUIRED=1, where a missing browser is a failure as it should be.
  */
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'

@@ -1,4 +1,4 @@
-// MARXY-337: a document that starts with more than one byte-order mark keeps true byte offsets.
+// a document that starts with more than one byte-order mark keeps true byte offsets.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';

@@ -1,9 +1,9 @@
-// Pure decision logic for `scripts/gate-no-network.mjs` (ADR-0009, MARXY-83). The gate still has to
+// Pure decision logic for `scripts/gate-no-network.mjs`. The gate still has to
 // drive a real browser to *collect* what a document did — a request seen, the live DOM's tags and
 // attributes, a URL a reader's engine resolved — but deciding whether what it collected is a
 // violation never needs a page open, so that half lives here, where it can be tested in
 // milliseconds instead of only inside a Playwright run. Six of this gate's checks were deleted by a
-// revert with nothing failing (the story this closes); moving the judgment out of an inline browser
+// revert with nothing failing; moving the judgment out of an inline browser
 // closure and into a named, individually-tested function is what makes a future deletion visible as
 // a test going red instead of as silence.
 

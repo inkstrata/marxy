@@ -1,0 +1,8 @@
+=== test/typeset-idle.test.mjs test/progressive-large.test.mjs
+✖ widening a 1 MB page set throughout holds no frame long (180013.4315ms)
+✖ failing tests:
+✖ widening a 1 MB page set throughout holds no frame long (180013.4315ms)
+=== test/keep-place.test.mjs test/typeset-defaults.test.mjs
+=== test/typeset-off.test.mjs test/progressive.test.mjs
+=== test/layout-restore.test.mjs test/no-displacement.test.mjs
+=== test/place-across-modes.test.mjs test/replace.test.mjs

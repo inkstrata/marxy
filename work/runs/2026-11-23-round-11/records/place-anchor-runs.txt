@@ -1,0 +1,11 @@
+﻿view-guards run 1 : ℹ pass 1 | ℹ fail 0
+view-guards run 2 : ℹ pass 1 | ℹ fail 0
+view-guards run 3 : ℹ pass 1 | ℹ fail 0
+view-guards run 4 : ℹ pass 1 | ℹ fail 0
+view-guards run 5 : ℹ pass 1 | ℹ fail 0
+view-lifecycle run 1 : ℹ pass 14 | ℹ fail 0
+view-lifecycle run 2 : ℹ pass 14 | ℹ fail 0
+view-lifecycle run 3 : ℹ pass 14 | ℹ fail 0
+view-lifecycle run 4 : ℹ pass 14 | ℹ fail 0
+view-lifecycle run 5 : ℹ pass 14 | ℹ fail 0
+ALLDONE

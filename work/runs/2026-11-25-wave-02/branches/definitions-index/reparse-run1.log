@@ -1,0 +1,22 @@
+﻿✔ a reparse equals the whole parse for random edits over every corpus file (4407.7729ms)
+✔ a reparse equals the whole parse for many random edits over a long transcript (2976.7844ms)
+✔ one line written into a long transcript parses a few blocks, not the file (278.3943ms)
+✔ a change that opens a fence grows the region until the parse closes, or parses whole (144.4019ms)
+✔ a definition added sends the reparse to the whole file (1.0713ms)
+✔ a reparse of a file with definitions equals the whole parse and parses a region, for random edits over the corpus (4396.8858ms)
+✔ a previous parse of other bytes or another name is not trusted (0.597ms)
+✔ a reparse equals the whole parse for structured random documents and edits (5713.6488ms)
+✔ a list item open across a blank line does not leave a stale restart or witness (review of #467) (23.1448ms)
+✔ indented code carries state across blank lines, so no restart or witness follows it (12.2046ms)
+✔ the witness is parsed with its line ending, as the whole file holds it (review of #467) (19.3639ms)
+✔ an edit that adds, removes or changes a definition sends the reparse to the whole file; text that only looks like one does not (39.0418ms)
+✔ an edit that leaves the file's definitions as they were parses a region, and its references resolve as in the whole parse (134.1591ms)
+✔ a reparse equals the whole parse for structured random documents with definitions, and parses a region for most edits (8030.0623ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26948.7935

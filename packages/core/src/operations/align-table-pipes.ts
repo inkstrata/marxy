@@ -1,7 +1,8 @@
-// Align GFM table column pipes without reflowing cell content (ADR-0004, MARXY-43).
+// Align GFM table column pipes without reflowing cell content.
 import type { Node } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
 import { displayWidth } from './display-width.ts';
+import { trimEndOf } from '../util/text.ts';
 
 type RowParts = { readonly cells: readonly string[]; readonly leading: boolean; readonly trailing: boolean };
 
@@ -56,11 +57,10 @@ function prefixOf(line: string, quotes: number): string {
 }
 
 // GFM trims spaces and tabs only; String.trim would also take NBSP, U+2003, U+FEFF and the like.
-const TRIM_END = /[ \t]+$/;
-const trimCell = (cell: string): string => cell.replace(/^[ \t]+|[ \t]+$/g, '');
+const trimCell = (cell: string): string => trimEndOf(cell.replace(/^[ \t]+/, ''), ' \t');
 
 function splitCells(line: string): RowParts {
-  const trimmedEnd = line.replace(TRIM_END, '');
+  const trimmedEnd = trimEndOf(line, ' \t');
   const leading = trimmedEnd.startsWith('|');
   const trailing = trimmedEnd.endsWith('|') && !escapedAt(trimmedEnd, trimmedEnd.length - 1);
   const cells: string[] = [];
@@ -134,7 +134,8 @@ export const alignTablePipes: Operation = {
     // Only the second row is the delimiter row; a body row of dashes ("-" for "none") is content.
     const DELIMITER = 1;
     const delimiter = rows[DELIMITER] && isAlignmentRow(rows[DELIMITER].cells) ? DELIMITER : -1;
-    const colCount = Math.max(0, ...rows.map((r) => r.cells.length));
+    let colCount = 0;
+    for (const row of rows) if (row.cells.length > colCount) colCount = row.cells.length;
     const widths = Array.from({ length: colCount }, (_, col) => {
       let max = 3;
       rows.forEach((row, ri) => {

@@ -1,0 +1,16 @@
+﻿
+  VITE v7.3.6  ready in 393 ms
+
+  ➜  Local:   http://localhost:1492/
+  ➜  Network: use --host to expose
+2:48:54 PM [vite] (client) page reload src/proposals/notes-in-place.ts
+2:48:55 PM [vite] (client) page reload src/proposals/notes-in-place.ts
+2:48:56 PM [vite] (client) page reload src/proposals/notes-in-place.ts
+2:49:16 PM [vite] (client) page reload src/selection/verb-bar.ts
+2:49:18 PM [vite] (client) page reload src/selection/verb-bar.ts
+2:49:22 PM [vite] (client) page reload src/selection/verb-bar.ts
+2:49:23 PM [vite] (client) page reload src/selection/verb-bar.ts
+2:51:46 PM [vite] (client) page reload src/proposals/notes-in-place.ts
+2:51:46 PM [vite] (client) page reload src/selection/verb-bar.ts
+2:52:56 PM [vite] (client) page reload src/proposals/notes-in-place.ts
+2:52:56 PM [vite] (client) page reload src/selection/verb-bar.ts

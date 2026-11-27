@@ -1,0 +1,4 @@
+{
+  "about": "Listeners on the window or the document added with no signal and no remove, per folder of apps/desktop/src: may shrink, never grow (scripts/check-listeners.mjs).",
+  "folders": {}
+}

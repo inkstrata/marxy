@@ -1,0 +1,94 @@
+/* The table page of a database and a workbook: the grid is the table lens's (base.css), the page
+   around it is the archive page's measure, and the bar of parts sits at the page's foot, in view while the rows scroll. */
+.marxy-tpage { height: 100%; overflow: auto; outline: none; display: flex; flex-direction: column; }
+.marxy-tbl { flex: 1 0 auto; box-sizing: border-box; padding: 56px 24px 24px; font-family: var(--marxy-face-chrome); font-size: calc(14 * var(--marxy-c)); line-height: 22px; color: var(--marxy-color-text); }
+.marxy-tbl-line { margin: 0 0 18px; font-size: calc(13.5 * var(--marxy-c)); color: var(--marxy-color-text-faint); }
+.marxy-tbl-state {
+  max-width: 880px; margin: 0 0 22px; padding: 10px 14px; border-radius: 6px; font-size: calc(13.5 * var(--marxy-c));
+  color: var(--marxy-color-text-secondary); box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2);
+}
+.marxy-tbl-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 12px; }
+.marxy-tbl-title { margin: 0; font-family: var(--marxy-face-chrome); font-size: calc(20 * var(--marxy-c)); line-height: 28px; font-weight: 650; color: var(--marxy-color-text-strong); }
+.marxy-tbl-sub { font-size: calc(13 * var(--marxy-c)); color: var(--marxy-color-text-faint); }
+.marxy-tbl-ddl { margin-left: auto; font-size: calc(13 * var(--marxy-c)); }
+.marxy-tbl-note { margin: 0 0 12px; font-size: calc(13 * var(--marxy-c)); color: var(--marxy-color-text-secondary); }
+.marxy-tbl-foot { margin: 14px 0 0; max-width: 1080px; font-size: calc(13 * var(--marxy-c)); color: var(--marxy-color-text-secondary); }
+.marxy-tbl-group { margin: 20px 0 6px; font-size: calc(11.5 * var(--marxy-c)); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--marxy-color-text-faint); }
+.marxy-tbl-entry { margin: 14px 0 6px; color: var(--marxy-color-text-strong); }
+.marxy-tbl-sql {
+  margin: 0 0 14px; padding: 0; white-space: pre-wrap; font-family: var(--marxy-face-mono); font-size: calc(12.5 * var(--marxy-c)); line-height: 20px;
+  color: var(--marxy-color-text);
+}
+.marxy-sql-kw { font-weight: 650; color: var(--marxy-color-text-strong); }
+.marxy-sql-str { color: var(--marxy-color-text-secondary); }
+.marxy-sql-num { font-variant-numeric: tabular-nums; }
+.marxy-sql-com { font-style: italic; color: var(--marxy-color-text-faint); }
+
+.marxy-tbl-scroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--marxy-color-rule); border-radius: 6px; width: max-content; }
+.marxy-tbl-grid { font-family: var(--marxy-face-chrome); font-size: calc(13.5 * var(--marxy-c)); table-layout: auto; }
+.marxy-tbl-grid td.marxy-tbl-cell { cursor: default; max-width: 520px; }
+.marxy-tbl-grid td[aria-selected="true"] { background: var(--marxy-color-selection); outline: 1px solid var(--marxy-color-accent); outline-offset: -1px; }
+.marxy-tbl-grid :is(th, td) { border-inline-end: 1px solid var(--marxy-color-rule); }
+.marxy-tbl-null { font-style: italic; color: var(--marxy-color-text-faint); }
+.marxy-tbl-blob { font-family: var(--marxy-face-mono); font-size: calc(12.5 * var(--marxy-c)); color: var(--marxy-color-text-secondary); }
+.marxy-tbl-more { color: var(--marxy-color-text-faint); font-size: calc(12 * var(--marxy-c)); }
+.marxy-tbl-grid thead th .marxy-table-lens-type { font-family: var(--marxy-face-mono); text-transform: none; }
+
+.marxy-tbl-pager { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: calc(13 * var(--marxy-c)); color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
+.marxy-tbl-pager-label { margin-right: 6px; }
+.marxy-tbl-goto { margin-left: 12px; }
+.marxy-tbl-goto-input {
+  width: 9em; padding: 3px 8px; border: 0; border-radius: 5px; font: inherit; color: var(--marxy-color-text-strong);
+  background: var(--marxy-frame-chrome); box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2);
+}
+
+/* A sheet: letters over the columns, numbers down the side, a formula's corner mark, merges and errors as saved. */
+.marxy-tbl-bar { display: flex; align-items: center; gap: 14px; margin: 0 0 14px; }
+.marxy-tbl-seg { display: inline-flex; padding: 2px; border-radius: 6px; box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-tbl-segb { border: 0; padding: 3px 9px; border-radius: 4px; background: none; font: inherit; font-size: calc(12.5 * var(--marxy-c)); color: var(--marxy-color-text-secondary); cursor: pointer; }
+.marxy-tbl-segb[aria-checked="true"] { background: var(--marxy-frame-chrome); color: var(--marxy-color-text-strong); font-weight: 600; box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-tbl-sheet thead th.marxy-tbl-col { text-align: center; font-weight: 500; font-size: calc(11.5 * var(--marxy-c)); color: var(--marxy-color-text-faint); }
+.marxy-tbl-sheet td.marxy-tbl-hasf { position: relative; }
+.marxy-tbl-sheet td.marxy-tbl-hasf::before {
+  content: ""; position: absolute; top: 0; left: 0; border-style: solid; border-width: 5px 5px 0 0;
+  border-color: var(--marxy-color-text-faint) transparent transparent transparent;
+}
+.marxy-tbl-sheet td.marxy-tbl-merged { text-align: center; vertical-align: middle; font-weight: 600; }
+.marxy-tbl-err { text-decoration: underline dotted var(--marxy-color-text-faint); text-underline-offset: 0.2em; }
+.marxy-tbl-none { font-style: italic; color: var(--marxy-color-text-faint); }
+.marxy-tbl-fx { font-family: var(--marxy-face-mono); font-size: calc(12.5 * var(--marxy-c)); }
+.marxy-tbl-drawcap { display: flex; align-items: center; gap: 8px; margin: 12px 0 0; font-size: calc(13.5 * var(--marxy-c)); }
+
+/* The bar of parts: inside the page, under the rows, kept in view at the pane's foot. */
+.marxy-pbar {
+  position: sticky; bottom: 0; z-index: 4; flex: none; display: flex; align-items: stretch; gap: 2px; overflow-x: auto;
+  margin: 0 12px; padding: 0 12px; background: var(--marxy-color-bg); box-shadow: inset 0 1px 0 var(--marxy-frame-hair-2);
+  font-family: var(--marxy-face-chrome); font-size: calc(13.5 * var(--marxy-c)); scrollbar-width: none;
+}
+.marxy-pbar-label { align-self: center; margin: 0 6px 0 10px; font-size: calc(10.5 * var(--marxy-c)); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--marxy-color-text-faint); white-space: nowrap; }
+.marxy-pbar-label:first-child { margin-left: 0; }
+.marxy-pbar-gap { flex: 1 1 auto; min-width: 16px; }
+.marxy-pbar-tab {
+  display: inline-flex; align-items: baseline; gap: 5px; border: 0; padding: 9px 12px 10px; background: none; font: inherit; white-space: nowrap;
+  color: var(--marxy-color-text-secondary); cursor: pointer; box-shadow: inset 0 2px 0 transparent;
+}
+.marxy-pbar-tab:hover { color: var(--marxy-color-text-strong); }
+.marxy-pbar-tab[aria-selected="true"] { color: var(--marxy-color-text-strong); font-weight: 650; background: var(--marxy-frame-chrome); box-shadow: inset 0 2px 0 var(--marxy-color-text-strong); }
+.marxy-pbar-tab:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-pbar-count { font-size: calc(11 * var(--marxy-c)); font-weight: 400; color: var(--marxy-color-text-faint); font-variant-numeric: tabular-nums; }
+.marxy-pbar-hid .marxy-pbar-name { font-style: italic; }
+.marxy-pbar-mark { font-size: calc(11 * var(--marxy-c)); font-style: italic; font-weight: 400; color: var(--marxy-color-text-faint); }
+
+/* The panel's Tables and Sheets cards: a part a row, its count at the right; the Cell card's value. */
+.marxy-tbl-list { display: flex; flex-direction: column; gap: 1px; }
+.marxy-tbl-item {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px; border: 0; padding: 4px 8px; border-radius: 5px;
+  background: none; font: inherit; text-align: left; color: var(--marxy-color-text); cursor: pointer;
+}
+.marxy-tbl-item:hover { background: var(--marxy-frame-chrome); }
+.marxy-tbl-item[aria-current="true"] { background: var(--marxy-frame-chrome); color: var(--marxy-color-text-strong); font-weight: 600; }
+.marxy-tbl-item-kind { font-weight: 400; color: var(--marxy-color-text-faint); }
+.marxy-tbl-item-count { font-size: calc(11.5 * var(--marxy-c)); font-weight: 400; color: var(--marxy-color-text-faint); font-variant-numeric: tabular-nums; }
+.marxy-tbl-cv { white-space: pre-wrap; overflow-wrap: anywhere; }
+.marxy-tbl-open { margin: 8px 0 4px; }
+.marxy-tbl-caps li { margin: 0 0 2px; }

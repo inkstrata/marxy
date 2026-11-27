@@ -1,4 +1,4 @@
-// planEvents (C-11): one batch of watch events against one root becomes one small plan.
+// planEvents: one batch of watch events against one root becomes one small plan.
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -9,7 +9,7 @@ const none = new Set<string>();
 
 test('write-temp-then-rename onto an existing path re-reads that path, and only that path', () => {
   const known = new Set(['/r/notes.md']);
-  // The tree watch reports the new inode at the old path as `renamed` with no `to` (C-05 `diff`).
+  // The tree watch reports the new inode at the old path as `renamed` with no `to`.
   assert.deepEqual(planEvents(known, [{ kind: 'renamed', path: '/r/notes.md' }], root, []), {
     reread: ['/r/notes.md'],
     remove: [],
@@ -28,7 +28,7 @@ test('a delete removes the entry; a delete of a file the root never listed chang
   assert.deepEqual(planEvents(known, [{ kind: 'removed', path: '/r/b.md' }], root, []), { reread: [], remove: [], revalidate: false });
 });
 
-test('a path under node_modules, matched by .gitignore, or denied by a glob is never read', () => {
+test('a path under node_modules, matched by .gitignore, or denied by a glob is never read; any other file is, a binary too', () => {
   const rules = parseIgnore('generated/\n*.draft.md\n', '');
   const deny = denyRulesFor(['**/private/**']);
   const plan = planEvents(
@@ -45,7 +45,7 @@ test('a path under node_modules, matched by .gitignore, or denied by a glob is n
     rules,
     deny,
   );
-  assert.deepEqual(plan, { reread: ['/r/kept.md'], remove: [], revalidate: false });
+  assert.deepEqual(plan, { reread: ['/r/image.png', '/r/kept.md'], remove: [], revalidate: false });
 });
 
 test('a file that becomes denied while listed is dropped, not kept stale', () => {
@@ -109,7 +109,7 @@ test('ignoreRulesFrom orders a folder before its subfolders, so a nested negatio
   );
 });
 
-test('a root named like a file is a folder: a move out of it, into an ignored folder of the outer root, reads nothing (C-11)', () => {
+test('a root named like a file is a folder: a move out of it, into an ignored folder of the outer root, reads nothing', () => {
   const event = { kind: 'renamed' as const, path: '/a/notes.d/x.md', to: '/a/private/y.md' };
   // The nested root /a/notes.d: the file left it, and its new place is not its business.
   assert.deepEqual(planEvents(new Set(['/a/notes.d/x.md']), [event], '/a/notes.d', []), {

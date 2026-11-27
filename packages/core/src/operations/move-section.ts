@@ -1,4 +1,4 @@
-// move-section-up / move-section-down (W-10): a section, the heading and everything under it up to the next heading of the
+// move-section-up / move-section-down: a section, the heading and everything under it up to the next heading of the
 // same or a higher level, trades places with the sibling section before or after it. Pure string to string.
 //
 // The operation's range is the two sections together: from the first one's first byte to the second one's last. Nothing

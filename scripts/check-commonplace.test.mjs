@@ -1,4 +1,4 @@
-// The Commonplace gate (MARXY-256) must refuse an unsourced, uncleared or colophon-less piece.
+// The Commonplace gate must refuse an unsourced, uncleared or colophon-less piece.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { checkCorpus, checkInfo, checkPiece, loadCorpus, parseFrontMatter, rightsProblems } from './check-commonplace.mjs';

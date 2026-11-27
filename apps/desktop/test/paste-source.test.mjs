@@ -1,4 +1,4 @@
-// J-05: paste in the Source editor. HTML on the pasteboard becomes Markdown at the caret (one transaction, one
+// paste in the Source editor. HTML on the pasteboard becomes Markdown at the caret (one transaction, one
 // undo step, the buffer's own line break); a paste with no HTML is the editor's own; a concealed item is
 // refused before any read; Mod+Alt+Shift+V pastes the plain text. WebKit, the real app over the memory shell
 // (test/support/two-pane.mjs); the `paste` event is dispatched on the editor with a DataTransfer, as a paste is.
@@ -255,9 +255,11 @@ test('hostile payloads pasted into Source give only the golden text: no request,
       page.evaluate(() => {
         const copy = document.body.cloneNode(true);
         // The editor (where the text goes) and the notice regions (where it is said) are the two places a paste may change,
-        // with the parts of the Source frame that read the editor (size and lines, caret, ruler, marks; V-05). The rest of the
-        // frame, the path included, is compared.
-        copy.querySelectorAll('.cm-editor, .marxy-source-facts, .marxy-source-bottom, .marxy-source-ruler, .marxy-source-marks, [role="status"]').forEach((n) => n.remove());
+        // with the parts of the Source frame that read the editor (size and lines, caret, ruler, marks) and the
+        // minimap, the document's shape in miniature (proposals/minimap.ts), and the verb bar, hidden in Source, which names the
+        // page cursor's part and is drawn again when the document changes. The rest of the frame, the path
+        // included, is compared.
+        copy.querySelectorAll('.cm-editor, .marxy-source-facts, .marxy-source-bottom, .marxy-source-ruler, .marxy-source-marks, .marxy-mmap, .marxy-verb-bar, [role="status"]').forEach((n) => n.remove());
         return copy.outerHTML + document.head.innerHTML;
       });
     const before = await outside();
@@ -320,7 +322,7 @@ test('HTML with no text and nothing readable inserts nothing and says so', async
     await s.select([1]);
     await s.paste({ 'text/html': 'x' });
     await page.waitForFunction(() => document.body.textContent.includes('Nothing to paste'));
-    // An empty paste is a Note that fades, never a sticky "Not done" (U-02.1).
+    // An empty paste is a Note that fades, never a sticky "Not done".
     assert.deepEqual(await page.evaluate(() => [...document.querySelectorAll('.marxy-notice')].map((n) => n.dataset.noticeKind)), ['info']);
     await page.waitForFunction(() => document.querySelector('.marxy-notice') === null, undefined, { timeout: 7000 });
     assert.equal(await s.doc(), 'XY\n');

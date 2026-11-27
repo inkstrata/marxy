@@ -1,4 +1,4 @@
-// The hairline divider (D-04; ADR-0057): drawn only between two panes, no layout width, dragged,
+// The hairline divider: drawn only between two panes, no layout width, dragged,
 // double-clicked or keyed to a ratio held at the 45-character floor, with its focus fade and its palette
 // commands. Booted on the shipped skeleton and CSS (test/support/two-pane.mjs), over the memory shell.
 import { strict as assert } from 'node:assert';
@@ -53,6 +53,11 @@ const commandIds = (page) =>
   });
 const run = (page, id) => page.evaluate((id) => window.__marxyHandle.commands().find((c) => c.id === id).run({}), id);
 const left = (page) => page.evaluate(() => document.querySelector('#marxy-main > section[data-marxy-pane="0"]').getBoundingClientRect().width);
+/** The panes' grid: the frame's rail stands left of it, so a ratio is a share of this, not of the window. */
+const mainBox = (page) => page.evaluate(() => {
+  const r = document.getElementById('marxy-main').getBoundingClientRect();
+  return { left: r.left, width: r.width };
+});
 
 test('two panes: one divider inside #marxy-main, with no layout width, a role and a label', async () => {
   await withPage(async (page) => {
@@ -101,25 +106,27 @@ test('one pane: no divider in the DOM, before a split and after closing the seco
   });
 });
 
-test('dragging the divider to 30 % sets the left pane to 30 %; to 5 % it stops at the column floor', async () => {
+test('dragging the divider to 35 % sets the left pane to 35 %; to 5 % it stops at the column floor', async () => {
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+    // 35 %, not 30: beside the rail and the docked panel the panes have 1464 px, where the floor is 0.32 of them.
+    const main = await mainBox(page);
     const box = await dividerBox(page);
     const y = box.y + 100;
     await page.mouse.move(box.x + box.width / 2, y);
     await page.mouse.down();
-    await page.mouse.move(VIEW.width * 0.3, y, { steps: 6 });
+    await page.mouse.move(main.left + main.width * 0.35, y, { steps: 6 });
     await page.mouse.up();
-    assert.ok(Math.abs((await left(page)) - VIEW.width * 0.3) <= 1, `left pane is ${await left(page)}`);
+    assert.ok(Math.abs((await left(page)) - main.width * 0.35) <= 1, `left pane is ${await left(page)}`);
     const moved = await dividerBox(page);
     await page.mouse.move(moved.x + moved.width / 2, y);
     await page.mouse.down();
-    await page.mouse.move(VIEW.width * 0.05, y, { steps: 6 });
+    await page.mouse.move(main.left + main.width * 0.05, y, { steps: 6 });
     await page.mouse.up();
     const floor = await floorPx(page);
     const got = await left(page);
     assert.ok(Math.abs(got - floor) <= 1, `left pane is ${got}, the floor is ${floor}`);
-    assert.ok(got > VIEW.width * 0.05 + 100);
+    assert.ok(got > main.width * 0.05 + 100);
   });
 });
 
@@ -127,7 +134,7 @@ test('double-clicking the divider returns the panes to equal widths', async () =
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
     await page.evaluate(() => window.__marxyHandle.panes().setRatio(0.35));
-    assert.ok(Math.abs((await left(page)) - VIEW.width * 0.35) <= 1);
+    assert.ok(Math.abs((await left(page)) - (await mainBox(page)).width * 0.35) <= 1);
     const box = await dividerBox(page);
     await page.mouse.dblclick(box.x + box.width / 2, box.y + 100);
     const w = await widths(page);
@@ -148,15 +155,15 @@ test('the palette commands: offered only with two panes; even, widen and narrow 
     // Focus is on the right pane after opening beside: set it on the left to read "toward the focused side".
     await page.evaluate(() => { const p = window.__marxyHandle.panes(); p.focus(p.panes[0]); });
     await run(page, 'view.split-wider');
-    assert.ok(Math.abs((await left(page)) - VIEW.width * 0.55) <= 1);
+    assert.ok(Math.abs((await left(page)) - (await mainBox(page)).width * 0.55) <= 1);
     await run(page, 'view.split-narrower');
     await run(page, 'view.split-narrower');
-    assert.ok(Math.abs((await left(page)) - VIEW.width * 0.45) <= 1);
+    assert.ok(Math.abs((await left(page)) - (await mainBox(page)).width * 0.45) <= 1);
     await page.evaluate(() => { const p = window.__marxyHandle.panes(); p.focus(p.panes[1]); });
     await run(page, 'view.split-wider');
-    assert.ok(Math.abs((await left(page)) - VIEW.width * 0.40) <= 1);
+    assert.ok(Math.abs((await left(page)) - (await mainBox(page)).width * 0.40) <= 1);
     await run(page, 'view.reset-split');
-    assert.ok(Math.abs((await left(page)) - VIEW.width * 0.5) <= 1);
+    assert.ok(Math.abs((await left(page)) - (await mainBox(page)).width * 0.5) <= 1);
     // Never past the floor, however often it is asked.
     for (let i = 0; i < 40; i++) await run(page, 'view.split-wider');
     const w = await widths(page);
@@ -173,7 +180,7 @@ test('the divider is a keyboard widget: arrows move it, Home evens the panes, an
     assert.deepEqual(order, ['marxy-pane', 'marxy-divider', 'marxy-pane']);
     await divider.focus();
     await page.keyboard.press('ArrowLeft');
-    assert.ok(Math.abs((await left(page)) - VIEW.width * 0.45) <= 1);
+    assert.ok(Math.abs((await left(page)) - (await mainBox(page)).width * 0.45) <= 1);
     assert.equal(await divider.getAttribute('aria-valuenow'), '45');
     // Keyboard focus is shown: the browser agrees it is focus-visible, and it draws an outline.
     const focus = await page.evaluate(() => {
@@ -193,7 +200,7 @@ test('the divider is a keyboard widget: arrows move it, Home evens the panes, an
     assert.equal(focus.color, focus.accent);
     await page.keyboard.press('ArrowRight');
     await page.keyboard.press('ArrowRight');
-    assert.ok(Math.abs((await left(page)) - VIEW.width * 0.55) <= 1);
+    assert.ok(Math.abs((await left(page)) - (await mainBox(page)).width * 0.55) <= 1);
     await page.keyboard.press('Home');
     const evened = await widths(page);
     assert.ok(Math.abs(evened.panes[0] - evened.panes[1]) <= 1, String(evened.panes));
@@ -202,7 +209,8 @@ test('the divider is a keyboard widget: arrows move it, Home evens the panes, an
 });
 
 test('Home is idempotent: pressed twice it leaves the divider where the first press put it, at wide and narrow windows', async () => {
-  for (const width of [1800, 1400, 1100, 940]) {
+  // The narrowest of these still holds two panes beside the rail (973 px on Ink, pane/fit.ts).
+  for (const width of [1800, 1400, 1100, 990]) {
     await withPage(async (page) => {
       await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
       const divider = page.locator('.marxy-divider');
@@ -250,7 +258,7 @@ test('aria-valuenow is always inside [aria-valuemin, aria-valuemax]: after arrow
     await page.mouse.move(VIEW.width - 2, y, { steps: 4 });
     await inRange('drag to the right edge');
     await page.mouse.up();
-    for (const width of [1100, 940, 1800]) {
+    for (const width of [1100, 990, 1800]) {
       await page.setViewportSize({ width, height: 900 });
       await inRange(`resize to ${width}`);
     }
@@ -280,7 +288,7 @@ test('a window resize refreshes the divider: its position and value follow the n
 });
 
 test('hover, drag and keyboard focus draw the line at 3:1 or better against the page, in light and dark', async () => {
-  // WCAG 1.4.11 asks 3:1 of a component's states. At rest the line is the rule colour on purpose (ADR-0057).
+  // WCAG 1.4.11 asks 3:1 of a component's states. At rest the line is the rule colour on purpose.
   const lineVsPage = (page) =>
     page.evaluate(() => {
       const channels = (css) => {
@@ -310,7 +318,8 @@ test('hover, drag and keyboard focus draw the line at 3:1 or better against the 
       const hover = await lineVsPage(page);
       assert.ok(hover.ratio >= 3, `${variant}: hovered line is ${hover.ratio}:1`);
       await page.mouse.down();
-      await page.mouse.move(VIEW.width * 0.4, y, { steps: 4 });
+      const main = await mainBox(page);
+      await page.mouse.move(main.left + main.width * 0.4, y, { steps: 4 });
       const drag = await lineVsPage(page);
       assert.ok(drag.ratio >= 3, `${variant}: line mid-drag is ${drag.ratio}:1`);
       await page.mouse.up();

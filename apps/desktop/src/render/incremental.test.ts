@@ -1,4 +1,4 @@
-// The AST half of the incremental render (B-24): which blocks a parse shares with the one before it, and
+// The AST half of the incremental render: which blocks a parse shares with the one before it, and
 // which raw HTML the sanitiser's stack of open elements cannot be left open by. The page half runs in WebKit
 // (apps/desktop/test/live-reload.test.mjs).
 import { test } from 'node:test';

@@ -1,3 +1,70 @@
+// The app's own commands, each behind an `allow-<command>` permission: with an app manifest a window may call only
+// what its capability grants. The same list as `generate_handler!` in main.rs (shell-boundary.test.mjs holds the two
+// equal, and the capability to both).
+const COMMANDS: &[&str] = &[
+    "args",
+    "read_file",
+    "write_file_atomic",
+    "write_file_new",
+    "set_title",
+    "set_fullscreen",
+    "is_fullscreen",
+    "set_menu_enabled",
+    "save_dialog",
+    "open_dialog",
+    "close_confirmed",
+    "mark_from_webview",
+    "startup_marks",
+    "quit",
+    "watch_root",
+    "watch_ignore",
+    "unwatch_root",
+    "image_size",
+    "image_facts",
+    "allow_asset_scope",
+    "mark_opened",
+    "forget_root",
+    "config_paths",
+    "read_dir",
+    "stat_file",
+    "real_path",
+    "read_head",
+    "clipboard_write",
+    "pasteboard_types",
+    "pasteboard_read",
+    "pasteboard_write",
+    "take_pending_opens",
+    "open_external",
+    "reveal_in_editor",
+    "search_content",
+    "cancel_content_search",
+    "char_name",
+    "run_command",
+    "detect_files",
+    "open_with_system",
+    "note_recent",
+    "list_archive",
+    "read_archive_entry",
+    "read_archive_heads",
+    "tables_open",
+    "tables_rows",
+    "tables_blob",
+    "fetch_remote_image",
+    "font_facts",
+    "font_glyph",
+    "media_facts",
+    "media_envelope",
+    "decode_text",
+    "encode_text",
+    "encoding_readings",
+    "mail_from_msg",
+    "office_from_ole",
+];
+
 fn main() {
-    tauri_build::build()
+    tauri_build::try_build(
+        tauri_build::Attributes::new()
+            .app_manifest(tauri_build::AppManifest::new().commands(COMMANDS)),
+    )
+    .expect("tauri-build failed");
 }

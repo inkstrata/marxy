@@ -1,4 +1,4 @@
-// sort-list-items (E-09): table rows in LF, CRLF, CR, no trailing newline and BOM; permutation, idempotence and minimal diff over the corpus.
+// sort-list-items: table rows in LF, CRLF, CR, no trailing newline and BOM; permutation, idempotence and minimal diff over the corpus.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Document, List, Node, Source } from '../contracts/ast.ts';

@@ -1,9 +1,10 @@
-// The kind icon set (K-18): every kind has exactly one glyph, drawn inside the 16-unit grid.
+// The kind icon set: every kind has exactly one glyph, drawn inside the 16-unit grid.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { KINDS } from '@marxy/core';
-import { GLYPH_SOURCE, ICON_GRID, ICON_STROKE, KIND_GLYPHS, iconLang, kindIconSvg, langOfPath } from './icons.ts';
+import { FILE_TYPES, KINDS, langOf } from '@marxy/core';
+import { GLYPH_SOURCE, ICON_GRID, ICON_STROKE, KIND_GLYPHS, glyphSvg, iconLang, kindIconSvg, langOfPath } from './icons.ts';
+import { VIEWER_GLYPHS } from './viewer-glyphs.ts';
 
 test('every kind has exactly one glyph, and no glyph names a kind that does not exist', () => {
   assert.deepEqual(Object.keys(KIND_GLYPHS).sort(), [...KINDS].sort());
@@ -92,11 +93,19 @@ test('only code carries a language', () => {
   assert.equal(iconLang('log', 'rust'), undefined);
 });
 
-test('langOfPath names a language from the extension, and nothing otherwise', () => {
+test('langOfPath is the language id the registry gives, and nothing for a file it gives none', () => {
   assert.equal(langOfPath('/a/b/main.rs'), 'rust');
   assert.equal(langOfPath('/a/b/X.TS'), 'typescript');
-  assert.equal(langOfPath('/a.b/Makefile'), undefined);
-  assert.equal(langOfPath('notes.md'), undefined);
+  assert.equal(langOfPath('/a.b/Makefile'), 'make');
+  assert.equal(langOfPath('/a/b/Program.cs'), 'csharp');
+  assert.equal(langOfPath('/a/b/data.csv'), undefined);
+  assert.equal(langOfPath('/a/b/a.zzz'), undefined);
+  for (const row of FILE_TYPES) {
+    for (const ext of row.match.ext ?? []) {
+      assert.equal(langOfPath(`/r/f.${ext}`), row.lang, ext);
+      assert.equal(langOfPath(`/r/f.${ext}`), langOf(`/r/f.${ext}`), ext);
+    }
+  }
 });
 
 test('the glyph colour is a theme token the contrast gate already checks (no hard-coded colour)', () => {
@@ -104,4 +113,26 @@ test('the glyph colour is a theme token the contrast gate already checks (no har
   const rule = /\.marxy-kind-glyph \{[^}]*\}/.exec(src)?.[0] ?? '';
   assert.match(rule, /color: var\(--marxy-lang, var\(--marxy-color-text-secondary/);
   assert.doesNotMatch(rule, /(?:^|[^\w-])#[0-9a-f]{3,8}\s*;/);
+});
+
+test('the viewer glyphs: inside the grid, stroked as the kinds are, path and rect only, none the same as another', () => {
+  const seen = new Map<string, string>();
+  for (const [viewer, g] of Object.entries(VIEWER_GLYPHS)) {
+    assert.ok(g !== undefined && g.inner.length > 0, viewer);
+    assert.doesNotMatch(g.inner, /<(?!path |rect )[a-z]/, `${viewer}: path and rect only`);
+    assert.equal(seen.get(g.inner), undefined, `${viewer} duplicates ${seen.get(g.inner)}`);
+    seen.set(g.inner, viewer);
+    for (const m of g.inner.matchAll(/ d="([^"]+)"/g)) {
+      for (const n of extents(m[1]!)) assert.ok(n >= 0.5 && n <= ICON_GRID - 0.5, `${viewer}: ${n} outside the grid`);
+    }
+    for (const m of g.inner.matchAll(/<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)"/g)) {
+      const [x, y, w, h] = m.slice(1).map(Number) as [number, number, number, number];
+      assert.ok(x >= 0.5 && y >= 0.5 && x + w <= 15.5 && y + h <= 15.5, `${viewer} rect outside the grid`);
+    }
+    const svg = glyphSvg(g.inner);
+    assert.match(svg, /viewBox="0 0 16 16"/);
+    assert.match(svg, /stroke="currentColor"/);
+    assert.match(svg, new RegExp(`stroke-width="${ICON_STROKE}"`));
+    assert.match(svg, /fill="none"/);
+  }
 });

@@ -1,9 +1,9 @@
-// The text index for Rendered find (D-03).
+// The text index for Rendered find.
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { buildTextIndex, findAll } from '../src/find/text-index.ts';
 
-test("buildTextIndex(['foo ', 'bar baz']) locates 'bar' at piece 1 offset 0 (D-03)", () => {
+test("buildTextIndex(['foo ', 'bar baz']) locates 'bar' at piece 1 offset 0", () => {
   const index = buildTextIndex(['foo ', 'bar baz']);
   assert.equal(index.text, 'foo bar baz');
   const [m] = findAll(index, /bar/g);
@@ -11,19 +11,19 @@ test("buildTextIndex(['foo ', 'bar baz']) locates 'bar' at piece 1 offset 0 (D-0
   assert.deepEqual(index.locate(m.end), { piece: 1, offset: 3 });
 });
 
-test("a match 'o b' spanning a piece boundary reports both ends in the right pieces (D-03)", () => {
+test("a match 'o b' spanning a piece boundary reports both ends in the right pieces", () => {
   const index = buildTextIndex(['foo ', 'bar baz']);
   const [m] = findAll(index, /o b/g);
   assert.deepEqual(index.locate(m.start), { piece: 0, offset: 2 });
   assert.deepEqual(index.locate(m.end), { piece: 1, offset: 1 });
 });
 
-test('a boundary inside a word is not a space (D-03)', () => {
+test('a boundary inside a word is not a space', () => {
   const index = buildTextIndex(['hel', 'lo']);
   assert.equal(findAll(index, /hello/g).length, 1);
 });
 
-test('the end of the text locates at the end of the last piece; empty pieces are skipped (D-03)', () => {
+test('the end of the text locates at the end of the last piece; empty pieces are skipped', () => {
   const index = buildTextIndex(['', 'ab', '', 'cd', '']);
   assert.deepEqual(index.locate(4), { piece: 3, offset: 2 });
   assert.deepEqual(index.locate(2), { piece: 3, offset: 0 });
@@ -31,7 +31,7 @@ test('the end of the text locates at the end of the last piece; empty pieces are
   assert.deepEqual(buildTextIndex([]).locate(3), { piece: 0, offset: 0 });
 });
 
-test('findAll is non-overlapping, skips empty matches and ignores lastIndex and a missing g flag (D-03)', () => {
+test('findAll is non-overlapping, skips empty matches and ignores lastIndex and a missing g flag', () => {
   const index = buildTextIndex(['aaaa']);
   assert.deepEqual(findAll(index, /aa/g), [{ start: 0, end: 2 }, { start: 2, end: 4 }]);
   assert.deepEqual(findAll(index, /x*/g), []);
@@ -44,14 +44,14 @@ test('findAll is non-overlapping, skips empty matches and ignores lastIndex and 
   assert.equal(findAll(index, g).length, 4);
 });
 
-test('offsets are UTF-16 code units, as the DOM counts them (D-03)', () => {
+test('offsets are UTF-16 code units, as the DOM counts them', () => {
   const index = buildTextIndex(['\u{1F600}', 'x']);
   const [m] = findAll(index, /x/gu);
   assert.equal(m.start, 2);
   assert.deepEqual(index.locate(m.start), { piece: 1, offset: 0 });
 });
 
-test("two panes' pieces are independent: no module state (D-03)", () => {
+test("two panes' pieces are independent: no module state", () => {
   const a = buildTextIndex(['one two']);
   const b = buildTextIndex(['x', 'y', 'z']);
   assert.equal(a.text, 'one two');
@@ -59,7 +59,7 @@ test("two panes' pieces are independent: no module state (D-03)", () => {
   assert.deepEqual(a.locate(4), { piece: 0, offset: 4 });
 });
 
-test('findAll over 200 KB with a one-character query finds every match; the time is recorded (D-03)', (t) => {
+test('findAll over 200 KB with a one-character query finds every match; the time is recorded', (t) => {
   const index = buildTextIndex(Array.from({ length: 2000 }, () => 'abcdefghij'.repeat(10)));
   assert.equal(index.text.length, 200_000);
   const t0 = performance.now();

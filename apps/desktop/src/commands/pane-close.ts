@@ -1,7 +1,7 @@
-// "Close this pane" (D-08): `Mod+Shift+\` closes the focused pane and the other takes the whole window.
+// "Close this pane": `Mod+Shift+\` closes the focused pane and the other takes the whole window.
 // The close asks first over unsaved changes, in that pane, and a refused close says why there
 // (close.ts, `guardPaneClose`). `Mod+W` is unchanged: it closes the window. The `key` documents the chord
-// for the palette; the chord itself is run by pane/keys.ts, on the physical key (D-06).
+// for the palette; the chord itself is run by pane/keys.ts, on the physical key.
 import { appHandle } from './app-handle.ts';
 import type { Command } from './registry.ts';
 

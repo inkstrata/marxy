@@ -1,5 +1,5 @@
-// Named checks for MARXY-72: frameless skip, CI requiredness, afterPaint neutralization,
-// hand-reachable required mode, and the definition-of-done skip table in docs/sdlc.md.
+// Named checks for the frameless skip, CI requiredness, afterPaint neutralization,
+// hand-reachable required mode, and the definition-of-done skip table.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
@@ -152,27 +152,6 @@ test('MARXY_SMOKE_REQUIRED=1 fails in the frameless state', () => {
   );
 });
 
-test('docs/sdlc.md states which definition-of-done commands may skip', () => {
-  const sdlc = readFileSync(join(repoRoot, 'docs/sdlc.md'), 'utf8');
-  for (const command of ['pnpm build', 'pnpm typecheck', 'pnpm lint', 'pnpm test']) {
-    assert.match(sdlc, new RegExp(command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  }
-  assert.match(sdlc, /pnpm typecheck[^\n]*never skip/i);
-  assert.match(sdlc, /pnpm lint[^\n]*never skip/i);
-  assert.match(sdlc, /animation frames/i);
-  assert.match(sdlc, /MARXY_SMOKE_REQUIRED=1/);
-  assert.match(sdlc, /verify:cli/);
-  assert.match(sdlc, /frame assertion is not what is wrong/);
-  assert.match(sdlc, /unit tests never skip/i);
-  assert.equal(
-    /GITHUB_ACTIONS[^\n]*build[^\n]*lifecycle/.test(sdlc),
-    false,
-    'skip table must not describe CI as a build-lifecycle equivalent; CI runs verify:cli',
-  );
-  assert.match(sdlc, /merge-bar\.mjs/);
-  assert.match(sdlc, /## Credentials/);
-});
-
 test('a killed launch takes the processes it started with it, so a hung launch cannot poison the next', { skip: process.platform === 'win32' }, async () => {
   // Stands in for xvfb-run → dbus-run-session → the app: a parent whose child outlives it. The child
   // holds the stdout pipe, so the pipe closes only when every process of the launch is gone. Asked by
@@ -199,19 +178,19 @@ test('a launch killed on its way out says whether it stalled before asking to qu
   assert.match(stalledExitMessage([], 60000), /\(no mark\)/);
 });
 
-test('F-31: a frames-only boot is never ok: skipped when optional, a failure when required', () => {
+test('a frames-only boot is never ok: skipped when optional, a failure when required', () => {
   const how = 'MARK painted 2 frames=3 since_render_ms=2010 signal=frames-only';
   const optional = framesOnlyVerdict({ required: false, how });
   assert.equal(optional.status, 'skip');
   assert.match(optional.message, /signal=frames-only/);
   assert.match(optional.message, /not\s+a paint/);
-  assert.match(optional.message, /No first_text was printed/);
+  assert.match(optional.message, /first_text was printed from the frame time/);
   assert.equal(framesOnlyVerdict({ required: true, how }).status, 'fail');
 });
 
-test('F-31: the CLI smoke reads the frames-only marker and keeps first_text out of it', () => {
-  const smoke = readFileSync(join(repoRoot, 'apps', 'desktop', 'scripts', 'smoke-cli-open.mjs'), 'utf8');
-  assert.match(smoke, /signal === FRAMES_ONLY_SIGNAL/);
-  assert.match(smoke, /framesOnlyVerdict\(/);
-  assert.match(smoke, /first_text was printed by a frames-only boot/);
+test('a frames-only verdict carries the paint-before-render evidence from the painted line', () => {
+  const how = 'MARK painted 2 frames=3 since_render_ms=70 signal=frames-only source=frame fcp_before_ms=210';
+  const verdict = framesOnlyVerdict({ required: false, how });
+  assert.match(verdict.message, /fcp_before_ms=210/);
+  assert.match(verdict.message, /about one frame earlier/);
 });

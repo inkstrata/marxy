@@ -1,4 +1,4 @@
-// `openScratch`: the one way the rest of the app (paste, the diff) shows text that is not a file (E-13).
+// `openScratch`: the one way the rest of the app (paste, the diff) shows text that is not a file.
 // It encodes the text as UTF-8, opens it as a scratch document in the pane the window's rule names, and
 // says it is not saved. Nothing is written: the first write is the reader's Save As.
 import { appHandle } from '../commands/app-handle.ts';
@@ -14,6 +14,10 @@ export interface ScratchOptions {
   readonly source?: boolean;
   /** Runs once the scratch is on screen: after the unsaved-edits prompt is answered "open", never when it is dismissed. */
   readonly onLanded?: () => void;
+  /** Opens in the other pane, making it when there is one: the document in front stays. */
+  readonly beside?: boolean;
+  /** Told the scratch document's path before it opens, so what made it can be found by it (a comparison's card). */
+  readonly onPath?: (path: string) => void;
 }
 
 export const SCRATCH_NOTICE = 'Opened as a new document (not saved)';

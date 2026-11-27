@@ -1,5 +1,5 @@
-// detectKind against ADR-0060: one case per tier, a higher tier beating a lower, the thresholds, the
-// never-a-signal rule over the corpus, and the extension-less and README rows (K-03).
+// detectKind: one case per tier, a higher tier beating a lower, the thresholds, the
+// never-a-signal rule over the corpus, and the extension-less and README rows.
 
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -49,8 +49,8 @@ const TIERS: Array<[string, string, string, Record<string, unknown> | undefined,
   ['format: dotfile', '.gitignore', 'node_modules\n', undefined, 'code', 3],
   ['format: shebang', 'bin/run', '#!/bin/sh\necho\n', undefined, 'code', 3],
   ['format: unknown extension', 'x.conf', 'a = b\n', undefined, 'code', 3],
-  ['format: no extension', 'LICENSE', 'MIT License\n', undefined, 'code', 3],
-  ['format: AUTHORS', 'AUTHORS', 'Ada\n', undefined, 'code', 3],
+  ['format: no extension', 'VERSION', '0.5.0\n', undefined, 'code', 3],
+  ['name: NOTES', 'NOTES', 'Ada\n', undefined, 'notes', 2],
   ['shape: JSONL transcript', 'x.jsonl', '{"role":"user","content":"hi"}\n{"role":"assistant","content":"yo"}\n', undefined, 'transcript', 4],
   ['shape: JSONL type field', 'x.jsonl', '{"type":"user","message":{"role":"user"}}\n{"type":"assistant"}\n', undefined, 'transcript', 4],
   ['shape: speaker headings', 'x.md', TRANSCRIPT, undefined, 'transcript', 4],
@@ -149,7 +149,7 @@ test('speaker headings: a product or model name is not a speaker', () => {
   assert.equal(kindOf('x.md', lines('## You', 'a', '## Assistant', 'b')), 'transcript');
 });
 
-test('speakerOf: a speaker word alone, or with a name after " · ", ": " or " — ", is a speaker (K-11)', () => {
+test('speakerOf: a speaker word alone, or with a name after " · ", ": " or " — ", is a speaker', () => {
   const table: Array<[string, ReturnType<typeof speakerOf>]> = [
     ['You', { role: 'you' }], ['user', { role: 'you' }], ['HUMAN', { role: 'you' }],
     ['Assistant', { role: 'assistant' }], ['Agent', { role: 'assistant' }],
@@ -165,7 +165,7 @@ test('speakerOf: a speaker word alone, or with a name after " · ", ": " or " �
   for (const [text, want] of table) assert.deepEqual(speakerOf(text), want, JSON.stringify(text));
 });
 
-test('speaker headings with a name after the word count in detection, as in rendering (K-11)', () => {
+test('speaker headings with a name after the word count in detection, as in rendering', () => {
   assert.equal(kindOf('x.md', lines('## You', 'a', '### Tool · bash', 'b')), 'transcript');
   assert.equal(kindOf('x.md', lines('## Tool: a', 'a', '## Tool · b', 'b')), 'article'); // one role
   assert.equal(kindOf('x.md', lines('## Tool use', 'a', '## You', 'b')), 'article');
@@ -186,10 +186,14 @@ test('JSONL: role objects are a transcript, other lines are data', () => {
   assert.equal(kindOf('x.json', '{"role":"user"}\n{"role":"assistant"}\n'), 'data'); // only .jsonl is refined
 });
 
-test('ADR-0060 item 3: extension-less and README rows', () => {
-  assert.equal(kindOf('LICENSE', 'MIT\n'), 'code');
-  assert.equal(kindOf('LICENSE', TRANSCRIPT), 'code'); // shape alone never moves an extension-less file to a Markdown kind
-  assert.equal(kindOf('LICENSE', WORKING), 'code');
+test('extension-less and README rows', () => {
+  assert.equal(kindOf('VERSION', '0.5.0\n'), 'code');
+  assert.equal(kindOf('VERSION', TRANSCRIPT), 'code'); // shape alone never moves an extension-less file to a Markdown kind
+  assert.equal(kindOf('VERSION', WORKING), 'code');
+  // A licence, the authors and a notes file are prose with no extension: text, never code.
+  assert.equal(kindOf('LICENSE', 'MIT\n'), 'article');
+  assert.equal(kindOf('AUTHORS', 'Ada\n'), 'article');
+  assert.equal(kindOf('NOTES', 'remember the walk\n'), 'notes');
   assert.equal(kindOf('x.unknownext', TRANSCRIPT), 'code');
   assert.equal(kindOf('README', 'hello\n'), 'readme');
   assert.equal(kindOf('readme', 'hello\n'), 'readme');
@@ -205,6 +209,17 @@ test('ADR-0060 item 3: extension-less and README rows', () => {
   assert.equal(kindOf('README.markdown', 'hello\n'), 'readme');
   assert.equal(kindOf('docs/README', 'hello\n'), 'readme');
   assert.equal(kindOf('CHANGELOG.rst', 'hello\n'), 'code');
+});
+
+test('the prose names added later read as their neighbours, bare or before a dot, and never by a longer word', () => {
+  for (const [path, kind] of [
+    ['NEWS', 'changelog'], ['NEWS.md', 'changelog'], ['RELEASES', 'changelog'], ['releases.txt', 'changelog'], ['newsletter.md', 'article'],
+    ['SECURITY', 'readme'], ['SECURITY.md', 'readme'], ['CODE_OF_CONDUCT.md', 'readme'], ['GOVERNANCE', 'readme'], ['SUPPORT.md', 'readme'],
+    ['FAQ', 'readme'], ['HACKING', 'readme'], ['BUGS', 'readme'], ['supporting.md', 'article'], ['bugsnag.md', 'article'],
+    ['ROADMAP', 'notes'], ['ROADMAP.md', 'article'], ['NOTES.md', 'article'],
+    ['NOTICE', 'article'], ['COPYING.LESSER', 'article'], ['LICENSE-MIT', 'article'], ['LICENSE.mit', 'article'],
+    ['docs/report.qmd', 'article'], ['README.qmd', 'readme'], ['.cursorrules', 'article'],
+  ] as const) assert.equal(kindOf(path, 'hello\n'), kind, path);
 });
 
 test('the extension-less file outside the text family can be a log or a terminal session', () => {
@@ -328,7 +343,7 @@ test('corpus: every kind is one of the fourteen and every file has a decisive re
   }
 });
 
-test('F-92: prose with a few `$ ` lines is not a terminal session; a transcript that opens at a prompt still is', () => {
+test('prose with a few `$ ` lines is not a terminal session; a transcript that opens at a prompt still is', () => {
   const prose = lines('Setting up', '', 'Run this first:', '', '$ make', 'built', '', 'then this:', '', '$ make test', 'ok', '');
   assert.equal(kindOf('notes.txt', prose), 'article');
   assert.equal(kindOf('notes.md', prose), 'article');

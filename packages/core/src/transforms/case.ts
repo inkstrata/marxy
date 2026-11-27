@@ -1,7 +1,8 @@
-// The Case group (J-03). `lower`, `upper` and `slug` take the whole text, as the catalogue says; the two heading
+// The Case group. `lower`, `upper` and `slug` take the whole text, as the catalogue says; the two heading
 // transforms rewrite only the words of ATX headings outside code.
 import { applyEdits, atxHeadings, mapInline } from './prose.ts';
 import type { TransformDef } from './types.ts';
+import { trimEndOf, withoutClosingHashes } from '../util/text.ts';
 
 // Bytes a case change must not reach: a link destination, an autolink or tag, a reference definition's target, a bare
 // URL. (Code spans, fenced code, math and front matter are stepped around by `mapInline`.)
@@ -78,11 +79,13 @@ function headingText(map: (text: string) => string): (lf: string) => string {
   return (lf) => {
     const edits: { start: number; end: number; text: string }[] = [];
     for (const { span } of atxHeadings(lf)) {
-      const line = lf.slice(span.start, span.end).replace(/\n+$/, '');
-      const m = /^(#{1,6}[ \t]+)(.*?)([ \t]+#+[ \t]*)?$/s.exec(line);
-      if (!m) continue;
-      const next = map(m[2]!);
-      if (next !== m[2]) edits.push({ start: span.start + m[1]!.length, end: span.start + m[1]!.length + m[2]!.length, text: next });
+      const line = trimEndOf(lf.slice(span.start, span.end), '\n');
+      // The marks, then the text less a closing run: `/^(#{1,6}[ \t]+)(.*?)([ \t]+#+[ \t]*)?$/s`, without its backtracking.
+      const marks = /^#{1,6}[ \t]+/.exec(line)?.[0];
+      if (marks === undefined) continue;
+      const text = withoutClosingHashes(line.slice(marks.length));
+      const next = map(text);
+      if (next !== text) edits.push({ start: span.start + marks.length, end: span.start + marks.length + text.length, text: next });
     }
     return applyEdits(lf, edits);
   };

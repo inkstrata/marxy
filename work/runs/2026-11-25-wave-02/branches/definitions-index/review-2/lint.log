@@ -1,0 +1,25 @@
+﻿node.exe : $ biome check . && pnpm -r lint
+At C:\Users\<user>\AppData\Roaming\fnm\aliases\default\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ biome check . && pnpm -r lint:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Checked 1616 files in 592ms. No fixes applied.
+Scope: 5 of 6 workspace projects
+packages/core lint$ biome check --formatter-enabled=false .
+packages/shell-api lint$ biome check --formatter-enabled=false .
+packages/theme lint$ biome check --formatter-enabled=false . && node scripts/lint-default-theme.mjs
+packages/typeset lint$ biome check --formatter-enabled=false .
+packages/shell-api lint: Checked 3 files in 14ms. No fixes applied.
+packages/typeset lint: Checked 23 files in 44ms. No fixes applied.
+packages/theme lint: Checked 84 files in 109ms. No fixes applied.
+packages/core lint: Checked 429 files in 179ms. No fixes applied.
+packages/typeset lint: Done
+packages/shell-api lint: Done
+packages/core lint: Done
+packages/theme lint: theme lint ok
+packages/theme lint: Done
+apps/desktop lint$ biome check --formatter-enabled=false .
+apps/desktop lint: Checked 922 files in 445ms. No fixes applied.
+apps/desktop lint: Done

@@ -1,4 +1,4 @@
-// F-104: the empty window's two-column pieces keep their columns apart. Every bundled piece is pinned in turn
+// the empty window's two-column pieces keep their columns apart. Every bundled piece is pinned in turn
 // (Math.random, as the layout audit does) in the app booted on the shipped skeleton over the memory shell; the
 // pieces that carry two languages are opened at 800 px (the columns stack) and widened to 1,000, 1,400 and 1,920 px,
 // and opened with the workspace unfolded at 1,400 px. At each size no text box of the left column meets one of the
@@ -68,7 +68,7 @@ async function open(piece, width, { unfold = false } = {}) {
     const handle = await bootApplication(createMemoryShell({}), { argv: [] });
     await handle.ready;
     window.__marxyHandle = handle;
-    if (unfold) handle.workspace().unfold();
+    if (unfold) handle.frame().unfold();
   }, unfold);
   return page;
 }

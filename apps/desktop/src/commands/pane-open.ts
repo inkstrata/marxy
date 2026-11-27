@@ -1,9 +1,9 @@
-// "Open beside…" (D-07): `Mod+Alt+\` (`Mod+\` folds the workspace, W-02) opens the palette to choose a
+// "Open beside…": `Mod+Alt+\` (`Mod+\` folds the workspace) opens the palette to choose a
 // document for the other pane. With one pane the
 // palette's empty list is the recent documents not on screen, so Enter alone is "split with recent"; with
 // two it replaces the other pane's document. A window too narrow for two columns gets the reason as a
 // notice and no palette. The `key` documents the chord for the palette; the chord itself is run by
-// pane/keys.ts, on the physical key (D-06).
+// pane/keys.ts, on the physical key.
 import { splitRefusal } from '../pane/fit.ts';
 import { appHandle, palette } from './app-handle.ts';
 import type { Command } from './registry.ts';

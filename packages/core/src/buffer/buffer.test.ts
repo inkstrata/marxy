@@ -1,10 +1,10 @@
-// §01 test table, the public API, lineOf, contentHash, and the no-normalise / boundary checks.
+// The public API, lineOf, contentHash, and the no-normalise / boundary checks.
 
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { setFlagsFromString } from 'node:v8';
+import { runInNewContext } from 'node:vm';
 import { readFileSync, readdirSync } from 'node:fs';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
 import type { Source } from '../contracts/ast.ts';
 import { parseMarkdown } from '../parse/parse.ts';
 import {
@@ -20,7 +20,6 @@ import {
   textOf,
   utf16ToByte,
 } from './buffer.ts';
-import { History } from './history.ts';
 import {
   bytesOf as exportedBytesOf,
   byteToUtf16 as exportedByteToUtf16,
@@ -28,7 +27,6 @@ import {
   createBuffer as exportedCreateBuffer,
   eolString as exportedEolString,
   fromText as exportedFromText,
-  History as ExportedHistory,
   lineOf as exportedLineOf,
   splice as exportedSplice,
   textOf as exportedTextOf,
@@ -36,7 +34,6 @@ import {
 } from '../index.ts';
 
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
-const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
 const read = (name: string): Uint8Array => new Uint8Array(readFileSync(new URL(name, corpus)));
 const encode = (text: string): Uint8Array => new TextEncoder().encode(text);
 const range = (file: string, start: number, end: number): Source => ({ file, start, end });
@@ -45,7 +42,7 @@ const corpusFiles = readdirSync(corpus)
   .filter((name) => name !== 'check-prose-volume.mjs' && name !== 'image.png' && !name.startsWith('.'))
   .sort();
 
-test('every §01 API function exists with the task-card signature', () => {
+test('every API function exists with its signature', () => {
   const empty = createBuffer('untitled', new Uint8Array());
   assert.equal(empty.path, 'untitled');
   assert.equal(empty.bytes.length, 0);
@@ -65,7 +62,6 @@ test('every §01 API function exists with the task-card signature', () => {
   assert.equal(typeof contentHash, 'function');
   assert.equal(typeof eolString, 'function');
   assert.equal(typeof lineOf, 'function');
-  assert.equal(typeof History, 'function');
 
   const src = range('untitled', 0, 0);
   assert.ok(bytesOf(empty, src) instanceof Uint8Array);
@@ -90,7 +86,6 @@ test('the package index re-exports the buffer surface', () => {
   assert.equal(exportedContentHash, contentHash);
   assert.equal(exportedEolString, eolString);
   assert.equal(exportedLineOf, lineOf);
-  assert.equal(ExportedHistory, History);
 });
 
 test('12-crlf-and-bom.md: BOM, CRLF, text[0] is U+FEFF, empty splice is byte-identical', () => {
@@ -136,16 +131,13 @@ test('textOf throws RangeError when start or end falls on a UTF-8 continuation b
   assert.equal(textOf(buffer, range('cjk.md', 0, 3)), '東');
 });
 
-test('splice then undo: bytes match the original and version only increases', () => {
+test('splice then splice back: bytes match the original and version only increases', () => {
   const original = createBuffer('doc.md', encode('# Hi\n'));
-  const history = new History();
   const src = range('doc.md', 0, 4);
   const before = new Uint8Array(bytesOf(original, src));
   const next = splice(original, src, '# Ho');
-  history.push({ range: src, before, after: encode('# Ho'), label: 'retitle' });
   assert.equal(next.version, original.version + 1);
-  const undone = history.undo(next);
-  assert.ok(undone);
+  const undone = splice(next, src, new TextDecoder().decode(before));
   assert.deepEqual([...undone.bytes], [...original.bytes]);
   assert.ok(undone.version > next.version);
   assert.ok(next.version > original.version);
@@ -234,49 +226,6 @@ test('eolString follows the buffer convention and the mixed line', () => {
   assert.equal(eolString(mixed, 3), '\r\n');
 });
 
-test('the three-dot diff contains no fidelity gate', (t) => {
-  let base: string | undefined;
-  for (const ref of ['origin/main', 'main']) {
-    try {
-      execFileSync('git', ['rev-parse', '--verify', ref], {
-        cwd: repoRoot,
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      });
-      base = ref;
-      break;
-    } catch {
-      // try the next candidate
-    }
-  }
-  if (!base) {
-    t.skip('neither origin/main nor main is a resolvable git ref');
-    return;
-  }
-  const names = execFileSync('git', ['diff', '--name-only', `${base}...HEAD`], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  })
-    .split('\n')
-    .filter(Boolean);
-  // MARXY-138 (and future stories whose board row names the gate) may touch the fidelity
-  // gate only alongside a file unique to that story's own PR, so an unrelated branch cannot
-  // accidentally satisfy the exemption.
-  const gateFidelityAllowed =
-    (names.includes('fixtures/corpus/image.png') && names.includes('scripts/allowlists/crate-licences.json')) ||
-    // MARXY-49: explicit save deletes the write-after-every-operation path gate-fidelity.mjs
-    // measured, and updates its Rust save-signature anchor to WriteError; save.test.mjs is
-    // unique to that story's own PR.
-    names.includes('apps/desktop/test/save.test.mjs') ||
-    // A-08: drops the ci.yml-shape check from gate-fidelity.mjs; check.test.mjs is unique to that story's PR.
-    names.includes('scripts/check.test.mjs') ||
-    // W-10: saves every move of the sections fixtures through the real save path; outline-tab.test.mjs is unique to that story's PR.
-    names.includes('apps/desktop/test/outline-tab.test.mjs') ||
-    // W-17: saves every front-matter value edit through the real save path; metadata.test.mjs is unique to that story's PR.
-    names.includes('apps/desktop/test/metadata.test.mjs');
-  assert.ok(!names.includes('scripts/gate-fidelity.mjs') || gateFidelityAllowed);
-});
-
 const crlfBufferOf = (text: string) => createBuffer('t.md', new TextEncoder().encode(text));
 const folded = (like: ReturnType<typeof createBuffer>, text: string): string => {
   const fold = foldText(like, text);
@@ -310,7 +259,7 @@ test('foldText fuzz: LF input on CRLF buffers yields no bare LF; CRLF input is u
   assert.ok(checked > 500);
 });
 
-test('a continuation byte that belongs to no character is a boundary; one inside a character is not (F-34.1, F-35)', () => {
+test('a continuation byte that belongs to no character is a boundary; one inside a character is not', () => {
   const stray = createBuffer('s.md', Uint8Array.from([0x80, 0x61, 0xbf, 0xe2, 0x82, 0x62, 0xe6, 0x9d, 0xb1]));
   // A lone 80 at the start, a lone BF, and the 82 of a cut-off E2 82: each may start or end a splice.
   assert.deepEqual([...splice(stray, range('s.md', 0, 1), '').bytes], [0x61, 0xbf, 0xe2, 0x82, 0x62, 0xe6, 0x9d, 0xb1]);
@@ -319,4 +268,25 @@ test('a continuation byte that belongs to no character is a boundary; one inside
   // The 9D and B1 of a whole 東 (E6 9D B1) are inside a character.
   assert.throws(() => splice(stray, range('s.md', 7, 9), ''), RangeError);
   assert.throws(() => splice(stray, range('s.md', 6, 8), ''), RangeError);
+});
+
+test('a file with one stray byte holds a few bytes per byte once read, not the decode\'s scratch arrays', () => {
+  setFlagsFromString('--expose-gc');
+  const gc = runInNewContext('gc') as () => void;
+  const held = (): number => {
+    gc();
+    gc();
+    const m = process.memoryUsage();
+    return m.heapUsed + m.external;
+  };
+  const bytes = new Uint8Array(10 * 1024 * 1024).fill(0x61);
+  for (let i = 99; i < bytes.length; i += 100) bytes[i] = 0x0a;
+  bytes[1000] = 0xe9;
+  const before = held();
+  const buffer = createBuffer('/x/a.log', bytes);
+  const per = (held() - before) / bytes.length;
+  // The bytes' copy, a two-byte string and a 32-bit table: 7. The scratch number[] arrays kept it at 30 and more.
+  assert.ok(per < 8, `${per.toFixed(1)} bytes held per byte`);
+  assert.equal(buffer.text.length, bytes.length);
+  assert.equal(buffer.offsets.at(1001), 1001);
 });

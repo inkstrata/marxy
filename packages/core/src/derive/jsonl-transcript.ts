@@ -1,19 +1,21 @@
-// The `jsonl-transcript` deriver (ADR-0061, K-12): a JSONL session read as the conversation it records, as a read-only
+// The `jsonl-transcript` deriver: a JSONL session read as the conversation it records, as a read-only
 // tree beside the AST. A pure function of the bytes: no DOM, no Node built-ins, no I/O, and nothing it makes is ever
-// written back (ADR-0061 item 6).
+// written back.
 //
-// The file is read a line at a time, because JSONL lines are independent (item 8): `createTranscriptDeriver` reads a
+// The file is read a line at a time, because JSONL lines are independent: `createTranscriptDeriver` reads a
 // slice of lines per `step`, so the first screen of turns needs only the first lines (commitment 5). Each line is checked
 // as JSON by a scanner over its bytes that keeps the byte range of every value, so a leaf's `src` is exactly its string
-// token, quotes included, and its value is the decoding of exactly those bytes (item 3): the bytes are decoded as UTF-8
+// token, quotes included, and its value is the decoding of exactly those bytes: the bytes are decoded as UTF-8
 // the way `TextDecoder` does (U+FFFD for each invalid sequence, its place kept in `replaced`), then unescaped the way
 // `JSON.parse` does. `derive/invariants.ts` checks both against `TextDecoder` and `JSON.parse` themselves.
 //
 // What a line is read as:
 // - a `user` or `assistant` message (a Claude Code line: `type` and `message.role`; or any line with a top-level `role`
 //   and `content`): its text, thinking, tool calls and tool results become leaves of turns;
+// - a `tool_result` line of its own, or a `role: tool` line: the result of the call it names by id, or, naming none, of the
+//   turn's first call that named none;
 // - a record of another type (`summary`, `system`, a file snapshot…), or a message with no text: dropped, and counted
-//   by its type, a type the deriver knows apart from one it does not (item 7);
+//   by its type, a type the deriver knows apart from one it does not;
 // - a blank line: dropped as `blank`;
 // - a line that is not JSON: an `unreadable` row; the last line, with no newline and not yet JSON, is `pending`.
 //
@@ -485,7 +487,7 @@ export interface TranscriptDeriver {
   /** How many of the root's children are final: every one but the last until the file is read, then all. */
   readonly settled: number;
   /**
-   * The bytes grew (ADR-0061 item 8: an agent appends to its log): reads on from where `bytes` still agrees with `next`, so
+   * The bytes grew (an agent appends to its log): reads on from where `bytes` still agrees with `next`, so
    * only the new lines are derived. An unfinished last line is read again, its effect on the tree undone first. Returns
    * the number of root children that kept their place and content (rows the view may keep), or -1 when `next` does not
    * begin with every byte this deriver has relied on, so the tree must be derived again from the start.
@@ -517,12 +519,18 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
   let slices = 0;
   /** The turn the next message of its speaker joins; null after an unreadable line. */
   let turn: WTurn | null = null;
-  /** The calls of the current agent turn without a result yet, by id. */
-  let open = new Map<string, WTool>();
+  /** The calls of the current agent turn without a result yet, by id; a call that names no id by a number, in order. */
+  let open = new Map<string | number, WTool>();
+  let unnamed = 0;
+  /** The keys of the calls that named no id, oldest first, from `first`: a result with no id takes the oldest still open. */
+  let nameless: number[] = [];
+  let first = 0;
 
   const closeTurn = (): void => {
     turn = null;
     open = new Map();
+    nameless = [];
+    first = 0;
   };
   const hull = (from: readonly Source[]): Source => src(from[0]!.start, from[from.length - 1]!.end);
 
@@ -543,7 +551,7 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
 
   const leaf = (token: JsonString, role: DerivedTextRole, syntax: 'markdown' | 'plain', key?: string): DerivedText => {
     const { value, replaced } = decodeJsonString(b, token);
-    // Only well-formed text from valid UTF-8 is read as Markdown (ADR-0061 item 3).
+    // Only well-formed text from valid UTF-8 is read as Markdown.
     const plain = replaced.length > 0 || hasLoneSurrogate(value);
     const s = src(token.s, token.e);
     const made: WText = { type: 'derivedText', src: s, from: [s], value, decoding: 'json-string', syntax: plain ? 'plain' : syntax, role, replaced };
@@ -585,9 +593,14 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
     const leaves = contentLeaves(field(b, block, 'content'), 'tool-output', 'plain', unshown);
     if (leaves.length === 0) return 0;
     const failed = field(b, block, 'is_error')?.k === 't';
-    const call = id === undefined ? undefined : open.get(id);
+    // A result that names no id answers the turn's oldest call that named none either, as a session without ids writes
+    // them. Results of calls run in parallel that come back in another order cannot be told apart without ids: each is
+    // joined to a call in the order the calls were made.
+    while (first < nameless.length && !open.has(nameless[first]!)) first++;
+    const key = id ?? nameless[first];
+    const call = key === undefined ? undefined : open.get(key);
     if (call !== undefined && turn !== null) {
-      open.delete(id!);
+      open.delete(key!);
       turnFor('agent', lineSrc);
       call.from.push(src(block.s, block.e));
       call.src = hull(call.from);
@@ -668,7 +681,11 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
         const unit: WTool = { type: 'tool', src: s, from: [s], children, answered: false, orphan: false, failed: false, unshown: inputs };
         turnFor('agent', lineSrc).children.push(unit);
         const id = str(b, field(b, block, 'id'));
-        if (id !== undefined && !open.has(id)) open.set(id, unit);
+        if (id === undefined) {
+          nameless.push(unnamed);
+          open.set(unnamed++, unit);
+        }
+        else if (!open.has(id)) open.set(id, unit);
         made += children.length;
       } else unshown.push(unshownOf(block));
     }
@@ -718,6 +735,8 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
     if (role === 'user' && (type === undefined || type === 'user' || msg !== undefined)) made = message('you', content, lineSrc);
     else if (role === 'assistant' && (type === undefined || type === 'assistant' || msg !== undefined)) made = message('agent', content, lineSrc);
     else if (role === 'tool' && type === undefined) made = result(value, str(b, field(b, value, 'tool_call_id')), lineSrc);
+    // A result written as a line of its own, not inside a prompt.
+    else if (type === 'tool_result' && role === undefined) made = result(value, str(b, field(b, value, 'tool_use_id')) ?? str(b, field(b, value, 'tool_call_id')), lineSrc);
     else {
       drop(lineSrc, record, KNOWN_RECORDS.has(record));
       return;
@@ -738,7 +757,8 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
     readonly children: number;
     readonly turn: WTurn | null;
     readonly turnState: { from: number; children: number; unshown: number; src: Source } | null;
-    readonly open: Map<string, WTool>;
+    readonly open: Map<string | number, WTool>;
+    readonly nameless: readonly number[];
     readonly calls: { tool: WTool; from: number; children: number; unshown: number; src: Source; answered: boolean; failed: boolean }[];
   }
   let before: Before | null = null;
@@ -751,6 +771,7 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
     turn,
     turnState: turn ? { from: turn.from.length, children: turn.children.length, unshown: turn.unshown.length, src: turn.src } : null,
     open: new Map(open),
+    nameless: nameless.slice(first),
     calls: [...open.values()].map((tool) => ({ tool, from: tool.from.length, children: tool.children.length, unshown: tool.unshown.length, src: tool.src, answered: tool.answered, failed: tool.failed })),
   });
   const undo = (k: Before): void => {
@@ -767,6 +788,8 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
       turn.src = k.turnState.src;
     }
     open = new Map(k.open);
+    nameless = k.nameless.slice();
+    first = 0;
     for (const c of k.calls) {
       c.tool.from.length = c.from;
       c.tool.children.length = c.children;

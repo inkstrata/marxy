@@ -1,4 +1,4 @@
-// The cells of a table as plain strings, header row first (C-08).
+// The cells of a table as plain strings, header row first.
 import type { Table } from '../contracts/ast.ts';
 import { inlinePlainText } from './inline-text.ts';
 

@@ -1,4 +1,4 @@
-// Notes about a file in Source (V-04, WebKit): a fence never closed, a heading that skips a level and a path that is not
+// Notes about a file in Source (WebKit): a fence never closed, a heading that skips a level and a path that is not
 // there each get a faint ring in the right-edge strip, a count in the bottom bar, and a stop for *Go to next note*. Notes
 // are a view: no class or decoration lands on the reader's text (commitment 3), a path Marxy cannot check is never called
 // missing, and a big file's first text does not wait for them (commitment 5). The running app over the memory shell.
@@ -66,7 +66,7 @@ const caretLine = (page) =>
     return state.doc.lineAt(state.selection.main.head).number;
   });
 
-test('V-04 a file with one of each shows three note marks and "3 notes"; next note visits them in order and wraps', async () => {
+test('a file with one of each shows three note marks and "3 notes"; next note visits them in order and wraps', async () => {
   await withApp('/r/noted.md', async (page) => {
     await page.waitForFunction(() => document.querySelectorAll('.marxy-source-mark-note').length === 3);
     assert.equal(await page.evaluate(() => document.querySelector('.marxy-source-notes').textContent), '3 notes');
@@ -111,7 +111,7 @@ test('V-04 a file with one of each shows three note marks and "3 notes"; next no
   });
 });
 
-test('V-04 nothing lands on the reader\'s text: no class or decoration in the editor, and the bytes are the file\'s', async () => {
+test('nothing lands on the reader\'s text: no class or decoration in the editor, and the bytes are the file\'s', async () => {
   await withApp('/r/noted.md', async (page) => {
     await page.waitForFunction(() => document.querySelectorAll('.marxy-source-mark-note').length === 3);
     const dom = await page.evaluate(() => {
@@ -126,8 +126,9 @@ test('V-04 nothing lands on the reader\'s text: no class or decoration in the ed
         text: [...content.querySelectorAll('.cm-line')].map((l) => l.textContent).join('\n'),
       };
     });
-    // Classes the editor and Source already had on `main` (CodeMirror's own, the grammar's, V-12's hanging indent); a note adds none.
-    const foreign = dom.classes.filter((c) => !/^(cm-|ͼ|tok-|marxy-source-hang$)/.test(c));
+    // Classes the editor and Source already had on `main` (CodeMirror's own, the grammar's, the hanging indent, and now
+    // the colour by language: source/colour.ts's `marxy-tok-<role>` and source/fence-lang.ts's `marxy-fence-lang`); a note adds none.
+    const foreign = dom.classes.filter((c) => !/^(cm-|ͼ|tok-|marxy-tok-|marxy-fence-lang$|marxy-source-hang$)/.test(c));
     assert.deepEqual(foreign, [], `unexpected classes on the text: ${foreign.join(' ')}`);
     assert.deepEqual(dom.classes.filter((c) => /note/i.test(c)), []);
     assert.equal(dom.underlines, 0);
@@ -141,7 +142,7 @@ test('V-04 nothing lands on the reader\'s text: no class or decoration in the ed
   });
 });
 
-test('V-04 a clean file has no marks and no count, and a path Marxy cannot check is not called missing', async () => {
+test('a clean file has no marks and no count, and a path Marxy cannot check is not called missing', async () => {
   await withApp('/r/clean.md', async (page) => {
     await page.waitForTimeout(1200);
     assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-source-mark-note').length), 0);
@@ -155,7 +156,7 @@ test('V-04 a clean file has no marks and no count, and a path Marxy cannot check
   }, { ...files, '/r/unsure.md': 'See `ghost/dir/x.md` and `~/n/m.md` and `docs/real.md`.\n' });
 });
 
-test('V-04 notes follow the text: a repaired fence loses its note, and Source is one undo for an edit, none for a note', async () => {
+test('notes follow the text: a repaired fence loses its note, and Source is one undo for an edit, none for a note', async () => {
   await withApp('/r/noted.md', async (page) => {
     await page.waitForFunction(() => document.querySelectorAll('.marxy-source-mark-note').length === 3);
     await page.evaluate(async () => {
@@ -173,7 +174,7 @@ test('V-04 notes follow the text: a repaired fence loses its note, and Source is
   });
 });
 
-test('V-04.1 marks move with the text: an edit above a note leaves it on its text before any rescan', async () => {
+test('marks move with the text: an edit above a note leaves it on its text before any rescan', async () => {
   await withApp('/r/noted.md', async (page) => {
     await page.waitForFunction(() => document.querySelectorAll('.marxy-source-mark-note').length === 3);
     // Three lines go in at the top and the next note is asked for in the same breath, before the rescan a moment later.
@@ -190,7 +191,7 @@ test('V-04.1 marks move with the text: an edit above a note leaves it on its tex
   });
 });
 
-test('V-04 a 2 MB Markdown file shows its first text before its notes, and the numbers are recorded', async () => {
+test('a 2 MB Markdown file shows its first text before its notes, and the numbers are recorded', async () => {
   const para = 'A paragraph of ordinary prose that fills a line of the file with words.\n\n';
   const big = `# Big\n\n${para.repeat(Math.ceil(2_000_000 / para.length))}\n#### Skips\n\n\`\`\`\nnever closed\n`;
   await withApp('/r/big.md', async (page) => {
@@ -217,8 +218,8 @@ test('V-04 a 2 MB Markdown file shows its first text before its notes, and the n
       clearInterval(timer);
       return seen;
     });
-    console.log(`V-04 2 MB file, Source asked for at 0: first text ${Math.round(times.text)} ms, first note ${times.note === null ? 'none' : `${Math.round(times.note)} ms`}`);
-    console.log(`V-04 2 MB file: the page was held at most ${Math.round(times.longest)} ms at a time once the text was up (the same with notes turned off: Source's own work on a file this size)`);
+    console.log(`2 MB file, Source asked for at 0: first text ${Math.round(times.text)} ms, first note ${times.note === null ? 'none' : `${Math.round(times.note)} ms`}`);
+    console.log(`2 MB file: the page was held at most ${Math.round(times.longest)} ms at a time once the text was up (the same with notes turned off: Source's own work on a file this size)`);
     assert.ok(times.text !== null);
     if (times.note !== null) assert.ok(times.text < times.note, 'the text is up before a note is');
     assert.ok(times.note !== null, 'the notes arrive');

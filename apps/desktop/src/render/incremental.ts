@@ -1,6 +1,6 @@
-// The page again after a reload, replacing only the blocks the change touched (B-24).
+// The page again after a change to the bytes (a reload, an operation, undo, redo, a Source commit), replacing only the blocks it touched.
 //
-// A reload of a long document used to render, sanitise and mount the whole of it again, after B-23 had
+// A change to a long document used to render, sanitise and mount the whole of it again, after the parse had
 // already reparsed only the blocks the change touched. Here the new parse is compared with the one the
 // page was rendered from, the top-level blocks that differ are rendered and sanitised on their own, and
 // they replace the old ones in the DOM; every other block keeps its element, moved only in its
@@ -13,8 +13,14 @@
 // - heading ids: GitHub's slugger numbers duplicates in document order, so a heading above can renumber
 //   one below. The ids of every heading outside the replaced blocks are compared, old with new, and
 //   those inside are compared with what the whole document gives them.
-// - footnotes: a definition numbers every reference to it and adds a list at the end. A document that
-//   holds one, before or after the change, is rendered whole.
+// - footnotes: the first definition of each label numbers every reference to it, in definition order, and the
+//   definitions are drawn as a list after the last block, one item each, with one link back (to the label's first
+//   reference, by number), so an item depends on its definition and its number and on nothing in the body. The
+//   numbers of the two parses are compared, and a change that numbers any label differently is rendered whole.
+//   Otherwise the replaced blocks are rendered with the document's numbers and without a list of their own, and the
+//   list is its own unit: an item whose definition is the old one moved is kept and moved, and any other is rendered
+//   from the new document's list and put in its place. Definitions draw nothing where they stand, so an edit inside
+//   one is a body change of no elements and a list change.
 // - the sanitiser's writer keeps one stack of open elements through the whole document, so raw inline
 //   HTML that leaves one open (or closes one it never opened) changes what follows. Blocks whose raw tags
 //   are not properly nested within the block are rendered whole, and so is everything after one.
@@ -26,13 +32,14 @@
 // The blocks that stay are found by comparing the two parses node for node (`sameMoved`): a block counts
 // as kept only when it is the old block with every range moved by the same number of bytes. The
 // sanitiser still runs over every block that is rendered: they go through `renderDocumentSafeHtml`,
-// the one pipeline there is (ADR-0009).
+// the one pipeline there is.
 
 import type { Block, Document } from '@marxy/core';
 import { headingIdsForDocument } from '@marxy/core/src/render/heading-ids.ts';
 import { renderDocumentSafeHtml } from '@marxy/core/src/render/index.ts';
-import type { RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
+import { footnoteNumbers, listedFootnotes, type RenderRemoval } from '@marxy/core/src/render/pipeline.ts';
 import { rawTagsBalanced } from '@marxy/core/src/render/raw-tags.ts';
+import { titleFirst } from '@marxy/core/src/render/frontmatter.ts';
 import type { Policy } from '@marxy/core/src/sanitize/policy.ts';
 
 export { rawTagsBalanced };
@@ -45,7 +52,7 @@ export interface RenderRecord {
   /** The grant the render was made under: a change of it is a whole render. */
   readonly htmlGranted: boolean;
   /** Worked out once, the first time a splice needs them. */
-  memo?: { headingIds?: ReadonlyMap<string, string>; clean?: boolean; footnotes?: boolean };
+  memo?: { headingIds?: ReadonlyMap<string, string>; clean?: boolean; footnotes?: ReadonlyMap<string, number> };
 }
 
 export function renderRecord(ast: Document, removed: readonly RenderRemoval[], htmlGranted: boolean): RenderRecord {
@@ -71,6 +78,8 @@ export interface Spliced {
   /** Top-level blocks kept, and replaced (old count, new count). */
   readonly kept: number;
   readonly replaced: { readonly old: number; readonly new: number };
+  /** Items of the list of notes drawn again. */
+  readonly notes: number;
   /** Elements whose provenance was shifted. */
   readonly shifted: number;
 }
@@ -151,9 +160,15 @@ function headingIds(record: RenderRecord): ReadonlyMap<string, string> {
   return (record.memo.headingIds ??= idsOf(record.ast));
 }
 
-function holdsFootnotes(doc: Document): boolean {
-  for (const child of doc.children) if (child.type === 'footnoteDefinition') return true;
-  return false;
+function numbersOf(record: RenderRecord): ReadonlyMap<string, number> {
+  record.memo ??= {};
+  return (record.memo.footnotes ??= footnoteNumbers(record.ast));
+}
+
+function sameNumbers(a: ReadonlyMap<string, number>, b: ReadonlyMap<string, number>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [label, number] of a) if (b.get(label) !== number) return false;
+  return true;
 }
 
 /** Every top-level block of the document keeps the sanitiser's stack where it found it. */
@@ -227,12 +242,8 @@ function nodesBetween(target: SpliceTarget, from: Element | null, to: Element | 
   return reachedTo ? out : null;
 }
 
-/**
- * Shifts the provenance of every element from `first` on (live, then pending) by `delta`: the blocks after a
- * change are the same blocks, `delta` bytes on.
- */
-function shiftFrom(target: SpliceTarget, first: Element | null, delta: number): number {
-  if (first === null || delta === 0) return 0;
+/** Moves the provenance of `top` and every element in it by `delta`; how many elements that was. */
+function shiftTree(top: Element, delta: number): number {
   let count = 0;
   const shift = (el: Element): void => {
     for (const name of ['data-marxy-s', 'data-marxy-e']) {
@@ -241,15 +252,50 @@ function shiftFrom(target: SpliceTarget, first: Element | null, delta: number): 
     }
     count++;
   };
-  const from = (start: Element | null): void => {
-    for (let top = start; top !== null; top = top.nextElementSibling) {
-      shift(top);
-      for (const el of top.querySelectorAll('[data-marxy-s], [data-marxy-e]')) shift(el);
-    }
-  };
-  from(first);
-  if (target.pending !== null && first.parentNode !== target.pending) from(target.pending.firstElementChild);
+  shift(top);
+  for (const el of top.querySelectorAll('[data-marxy-s], [data-marxy-e]')) shift(el);
   return count;
+}
+
+/**
+ * Shifts the provenance of every element from `first` on (live, then pending) by `delta`, up to `stop` (the list of
+ * notes, which moves item by item): the blocks after a change are the same blocks, `delta` bytes on.
+ */
+function shiftFrom(target: SpliceTarget, first: Element | null, delta: number, stop: Element | null): number {
+  if (first === null || delta === 0) return 0;
+  let count = 0;
+  const from = (start: Element | null): boolean => {
+    for (let top = start; top !== null; top = top.nextElementSibling) {
+      if (top === stop) return true;
+      count += shiftTree(top, delta);
+    }
+    return false;
+  };
+  if (!from(first) && target.pending !== null && first.parentNode !== target.pending) from(target.pending.firstElementChild);
+  return count;
+}
+
+/**
+ * The list of notes a whole render draws after the last block (`<hr />` then `<ol class="marxy-footnotes">`, neither with
+ * a range of its own) and its items, one a listed definition and carrying its range; null when the page's last elements
+ * are not that. What the page lays beside it and gives no range (a note copied into the margin) is passed over.
+ */
+function findNoteList(target: SpliceTarget, items: number): { rule: Element; list: Element; items: Element[] } | null {
+  const pendingLast = target.pending?.lastElementChild ?? null;
+  const previous = (el: Element): Element | null =>
+    el.previousElementSibling ?? (target.pending !== null && el.parentNode === target.pending ? target.live.lastElementChild : null);
+  const ranged = (el: Element): boolean => el.hasAttribute('data-marxy-s');
+  let list: Element | null = pendingLast ?? target.live.lastElementChild;
+  while (list !== null && !(list.tagName === 'OL' && list.classList.contains('marxy-footnotes'))) {
+    if (ranged(list)) return null;
+    list = previous(list);
+  }
+  if (list === null) return null;
+  let rule = previous(list);
+  while (rule !== null && rule.tagName !== 'HR' && !ranged(rule)) rule = previous(rule);
+  if (rule === null || rule.tagName !== 'HR' || ranged(rule)) return null;
+  const found = [...list.children].filter((el) => el.tagName === 'LI' && ranged(el));
+  return found.length === items ? { rule, list, items: found } : null;
 }
 
 let inertBody: HTMLElement | null = null;
@@ -355,10 +401,9 @@ export function spliceRendered(before: RenderRecord, next: Document, target: Spl
   let s = 0;
   while (s < limit - p && sameMoved(old.children[n - 1 - s], next.children[m - 1 - s], delta)) s++;
 
-  if (holdsFootnotes(next)) return fell('a footnote definition applies across the document');
-  before.memo ??= {};
-  before.memo.footnotes ??= holdsFootnotes(old);
-  if (before.memo.footnotes) return fell('a footnote definition applies across the document');
+  // Every reference outside the replaced blocks keeps its number only when every label keeps its number.
+  const numbers = footnoteNumbers(next);
+  if (!sameNumbers(numbersOf(before), numbers)) return fell('the footnotes are numbered differently');
   if (!isClean(before)) return fell('raw HTML leaves an element open across blocks');
   if (before.removed.some((r) => r.what === 'truncation')) return fell('the document was truncated at an element never closed');
 
@@ -369,6 +414,9 @@ export function spliceRendered(before: RenderRecord, next: Document, target: Spl
   while (oldTo < n && !isCutPoint(old.children[oldTo]!)) oldTo++;
   const newTo = m - (n - oldTo);
   if (from === 0 && oldTo === n) return fell('nothing is left to keep');
+  // The title and the front matter above it are drawn in the other order (the title first): a cut next to either one
+  // would take the wrong element as its neighbour.
+  if (from <= 2 && (titleFirst(old.children) || titleFirst(next.children))) return fell('the title is drawn before its front matter');
   const share = Math.max(oldTo - from, newTo - from) / Math.max(n, m, 1);
   if (share > (opts.maxShare ?? 0.5)) return fell('the change is most of the document');
 
@@ -397,9 +445,9 @@ export function spliceRendered(before: RenderRecord, next: Document, target: Spl
   let html = '';
   let newRemoved: readonly RenderRemoval[] = [];
   try {
-    if (oldBlocks.length > 0) oldRemoved = renderDocumentSafeHtml(documentOf(old, oldBlocks), opts.policy).removed;
+    if (oldBlocks.length > 0) oldRemoved = renderDocumentSafeHtml(documentOf(old, oldBlocks), opts.policy, { footnotes: numbers }).removed;
     if (newBlocks.length > 0) {
-      const result = renderDocumentSafeHtml(documentOf(next, newBlocks), opts.policy);
+      const result = renderDocumentSafeHtml(documentOf(next, newBlocks), opts.policy, { footnotes: numbers });
       html = result.html;
       newRemoved = result.removed;
     }
@@ -409,8 +457,67 @@ export function spliceRendered(before: RenderRecord, next: Document, target: Spl
   if (oldRemoved.some((r) => r.what === 'truncation') || newRemoved.some((r) => r.what === 'truncation')) {
     return fell('the document was truncated at an element never closed');
   }
-  const removed = mergeRemovals(before.removed, oldRemoved, newRemoved, oldLeft, oldRight, delta);
+  let removed = mergeRemovals(before.removed, oldRemoved, newRemoved, oldLeft, oldRight, delta);
   if (removed === null) return fell('what the replaced blocks removed cannot be told apart from the rest');
+
+  // The list of notes: an item whose definition is the old one moved keeps its element, moved; the rest are drawn again.
+  const oldListed = numbers.size > 0 ? listedFootnotes(old) : [];
+  const newListed = numbers.size > 0 ? listedFootnotes(next) : [];
+  const notes = numbers.size > 0 ? findNoteList(target, oldListed.length) : null;
+  if (numbers.size > 0 && notes === null) return fell('the page is not the render of the document it was said to be');
+  // A definition inside the cut was not in the id comparison above: a heading removed or added before it renumbers a
+  // heading of the same name in it, and its item, kept, would keep the old id.
+  const idsKept = (src: { start: number; end: number }, by: number): boolean => {
+    if (src.end <= oldLeft || src.start >= oldRight) return true;
+    for (const [key, id] of oldIds) {
+      const [a, b] = key.split('-').map(Number) as [number, number];
+      if (a >= src.start && b <= src.end && newIds.get(keyOf(a + by, b + by)) !== id) return false;
+    }
+    return true;
+  };
+  const redrawn: { at: number; item: Element }[] = [];
+  const moved: { at: number; by: number }[] = [];
+  for (let i = 0; i < oldListed.length; i++) {
+    const was = oldListed[i]!;
+    const now = newListed[i]!;
+    const item = notes!.items[i]!;
+    if (Number(item.getAttribute('data-marxy-s')) !== was.src.start || Number(item.getAttribute('data-marxy-e')) !== was.src.end) {
+      return fell('the page is not the render of the document it was said to be');
+    }
+    const by = now.src.start - was.src.start;
+    if ((was === now || sameMoved(was, now, by)) && idsKept(was.src, by)) {
+      if (by !== 0) moved.push({ at: i, by });
+    } else redrawn.push({ at: i, item });
+  }
+  let drawnItems: Element[] = [];
+  if (redrawn.length > 0) {
+    // Drawn as the whole document draws its list: after a body that leaves the sanitiser's stack empty (every block
+    // is balanced, checked above), with the document's heading ids. Its removals are the last a whole render reports.
+    let oldList: readonly RenderRemoval[];
+    let newList: { html: string; removed: readonly RenderRemoval[] };
+    try {
+      oldList = renderDocumentSafeHtml(documentOf(old, oldListed), opts.policy, { headingIds: oldIds }).removed;
+      newList = renderDocumentSafeHtml(documentOf(next, newListed), opts.policy, { headingIds: newIds });
+    } catch {
+      return fell('a block could not be rendered on its own');
+    }
+    if (oldList.some((r) => r.what === 'truncation') || newList.removed.some((r) => r.what === 'truncation')) {
+      return fell('the document was truncated at an element never closed');
+    }
+    // The definitions' island removals are among the body's, at their place in the bytes; the list's own come last.
+    const oldTail = oldList.filter((r) => r.src === undefined);
+    const newTail = newList.removed.filter((r) => r.src === undefined);
+    const tail = removed.slice(removed.length - oldTail.length);
+    if (tail.length !== oldTail.length || tail.some((r, i) => r.src !== undefined || removalKey(r) !== removalKey(oldTail[i]!))) {
+      return fell('what the list of notes removed cannot be told apart from the rest');
+    }
+    removed = [...removed.slice(0, removed.length - oldTail.length), ...newTail];
+    const holder = parseInert(newList.html);
+    opts.prepare?.(holder);
+    const list = holder.querySelector(':scope > ol.marxy-footnotes');
+    drawnItems = list === null ? [] : [...list.children].filter((el) => el.tagName === 'LI');
+    if (drawnItems.length !== newListed.length) return fell('the list of notes could not be drawn on its own');
+  }
 
   // The page: the elements at each end of the cut, found by their ranges.
   const prevBlock = from > 0 ? old.children[from - 1]! : null;
@@ -418,12 +525,14 @@ export function spliceRendered(before: RenderRecord, next: Document, target: Spl
   const cuts = findCutElements(target, [prevBlock, nextBlock]);
   if (cuts === null) return fell('the page is not the render of the document it was said to be');
   const [prevEl, nextEl] = cuts as [HTMLElement | null, HTMLElement | null];
-  const between = nodesBetween(target, prevEl, nextEl);
+  // With notes, the last block is followed by the list's rule, and the blocks after the change end there.
+  const after = nextEl ?? notes?.rule ?? null;
+  const between = nodesBetween(target, prevEl, after);
   if (between === null) return fell('the page is not the render of the document it was said to be');
 
   // What a whole render puts between the two elements: its blocks, a newline on each side that has a neighbour.
   const text =
-    prevEl !== null && nextEl !== null
+    prevEl !== null && after !== null
       ? html === '' ? '\n' : `\n${html}\n`
       : prevEl !== null
         ? html === '' ? '' : `\n${html}`
@@ -434,25 +543,33 @@ export function spliceRendered(before: RenderRecord, next: Document, target: Spl
 
   // Nothing above this line has touched the page.
   for (const node of between) node.parentNode?.removeChild(node);
-  if (nextEl !== null) {
-    const parent = nextEl.parentNode!;
-    for (const node of fresh) parent.insertBefore(node, nextEl);
+  if (after !== null) {
+    const parent = after.parentNode!;
+    for (const node of fresh) parent.insertBefore(node, after);
   } else {
     const parent = prevEl!.parentNode!;
     for (const node of fresh) parent.appendChild(node);
   }
-  const shifted = shiftFrom(target, nextEl, delta);
+  let shifted = shiftFrom(target, nextEl, delta, notes?.rule ?? null);
+  for (const { at, by } of moved) shifted += shiftTree(notes!.items[at]!, by);
+  const items: Node[] = [];
+  for (const { at, item } of redrawn) {
+    const drawn = item.ownerDocument.importNode(drawnItems[at]!, true);
+    item.replaceWith(drawn);
+    items.push(drawn);
+  }
 
-  const added = fresh.filter((node): node is HTMLElement => node instanceof HTMLElement && node.ownerDocument === target.live.ownerDocument && target.live.contains(node));
+  const inPage = (node: Node): node is HTMLElement => node instanceof HTMLElement && node.ownerDocument === target.live.ownerDocument && target.live.contains(node);
+  const added = [...fresh.filter(inPage), ...items.filter(inPage)];
   const record: RenderRecord = {
     ast: next,
     removed,
     htmlGranted: before.htmlGranted,
-    memo: { headingIds: newIds, clean: true, footnotes: false },
+    memo: { headingIds: newIds, clean: true, footnotes: numbers },
   };
   const first = added[0] ?? (nextEl !== null && target.live.contains(nextEl) ? nextEl : null);
   return {
     spliced: true,
-    value: { record, added, from: first, removed, kept: p + s, replaced: { old: oldBlocks.length, new: newBlocks.length }, shifted },
+    value: { record, added, from: first, removed, kept: p + s, replaced: { old: oldBlocks.length, new: newBlocks.length }, notes: redrawn.length, shifted },
   };
 }

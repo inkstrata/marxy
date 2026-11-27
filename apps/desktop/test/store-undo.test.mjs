@@ -1,6 +1,6 @@
-// Undo follows the document store, not a content hash (B-11, ADR-0037 §3). The ADR's defect 2 sequence
-// end to end in WebKit — tick a task, type in Source, come back, undo twice — plus rename and reload,
-// and a source-text check that the modules which used to hold the history hold no state now.
+// Undo follows the document store, not a content hash: tick a task, type in Source, come back and undo
+// twice, end to end in WebKit, plus rename and reload, and a source-text check that the listed modules
+// keep no state and no undo history of their own.
 // Nothing here sets window.__marxyOrigBytes: the store's own `dirty` is what is under test.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -9,10 +9,11 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
-const desktopRoot = new URL('..', import.meta.url).pathname;
+const desktopRoot = fileURLToPath(new URL('..', import.meta.url));
 
 /** A module's source without comments, so a word in prose does not count as code. */
 function code(rel) {
@@ -24,8 +25,8 @@ function code(rel) {
 nodeTest('commands/edits.ts and save.ts hold no module-level let and no History instance', () => {
   for (const rel of ['src/commands/edits.ts', 'src/save.ts']) {
     const src = code(rel);
-    assert.doesNotMatch(src, /^(export\s+)?(let|var)\s/m, `${rel} keeps module state; the store owns it (ADR-0037)`);
-    assert.doesNotMatch(src, /\bHistory\b/, `${rel} keeps its own undo history; the store owns it (ADR-0037 §3)`);
+    assert.doesNotMatch(src, /^(export\s+)?(let|var)\s/m, `${rel} keeps module state; the store owns it`);
+    assert.doesNotMatch(src, /\bHistory\b/, `${rel} keeps its own undo history; the store owns it`);
   }
 });
 
@@ -164,7 +165,7 @@ const undoWhenReady = async (page) => {
   await undoKey(page);
 };
 
-test('AppHandle.dispatch reaches the store\'s transitions: apply, then undo, then redo (ADR-0037 §2)', async () => {
+test('AppHandle.dispatch reaches the store\'s transitions: apply, then undo, then redo', async () => {
   const page = await boot();
   const toggled = ORIGINAL.replace('- [ ] one', '- [x] one');
   const at = ORIGINAL.indexOf('- [ ] one') + 2;
@@ -188,7 +189,7 @@ test('AppHandle.dispatch reaches the store\'s transitions: apply, then undo, the
   await page.close();
 });
 
-test('AppHandle.dispatch apply carries the version it resolved at: a stale one is refused and the buffer is untouched (B-12)', async () => {
+test('AppHandle.dispatch apply carries the version it resolved at: a stale one is refused and the buffer is untouched', async () => {
   const page = await boot();
   const at = ORIGINAL.indexOf('- [ ] one') + 2;
   const refused = await page.evaluate(async (at) => {
@@ -202,7 +203,7 @@ test('AppHandle.dispatch apply carries the version it resolved at: a stale one i
   await page.close();
 });
 
-test('ADR-0037 defect 2: toggle, Source edit, two undos restore the original', async () => {
+test('toggle, Source edit, two undos restore the original', async () => {
   const page = await boot();
   const toggled = ORIGINAL.replace('- [ ] one', '- [x] one');
   await clickBox(page, 0);
@@ -224,7 +225,7 @@ test('ADR-0037 defect 2: toggle, Source edit, two undos restore the original', a
   await page.close();
 });
 
-test('F-12: focus has left the hidden Source editor at the moment the mode flips to Rendered', async () => {
+test('focus has left the hidden Source editor at the moment the mode flips to Rendered', async () => {
   const page = await boot();
   await toggleMode(page, 'source');
   await page.click('.cm-content');

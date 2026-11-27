@@ -1,22 +1,23 @@
-// Explicit byte-faithful save from either mode (docs/design/01-buffer.md §Save, MARXY-49).
+// Explicit byte-faithful save from either mode.
 import { basename } from '@marxy/core/src/index-model/paths.ts';
 import type { Shell, ShellError } from '@marxy/shell-api';
 import { appHandle } from './commands/app-handle.ts';
 import type { DocumentStore } from './document/store.ts';
+import { entryRefusal, isArchiveEntry } from './document/entries.ts';
 import { documentName, isUntitled } from './document/untitled.ts';
 import { ensureNoticesRegion, focusedPane, noticeLine, notify, placeNotice, removeNotice, SOURCE_HELD_APART } from './notices/index.ts';
 
 export type SaveResult = 'saved' | 'unchanged' | 'cancelled' | 'failed';
 
-/** What a save needs: the store it writes (ADR-0037 §5), and what only the app can do around it. */
+/** What a save needs: the store it writes, and what only the app can do around it. */
 export interface SaveDeps {
   readonly store: DocumentStore;
   readonly shell: Pick<Shell, 'saveDialog' | 'setTitle' | 'allowAssetScope'>;
   /** Folds unfolded Source text into the store first (`commitSource`), so a save from Source writes it. */
   foldSource(): Promise<void>;
-  /** Source text this pane's fold could not take (held apart from another pane's, D-11): a save would not write it. */
+  /** Source text this pane's fold could not take (held apart from another pane's): a save would not write it. */
   holdsUnfoldedSource?(): boolean;
-  /** The folder a scratch document's Save As opens in (*New file here*, W-14); none opens it where the system chooses. */
+  /** The folder a scratch document's Save As opens in (*New file here*); none opens it where the system chooses. */
   saveIn?(): string | undefined;
   /** The pane that shows the document (`section.marxy-pane`): its notices are said there; the focused pane's when unset. */
   readonly pane?: HTMLElement;
@@ -39,7 +40,7 @@ function readOnlyNoticeName(path: string): string {
 }
 
 function showSaveFailedNotice(path: string, reason: string, retry: () => void, pane?: HTMLElement): void {
-  // Not done: the write failed and nothing was changed, so it stays until dismissed (U-02).
+  // Not done: the write failed and nothing was changed, so it stays until dismissed.
   const line = noticeLine({
     kind: 'error',
     text: `Could not save ${documentName(path)}: ${reason} · nothing was written; your edits are still open here · Save as… somewhere else, or try again.`,
@@ -78,14 +79,19 @@ export async function save(
   if (!deps) return 'failed';
   const { store } = deps;
   await deps.foldSource();
-  // Held apart (D-11): the store holds the other pane's text, not this pane's, so writing it would say "saved"
+  // Held apart: the store holds the other pane's text, not this pane's, so writing it would say "saved"
   // while this pane's typing is still only in its editor. Refuse, and say why.
   if (deps.holdsUnfoldedSource?.()) {
     notify({ kind: 'refused', text: SOURCE_HELD_APART }, { pane: deps.pane });
     return 'cancelled';
   }
   const snap = store.snapshot();
-  // A scratch document is never "unchanged": it has no file, so Save asks where it goes, edited or not (E-13).
+  // An archive's entry is in memory only: nothing of it is saved, as itself or as a copy.
+  if (isArchiveEntry(snap.path)) {
+    notify({ kind: 'refused', text: entryRefusal(snap.path) }, { pane: deps.pane });
+    return 'cancelled';
+  }
+  // A scratch document is never "unchanged": it has no file, so Save asks where it goes, edited or not.
   const scratch = isUntitled(snap.path);
   if (!snap.dirty && !opts?.as && !scratch) return 'unchanged';
 

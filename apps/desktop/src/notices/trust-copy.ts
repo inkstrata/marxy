@@ -1,4 +1,4 @@
-// Plain-language strings for blocked-content and truncation notices (docs/design/13-trust.md).
+// Plain-language strings for blocked-content and truncation notices.
 
 import type { BlockedImage } from '@marxy/core/src/render/images.ts';
 import { blockedImageClause } from '@marxy/core/src/render/images.ts';
@@ -105,7 +105,7 @@ function elementNoticePart(removed: readonly RenderRemoval[]): string {
   return `some HTML was simplified (${list})`;
 }
 
-/** The line for a document the render could not typeset and showed as its source (F-54); `''` for any other. */
+/** The line for a document the render could not typeset and showed as its source; `''` for any other. */
 export function shownAsSourceNoticeText(removed: readonly RenderRemoval[]): string {
   return removed.some((r) => r.what === 'structure' && r.name === 'document')
     ? 'This document is nested too deeply to typeset, so it is shown as its source. The file is unchanged. Flatten the nesting, or edit in Source, to see it typeset.'

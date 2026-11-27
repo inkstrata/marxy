@@ -1,7 +1,7 @@
 // Keeps the package's runtime surface honest: production code must not reach into `parse/testing/`,
 // and every package it does import at runtime must be a declared runtime dependency. The HTML renderer
 // under `testing/` is the reason this matters — it is the only user of `micromark-util-sanitize-uri`,
-// and `packages/core` never emits HTML (ADR-0007).
+// and `packages/core` never emits HTML.
 
 import { strict as assert } from 'node:assert';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -61,7 +61,7 @@ test('the HTML renderer is the only user of the URI helper, and it is a dev depe
 
 test('the parse path loads math syntax without the package root that pulls katex', () => {
   // micromark-extension-math's index re-exports mathHtml, which imports katex. A future import of
-  // that specifier, or of katex itself, is the regression MARXY-60 exists to catch.
+  // that specifier, or of katex itself, is the regression this test exists to catch.
   const forbidden = new Set(['katex', 'micromark-extension-math']);
   const offenders: string[] = [];
   for (const file of production) {

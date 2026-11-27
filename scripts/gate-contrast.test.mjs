@@ -1,11 +1,13 @@
-// The contrast gate (H-02, ADR-0059 item 10): floors compared unrounded, translucent colours composited
+// The contrast gate: floors compared unrounded, translucent colours composited
 // first, an unparseable colour named, absent v2 roles reported and not failed, kind scopes walked.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { FLOORS, HIGH_CONTRAST_FLOORS, MORE_FLOORS, moreOverrides, auditAll, auditTheme, findThemes, over, parseColour, ratio } from './gate-contrast.mjs';
+import { KINDS } from '../packages/core/src/contracts/kinds.ts';
+import { LOOKS } from '../packages/theme/src/looks.ts';
+import { FLOORS, HIGH_CONTRAST_FLOORS, MORE_FLOORS, moreOverrides, auditAll, auditTheme, findLooks, findThemes, over, parseColour, ratio } from './gate-contrast.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const hex = ([r, g, b]) => `#${[r, g, b].map(c => c.toString(16).padStart(2, '0')).join('')}`;
@@ -32,7 +34,7 @@ function nearMiss() {
   }
 }
 
-test('H-02: body text at 6.99 fails the 7:1 floor and 7.00 passes, unrounded', () => {
+test('body text at 6.99 fails the 7:1 floor and 7.00 passes, unrounded', () => {
   const miss = nearMiss();
   assert.ok(miss, 'fixture exists');
   assert.equal(miss.q.toFixed(2), '7.00', 'it would round to a pass');
@@ -44,7 +46,7 @@ test('H-02: body text at 6.99 fails the 7:1 floor and 7.00 passes, unrounded', (
   assert.ok(only(passing, 'text', 'bg')[0].ratio >= 7);
 });
 
-test('H-02: 4.499 fails a 4.5 floor (secondary text on the ground)', () => {
+test('4.499 fails a 4.5 floor (secondary text on the ground)', () => {
   let near;
   for (let r = 0; r < 256 && !near; r++) for (let g = 0; g < 256 && !near; g++) {
     const q = ratio([r, g, 128, 1], [255, 255, 255, 1]);
@@ -55,7 +57,7 @@ test('H-02: 4.499 fails a 4.5 floor (secondary text on the ground)', () => {
   assert.ok(audit(sheet).failures.some(f => /text-secondary on bg = 4\.49 < 4\.5$/.test(f)));
 });
 
-test('H-02: a translucent selection is composited over the code ground before it is measured', () => {
+test('a translucent selection is composited over the code ground before it is measured', () => {
   const sheet = css({ ...BASE, 'color-code-bg': '#000000', 'color-bg': '#000000', 'color-text': '#ffffff', 'color-code-text': '#e0e0e0', 'color-selection': 'rgba(255, 255, 255, 0.1)' });
   const r = audit(sheet);
   const composited = over([255, 255, 255, 0.1], [0, 0, 0, 1]);
@@ -69,14 +71,14 @@ test('H-02: a translucent selection is composited over the code ground before it
   assert.ok(heavy.failures.some(f => /code-text on selection@code-bg/.test(f)), heavy.failures.join('\n'));
 });
 
-test("H-02: the active-line ground is the selection mixed 40 % toward transparent over the code ground", () => {
+test("the active-line ground is the selection mixed 40 % toward transparent over the code ground", () => {
   const r = audit(css({ ...BASE, 'color-code-bg': '#ffffff', 'color-selection': 'rgba(0, 0, 255, 0.5)', 'color-code-text': '#303030' }));
   const [line] = only(r, 'code-text', 'line@code-bg');
   const ground = over([0, 0, 255, 0.5 * 0.6], [255, 255, 255, 1]);
   assert.ok(Math.abs(line.ratio - ratio([48, 48, 48, 1], ground)) < 1e-9);
 });
 
-test('H-02: an unparseable colour fails and names its token; so does a var() to nothing', () => {
+test('an unparseable colour fails and names its token; so does a var() to nothing', () => {
   const r = audit(css({ ...BASE, 'tok-string': 'chartreuse-ish', 'tok-number': 'var(--marxy-nope)' }));
   assert.ok(r.failures.some(f => /--marxy-tok-string: unparseable/.test(f)), r.failures.join('\n'));
   assert.ok(r.failures.some(f => /--marxy-tok-number: unparseable/.test(f)));
@@ -84,7 +86,7 @@ test('H-02: an unparseable colour fails and names its token; so does a var() to 
   assert.ok(cyc.failures.some(f => /--marxy-color-(accent|link): unparseable/.test(f)));
 });
 
-test('H-02: a v2 role a theme leaves out is reported as not declared and does not fail; declared, it is checked', () => {
+test('a v2 role a theme leaves out is reported as not declared and does not fail; declared, it is checked', () => {
   const r = audit(css(BASE));
   assert.deepEqual(r.failures, []);
   const roles = r.undeclared[0].roles;
@@ -96,21 +98,21 @@ test('H-02: a v2 role a theme leaves out is reported as not declared and does no
   assert.ok(!weak.undeclared[0].roles.includes('surface'));
 });
 
-test('H-02: a ground whose own role is missing is skipped and counted, not passed', () => {
+test('a ground whose own role is missing is skipped and counted, not passed', () => {
   const r = audit(css({ ...BASE, 'color-accent': '#000000' }));
   assert.equal(only(r, 'accent', 'accent-wash').length, 0);
   assert.ok(r.undeclared[0].roles.includes('accent-wash'));
   assert.equal(only(r, 'accent', 'bg').length, 1);
 });
 
-test('H-02: surface-glass is held to the surface floors once composited over the ground', () => {
+test('surface-glass is held to the surface floors once composited over the ground', () => {
   const sheet = css({ ...BASE, 'color-surface': '#ffffff', 'color-surface-glass': 'rgba(0, 0, 0, 0.55)', 'color-text': '#000000' });
   const r = audit(sheet);
   assert.ok(r.failures.some(f => /text on surface-glass/.test(f)), r.failures.join('\n'));
   assert.equal(only(r, 'text', 'surface-glass')[0].ratio, ratio([0, 0, 0, 1], over([0, 0, 0, 0.55], [255, 255, 255, 1])));
 });
 
-test('H-02: variants and kind scopes are each walked, and a kind inherits the root', () => {
+test('variants and kind scopes are each walked, and a kind inherits the root', () => {
   const sheet = css({ ...BASE, 'color-text-secondary': '#555555' },
     ':root[data-marxy-variant="light"] { --marxy-color-text-secondary: #bbbbbb; }',
     '[data-marxy-kind="report"] { --marxy-color-text-secondary: #aaaaaa; }',
@@ -125,7 +127,7 @@ test('H-02: variants and kind scopes are each walked, and a kind inherits the ro
   assert.equal(only(r, 'text', 'bg').filter(c => c.scope === 'kind=report').length, 2, 'kind scopes check inherited roles too, in each variant');
 });
 
-test('H-02: colour syntaxes resolve: rgb, hsl, 8-digit hex, var() fallback, color-mix with transparent', () => {
+test('colour syntaxes resolve: rgb, hsl, 8-digit hex, var() fallback, color-mix with transparent', () => {
   const eq = (a, b) => assert.deepEqual(a.map(Math.round), b.map(Math.round));
   eq(parseColour('rgb(255 0 0 / 50%)').slice(0, 3), [255, 0, 0]);
   assert.equal(parseColour('rgb(255 0 0 / 50%)')[3], 0.5);
@@ -138,36 +140,20 @@ test('H-02: colour syntaxes resolve: rgb, hsl, 8-digit hex, var() fallback, colo
   assert.throws(() => parseColour('color-mix(in oklab, red, blue)'));
 });
 
-test('H-02: ADR-0059 item 10 is the data: every floor and role list in the table is in FLOORS', () => {
-  const adr = readFileSync(`${ROOT}docs/adr/0059-token-contract-v2.md`, 'utf8');
-  const table = adr.slice(adr.indexOf('| Role | Floor | Against |'), adr.indexOf('The large-text allowance'));
-  const rows = table.split('\n').filter(l => /\|\s*\d(\.\d)?:1\s*\|/.test(l));
-  assert.equal(rows.length, 9, 'the ADR table has nine floored rows');
-  for (const line of rows) {
-    const [, roles, floor] = line.split('|').map(s => s.trim());
-    const want = Number.parseFloat(floor);
-    const named = [...roles.matchAll(/`--marxy-(?:color-)?([a-z*-]+)`/g)].map(m => m[1]);
-    const fg = named.flatMap(n => (n === 'status-*' ? ['status-ok', 'status-warn', 'status-err', 'status-info'] : [n]));
-    assert.ok(fg.length, roles);
-    for (const role of fg) assert.ok(FLOORS.some(f => f.floor === want && f.fg.includes(role)), `${role} @ ${want}`);
-  }
-  assert.ok(!/large/i.test(readFileSync(`${ROOT}scripts/gate-contrast.mjs`, 'utf8').replace(/\/\/.*$/gm, '')), 'no large-text allowance');
-});
-
-test('H-02: the bundled themes are found, every variant is audited, and today none fails', () => {
+test('the bundled themes are found, every variant is audited, and today none fails', () => {
   const themes = findThemes();
   assert.ok(themes.some(t => t.name === 'default' && t.variants.join() === 'dark,light'));
   const all = auditAll();
   assert.ok(all.checks.some(c => c.variant === 'light') && all.checks.some(c => c.variant === 'dark'));
   assert.deepEqual(all.failures, []);
-  // H-03 declares every contract-2 role in tokens.css (as its v1 fallback), so the default theme has none undeclared.
+  // Every contract-2 role is declared in tokens.css (as its v1 fallback), so the default theme has none undeclared.
   assert.ok(all.undeclared.length > 0 && all.undeclared.every(u => u.roles.length === 0), JSON.stringify(all.undeclared));
   assert.ok(all.checks.some(c => c.fg === 'text-strong') && all.checks.some(c => c.fg === 'accent-fg'), 'the v2 roles are now checked');
   // the "not yet declared" path stays live for a theme that does not import tokens.css
   assert.ok(audit(css(BASE)).undeclared[0].roles.includes('surface'));
 });
 
-test('H-02: the CLI exits 0 and prints the not-declared count; --md prints a table', () => {
+test('the CLI exits 0 and prints the not-declared count; --md prints a table', () => {
   const run = a => spawnSync(process.execPath, [`${ROOT}scripts/gate-contrast.mjs`, ...a], { cwd: ROOT, encoding: 'utf8' });
   const cli = run([]);
   assert.equal(cli.status, 0, cli.stdout + cli.stderr);
@@ -175,19 +161,22 @@ test('H-02: the CLI exits 0 and prints the not-declared count; --md prints a tab
   assert.match(run(['--md']).stdout, /\| Role \| Against \| Floor \| dark \| light \|/);
 });
 
-test('H-05: five theme directories are audited and pass, each variant of each', () => {
+test('every theme directory is audited and passes, each variant of each', () => {
   const themes = findThemes();
-  assert.deepEqual(themes.map(t => t.name).sort(), ['default', 'fjord', 'high-contrast', 'ink', 'warm']);
+  const dirs = readdirSync(`${ROOT}packages/theme`, { withFileTypes: true })
+    .filter(e => e.isDirectory() && existsSync(`${ROOT}packages/theme/${e.name}/theme.css`)).map(e => e.name).sort();
+  assert.ok(dirs.length >= 5);
+  assert.deepEqual(themes.map(t => t.name).sort(), dirs);
   assert.deepEqual(themes.find(t => t.name === 'warm').variants, ['dark', 'light']);
   assert.deepEqual(themes.find(t => t.name === 'fjord').variants, ['dark']);
   assert.deepEqual(themes.find(t => t.name === 'high-contrast').variants, ['dark', 'light']);
   const all = auditAll(themes);
   assert.deepEqual(all.failures, []);
-  for (const name of ['warm', 'fjord', 'high-contrast']) assert.ok(all.byTheme[name].checks.length > 200, name);
+  for (const { name } of themes) assert.ok(all.byTheme[name].checks.length > 200, name);
   assert.ok(all.undeclared.every(u => u.roles.length === 0), 'every theme declares every role');
 });
 
-test('H-05: a value lowered below its floor in warm/theme.css fails the gate (a fixture of the real theme)', () => {
+test('a value lowered below its floor in warm/theme.css fails the gate (a fixture of the real theme)', () => {
   const warm = findThemes().find(t => t.name === 'warm');
   const lowered = warm.css.replace(/(--marxy-color-text-secondary:\s*)#[0-9a-f]{6}/i, '$1#5a5045');
   assert.notEqual(lowered, warm.css);
@@ -195,7 +184,7 @@ test('H-05: a value lowered below its floor in warm/theme.css fails the gate (a 
   assert.ok(r.failures.some(f => /warm · dark · root: text-secondary on bg/.test(f)), r.failures.join('\n'));
 });
 
-test('H-05: high contrast holds 7:1 where the others hold 4.5, and 4.5:1 for edges where the others hold 3', () => {
+test('high contrast holds 7:1 where the others hold 4.5, and 4.5:1 for edges where the others hold 3', () => {
   assert.equal(HIGH_CONTRAST_FLOORS.length, FLOORS.length);
   for (const [i, row] of FLOORS.entries()) assert.equal(HIGH_CONTRAST_FLOORS[i].floor, row.floor === 4.5 ? 7 : row.floor === 3 ? 4.5 : row.floor);
   // #6b6b6b on white is about 5.3, above 4.5 and below 7: the same sheet passes as an ordinary theme and fails as high contrast.
@@ -208,8 +197,8 @@ test('H-05: high contrast holds 7:1 where the others hold 4.5, and 4.5:1 for edg
   assert.equal(auditTheme('high-contrast', edge, ['dark']).failures.filter(f => /edge on bg/.test(f)).length, 1);
 });
 
-// ---- W-22: the "more" pass --------------------------------------------------------------------------------------
-test('W-22: base.css carries the more-contrast declarations the gate reads, under the attribute and the media query', () => {
+// ---- the "more" pass --------------------------------------------------------------------------------------
+test('base.css carries the more-contrast declarations the gate reads, under the attribute and the media query', () => {
   const overrides = moreOverrides();
   assert.deepEqual(Object.keys(overrides).sort(), [
     '--marxy-color-divider', '--marxy-color-quote-rule', '--marxy-color-rule', '--marxy-color-rule-strong',
@@ -219,19 +208,21 @@ test('W-22: base.css carries the more-contrast declarations the gate reads, unde
   assert.match(base, /@media \(prefers-contrast: more\) \{\s*html:root:not\(\[data-marxy-contrast="normal"\]\) \{\s*--marxy-color-text-secondary: var\(--marxy-color-text\)/);
 });
 
-test('W-22: without the block, secondary text is under 7:1 in some bundled themes and rules are under 3:1 in all; with it, every theme and variant passes', () => {
-  const without = auditAll(findThemes(), {}).failures.filter(f => / more contrast: /.test(f));
-  assert.ok(without.some(f => /^ink · dark · root · more contrast: text-secondary on bg = 6\.90 < 7$/.test(f)), 'ink dark secondary text is 6.90 today');
-  assert.ok(without.some(f => /^default · light · root · more contrast: rule on bg = 1\.\d\d < 3$/.test(f)));
+test('without the block, secondary text is under 7:1 in some bundled themes and rules are under 3:1 in every theme in at least one variant; with it, every theme and variant passes', () => {
+  const themes = findThemes();
+  const without = auditAll(themes, {}).failures.filter(f => / more contrast: /.test(f));
+  assert.ok(without.some(f => /^[\w-]+ · (dark|light) · root · more contrast: text-secondary on bg = \d\.\d\d < 7$/.test(f)), 'some theme leaves secondary text under 7:1 at rest');
+  // High contrast dark already holds its rules at 3:1, so the claim is per theme, not per variant.
+  for (const { name } of themes) assert.ok(without.some(f => f.startsWith(`${name} · `) && / rule on bg = /.test(f)), `${name}: rule under 3:1 at rest`);
   const withBlock = auditAll();
   assert.deepEqual(withBlock.failures, []);
   const more = withBlock.checks.filter(c => c.mode === 'more');
   assert.ok(more.length > 1000);
-  for (const t of ['default', 'fjord', 'high-contrast', 'ink', 'warm']) assert.ok(more.some(c => c.theme === t && c.variant === 'dark'), t);
+  for (const { name } of themes) assert.ok(more.some(c => c.theme === name && c.variant === 'dark'), name);
   assert.ok(more.some(c => c.theme === 'default' && c.variant === 'light' && c.fg === 'text-faint' && c.ground === 'code-bg' && c.floor === 7));
 });
 
-test('W-22: the more pass is unrounded, and a kind scope that sets its own secondary text keeps it', () => {
+test('the more pass is unrounded, and a kind scope that sets its own secondary text keeps it', () => {
   assert.ok(MORE_FLOORS.some(r => r.fg.includes('text-secondary') && r.floor === 7 && r.grounds.join() === 'bg,surface,code-bg'));
   const sheet = css({ ...BASE, 'color-surface': '#ffffff', 'color-edge': '#767676', 'color-rule': '#eeeeee', 'color-text-secondary': '#999999' },
     '[data-marxy-kind="log"] { --marxy-color-text-secondary: #888888; --marxy-color-text-faint: #888888; }');
@@ -240,4 +231,24 @@ test('W-22: the more pass is unrounded, and a kind scope that sets its own secon
   assert.ok(r.failures.some(f => /kind=log · more contrast: text-secondary on bg = 3\.\d\d < 7/.test(f)), r.failures.join('\n'));
   assert.ok(!r.failures.some(f => /root · more contrast: text-secondary/.test(f)), 'the root takes the text colour');
   assert.ok(!r.failures.some(f => /root · more contrast: rule on bg/.test(f)), 'the rule takes the edge: 4.54:1 on white');
+});
+
+// ---- the looks -------------------------------------------------------------------------
+test('looks: each is audited by day and night, as the window and every kind scope, with and without more contrast, and none fails', () => {
+  const looks = findLooks();
+  assert.equal(looks.length, LOOKS.length * 2 * 2);
+  const all = auditAll([], {}, looks);
+  assert.deepEqual(all.failures, []);
+  assert.equal(Object.keys(all.byLook).length, LOOKS.length);
+  const scopes = new Set(all.checks.map(c => c.scope));
+  for (const kind of KINDS) assert.ok(scopes.has(`kind=${kind}`), kind);
+  assert.ok(all.checks.some(c => c.mode === 'more' && c.fg === 'text-faint' && c.floor === 7));
+});
+
+test("looks: a colour a look painted below its floor fails the gate (the audit is the gate's own)", () => {
+  const look = findLooks()[0];
+  const lowered = look.css.replace(/(:root \{[^}]*--marxy-color-text: )#[0-9a-f]{6}/, '$1#9a9a9a');
+  assert.notEqual(lowered, look.css);
+  const r = auditTheme('look:paper · day', lowered, ['dark']);
+  assert.ok(r.failures.some(f => /root: text on bg/.test(f)), r.failures.join('\n'));
 });

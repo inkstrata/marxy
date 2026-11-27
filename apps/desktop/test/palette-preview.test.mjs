@@ -1,4 +1,4 @@
-// The palette shows what you are about to open (W-13): a preview column beside the results that follows the
+// The palette shows what you are about to open: a preview column beside the results that follows the
 // highlighted row after a pause. Real WebKit on the shipped skeleton over the memory shell, with the real palette,
 // and the shell's call record as the read log. What it holds: the first lines of a file appear after about 200 ms and
 // not on the keystroke; holding an arrow key over fifty rows reads no file until the key is released; one read per
@@ -37,6 +37,8 @@ const files = {
   '/r/img/remote.md': REMOTE,
   '/r/big/long.md': LONG_MD,
   '/r/big/huge.txt': 'only the index knows how big this is\n',
+  '/r/vault/prod.env': 'API_TOKEN=hunter2-not-a-real-secret\n',
+  '/r/vault/server.pem': '-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC\n-----END PRIVATE KEY-----\n',
   '/r/notes/doc.md': `# Notes\n\n${lines(120, (i) => `Paragraph ${i} of the notes.\n`)}`,
   ...Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`/r/many/m${String(i + 1).padStart(2, '0')}.md`, `# Doc ${i + 1}\n\n## Section ${i + 1}\n\nBody ${i + 1}.\n`])),
 };
@@ -56,6 +58,8 @@ const entries = [
   md('/r/img/remote.md', 'Remote'),
   md('/r/big/long.md', 'Long', { size: 340_000 }),
   md('/r/big/huge.txt', 'huge.txt', { kind: 'text', size: LARGE + 1 }),
+  md('/r/vault/prod.env', 'prod.env', { kind: 'text', readerKind: 'code' }),
+  md('/r/vault/server.pem', 'server.pem', { kind: 'text', readerKind: 'code' }),
   md('/r/notes/doc.md', 'Notes'),
   ...Array.from({ length: 50 }, (_, i) => {
     const path = `/r/many/m${String(i + 1).padStart(2, '0')}.md`;
@@ -87,6 +91,9 @@ async function boot(page, { open = '/r/docs/guide.md' } = {}) {
       .replace('<article id="doc" class="marxy-article"></article>', body);
     await route.fulfill({ response, body: html });
   });
+  // WebKit keeps only the first 250 resource entries and the app's dev modules alone fill them: without room,
+  // the check that no image was asked for would see nothing whether one was or not.
+  await page.addInitScript(() => performance.setResourceTimingBufferSize(10_000));
   await page.goto(`${base}app.html`);
   await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
   const encoded = Object.fromEntries(Object.entries(files).map(([path, text]) => [path, b64(text)]));
@@ -163,25 +170,25 @@ test('highlighting a file row for 200 ms shows its first forty lines, set as cod
   });
 });
 
-test('holding the arrow key over fifty rows reads no file until the key is released', async () => {
+test('holding the arrow key over a list of files reads no file until the key is released', async () => {
   await withPage(async (page) => {
     await boot(page);
     await page.waitForTimeout(400);
-    await openPalette(page, '@section');
-    await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length === 50);
+    await openPalette(page, 'doc');
+    await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row[data-row-key$=":doc"]').length === 12);
     // Let the first row's own preview come and go.
     await waitAside(page, 'Body');
     const mark = await callCount(page);
     const during = await page.evaluate(async (from) => {
       const input = document.querySelector('#marxy-palette .marxy-palette-query');
-      // Forty-nine presses in one task, faster than any pause; then a look at the read log inside the pause.
-      for (let i = 0; i < 49; i++) input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+      // Eleven presses in one task, faster than any pause; then a look at the read log inside the pause.
+      for (let i = 0; i < 11; i++) input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
       await new Promise((resolve) => setTimeout(resolve, 100));
       return window.__marxyHandle.shell.calls.slice(from).filter((c) => c.method === 'readHead' || c.method === 'readFile').length;
     }, mark);
     assert.equal(during, 0, 'no file was read while the key was held');
     const last = await selectedRow(page);
-    assert.equal(last.title, 'Section 50' === last.title ? 'Section 50' : last.title);
+    assert.match(last.key, /\.md:doc$/, 'the highlight stopped on a file row');
     await page.waitForFunction((from) => window.__marxyHandle.shell.calls.slice(from).some((c) => c.method === 'readHead'), mark, { timeout: 8000 });
     await page.waitForTimeout(500);
     const after_ = reads(await callsSince(page, mark));
@@ -195,6 +202,9 @@ test('a file preview reads at most readHead\'s 256 KB of the highlighted file an
     await boot(page);
     await page.waitForTimeout(400);
     await openPalette(page);
+    // The first row, the open guide, is previewed once it has been highlighted for the pause; under load that pause
+    // can pass before the query is typed, so its read is let land before the count starts.
+    await waitAside(page, 'Intro words');
     const mark = await callCount(page);
     await page.locator('#marxy-palette .marxy-palette-query').fill('long');
     await waitAside(page, 'A sentence that fills the page');
@@ -256,31 +266,32 @@ test('a preview of a Markdown file with a remote image fetches nothing and leave
   });
 });
 
-test('`@install` lists each document\'s Install heading with its document, shows the section, and Enter opens the document there; `#install` is this document only', async () => {
+test('Go lists each document\'s Install heading with its document (this one first), shows the section, and Enter opens the document there; `@install` is this document only', async () => {
   await withPage(async (page) => {
     await boot(page, { open: '/r/docs/guide.md' });
     await page.waitForTimeout(400);
-    await openPalette(page, '@install');
-    await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length === 2);
+    await openPalette(page, 'install');
+    await page.waitForFunction(() => [...document.querySelectorAll('#marxy-palette .marxy-palette-group')].find((g) => g.querySelector('.marxy-palette-section')?.textContent === 'Headings')?.querySelectorAll('.marxy-palette-row').length === 2);
     const rows = await page.evaluate(() =>
-      [...document.querySelectorAll('#marxy-palette .marxy-palette-row')].map((r) => [r.querySelector('.marxy-palette-title').textContent, r.querySelector('.marxy-palette-sub').textContent]),
+      [...[...document.querySelectorAll('#marxy-palette .marxy-palette-group')].find((g) => g.querySelector('.marxy-palette-section')?.textContent === 'Headings').querySelectorAll('.marxy-palette-row')].map((r) => [r.querySelector('.marxy-palette-title').textContent, r.querySelector('.marxy-palette-sub').textContent]),
     );
     assert.deepEqual(rows[0], ['Install', 'Guide · r/docs']);
     assert.deepEqual(rows[1], ['How do I install it?', 'FAQ · r/docs']);
+    // No file is called that: the headings lead, and the first is highlighted.
     const group = await page.evaluate(() => document.querySelector('#marxy-palette .marxy-palette-section').textContent);
-    assert.equal(group, 'Sections everywhere');
+    assert.equal(group, 'Headings');
     // The section: its heading and text, up to the next heading of its level; not the next section's.
     await waitAside(page, 'Run the installer');
     const col = await aside(page);
     assert.ok(col.includes('Use -f to force'), 'its sub-heading is part of it');
     assert.ok(!col.includes('Use it daily'), 'the next section is not');
-    // `#` is this document's headings.
-    await page.locator('#marxy-palette .marxy-palette-query').fill('#install');
-    await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length === 1);
-    assert.equal(await page.evaluate(() => document.querySelector('#marxy-palette .marxy-palette-title').textContent), 'Install');
-    // Enter on the other document's heading opens that document at its heading.
+    // `@` is this document's parts (its headings), from the document as it is.
     await page.locator('#marxy-palette .marxy-palette-query').fill('@install');
-    await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length === 2);
+    await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length === 1);
+    assert.equal(await page.evaluate(() => document.querySelector('#marxy-palette .marxy-palette-title').textContent.trim()), 'Install');
+    // Enter on the other document's heading opens that document at its heading.
+    await page.locator('#marxy-palette .marxy-palette-query').fill('install');
+    await page.waitForFunction(() => [...document.querySelectorAll('#marxy-palette .marxy-palette-group')].find((g) => g.querySelector('.marxy-palette-section')?.textContent === 'Headings')?.querySelectorAll('.marxy-palette-row').length === 2);
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => window.__marxyHandle.currentPath() === '/r/docs/faq.md', null, { timeout: 8000 });
@@ -337,7 +348,7 @@ test('looking at previews and closing the palette opens nothing, changes no stat
     const state = () => page.evaluate(() => ({ path: window.__marxyHandle.currentPath(), mru: window.__marxyHandle.palette.session.mru, history: window.__marxyHandle.palette.session.history }));
     const before = await state();
     const mark = await callCount(page);
-    await openPalette(page, '@section');
+    await openPalette(page, 'section');
     await waitAside(page, 'Body');
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
@@ -349,5 +360,21 @@ test('looking at previews and closing the palette opens nothing, changes no stat
     assert.deepEqual(written, []);
     // And the column is empty again, holding nothing of a document that was only looked at.
     assert.equal(await aside(page), '');
+  });
+});
+
+test('a file named for credentials or keys is not read for a preview: a line says it may hold secrets', async () => {
+  await withPage(async (page) => {
+    await boot(page);
+    await page.waitForTimeout(400);
+    for (const [query, name] of [['prod.env', '/r/vault/prod.env'], ['server.pem', '/r/vault/server.pem']]) {
+      const mark = await callCount(page);
+      await openPalette(page, query);
+      await waitAside(page, 'May hold secrets');
+      const text = await aside(page);
+      assert.ok(!/hunter2|MIIE|PRIVATE KEY/.test(text), text);
+      assert.deepEqual(reads(await callsSince(page, mark)).filter((c) => c.path === name), [], `${name} is not read`);
+      await page.keyboard.press('Escape');
+    }
   });
 });

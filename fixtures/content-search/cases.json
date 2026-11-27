@@ -333,12 +333,13 @@
       "matchEnd": 6
      }
     ],
+    "skippedFiles": 1,
     "scannedFiles": 1,
     "truncated": false
    }
   },
   {
-   "name": "a file over 4 MB is skipped; one of exactly 4 MB is searched",
+   "name": "a file just over 4 MB is searched like one of exactly 4 MB",
    "files": {
     "/r/big.md": {
      "text": "needle",
@@ -361,6 +362,14 @@
    "expect": {
     "hits": [
      {
+      "path": "/r/big.md",
+      "line": 1,
+      "byteOffset": 0,
+      "preview": "needlexxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "matchStart": 0,
+      "matchEnd": 6
+     },
+     {
       "path": "/r/ok.md",
       "line": 1,
       "byteOffset": 0,
@@ -369,7 +378,7 @@
       "matchEnd": 6
      }
     ],
-    "scannedFiles": 1,
+    "scannedFiles": 2,
     "truncated": false
    }
   },

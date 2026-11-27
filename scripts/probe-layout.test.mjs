@@ -1,4 +1,4 @@
-// scripts/probe-layout.mjs (L-00): the negative control and the determinism check.
+// scripts/probe-layout.mjs: the negative control and the determinism check.
 //
 // The probe states facts and judges nothing, so its own test is: given a page with a known asymmetry
 // (a wide block that grows to one side, a column that is off the window's axis, a hung mark past the
@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { defaultThemeCss } from '../packages/theme/scripts/inline.mjs';
-import { assemble, CLASSIC_CSS, DEFAULTS, drawOverlayInPage, measureInPage, run } from './probe-layout.mjs';
+import { assemble, buildRenderEntry, CLASSIC_CSS, DEFAULTS, drawOverlayInPage, measureInPage, run } from './probe-layout.mjs';
 import { launchWebkit } from './playwright-webkit.mjs';
 
 const skip =
@@ -24,6 +24,9 @@ const test = (name, a, b) => (b ? nodeTest(name, { skip, ...a }, b) : nodeTest(n
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 let browser;
+// The Vite build of the render entry is the costly part of a run and does not change between the runs below.
+let entryBuilt;
+const buildOnce = () => (entryBuilt ??= buildRenderEntry());
 before(async () => {
   if (!skip) browser = await launchWebkit();
 });
@@ -86,7 +89,7 @@ test('negative control: a column off the window axis is reported with the offset
 });
 
 test('negative control: a top-level ordered list hangs its marker past the gutter floor at 320px, not at 960px', async () => {
-  // The fault is built: the list hangs its whole marker whatever the room (the theme's rule before L-03).
+  // The fault is built: the list hangs its whole marker whatever the room (the theme's old rule).
   const list = blk('ol', 0, `<li>${'first item'}</li><li>second item</li>`);
   const html = page(list, { extraCss: '.marxy-article > ol { padding-inline-start: 0; }' });
   const narrow = await measure(html, 320);
@@ -97,12 +100,12 @@ test('negative control: a top-level ordered list hangs its marker past the gutte
   assert.equal(h3[0].metric, Math.round((narrow.column.gutter - (narrow.column.left - hang)) * 100) / 100);
   const wide = await measure(html, 960);
   assert.deepEqual(wide.offenders.filter((o) => o.h === 'H3'), []);
-  // The twin: the theme's own list hangs only into the room, so at 320px nothing is reported (L-03).
+  // The twin: the theme's own list hangs only into the room, so at 320px nothing is reported.
   const kept = await measure(page(list), 320);
   assert.deepEqual(kept.offenders.filter((o) => o.h === 'H3'), [], JSON.stringify(kept.marks));
 });
 
-// ---- Controls added in L-00.1: one per rule the first version left unguarded. Each builds the fault with a
+// ---- Controls added later: one per rule the first version left unguarded. Each builds the fault with a
 // known size, reads the expected number from the page's own geometry (not a literal), and has a twin without
 // the fault that must report nothing.
 
@@ -122,7 +125,7 @@ test('negative control (H2): a code block whose text starts inside the column ed
   assert.deepEqual(ok.offenders.filter((o) => o.h === 'H2'), []);
 });
 
-// ---- Controls added in L-02: the two artefacts L-01 found in the probe itself. Each has a control that fails
+// ---- Controls added later: the two artefacts found in the probe itself. Each has a control that fails
 // when the probe is wrong and a twin that keeps the rule alive.
 
 test('negative control (H2 artefact): a hung initial letter is ink that is allowed to hang, not the paragraph starting one letter late', async () => {
@@ -222,7 +225,7 @@ test('negative control (H5): a nested block past the gutter floor is reported at
 });
 
 
-// The notice region as the theme styled it until U-02 (a column in em at the region's own font, in the page's flow). The app's
+// The notice region as the theme once styled it (a column in em at the region's own font, in the page's flow). The app's
 // notices are pills off the column now (gate-aesthetics.mjs measures that); the probe's own notice model is the old one, kept
 // so that the layout audit can be rerun against an earlier ref, and this crafted page is what its negative control reads.
 const LEGACY_NOTICE_CSS = `
@@ -290,11 +293,15 @@ test('the overlay draws a red box for every offender that has a position', async
 test('two runs over the render entry produce an identical probe.json', { timeout: 900_000 }, async () => {
   // Both runs share the file-level browser: a second WebKit beside it, driven by two workers, is what dies
   // under load, and a probe that must be identical should not depend on how many browsers were alive.
+  // Three widths are enough: they are the ones that also write the block lists, and every other width runs
+  // the same code with other numbers. Both scrollbar models and both a long and a pathological document stay.
+  await buildOnce();
   const opts = {
     ...DEFAULTS,
     ref: 'origin/main',
     files: ['01-long-technical.md', '05-pathological-table-and-nesting.md'],
-    widths: DEFAULTS.widths,
+    widths: [320, 960, 1600],
+    entryBuilt: true,
     sizes: [20],
     variants: ['dark'],
     scrollbars: ['overlay', 'classic'],
@@ -317,14 +324,15 @@ test('two runs over the render entry produce an identical probe.json', { timeout
 });
 
 test('one measurement assembles to one probe.json even when the ref it is labelled with moves meanwhile', { timeout: 300_000 }, async () => {
-  // The cause of the determinism test's load flake (F-56): assemble() asked git for origin/main and HEAD each time, a run
+  // The cause of the determinism test's load flake: assemble() asked git for origin/main and HEAD each time, a run
   // is minutes long under load, and another session's fetch or commit in between changed ref.sha in the second file.
   const git = (...a) => spawnSync('git', a, { cwd: root, encoding: 'utf8' });
   const name = `refs/marxy-test/probe-moving-ref-${process.pid}`;
   const [first, second] = git('rev-list', '--max-count=2', 'HEAD').stdout.trim().split('\n');
   assert.ok(second, 'the repository needs two commits for a ref to move between');
   const opts = { ...DEFAULTS, ref: name, files: ['01-long-technical.md'], widths: [960], sizes: [20], variants: ['dark'], scrollbars: ['overlay'], workers: 1, png: false, browser };
-  const rr = await run(opts);
+  await buildOnce();
+  const rr = await run({ ...opts, entryBuilt: true });
   try {
     git('update-ref', name, first);
     const a = JSON.stringify(assemble(opts, rr));
@@ -337,7 +345,7 @@ test('one measurement assembles to one probe.json even when the ref it is labell
   }
 });
 
-// ---- Controls added in L-02.1: the right edge of body text, and the per-kind spacing survey.
+// ---- Controls added later: the right edge of body text, and the per-kind spacing survey.
 
 const LONG = 'A long paragraph of body text, set over several lines so that the longest of them must come close to the right edge of the column. '.repeat(6);
 

@@ -1,4 +1,4 @@
-// `.gitignore` / `.ignore` matching. A deny-listed name still wins over a negation (ADR-0012).
+// `.gitignore` / `.ignore` matching. A deny-listed name still wins over a negation.
 
 import { isDeniedName, isDeniedPath } from './deny.ts';
 
@@ -30,12 +30,12 @@ export function parseIgnore(text: string, baseDir = ''): IgnoreRule[] {
  * Deny-list names cannot be un-ignored: indexing `node_modules` is never a reader request.
  */
 export function isIgnored(relativePath: string, isDir: boolean, rules: readonly IgnoreRule[]): boolean {
-  if (isDeniedPath(relativePath)) return true;
+  if (isDeniedPath(relativePath, isDir)) return true;
   const parts = relativePath.split('/').filter(Boolean);
   for (let i = 0; i < parts.length; i++) {
     const prefix = parts.slice(0, i + 1).join('/');
     const prefixIsDir = isDir || i < parts.length - 1;
-    if (isDeniedName(parts[i]!)) return true;
+    if (prefixIsDir && isDeniedName(parts[i]!)) return true;
     const status = lastMatch(prefix, prefixIsDir, rules);
     // A denied directory is not descended into; a later `!` cannot resurrect its children.
     if (prefixIsDir && status === true) return true;

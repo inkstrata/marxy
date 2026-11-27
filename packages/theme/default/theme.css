@@ -1,19 +1,21 @@
-/* The default theme: Night (dark, a true-black ground) and Paper (light). Both set every contract-2 role
-   (ADR-0059). Values come from Galley's audited themes (docs/plan/direction-2026-10/galley/tokens.css,
-   mock-v2/07-themes.md); every pair is held by scripts/gate-contrast.mjs. Night is the root, as dark has
-   always been the default (ADR-0024); Paper is the designed second variant, never the inverse (MARXY-46).
+/* The default theme: Night (dark, a true-black ground) and Paper (light). Both set every contract-2 role.
+  Values come from Galley's audited themes; every pair is held by scripts/gate-contrast.mjs. Night is the root, as dark has
+   always been the default; Paper is the designed second variant, never the inverse.
    Translucent fills (find, diff tints) are written as opaque colours over the ground they sit on, so a
    reader's tool and the palette tests can read them. tokens.css keeps the contract's own fallbacks and
    is not edited. Today's warm near-black lives on as the `ink` theme (packages/theme/ink). */
 @import url("../src/tokens.css");
 :root {
-  /* weights: lighter on the dark ground (ADR-0033) */
-  --marxy-weight-body: 370;
-  --marxy-weight-heading: 560;
-  --marxy-weight-strong: 610;
+  /* weights: lighter on the dark ground */
+  --marxy-weight-body: 380;
+  --marxy-weight-heading: 580;
+  --marxy-weight-strong: 640;
+  --marxy-lh-h1: 45px;
+  --marxy-lh-h2: 30px;
+  --marxy-face-chrome: "Atkinson Hyperlegible Next", "Segoe UI", system-ui, sans-serif;
 
   /* type set (Classic): Literata for books, Source Serif 4 for articles, Atkinson Hyperlegible Next for
-     reports and notes, Inter for READMEs (H-04.1), each bundled (fonts/README.md) with the platform face
+     reports and notes, Inter for READMEs, each bundled (fonts/README.md) with the platform face
      as its fallback. The slots (--marxy-font-*) stay Literata and JetBrains Mono. */
   --marxy-face-book: "Literata", serif;
   --marxy-face-article: "Source Serif 4", "Literata", serif;
@@ -22,37 +24,37 @@
   --marxy-face-mono: var(--marxy-font-mono);
 
   /* ground and text */
-  --marxy-color-bg: #000000;
-  --marxy-color-text: #c9cfd4;
-  --marxy-color-text-strong: #e2e6e9;
-  --marxy-color-text-secondary: #9aa1a8;
-  --marxy-color-text-faint: #8e959c;
+  --marxy-color-bg: #0f1113;
+  --marxy-color-text: #c8cdd2;
+  --marxy-color-text-strong: #e9ecef;
+  --marxy-color-text-secondary: #a2a9b0;
+  --marxy-color-text-faint: #8c939b;
   --marxy-color-accent: #8fb4ff;
   --marxy-color-accent-strong: #bdd2ff;
-  --marxy-color-accent-fg: #000000;
+  --marxy-color-accent-fg: #0f1113;
   --marxy-color-accent-wash: rgba(143, 180, 255, 0.11);
   --marxy-color-link: var(--marxy-color-accent);
 
   /* lines and edges */
-  --marxy-color-rule: #232528;
-  --marxy-color-rule-strong: #34373b;
+  --marxy-color-rule: #24282d;
+  --marxy-color-rule-strong: #30343a;
   --marxy-color-edge: #6c7177;
   --marxy-color-divider: var(--marxy-color-rule);
   --marxy-color-divider-focus: var(--marxy-color-accent);
-  --marxy-color-quote-rule: #34373b;
+  --marxy-color-quote-rule: #646b73;
 
   /* surfaces */
-  --marxy-color-surface: #17181a;
-  --marxy-color-surface-glass: rgba(14, 15, 16, 0.8);
+  --marxy-color-surface: #181b1f;
+  --marxy-color-surface-glass: rgba(24, 27, 31, 0.86);
   --marxy-color-notice: var(--marxy-color-surface);
   --marxy-shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.6), 0 12px 32px rgba(0, 0, 0, 0.7);
-  --marxy-color-code-bg: #0d0e0f;
-  --marxy-color-code-text: #c9cfd4;
+  --marxy-color-code-bg: #181b1f;
+  --marxy-color-code-text: #c8cdd2;
 
   /* marks */
-  --marxy-color-selection: #222b3d;
+  --marxy-color-selection: #1d2c45;
   --marxy-color-find: #272213;
-  --marxy-color-find-current: #342d18;
+  --marxy-color-find-current: #322b16;
   --marxy-color-find-edge: #8a6a18;
 
   /* status: always with a word and an icon */
@@ -70,7 +72,7 @@
   --marxy-color-diff-add-word: #232f25;
   --marxy-color-diff-del-word: #342625;
 
-  /* code tokens: a hue per role (ADR-0068), built in OKLCH; the palette test holds the contrast and the lightness gaps.
+  /* code tokens: a hue per role, built in OKLCH; the palette test holds the contrast and the lightness gaps.
      Variables and punctuation stay the code text. */
   --marxy-tok-keyword: #d4bcff;
   --marxy-tok-string: #b8e3a1;
@@ -90,14 +92,14 @@
   --marxy-tok-self: #fb9797;
   --marxy-tok-escape: #43bd99;
   --marxy-tok-marker: #a3aab1;
-  --marxy-tok-heading: #e2e6e9;
+  --marxy-tok-heading: #e9ecef;
   --marxy-tok-link: var(--marxy-color-link);
   --marxy-tok-mark: #97a7b7;
 }
 :root[data-marxy-variant="light"] {
   --marxy-weight-body: 400;
-  --marxy-weight-heading: 570;
-  --marxy-weight-strong: 650;
+  --marxy-weight-heading: 600;
+  --marxy-weight-strong: 660;
 
   --marxy-color-bg: #fbfaf8;
   --marxy-color-text: #1f2124;
@@ -158,114 +160,73 @@
   --marxy-tok-mark: #495766;
 }
 
-/* The kind profiles (K-05b; ADR-0059 item 7, ADR-0060, docs/plan/direction-2026-10/03-kinds-and-the-look.md
-   §Profiles). `data-marxy-kind` is on each pane root, so a scope here covers Night and Paper alike: it sets no
+/* The kind profiles.
+   `data-marxy-kind` is on each pane root, so a scope here covers Night and Paper alike: it sets no
    colour and no weight, only the face role, the size as a multiple of the reader's own, the measure and the
    face's average advance. The sizes are written as the calc() that the loader compiles for a user theme from a
    bare ratio (this file is inlined as it stands, not loaded), over the system-owned root copies, so the
-   reader's text size still wins (WCAG 1.4.4). Every line box is a whole even pixel (ADR-0030) at the default
-   size. `--marxy-avg-char` is measured (docs/taste-review/2026-10-k05b/capture.mjs --measure; H-06) for the
+   reader's text size still wins (WCAG 1.4.4). Every line box is a whole even pixel at the default
+   size. `--marxy-avg-char` is measured for the
    face at the size and weight it is set at, so the column holds its character count whatever the face.
    Reader Typography ch.7 and 10 (Overrides by content type): documentation and reports are ragged with space
    between paragraphs, a README follows the forge's own reading conventions. The kinds with no profile here
    read as they do today. */
 [data-marxy-kind="article"] {
-  /* Source Serif 4, the editorial face (H-04): 20 on 30 as today, 66 average characters (ch.10 "Measure"). */
+  /* Source Serif 4, the editorial face: 20 on 30 as today, 66 average characters (ch.10 "Measure"). */
   --marxy-font-text: var(--marxy-face-article);
   --marxy-font-heading: var(--marxy-face-article);
   --marxy-measure-chars: 66;
   --marxy-avg-char: 0.434;
 }
 [data-marxy-kind="readme"] {
-  /* Inter, 16 on 26 (0.8 and 0.8667 of 20 on 30), 80 average characters: the clamp's edge, not Galley's 84
-     (ADR-0060, last Consequence; the loader clamps a reflowing kind to 45-80). */
+  /* Inter at the reader's own size, 20 on 30, 66 average characters: one prose setting. */
   --marxy-font-text: var(--marxy-face-readme);
   --marxy-font-heading: var(--marxy-face-readme);
-  --marxy-size-body: calc(0.8 * var(--marxy-root-size-body));
-  --marxy-line-box: round(calc(0.8667 * var(--marxy-root-line-box)), 2px);
-  --marxy-size-code: calc(0.78 * var(--marxy-root-size-code));
-  --marxy-line-box-code: round(calc(0.8667 * var(--marxy-root-line-box-code)), 2px);
-  --marxy-size-caption: calc(0.87 * var(--marxy-root-size-caption));
-  --marxy-lh-h1: calc(0.8 * var(--marxy-root-lh-h1));
-  --marxy-lh-h2: calc(0.8 * var(--marxy-root-lh-h2));
-  --marxy-measure-chars: 80;
+  --marxy-measure-chars: 66;
   --marxy-avg-char: 0.454;
 }
 [data-marxy-kind="report"] {
-  /* Atkinson Hyperlegible Next, 17 on 26 (0.85 and 0.8667), 74 average characters, ragged: identifiers and
-     paths must not break (ch.10, Documentation). */
+  /* Atkinson Hyperlegible Next at the reader's own size, 20 on 30, 66 average characters: one prose setting. */
   --marxy-font-text: var(--marxy-face-sans);
   --marxy-font-heading: var(--marxy-face-sans);
-  --marxy-size-body: calc(0.85 * var(--marxy-root-size-body));
-  --marxy-line-box: round(calc(0.8667 * var(--marxy-root-line-box)), 2px);
-  --marxy-size-code: calc(0.83 * var(--marxy-root-size-code));
-  --marxy-line-box-code: round(calc(0.8667 * var(--marxy-root-line-box-code)), 2px);
-  --marxy-size-caption: calc(0.87 * var(--marxy-root-size-caption));
-  --marxy-lh-h1: calc(0.85 * var(--marxy-root-lh-h1));
-  --marxy-lh-h2: calc(0.85 * var(--marxy-root-lh-h2));
-  --marxy-measure-chars: 74;
+  --marxy-measure-chars: 66;
   --marxy-avg-char: 0.425;
 }
 [data-marxy-kind="docs"] {
-  /* A page of a docs set takes the README's setting: Inter, 16 on 26, 80 average characters, the clamp's edge (the card's 84
-     is above the loader's 45-80 clamp; Reader Typography ch.7 and 10, "Documentation": ragged, space between paragraphs,
-     identifiers that never break). K-22. */
+  /* Inter at the reader's own size, 20 on 30, 66 average characters: one prose setting. */
   --marxy-font-text: var(--marxy-face-readme);
   --marxy-font-heading: var(--marxy-face-readme);
-  --marxy-size-body: calc(0.8 * var(--marxy-root-size-body));
-  --marxy-line-box: round(calc(0.8667 * var(--marxy-root-line-box)), 2px);
-  --marxy-size-code: calc(0.78 * var(--marxy-root-size-code));
-  --marxy-line-box-code: round(calc(0.8667 * var(--marxy-root-line-box-code)), 2px);
-  --marxy-size-caption: calc(0.87 * var(--marxy-root-size-caption));
-  --marxy-lh-h1: calc(0.8 * var(--marxy-root-lh-h1));
-  --marxy-lh-h2: calc(0.8 * var(--marxy-root-lh-h2));
-  --marxy-measure-chars: 80;
+  --marxy-measure-chars: 66;
   --marxy-avg-char: 0.454;
 }
 [data-marxy-kind="changelog"] {
-  /* A changelog takes the report's setting: Atkinson Hyperlegible Next, 17 on 26, 74 average characters, ragged: dense short
-     bullets with identifiers and versions that must not break (Reader Typography ch.7, "Changelogs"; K-22). */
+  /* Atkinson Hyperlegible Next at the reader's own size, 20 on 30, 66 average characters: one prose setting. */
   --marxy-font-text: var(--marxy-face-sans);
   --marxy-font-heading: var(--marxy-face-sans);
-  --marxy-size-body: calc(0.85 * var(--marxy-root-size-body));
-  --marxy-line-box: round(calc(0.8667 * var(--marxy-root-line-box)), 2px);
-  --marxy-size-code: calc(0.83 * var(--marxy-root-size-code));
-  --marxy-line-box-code: round(calc(0.8667 * var(--marxy-root-line-box-code)), 2px);
-  --marxy-size-caption: calc(0.87 * var(--marxy-root-size-caption));
-  --marxy-lh-h1: calc(0.85 * var(--marxy-root-lh-h1));
-  --marxy-lh-h2: calc(0.85 * var(--marxy-root-lh-h2));
-  --marxy-measure-chars: 74;
+  --marxy-measure-chars: 66;
   --marxy-avg-char: 0.425;
 }
 [data-marxy-kind="transcript"] {
-  /* Atkinson Hyperlegible Next, 16 on 26 as a README is (0.8 and 0.8667), a 66-character text column; the speaker
-     label hangs outside it in a 10-character column of its own, so the whole is the 76 of the kinds table
-     (docs/plan/direction-2026-10/03-kinds-and-the-look.md; Reader Typography ch.7, "Letters, diaries and messages").
-     Ragged. The face and the avg advance are the report's, which is the same face. */
+  /* Atkinson Hyperlegible Next at the reader's own size, 20 on 30, 66 average characters: one prose setting. */
   --marxy-font-text: var(--marxy-face-sans);
   --marxy-font-heading: var(--marxy-face-sans);
-  --marxy-size-body: calc(0.8 * var(--marxy-root-size-body));
-  --marxy-line-box: round(calc(0.8667 * var(--marxy-root-line-box)), 2px);
-  --marxy-size-code: calc(0.78 * var(--marxy-root-size-code));
-  --marxy-line-box-code: round(calc(0.8667 * var(--marxy-root-line-box-code)), 2px);
-  --marxy-size-caption: calc(0.87 * var(--marxy-root-size-caption));
   --marxy-measure-chars: 66;
   --marxy-avg-char: 0.425;
 }
 [data-marxy-kind="log"] {
   /* Mono, 15 on 24 (0.8333 and 0.8 of 18 on 30), as authored: a log is code-like text and is never reflowed, so only the
-     size and the line box are the profile's. Its lines wrap with the code block's 2ch hang (ADR-0033, K-08). */
+     size and the line box are the profile's. Its lines wrap with the code block's 2ch hang. */
   --marxy-size-code: round(calc(0.8333 * var(--marxy-root-size-code)), 1px);
   --marxy-line-box-code: round(calc(0.8 * var(--marxy-root-line-box-code)), 2px);
 }
 [data-marxy-kind="terminal"] {
   /* Mono, 15 on 24, as a log is (03-kinds-and-the-look.md, the profile row): a session is never reflowed, so only the size
-     and the line box are the profile's (K-17). */
+     and the line box are the profile's. */
   --marxy-size-code: round(calc(0.8333 * var(--marxy-root-size-code)), 1px);
   --marxy-line-box-code: round(calc(0.8 * var(--marxy-root-line-box-code)), 2px);
 }
-/* A terminal session (K-17), in a terminal file or a `console` fence alike, so these are not scoped to the kind. The prompt is
-   the faint text colour (the mock's punctuation, which the code text colour would not distinguish), the command the strong colour at weight 600 (the platform's offset still applies), the output
+/* A terminal session, in a terminal file or a `console` fence alike, so these are not scoped to the kind. The prompt is
+   the faint text colour (the punctuation, which the code text colour would not distinguish), the command the strong colour at weight 600 (the platform's offset still applies), the output
    plain. A command after the block's first line opens with half a code line above it: a margin on the line, nothing
    inserted. Colour never says what output means, and an escape is shown as its picture (the invisible-character marker). */
 .marxy-term-prompt { color: var(--marxy-color-text-faint); }
@@ -275,13 +236,13 @@
   color: var(--marxy-color-text-strong);
 }
 .marxy-term-start { margin-top: calc(var(--marxy-line-box-code) / 2); }
-/* Docs, notes and changelogs (K-22): restyling only, nothing inserted and no byte changed. None of these rules moves a line off
+/* Docs, notes and changelogs: restyling only, nothing inserted and no byte changed. None of these rules moves a line off
    the grid: a border or a half-line of padding either side, never a margin that is not a half line.
-   A docs page sets its signature block (the code block right after the title, or after the one-line summary under it) apart
-   with the accent's edge, and its admonitions (a GitHub alert, which core renders as a quote whose first words are its bold
+   A docs page sets its signature block (the code block right after the title and its byline, or after the one-line summary
+   under them) apart with the accent's edge, and its admonitions (a GitHub alert, which core renders as a quote whose first words are its bold
    label) in the code ground with that edge; the label is a word, so no colour carries the type. */
-[data-marxy-kind="docs"] .marxy-article > h1 + pre,
-[data-marxy-kind="docs"] .marxy-article > h1 + p + pre {
+[data-marxy-kind="docs"] .marxy-article > :is(h1, h1 + dl[data-marxy-fm-part="head"]) + pre,
+[data-marxy-kind="docs"] .marxy-article > :is(h1, h1 + dl[data-marxy-fm-part="head"]) + p + pre {
   /* Given through custom properties by the rule below, which names no heading: the title is only where the signature is found. */
   --marxy-signature-edge: 3px;
   --marxy-signature-ink: var(--marxy-color-text-strong);
@@ -296,26 +257,30 @@
   padding-block: var(--marxy-half);
   padding-inline-end: var(--marxy-half);
 }
-[data-marxy-kind="docs"] .marxy-article > blockquote:has(> p:first-child > strong:first-child) > :last-child { margin-bottom: 0; }
-/* A notes file's date is quiet: the front matter's `date` row in the secondary colour, and (app/kinds/quiet-dates.ts) a first line
-   that is only a date. A changelog's version headings take their date the same way, through the same highlight. */
-[data-marxy-kind="notes"] .marxy-article > dl:first-child > dd[data-marxy-fm-key="date"] { color: var(--marxy-color-text-secondary); }
+/* The callout's last child, found from its own siblings: `blockquote:has(…) > :last-child` made Chromium restyle the whole
+   document at every element inserted anywhere. Two selectors, not one `:is(p:has(…), p:has(…) ~ *)`: in WebKit a `:has()`
+   inside `:is()` with `~ *` made every node added, removed or merged in any paragraph restyle the siblings after it, so
+   un-setting the paragraphs of a 1 MB page at a new width took 20 ms a paragraph and froze the reader for half a minute. */
+[data-marxy-kind="docs"] .marxy-article > blockquote > p:first-child:last-child:has(> strong:first-child),
+[data-marxy-kind="docs"] .marxy-article > blockquote > p:first-child:has(> strong:first-child) ~ :last-child { margin-bottom: 0; }
+/* A notes file's date is quiet: the byline is quiet already, and (app/kinds/quiet-dates.ts) a first line that is only a
+   date. A changelog's version headings take their date the same way, through the same highlight. */
 ::highlight(marxy-quiet-date) { color: var(--marxy-color-text-secondary); }
 [data-marxy-kind="diff"] {
   /* Mono, 16 on 26 (0.8889 and 0.8667 of 18 on 30), as authored: a diff is never reflowed, so only the size and the line
-     box are the profile's. A wrapped row hangs past the marker column (diffMarkerIndentCh, ADR-0036; K-09). */
+     box are the profile's. A wrapped row hangs past the marker column (diffMarkerIndentCh). */
   --marxy-size-code: round(calc(0.8889 * var(--marxy-root-size-code)), 1px);
   --marxy-line-box-code: round(calc(0.8667 * var(--marxy-root-line-box-code)), 2px);
 }
 @media (forced-colors: active) {
   /* The tints are system colours there and vanish; added and removed rows keep a second channel, a border that differs
-     in style (base.css gives it under prefers-contrast: more; forced colours is not that query in every engine; K-09). */
+     in style (base.css gives it under prefers-contrast: more; forced colours is not that query in every engine). */
   .marxy-diff-add { border-inline-start: 3px solid currentColor; }
   .marxy-diff-del { border-inline-start: 3px dashed currentColor; }
 }
 /* A speaker heading is a label, never a heading to the eye: small capitals, the heading's own text, no colour of
    its own (colour never carries the speaker). Exchanges are a root line box apart (30 px at the default size)
-   and paragraphs within a turn half of that (K-11; Reader Artifacts 10-spec, "Speaker labels"). A heading that is
+   and paragraphs within a turn half of that (Reader Artifacts 10-spec, "Speaker labels"). A heading that is
    still an h2 or h3 to the outline and to a screen reader. */
 [data-marxy-kind="transcript"] [data-marxy-speaker] {
   font-size: calc(0.84 * var(--marxy-size-body));
@@ -349,7 +314,7 @@
 @media (forced-colors: active) {
   [data-marxy-kind="transcript"] [data-marxy-speaker] { forced-color-adjust: auto; font-weight: 700; }
 }
-/* A JSONL session read as turns (K-12, ADR-0061): the derived view takes K-11's labels above, so a session and a Markdown
+/* A JSONL session read as turns: the derived view takes the labels above, so a session and a Markdown
    transcript read alike. Exchanges are a root line box apart and the blocks of a turn half of one; a tool call, a thinking
    block and an unreadable line are one quiet line at rest in the caption size, opened on a click, their bodies in the code
    face. What the view left out is said in one line at its head, in the dek's colour, as words, never a badge. Nothing here
@@ -425,78 +390,16 @@
 [data-marxy-kind="transcript"] .marxy-unreadable { border-inline-start: 2px solid var(--marxy-color-accent); padding-inline-start: 0.6em; margin: var(--marxy-root-line-box) 0 0; }
 [data-marxy-kind="transcript"] .marxy-derived-replaced { outline: 1px dashed currentColor; outline-offset: -1px; border-radius: 2px; }
 [data-marxy-kind="transcript"] .marxy-derived-image { color: var(--marxy-color-text-secondary); font-style: italic; }
-/* An article's byline and dek (K-20; mock-v2 TYPOGRAPHY "Article"). The front-matter head stays where the bytes put it,
-   above the title, and keeps every row in the bytes' order: the core marks the byline's rows (author, published,
-   source), and an article sets them as one line ahead of the rest (`order`), values only, with a rule beneath. The keys stay on the page for a screen
-   reader (clipped, not removed); one pair of outer quotes and a web source's scheme and path are hidden (the core marks
-   them only when the host shown is the host the link goes to), so the source shows its host, a link to the whole URL
-   (made by the app in an article only) whose destination is summoned like every link's. Every other row keeps the
-   head's two columns. The dek is the first `description`, `dek` or `subtitle` row, or else a paragraph wholly in
-   emphasis directly after the title; never both. Other kinds keep the quiet head. */
-[data-marxy-kind="article"] .marxy-article > dl:first-child:has(> [data-marxy-fm-part="byline"]) {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-}
-[data-marxy-kind="article"] .marxy-article > dl:first-child:has(> [data-marxy-fm-part="byline"])::before {
-  /* The line break after the byline, drawn as its rule: placed after the byline's items (order -1) and before the rest. */
-  content: "";
-  flex: 0 0 100%;
-  height: 0;
-  border-top: 1px solid var(--marxy-color-rule);
-  margin-bottom: -1px;
-}
-[data-marxy-kind="article"] .marxy-article > dl:first-child > [data-marxy-fm-part="byline"] { order: -1; }
-[data-marxy-kind="article"] .marxy-article > dl:first-child > dt:is([data-marxy-fm-part="byline"], [data-marxy-fm-part="dek"]) {
-  position: absolute;
-  /* Kept for a screen reader, painted nowhere: clip-path clips the overflowing text too, so nothing is cut short by an
-     overflow a text-spacing check would count. */
-  width: 1px;
-  height: 1px;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-part="byline"] {
-  /* A value is a short run, never a paragraph to set: as a flex box it is not one the typesetter takes (it sets only a
-     block), so its hidden quotes are never measured and it never breaks inside. */
-  display: flex;
-  align-items: baseline;
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-family: var(--marxy-face-chrome);
-  color: var(--marxy-color-text-secondary);
-}
-[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-key="author"][data-marxy-fm-part="byline"] {
-  color: var(--marxy-color-text-strong);
-  font-weight: calc(650 + var(--marxy-weight-offset));
-}
-[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-part="byline"] a { color: var(--marxy-color-link); }
-[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-part="byline"] :is([data-marxy-fm-part="quote"], [data-marxy-fm-part="scheme"], [data-marxy-fm-part="path"]) {
-  display: none;
-}
-[data-marxy-kind="article"] .marxy-article > dl:first-child:has(> [data-marxy-fm-part="byline"]) > dt:not([data-marxy-fm-part]) {
-  flex: 0 0 14ch;
-}
-[data-marxy-kind="article"] .marxy-article > dl:first-child:has(> [data-marxy-fm-part="byline"]) > dd:not([data-marxy-fm-part]) {
-  /* The rest of the line: a basis an em short of it (a key's 14ch is measured in the key's own face), then grown, so the
-     next key never fits beside it. */
-  flex: 1 1 calc(100% - 14ch - var(--marxy-half) - 1em);
-  min-width: 0;
-}
-[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-part="dek"],
-[data-marxy-kind="article"] .marxy-article > dl:first-child:has(> [data-marxy-fm-part="byline"]):not(:has(> [data-marxy-fm-part="dek"])) + h1 + p[data-marxy-emphasis="whole"] {
-  /* Larger and quieter than the text (TYPOGRAPHY "Article"): 1.2 of the body on its line box, in the text face, in the
-     secondary text colour (given through --marxy-dek-color by the rule below, which names no heading: the title is
-     only where the dek is found, never what is coloured). */
+/* An article's dek: a paragraph wholly in emphasis directly under the title and its byline, larger and quieter than
+   the text (TYPOGRAPHY "Article"): 1.2 of the body on its line box, in the text face, in the secondary text colour
+   (given through --marxy-dek-color, so no heading is coloured). */
+[data-marxy-kind="article"] .marxy-article > h1:first-child + dl[data-marxy-fm-part="head"]:has(> dd[data-marxy-fm-part="byline"]) + p[data-marxy-emphasis="whole"] {
   --marxy-dek-color: var(--marxy-color-text-secondary);
-  flex: 0 0 100%;
   font-family: var(--marxy-font-text);
   font-size: calc(1.2 * var(--marxy-size-body));
   font-style: italic;
   line-height: var(--marxy-line-box);
 }
-[data-marxy-kind="article"] .marxy-article > dl:first-child > dd[data-marxy-fm-part="dek"],
 [data-marxy-kind="article"] .marxy-article > p[data-marxy-emphasis="whole"] {
   /* Unset (any other paragraph wholly in emphasis), the property is invalid and the colour inherits as before. */
   color: var(--marxy-dek-color);

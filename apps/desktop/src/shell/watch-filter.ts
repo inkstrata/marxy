@@ -1,4 +1,4 @@
-// The webview half of the tree watch (C-05): every shell watch emits on the one `fs-watch` channel,
+// The webview half of the tree watch: every shell watch emits on the one `fs-watch` channel,
 // tagged with its table key, and each `Shell.watch` keeps only its own key's events.
 
 import type { WatchEvent } from '@marxy/shell-api';

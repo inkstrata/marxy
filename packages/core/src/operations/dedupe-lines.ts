@@ -1,9 +1,10 @@
-// Dedupe lines (E-05): inside a run of paragraphs and lists, a line that repeats an earlier one is removed and the first
+// Dedupe lines: inside a run of paragraphs and lists, a line that repeats an earlier one is removed and the first
 // occurrence stays. The run arrives as a raw span (no node), the one shape `Applicability` 'span' exists for.
 // Pure string to string: every kept line keeps its own ending, and the operation writes no line ending of its own, so LF, CRLF,
 // lone CR and mixed files are preserved by construction.
 import type { Node, Source } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
+import { trimEndOf } from '../util/text.ts';
 
 /** Block types a duplicate line may live in. Anything else block-level (a fence, a table, a heading, raw HTML, math) holds content, not prose. */
 const PROSE_BLOCKS: ReadonlySet<string> = new Set(['paragraph', 'list', 'listItem']);
@@ -46,7 +47,7 @@ function linesOf(text: string): Line[] {
 }
 
 /** Trailing spaces and tabs do not make a line different; leading ones do (indentation is structure). */
-const key = (body: string): string => body.replace(/[ \t]+$/, '');
+const key = (body: string): string => trimEndOf(body, ' \t');
 
 export const dedupeLines: Operation = {
   id: 'dedupe-lines',

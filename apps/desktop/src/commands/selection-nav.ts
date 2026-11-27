@@ -1,7 +1,9 @@
-// Structured selection moves as registry commands (MARXY-42 migrates keys from view.ts). They act on the
-// app's selection controller (`AppHandle.selection`, B-12) and decide from the context they are given.
+// Structured selection moves as registry commands (the keys migrate from view.ts). They act on the
+// app's selection controller (`AppHandle.selection`) and decide from the context they are given.
 import type { AppContext, Command } from './registry.ts';
 import { appHandle } from './app-handle.ts';
+import { focusShown, leaveFocus } from './depths.ts';
+import { verbsOn } from '../selection/verbs-on.ts';
 
 function structured(ctx: AppContext): boolean {
   const kind = ctx.selection.kind;
@@ -15,17 +17,20 @@ export function selectionNavigationCommands(): readonly Command[] {
       title: 'Clear selection',
       key: 'Escape',
       group: 'selection',
-      when: (ctx) => ctx.selection.kind !== 'none',
+      when: (ctx) => ctx.selection.kind !== 'none' || focusShown(),
       run: async () => {
+        // With one part shown alone, Escape first shows everything again (`v`).
+        if (leaveFocus()) return;
         appHandle()?.selection.clear();
       },
     },
     {
       id: 'selection.next-block',
       title: 'Select next block',
+      // With the verbs on, Alt+↓ moves the part (commands/changes.ts); with them off it still selects.
       key: 'Alt+ArrowDown',
       group: 'selection',
-      when: structured,
+      when: (ctx) => structured(ctx) && !verbsOn(),
       run: async () => {
         appHandle()?.selection.moveDown();
       },
@@ -35,7 +40,7 @@ export function selectionNavigationCommands(): readonly Command[] {
       title: 'Select previous block',
       key: 'Alt+ArrowUp',
       group: 'selection',
-      when: structured,
+      when: (ctx) => structured(ctx) && !verbsOn(),
       run: async () => {
         appHandle()?.selection.moveUp();
       },

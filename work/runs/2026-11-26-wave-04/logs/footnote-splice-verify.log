@@ -1,0 +1,40 @@
+verify-turn: slot a, footnote-splice, pnpm verify --tier changed (2026-11-25T20:17:59-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\footnote-splice
+14 files changed against master; unit suites: desktop, core, scripts; browser files: 42
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\footnote-splice-2026-11-26T04-18-00
+
+PASS    install        0.4s      
+PASS    typecheck      12.0s     
+PASS    lint           2.3s      
+PASS    check          11.2s     10 pass, 0 fail
+PASS    golden         1.6s      
+PASS    fidelity       14.0s     
+PASS    licences       0.7s      
+verify: holding place 1 of 2 (--no-lock skips it)
+
+PASS    unit-core      219.9s    4240 pass, 0 fail, 3 skip
+PASS    unit-scripts   28.6s     271 pass, 0 fail
+PASS    unit-desktop   51.3s     1258 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 97.0s     44 pass, 0 fail, 1 skip
+PASS    browser        595.4s    330 pass, 0 fail
+
+step                  result  wall    tests
+--------------------  ------  ------  -------------------------
+install               pass    0.4s
+typecheck             pass    12.0s
+lint                  pass    2.3s
+check                 pass    11.2s   10 pass, 0 fail
+golden                pass    1.6s
+fidelity              pass    14.0s
+licences              pass    0.7s
+unit-core             pass    219.9s  4240 pass, 0 fail, 3 skip
+unit-scripts          pass    28.6s   271 pass, 0 fail
+unit-desktop          pass    51.3s   1258 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    97.0s   44 pass, 0 fail, 1 skip
+browser               pass    595.4s  330 pass, 0 fail
+--------------------  ------  ------  -------------------------
+total                         1034.3s
+
+verify changed: 12/12 steps passed
+verify-turn: exit 0 (2026-11-25T20:35:14-08:00)

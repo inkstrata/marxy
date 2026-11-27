@@ -1,10 +1,10 @@
-// Production bundle gate: memory-shell import graph and pre-build dist skip (MARXY-309).
+// Production bundle gate: memory-shell import graph and pre-build dist skip.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { relativeImportSpecs, memoryShellReachableFromMain, resolveRelativeModule, distChunkSpecs, entryChunks, katexInEntry, staticChunkSpecs, testOnlyStringsIn, TEST_ONLY_STRINGS, shippedDistProblems } from './gate-bundle.mjs';
+import { relativeImportSpecs, memoryShellReachableFromMain, withoutDevOnlyImports, resolveRelativeModule, distChunkSpecs, entryChunks, katexInEntry, staticChunkSpecs, testOnlyStringsIn, TEST_ONLY_STRINGS, shippedDistProblems } from './gate-bundle.mjs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
@@ -74,7 +74,7 @@ test('import-graph check does not require dist/index.html', () => {
 });
 
 function reach(files) {
-  const desktop = mkdtempSync(join(tmpdir(), 'marxy-337-'));
+  const desktop = mkdtempSync(join(tmpdir(), 'marxy-bundle-'));
   try {
     for (const [f, text] of Object.entries(files)) {
       mkdirSync(join(desktop, f, '..'), { recursive: true });
@@ -86,27 +86,27 @@ function reach(files) {
   }
 }
 
-test('MARXY-337: relativeImportSpecs reads multi-line and side-effect imports', () => {
+test('relativeImportSpecs reads multi-line and side-effect imports', () => {
   assert.deepEqual(relativeImportSpecs("import {\n a\n} from './a.ts';\nimport './b.ts'; export {\n c } from './c.ts';"), ['./a.ts', './b.ts', './c.ts']);
 });
 
-test('MARXY-337: a memory shell reached through a .js specifier that names a .ts file is flagged', () => {
+test('a memory shell reached through a .js specifier that names a .ts file is flagged', () => {
   const { memory } = reach({ 'src/main.ts': "import './shell/memory.js';\n", 'src/shell/memory.ts': 'export {};\n' });
   assert.equal(memory.length, 1);
 });
 
-test('MARXY-337: a memory shell reached through a directory index.ts is flagged', () => {
+test('a memory shell reached through a directory index.ts is flagged', () => {
   const { memory } = reach({ 'src/main.ts': "import './shell';\n", 'src/shell/index.ts': "import './memory.ts';\n", 'src/shell/memory.ts': 'export {};\n' });
   assert.equal(memory.length, 1);
 });
 
-test('MARXY-337: a memory shell reached through a .tsx file is flagged', () => {
+test('a memory shell reached through a .tsx file is flagged', () => {
   const { memory } = reach({ 'src/main.ts': "import './App';\n", 'src/App.tsx': "import './shell/memory.ts';\n", 'src/shell/memory.ts': 'export {};\n' });
   assert.equal(memory.length, 1);
 });
 
-test('MARXY-337: resolveRelativeModule prefers the file that exists', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'marxy-337-r-'));
+test('resolveRelativeModule prefers the file that exists', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'marxy-bundle-r-'));
   try {
     writeFileSync(join(dir, 'x.tsx'), '');
     assert.equal(resolveRelativeModule(join(dir, 'main.ts'), './x'), join(dir, 'x.tsx'));
@@ -116,15 +116,15 @@ test('MARXY-337: resolveRelativeModule prefers the file that exists', () => {
   }
 });
 
-test('MARXY-337: the dist walk follows import("./x.js") and side-effect import"./x.js"', () => {
+test('the dist walk follows import("./x.js") and side-effect import"./x.js"', () => {
   assert.deepEqual(distChunkSpecs('import("./a.js");import"./b.js";import{x}from"./c.js";import x from"../d.js"'), ['./a.js', './b.js', './c.js', '../d.js']);
 });
 
-test('MARXY-337: relativeImportSpecs is not fooled by comment markers inside strings', () => {
+test('relativeImportSpecs is not fooled by comment markers inside strings', () => {
   assert.deepEqual(relativeImportSpecs("const g = 'src/*.ts';\nimport './a.ts';\nconst e = '*/';"), ['./a.ts']);
 });
 
-test('MARXY-337: gate scripts turn import.meta.url into a path with fileURLToPath, not .pathname', () => {
+test('gate scripts turn import.meta.url into a path with fileURLToPath, not .pathname', () => {
   for (const f of ['gate-bundle', 'gate-no-network', 'gate-licences', 'measure-startup', 'gate-aesthetics']) {
     const text = readFileSync(new URL(`./${f}.mjs`, import.meta.url), 'utf8');
     // `.pathname` percent-encodes a space, `%` or a non-ASCII letter in the checkout path.
@@ -140,7 +140,7 @@ function fixtureDist(files) {
 }
 const INDEX = '<html><head><script type="module" src="./assets/index-1.js"></script><link rel="modulepreload" href="./assets/vendor-1.js"></head></html>';
 
-test('A-17: KaTeX only in a lazily imported chunk passes the entry check', () => {
+test('KaTeX only in a lazily imported chunk passes the entry check', () => {
   const dist = fixtureDist({
     'index.html': INDEX,
     'assets/index-1.js': 'import{a}from"./vendor-1.js";a(()=>import("./katex-1.js"));x.closest(".katex");',
@@ -153,7 +153,7 @@ test('A-17: KaTeX only in a lazily imported chunk passes the entry check', () =>
   } finally { rmSync(dist, { recursive: true, force: true }); }
 });
 
-test('A-17: KaTeX inside the entry chunk, or a statically imported or preloaded one, fails', () => {
+test('KaTeX inside the entry chunk, or a statically imported or preloaded one, fails', () => {
   for (const files of [
     { 'assets/index-1.js': 'throw new Error("KaTeX parse error: x")', 'assets/vendor-1.js': '' },
     { 'assets/index-1.js': '', 'assets/vendor-1.js': 'throw new Error("KaTeX parse error: x")' },
@@ -164,32 +164,32 @@ test('A-17: KaTeX inside the entry chunk, or a statically imported or preloaded 
   }
 });
 
-test('A-17: no dist/index.html is null (the gate fails it only under MARXY_BUNDLE_REQUIRED)', () => {
+test('no dist/index.html is null (the gate fails it only under MARXY_BUNDLE_REQUIRED)', () => {
   const dist = mkdtempSync(join(tmpdir(), 'marxy-a17-'));
   try { assert.equal(katexInEntry(dist), null); assert.equal(entryChunks(dist), null); } finally { rmSync(dist, { recursive: true, force: true }); }
 });
 
-test('the bundle gate names the test hooks and the mutation switches as strings a release must not contain (B-16)', () => {
+test('the bundle gate names the test hooks and the mutation switches as strings a release must not contain', () => {
   for (const name of ['installTestHooks', 'marxyHarness', 'marxyRunCommand', '__marxyOrigBytes', 'MARXY_8', 'MARXY_19']) {
     assert.ok(TEST_ONLY_STRINGS.includes(name), name);
   }
-  assert.deepEqual(testOnlyStringsIn('const a = 1; window.marxyRunCommand = f; process.env.MARXY_86_MUTATION'), ['marxyRunCommand', 'MARXY_8']);
+  assert.deepEqual(testOnlyStringsIn('const a = 1; window.marxyRunCommand = f; process.env.MARXY_8_SWITCH'), ['marxyRunCommand', 'MARXY_8']);
   assert.deepEqual(testOnlyStringsIn('export const reader = 1;'), []);
 });
 
-test('B-16.1: a dist/ holding only index.html and clean files passes the shipped-dist check', () => {
+test('a dist/ holding only index.html and clean files passes the shipped-dist check', () => {
   const dist = fixtureDist({ 'index.html': INDEX, 'assets/index-1.js': 'export const reader = 1;', 'assets/vendor-1.js': '' });
   try { assert.deepEqual(shippedDistProblems(dist), { files: 3, extraHtml: [], hits: [] }); } finally { rmSync(dist, { recursive: true, force: true }); }
 });
 
-test('B-16.1: a second HTML entry under dist/ fails, wherever it sits', () => {
+test('a second HTML entry under dist/ fails, wherever it sits', () => {
   for (const extra of ['app.html', 'assets/gate.html']) {
     const dist = fixtureDist({ 'index.html': INDEX, [extra]: '<html></html>' });
     try { assert.deepEqual(shippedDistProblems(dist).extraHtml, [extra]); } finally { rmSync(dist, { recursive: true, force: true }); }
   }
 });
 
-test('B-16.1: a test-only string in any file under dist/ fails, not only in the index graph', () => {
+test('a test-only string in any file under dist/ fails, not only in the index graph', () => {
   // Neither file is reachable from index.html: the old index-graph walk passed both.
   const dist = fixtureDist({ 'index.html': INDEX, 'assets/app-1.js': 'window.marxyRunCommand = f;', 'assets/worker-1.js': 'installTestHooks()' });
   try {
@@ -200,11 +200,22 @@ test('B-16.1: a test-only string in any file under dist/ fails, not only in the 
   } finally { rmSync(dist, { recursive: true, force: true }); }
 });
 
-test('B-16.1: the desktop Vite config leaves app.html out of dist/ and keeps it for any other outDir', async () => {
+test('the desktop Vite config leaves app.html out of dist/ and keeps it for any other outDir', async () => {
   const desktop = fileURLToPath(new URL('../apps/desktop/', import.meta.url));
   const { resolveConfig } = createRequire(join(desktop, 'package.json'))('vite');
   const inputs = async (outDir) => Object.keys((await resolveConfig({ root: desktop, logLevel: 'silent', build: outDir ? { outDir } : {} }, 'build')).build.rollupOptions.input);
   assert.deepEqual(await inputs(undefined), ['index']);
   assert.deepEqual(await inputs('harness/dist'), ['index', 'app']);
   assert.deepEqual(await inputs(join(tmpdir(), 'marxy-suite')), ['index', 'app']);
+});
+
+test('an import behind a const that needs import.meta.env.DEV is dropped from the walk; any other guard is not', () => {
+  const dev = `const browserDev = (import.meta.env.DEV || import.meta.env.MODE === 'demo') && typeof window !== 'undefined';
+if (browserDev) void import('./harness/web.ts');
+`;
+  assert.deepEqual(relativeImportSpecs(withoutDevOnlyImports(dev)), []);
+  const other = `const wanted = location.hash === '#demo';
+if (wanted) void import('./harness/web.ts');
+`;
+  assert.deepEqual(relativeImportSpecs(withoutDevOnlyImports(other)), ['./harness/web.ts']);
 });

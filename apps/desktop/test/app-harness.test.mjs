@@ -1,4 +1,4 @@
-// The app harness (MARXY-95): startApp against createMemoryShell in Playwright WebKit, and the
+// The app harness: startApp against createMemoryShell in Playwright WebKit, and the
 // memory shell's own cases. Chromium is not used.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -8,12 +8,12 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { createMemoryShell } from '../src/shell/memory.ts';
 import { fileURLToPath } from 'node:url';
 
 /**
- * A job without Playwright's WebKit (CI's `fast` job) skips the browser cases and says why, unless
+ * A run without Playwright's WebKit skips the browser cases and says why, unless
  * MARXY_BROWSER_TESTS_REQUIRED=1, where a missing browser is a failure as it should be.
  */
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -86,20 +86,29 @@ test('window.marxyApp.start boots the real app and records one readFile', async 
       const handle = await window.marxyApp.start(files, argv);
       await handle.ready;
       const heading = document.querySelector('#doc h1, #doc h2, #doc h3')?.textContent?.trim().replace(/\s+/g, ' ') ?? '';
-      // Launch reads the document, the config and trust.json. The index snapshot (A-05) is read from
-      // `/data/index-<sha1>.json`, and collection.toml (C-10) for the index's deny list after first text,
+      // Launch reads the document, the config and trust.json. The index snapshot is read from
+      // `/data/index-<sha1>.json`, and collection.toml for the index's deny list after first text,
       // in an order the idle queue decides; both are left out of the ordered list.
       const all = handle.shell.calls.filter((c) => c.method === 'readFile').map((c) => c.args[0]);
-      // `.git` and `.git/HEAD` are the probes that tell checkouts of one repository apart (C-15).
-      // K-05a.1: the launch decides its document's kind before its first paint from the pre-paint `/config` read
-      // (its `[[kind]]` rules: no second read) and one read of kinds.json, started beside the document's.
-      const reads = all.filter((p) => !String(p).startsWith('/data/index-') && p !== '/collection.toml' && p !== '/data/kinds.json' && !/\/\.git(\/HEAD)?$/.test(String(p)));
+      // `.git` and `.git/HEAD` are the probes that tell checkouts of one repository apart.
+      // The launch decides its document's kind before its first paint from the pre-paint `/config` read
+      // (its `[[kind]]` rules: no second read) and one read of kinds.json, started beside the document's. readings.json, how
+      // parts were chosen to be read, is read once at launch beside frame.json, and waits on nothing.
+      // notes.json (margin notes) is read once at launch beside frame.json and waits on nothing, and look.toml
+      // (the look) once beside config.toml: both in any order.
+      const unordered = ['/data/kinds.json', '/data/readings.json', '/data/notes.json', '/look.toml'];
+      const reads = all.filter((p) => !String(p).startsWith('/data/index-') && p !== '/collection.toml' && !unordered.includes(p) && !/\/\.git(\/HEAD)?$/.test(String(p)));
       const kindsReads = all.filter((p) => p === '/data/kinds.json').length;
-      return { heading, reads, kindsReads, collectionReads: all.filter((p) => p === '/collection.toml').length };
+      const readingsReads = all.filter((p) => p === '/data/readings.json').length;
+      const onceEach = ['/data/notes.json', '/look.toml'].map((f) => all.filter((p) => p === f).length);
+      return { heading, reads, kindsReads, readingsReads, onceEach, collectionReads: all.filter((p) => p === '/collection.toml').length };
     }, { files: { '/docs/README.md': fixture.toString('base64') }, argv: ['/docs/README.md'] });
     assert.equal(result.heading, 'widgetlib');
-    assert.deepEqual(result.reads, ['/docs/README.md', '/config', '/data/trust.json'], 'config once: the pre-paint read also gives the kind rules');
+    // config.toml first: it is read beside frame.json, so the frame is drawn in the configured theme.
+    assert.deepEqual(result.reads, ['/config', '/docs/README.md', '/data/trust.json'], 'config once: the pre-paint read also gives the kind rules');
     assert.equal(result.kindsReads, 1);
+    assert.equal(result.readingsReads, 1);
+    assert.ok(result.onceEach.every((n) => n <= 1), 'notes.json and look.toml are read once at most');
     assert.ok(result.collectionReads <= 1, 'collection.toml is read at most once by the index');
   } finally {
     await browser.close();

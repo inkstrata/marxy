@@ -1,4 +1,4 @@
-// 50,000 entries per root; beyond that, keep newest by mtime and emit a summoned notice (ADR-0012).
+// 50,000 entries per root; beyond that, keep newest by mtime and emit a summoned notice.
 
 import { INDEX_LIMITS } from '../contracts/index-entry.ts';
 

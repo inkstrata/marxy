@@ -1,0 +1,1100 @@
+/* The frame: the rail at the far left, the drawer it opens, each pane's head, and the panel of cards at the right
+   (apps/desktop/src/frame). The window is a grid of four columns; frame.ts writes which parts are docked on <body>,
+   and the lengths that Source and the peeks need. The greys are mixed from the page and its rules, so every theme
+   has a frame of its own colours; over Night they come to 19's own (#141619, #1c1f23, #24282d, #30343a). Lengths
+   scale with the reader's interface size through --marxy-c (1px at 13). */
+
+:root {
+  --marxy-c: calc(var(--marxy-size-chrome) / 13);
+  --marxy-frame-chrome: color-mix(in srgb, var(--marxy-color-bg) 77%, var(--marxy-color-rule));
+  --marxy-frame-chrome-2: color-mix(in srgb, var(--marxy-color-bg) 60%, var(--marxy-color-rule-strong));
+  --marxy-frame-hair: var(--marxy-color-rule);
+  --marxy-frame-hair-2: var(--marxy-color-rule-strong);
+  --marxy-frame-float: 0 0 0 1px var(--marxy-frame-hair-2), 0 14px 36px rgba(0, 0, 0, 0.45);
+  --marxy-scroll-thumb: color-mix(in srgb, var(--marxy-frame-hair-2) 65%, transparent);
+  --marxy-scroll-thumb-near: var(--marxy-frame-hair-2);
+  --marxy-scroll-thumb-hover: color-mix(in srgb, var(--marxy-color-text-faint) 70%, var(--marxy-frame-hair-2));
+  --marxy-scroll-thumb-held: var(--marxy-color-text-faint);
+}
+:root[data-marxy-variant="light"] { --marxy-frame-float: 0 0 0 1px var(--marxy-frame-hair-2), 0 14px 36px rgba(40, 36, 30, 0.18); }
+
+/* The app's one scrollbar, for every box that scrolls: a thumb that rests as a hairline and widens under the pointer.
+   Chromium drops ::-webkit-scrollbar for any box that sets (or inherits) scrollbar-color or a scrollbar-width other than
+   none, so nothing else may set them (scrollbar-rules.test.mjs). Blink only (-webkit-app-region is Chromium's): WebKit
+   would turn its overlaid bars into ones that take room, on macOS and in the WebKit tests. Forced colours keep the
+   system's bar. */
+@media not (forced-colors: active) { @supports (-webkit-app-region: drag) {
+  ::-webkit-scrollbar { width: 10px; height: 10px; background: transparent; }
+  ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb { min-width: 28px; min-height: 28px; border: 4px solid transparent; border-radius: 5px; background: var(--marxy-scroll-thumb) padding-box; }
+  /* Chromium restyles the thumb on its box's :hover only when a rule on the bar itself also depends on it. */
+  :hover::-webkit-scrollbar { --lb-scroll-near: 1; }
+  :hover::-webkit-scrollbar-thumb { border-width: 3px; background-color: var(--marxy-scroll-thumb-near); }
+  ::-webkit-scrollbar-thumb:hover { border-width: 2px; background-color: var(--marxy-scroll-thumb-hover); }
+  ::-webkit-scrollbar-thumb:active { border-width: 2px; background-color: var(--marxy-scroll-thumb-held); }
+} }
+
+body[data-marxy-frame] {
+  --marxy-col-rail: 0px;
+  --marxy-col-drawer: 0px;
+  --marxy-col-panel: 0px;
+  margin: 0;
+  display: grid;
+  grid-template-columns: var(--marxy-col-rail) var(--marxy-col-drawer) minmax(0, 1fr) var(--marxy-col-panel);
+  grid-template-rows: auto;
+  min-height: 100vh;
+  scroll-padding-top: calc(var(--marxy-frame-tabs, 0px) + var(--marxy-frame-head, 44px));
+  padding-top: var(--marxy-frame-tabs, 0px);
+  box-sizing: border-box;
+}
+body[data-marxy-frame="unfolded"] { --marxy-col-rail: 48px; }
+body[data-marxy-frame="unfolded"][data-marxy-drawer="docked"] { --marxy-col-drawer: 288px; }
+body[data-marxy-frame="unfolded"][data-marxy-panel="docked"] { --marxy-col-panel: 288px; }
+body[data-marxy-frame] > #marxy-main { grid-column: 3; grid-row: 1; min-width: 0; }
+/* index.html's floor is the window; under the tab row that made every page the row's height taller than the window, so a
+   page that fits still scrolled (a second bar beside a viewer's own, a wheel that only nudged the frame). The pane inherits. */
+body[data-marxy-frame] > #marxy-main:not([data-marxy-split]) { min-height: calc(100vh - var(--marxy-frame-tabs, 0px)); }
+
+/* The parts share one chrome: the interface face and size, the frame's ground, and border-box. */
+.marxy-rail, .marxy-drawer, .marxy-panel, .marxy-head, .marxy-quiet, .marxy-panel-menu {
+  box-sizing: border-box;
+  font: calc(13 * var(--marxy-c)) / 1.4 var(--marxy-face-chrome);
+  color: var(--marxy-color-text);
+  -webkit-font-smoothing: antialiased;
+}
+:is(.marxy-rail, .marxy-drawer, .marxy-panel, .marxy-head, .marxy-panel-menu, .marxy-export) * { box-sizing: border-box; }
+:is(.marxy-rail, .marxy-drawer, .marxy-panel, .marxy-head, .marxy-panel-menu, .marxy-export) :where(button) {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: default; text-align: inherit;
+}
+:is(.marxy-rail, .marxy-drawer, .marxy-panel, .marxy-head, .marxy-quiet, .marxy-panel-menu, .marxy-export) :where(button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible, summary:focus-visible, [tabindex]:focus-visible) {
+  outline: 2px solid var(--marxy-color-accent); outline-offset: -2px;
+}
+/* base.css sets the page's own lists, headings and paragraphs on bare elements; none of that reaches the frame. */
+:is(.marxy-rail, .marxy-drawer, .marxy-panel, .marxy-head, .marxy-panel-menu) [hidden] { display: none !important; }
+:where(.marxy-drawer, .marxy-panel, .marxy-panel-menu) :where(ul, ol) { list-style: none; margin: 0; padding: 0; }
+:where(.marxy-drawer, .marxy-panel, .marxy-panel-menu) :where(li) { margin: 0; padding: 0; }
+:where(.marxy-drawer, .marxy-panel, .marxy-panel-menu) :where(li)::before { content: none; }
+:where(.marxy-drawer, .marxy-panel, .marxy-panel-menu) :where(h2, h3, h4, p) { margin: 0; font: inherit; letter-spacing: normal; }
+.marxy-icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.marxy-icon-button {
+  display: inline-grid; place-items: center; width: calc(28 * var(--marxy-c)); height: calc(28 * var(--marxy-c)); border-radius: 6px;
+  color: var(--marxy-color-text-faint); flex: none;
+}
+.marxy-icon-button:hover { background: var(--marxy-frame-chrome-2); color: var(--marxy-color-text); }
+.marxy-kbd {
+  font: 400 calc(10.5 * var(--marxy-c)) / calc(16 * var(--marxy-c)) var(--marxy-font-mono); color: var(--marxy-color-text-faint);
+  border: 1px solid var(--marxy-frame-hair-2); border-radius: 4px; padding: 0 4px; white-space: nowrap;
+}
+
+/* ---- the rail ---- */
+.marxy-rail {
+  grid-column: 1; grid-row: 1; position: sticky; top: var(--marxy-frame-tabs, 0px); align-self: start; height: calc(100vh - var(--marxy-frame-tabs, 0px)); z-index: 7;
+  /* A short window scrolls the rail to Look and Settings at its foot; no bar, the wheel and the keys move it. */
+  overflow: hidden auto; scrollbar-width: none;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0 10px;
+  background: var(--marxy-frame-chrome); box-shadow: inset -1px 0 0 var(--marxy-frame-hair);
+}
+.marxy-rail::-webkit-scrollbar { display: none; }
+body[data-marxy-frame="folded"]:not([data-marxy-peek="left"]) .marxy-rail { visibility: hidden; }
+.marxy-rail-button {
+  position: relative; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 8px; flex: none;
+  color: var(--marxy-color-text-faint);
+}
+.marxy-rail-button .marxy-icon { width: 18px; height: 18px; }
+.marxy-rail-button:hover { color: var(--marxy-color-text); background: var(--marxy-frame-chrome-2); }
+.marxy-rail-button[aria-pressed="true"] { color: var(--marxy-color-text-strong); background: var(--marxy-frame-chrome-2); box-shadow: -6px 0 0 -4px var(--marxy-color-text-strong); }
+.marxy-rail-fold { width: 32px; height: 32px; margin-bottom: 6px; }
+.marxy-rail-divider { width: 22px; height: 1px; margin: 2px 0 4px; background: var(--marxy-frame-hair-2); flex: none; }
+.marxy-rail-grow { flex: 1 1 auto; }
+
+/* ---- the drawer ---- */
+.marxy-drawer {
+  grid-column: 2; grid-row: 1; position: sticky; top: var(--marxy-frame-tabs, 0px); align-self: start; height: calc(100vh - var(--marxy-frame-tabs, 0px)); z-index: 6; min-width: 0; overflow: hidden;
+  display: flex; flex-direction: column; background: var(--marxy-frame-chrome); box-shadow: inset -1px 0 0 var(--marxy-frame-hair);
+  font-size: calc(12.5 * var(--marxy-c));
+}
+.marxy-drawer > * { width: 288px; }
+body[data-marxy-drawer="closed"]:not([data-marxy-peek="left"]) .marxy-drawer { visibility: hidden; }
+body[data-marxy-drawer="over"] .marxy-drawer,
+body[data-marxy-frame="folded"][data-marxy-peek="left"] .marxy-drawer {
+  position: fixed; left: 48px; top: var(--marxy-frame-tabs, 0px); bottom: 0; height: auto; width: 288px; z-index: 20; box-shadow: var(--marxy-frame-float);
+  align-self: stretch; /* as the panel's: start would stop a fixed box at its content */
+}
+body[data-marxy-frame="folded"][data-marxy-peek="left"] .marxy-rail { position: fixed; left: 0; top: 0; bottom: 0; height: auto; width: 48px; z-index: 21; }
+body[data-marxy-frame="folded"][data-marxy-peek="left"]:not(:has(.marxy-drawer[data-marxy-branch])) .marxy-drawer { visibility: hidden; }
+.marxy-drawer-top {
+  flex: none; height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 16px;
+  box-shadow: inset 0 -1px 0 var(--marxy-frame-hair), inset -1px 0 0 var(--marxy-frame-hair);
+}
+.marxy-drawer-top h2 { margin: 0; font: 640 calc(13 * var(--marxy-c)) / 1.4 var(--marxy-face-chrome); letter-spacing: normal; color: var(--marxy-color-text-strong); }
+.marxy-drawer-top .marxy-kbd { margin-left: auto; }
+.marxy-drawer-body { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; padding: 12px 10px 24px; }
+.marxy-drawer-foot { flex: none; padding: 10px 14px; box-shadow: inset 0 1px 0 var(--marxy-frame-hair), inset -1px 0 0 var(--marxy-frame-hair); color: var(--marxy-color-text-faint); font-size: calc(12 * var(--marxy-c)); line-height: 1.45; }
+.marxy-drawer-foot:empty { display: none; }
+
+/* The drawer's pieces: a section and its label, rows, a field, chips, buttons, a control with its value, a switch. */
+.marxy-dsec { padding: 4px 6px 14px; }
+.marxy-dlab {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 0 4px 8px;
+  font: 600 calc(10 * var(--marxy-c)) / 1.2 var(--marxy-face-chrome); letter-spacing: 0.09em; text-transform: uppercase; color: var(--marxy-color-text-faint);
+}
+.marxy-dlab small, .marxy-dlab button { font: 400 calc(11 * var(--marxy-c)) var(--marxy-face-chrome); letter-spacing: 0; text-transform: none; color: var(--marxy-color-text-faint); }
+.marxy-dlab button:hover { color: var(--marxy-color-text); }
+.marxy-ditem {
+  display: flex; align-items: center; gap: 7px; width: 100%; min-height: calc(26 * var(--marxy-c)); padding: 3px 8px; border-radius: 5px;
+  color: var(--marxy-color-text); text-align: left;
+}
+.marxy-ditem:hover { background: var(--marxy-frame-chrome-2); }
+.marxy-ditem[aria-current="true"], .marxy-ditem[aria-selected="true"] { background: var(--marxy-frame-chrome-2); color: var(--marxy-color-text-strong); font-weight: 600; }
+.marxy-ditem .marxy-icon { width: 14px; height: 14px; color: var(--marxy-color-text-faint); }
+.marxy-ditem-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marxy-ditem-sub { flex: none; margin-left: auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--marxy-color-text-faint); font-size: calc(11 * var(--marxy-c)); font-weight: 400; font-variant-numeric: tabular-nums; }
+.marxy-ditem.marxy-dim, .marxy-ditem.marxy-dim .marxy-ditem-name { color: var(--marxy-color-text-faint); }
+.marxy-ditem[aria-expanded] .marxy-chev { transition: transform 0.12s ease; transform-box: fill-box; transform-origin: center; }
+.marxy-ditem[aria-expanded="true"] .marxy-chev { transform: rotate(90deg); }
+.marxy-ditem-two { display: block; padding: 5px 8px 6px; }
+/* Look › By language: a language's six colours beside its name. */
+.marxy-langrow .marxy-langsw { display: inline-flex; flex: none; gap: 3px; margin-left: auto; }
+.marxy-langrow .marxy-langsw i { display: block; width: 10px; height: 10px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--marxy-frame-hair); }
+.marxy-langrow .marxy-ditem-sub { margin-left: 8px; min-width: 6ch; }
+.marxy-ditem-two .marxy-ditem-line2 { display: block; margin-top: 1px; color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marxy-dfield {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 0 10px; height: calc(32 * var(--marxy-c)); border-radius: 6px;
+  background: var(--marxy-frame-chrome-2); color: var(--marxy-color-text-faint);
+}
+.marxy-dfield:focus-within { box-shadow: 0 0 0 1px var(--marxy-color-edge); color: var(--marxy-color-text-strong); }
+.marxy-dfield input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; background: none; color: var(--marxy-color-text-strong); font: inherit; font-size: calc(12.5 * var(--marxy-c)); }
+.marxy-dfield input::placeholder { color: var(--marxy-color-text-faint); }
+.marxy-dnote { margin: 0 4px 10px; color: var(--marxy-color-text-faint); font-size: calc(12 * var(--marxy-c)); line-height: 1.5; }
+.marxy-dnote b { color: var(--marxy-color-text-secondary); font-weight: 600; }
+.marxy-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px 10px; }
+.marxy-chip { padding: 2px 9px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); color: var(--marxy-color-text-secondary); font-size: calc(11.5 * var(--marxy-c)); }
+.marxy-chip[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px var(--marxy-color-text-strong); color: var(--marxy-color-text-strong); font-weight: 600; }
+/* The one button. It carries its own reset, so it looks the same in any container.
+   Attributes pick a kind (data-marxy-btn: primary, quiet, danger, icon, link; data-marxy-primary is the older spelling of primary) and a size
+   (data-marxy-size="compact"); data-marxy-kind is the document kind, so it is not reused. */
+.marxy-btn, .marxy-linkish {
+  --lb-btn-h: 28px; --lb-btn-px: 11px; --lb-btn-r: 6px;
+  appearance: none; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: var(--lb-btn-h); margin: 0; padding: 0 var(--lb-btn-px);
+  border: 0; border-radius: var(--lb-btn-r); background: transparent; color: var(--marxy-color-text-strong);
+  box-shadow: inset 0 0 0 1px var(--marxy-color-edge);
+  font: 500 calc(12 * var(--marxy-c, 1)) / 1.2 var(--marxy-face-chrome); letter-spacing: 0; white-space: nowrap; cursor: pointer; user-select: none;
+}
+.marxy-btn:hover { background: color-mix(in srgb, var(--marxy-color-text) 9%, transparent); }
+.marxy-btn:active { background: color-mix(in srgb, var(--marxy-color-text) 16%, transparent); }
+.marxy-btn:focus-visible, .marxy-linkish:focus-visible { outline: 2px solid var(--marxy-color-accent); outline-offset: 2px; }
+.marxy-btn svg { width: 14px; height: 14px; flex: none; }
+
+.marxy-btn:is([data-marxy-btn="primary"], [data-marxy-primary]) { background: var(--marxy-color-text-strong); color: var(--marxy-color-bg); box-shadow: none; font-weight: 600; }
+.marxy-btn:is([data-marxy-btn="primary"], [data-marxy-primary]):hover { background: var(--marxy-color-text); }
+.marxy-btn:is([data-marxy-btn="primary"], [data-marxy-primary]):active { background: var(--marxy-color-text-secondary); }
+
+.marxy-btn[data-marxy-btn="quiet"] { box-shadow: none; color: var(--marxy-color-text-secondary); }
+.marxy-btn[data-marxy-btn="quiet"]:is(:hover, :active) { color: var(--marxy-color-text-strong); }
+
+.marxy-btn[data-marxy-btn="danger"] { color: var(--marxy-color-status-err); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--marxy-color-status-err) 65%, transparent); }
+
+.marxy-btn[data-marxy-btn="icon"] { width: var(--lb-btn-h); padding: 0; box-shadow: none; color: var(--marxy-color-text-secondary); }
+.marxy-btn[data-marxy-btn="icon"]:is(:hover, :active) { color: var(--marxy-color-text-strong); }
+
+.marxy-btn[data-marxy-btn="link"], .marxy-linkish { min-height: 0; padding: 0; border-radius: 2px; box-shadow: none; font-weight: 400; color: var(--marxy-color-text);
+  text-decoration: underline; text-decoration-color: var(--marxy-color-edge); text-underline-offset: 3px; }
+.marxy-btn[data-marxy-btn="link"]:hover, .marxy-linkish:hover { background: none; text-decoration-color: var(--marxy-color-accent); }
+
+.marxy-btn[data-marxy-size="compact"] { --lb-btn-h: 22px; --lb-btn-px: 8px; --lb-btn-r: 5px; font-size: calc(11.5 * var(--marxy-c, 1)); }
+
+.marxy-btn[aria-pressed="true"] { background: var(--marxy-color-accent-wash); color: var(--marxy-color-text-strong); box-shadow: inset 0 0 0 1px var(--marxy-color-accent); }
+
+.marxy-btn:is(:disabled, [aria-disabled="true"]) { opacity: 0.45; pointer-events: none; }
+.marxy-btn[aria-busy="true"] { pointer-events: none; }
+.marxy-btn[aria-busy="true"]::before { content: ""; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: marxy-btn-spin 0.8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .marxy-btn[aria-busy="true"]::before { animation: none; border-right-color: currentColor; opacity: 0.6; } }
+@keyframes marxy-btn-spin { to { transform: rotate(360deg); } }
+
+/* The key a button answers to, shown on it (the leave button on an app page shows Esc). */
+.marxy-btn-key { padding: 1px 5px; border-radius: 3px; box-shadow: inset 0 0 0 1px var(--marxy-color-rule-strong); color: var(--marxy-color-text-secondary);
+  font: 400 10.5px / 1.3 var(--marxy-font-mono, ui-monospace, monospace); }
+.marxy-brow { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 4px; }
+.marxy-ctl { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; padding: 6px 4px; }
+.marxy-ctl-k { color: var(--marxy-color-text); }
+.marxy-ctl-v { color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); font-variant-numeric: tabular-nums; }
+.marxy-ctl-d { grid-column: 1 / -1; color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); line-height: 1.45; }
+.marxy-ctl[data-marxy-changed] .marxy-ctl-k::after { content: "changed"; margin-left: 6px; font-size: calc(10.5 * var(--marxy-c)); color: var(--marxy-color-accent); }
+.marxy-ctl[data-marxy-touched] { box-shadow: inset 2px 0 0 var(--marxy-color-text-strong); }
+.marxy-ctl input[type="range"] { grid-column: 1 / -1; width: 100%; margin: 2px 0 4px; accent-color: var(--marxy-color-text-strong); }
+.marxy-select { color: var(--marxy-color-text-strong); background: var(--marxy-frame-chrome-2); border: 0; border-radius: 5px; padding: 3px 6px; font: inherit; font-size: calc(12 * var(--marxy-c)); max-width: 170px; }
+.marxy-switch { position: relative; width: 28px; height: 16px; border-radius: 8px; background: var(--marxy-frame-hair-2); flex: none; }
+.marxy-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--marxy-color-text-faint); transition: left 0.12s ease; }
+.marxy-switch[aria-checked="true"] { background: var(--marxy-color-text-secondary); }
+.marxy-switch[aria-checked="true"]::after { left: 14px; background: var(--marxy-color-bg); }
+.marxy-seg { display: inline-flex; padding: 2px; border-radius: 7px; background: var(--marxy-frame-chrome-2); font-size: calc(11.5 * var(--marxy-c)); }
+.marxy-seg button { padding: 2px 8px; border-radius: 5px; color: var(--marxy-color-text-faint); }
+.marxy-seg button[aria-checked="true"] { background: var(--marxy-color-bg); color: var(--marxy-color-text-strong); font-weight: 620; box-shadow: 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-guessed { color: var(--marxy-color-accent); }
+
+.marxy-dsub { padding: 8px 8px 4px; color: var(--marxy-color-text-faint); font-size: calc(11 * var(--marxy-c)); }
+
+/* Find: a file's name over its matches, each with its line number. */
+.marxy-find-file { display: flex; align-items: baseline; gap: 8px; padding: 2px 8px 4px; color: var(--marxy-color-text-strong); }
+.marxy-find-file b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 640; }
+.marxy-find-hit { align-items: baseline; }
+.marxy-find-hit .marxy-ditem-name { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4; }
+.marxy-find-hit b { color: var(--marxy-color-text-strong); font-weight: 700; }
+.marxy-find-line { flex: none; min-width: 2.6em; text-align: right; color: var(--marxy-color-text-faint); font: calc(11 * var(--marxy-c)) var(--marxy-font-mono); font-variant-numeric: tabular-nums; }
+
+/* Versions: a copy's time over what it is, and what can be done with it. */
+.marxy-version { padding: 6px 4px 8px; box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); }
+.marxy-version-head { display: flex; align-items: baseline; gap: 8px; padding: 0 4px; color: var(--marxy-color-text-strong); }
+.marxy-version-head b { font-weight: 640; }
+.marxy-colour-pick { display: inline-flex; align-items: center; gap: 8px; }
+.marxy-colour-input { width: 28px; height: 18px; padding: 0; border: 0; border-radius: 3px; background: none; box-shadow: 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-colour-input::-webkit-color-swatch-wrapper { padding: 0; }
+.marxy-colour-input::-webkit-color-swatch { border: 0; border-radius: 3px; }
+.marxy-ctl-d.marxy-colour-low { color: var(--marxy-color-text); font-weight: 600; text-decoration: underline; text-decoration-color: var(--marxy-color-text-faint); text-underline-offset: 3px; }
+
+/* Settings in the drawer: a row is its name and control, the words under them, a dot that resets a changed one. */
+/* As 19's rows: no rules between them, the name at the drawer's text edge; the reset dot hangs in the margin left of it. */
+.marxy-setting { display: grid; grid-template-columns: 0 minmax(0, 1fr) auto; gap: 4px 0; align-items: start; margin: 0 -6px; padding: 6px 4px; }
+.marxy-setting[data-marxy-wide] { grid-template-columns: 0 minmax(0, 1fr); }
+.marxy-setting[data-marxy-wide] > .marxy-setting-control { grid-column: 2; }
+.marxy-setting:not([data-marxy-wide]) > .marxy-setting-control { margin-left: 12px; }
+.marxy-setting-dot-cell { padding-top: 5px; }
+.marxy-setting-dot { display: block; width: 6px; height: 6px; margin-left: -9px; padding: 0; border-radius: 50%; background: var(--marxy-color-accent); }
+.marxy-setting-label { display: block; color: var(--marxy-color-text); }
+.marxy-setting-desc, .marxy-setting-meta, .marxy-setting-note, .marxy-setting-why { margin: 2px 0 0; color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); line-height: 1.45; }
+.marxy-setting-key { font: calc(10.5 * var(--marxy-c)) var(--marxy-font-mono); }
+.marxy-setting-control { display: flex; align-items: center; justify-content: flex-end; min-width: 0; padding-top: 1px; }
+.marxy-settings-switch { appearance: none; position: relative; width: 28px; height: 16px; margin: 2px 0 0; border-radius: 8px; background: var(--marxy-frame-hair-2); }
+.marxy-settings-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--marxy-color-text-faint); transition: left 0.12s ease; }
+.marxy-settings-switch:checked { background: var(--marxy-color-text-secondary); }
+.marxy-settings-switch:checked::after { left: 14px; background: var(--marxy-color-bg); }
+.marxy-settings-segmented { display: inline-flex; flex-wrap: wrap; padding: 2px; margin-top: 4px; border-radius: 7px; background: var(--marxy-frame-chrome-2); font-size: calc(11.5 * var(--marxy-c)); }
+.marxy-settings-segment { position: relative; }
+.marxy-settings-segment input { position: absolute; opacity: 0; inset: 0; margin: 0; }
+.marxy-settings-segment-label { display: block; padding: 2px 8px; border-radius: 5px; color: var(--marxy-color-text-faint); }
+.marxy-settings-segment:has(input:checked) .marxy-settings-segment-label { background: var(--marxy-color-bg); color: var(--marxy-color-text-strong); font-weight: 620; box-shadow: 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-settings-segment:has(input:focus-visible) .marxy-settings-segment-label { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-settings-select, .marxy-settings-text { max-width: 150px; padding: 3px 6px; border: 0; border-radius: 5px; background: var(--marxy-frame-chrome-2); color: var(--marxy-color-text-strong); font: inherit; font-size: calc(12 * var(--marxy-c)); }
+.marxy-settings-text { width: 100%; max-width: none; margin-top: 4px; }
+.marxy-settings-range { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 4px; }
+.marxy-settings-slider { flex: 1 1 auto; accent-color: var(--marxy-color-text-strong); }
+.marxy-settings-range-value { flex: none; color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); font-variant-numeric: tabular-nums; }
+.marxy-settings-table-control { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.marxy-settings-table-summary { color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); }
+.marxy-settings-warning { margin: 0 4px 10px; color: var(--marxy-color-text); font-weight: 600; }
+:is(.marxy-settings-stored, .marxy-settings-leaves) { display: grid; gap: 8px; padding: 4px; }
+.marxy-settings-stored-head { display: flex; justify-content: space-between; gap: 8px; }
+.marxy-settings-stored-name { font: calc(11.5 * var(--marxy-c)) var(--marxy-font-mono); color: var(--marxy-color-text-strong); }
+:is(.marxy-settings-stored-size, .marxy-settings-stored-holds, .marxy-settings-stored-path, .marxy-settings-lede, .marxy-settings-nothing-else, .marxy-settings-leave-facts) { margin: 2px 0 0; color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); line-height: 1.45; overflow-wrap: anywhere; }
+.marxy-settings-leave-facts { display: grid; grid-template-columns: auto 1fr; gap: 0 8px; }
+.marxy-settings-leave-facts dd { margin: 0; }
+.marxy-settings-group > .marxy-settings-group, .marxy-settings-privacy .marxy-settings-group { padding: 0; }
+.marxy-settings-group-title { margin: 8px 4px 4px; color: var(--marxy-color-text-secondary); font-weight: 640; }
+
+/* ---- the head ---- */
+.marxy-head {
+  position: sticky; top: var(--marxy-frame-tabs, 0px); z-index: 8; height: 44px; display: flex; align-items: center; gap: 0; padding: 0 8px 0 6px;
+  background: var(--marxy-color-bg); box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); user-select: none; -webkit-user-select: none;
+}
+#marxy-main[data-marxy-split] > .marxy-pane[data-marxy-focus] > .marxy-head { box-shadow: inset 0 -1px 0 var(--marxy-frame-hair), inset 0 -2px 0 color-mix(in srgb, var(--marxy-color-accent) 55%, transparent); }
+.marxy-head-history { display: flex; gap: 0; margin-right: 4px; flex: none; }
+.marxy-head-step { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 6px; color: var(--marxy-color-text-faint); }
+.marxy-head-step:hover:not(:disabled) { background: var(--marxy-frame-chrome-2); color: var(--marxy-color-text); }
+.marxy-head-step:disabled { opacity: 0.35; }
+.marxy-head-grow { flex: 1 1 0; min-width: 8px; }
+/* Where the app guessed (19's .gm): the guessed part's name, then "guessed" in the lighter weight. In a narrow head
+   it steps down whole words at a time (head.ts), never cut. */
+.marxy-guess {
+  flex: none; max-width: 260px; height: 26px; padding: 0 8px; border-radius: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: inline-flex; align-items: center;
+  color: var(--marxy-color-accent); font-size: calc(12.5 * var(--marxy-c)); font-weight: 600;
+}
+/* The reading's mark is kept current but never drawn: Read this file as lives in the Reading card. The encoding's stays. */
+.marxy-head .marxy-guess:not(.marxy-guess-encoding) { display: none !important; }
+.marxy-guess-what { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.marxy-guess-how { flex: none; font-weight: 400; white-space: pre; }
+.marxy-guess[data-marxy-mine] { color: var(--marxy-color-text-secondary); }
+.marxy-guess[data-marxy-mine] .marxy-guess-how { color: var(--marxy-color-text-faint); }
+.marxy-guess:hover { background: var(--marxy-frame-chrome-2); }
+.marxy-guess:hover .marxy-guess-how { text-decoration: underline; text-underline-offset: 3px; }
+.marxy-rs { display: inline-flex; flex: none; margin: 0 6px 0 10px; padding: 2px; border-radius: 7px; background: var(--marxy-frame-chrome-2); font-size: calc(12.5 * var(--marxy-c)); }
+.marxy-rs button { padding: 3px 12px; border-radius: 5px; color: var(--marxy-color-text-faint); }
+.marxy-rs button:hover:not(:disabled) { color: var(--marxy-color-text); }
+.marxy-rs button[aria-pressed="true"] { background: var(--marxy-color-bg); color: var(--marxy-color-text-strong); font-weight: 620; box-shadow: 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-rs button:disabled { opacity: 0.45; }
+.marxy-head-panel { display: grid; place-items: center; width: 28px; height: 28px; margin-left: 4px; border-radius: 6px; color: var(--marxy-color-text-faint); flex: none; }
+.marxy-head-panel:hover { background: var(--marxy-frame-chrome-2); color: var(--marxy-color-text); }
+/* Only when the shown tab would not fit once the mark has stepped down (head.ts); they stay on their keys. */
+.marxy-head[data-marxy-tight] .marxy-head-history { display: none; }
+
+/* Folded, the head sleeps: only the tab, the guess and Read / Source, drawn when the pointer comes near the top. */
+body[data-marxy-frame="folded"] .marxy-head { background: transparent; box-shadow: none; opacity: 0; transition: opacity 0.2s ease; padding-left: 48px; }
+body[data-marxy-frame="folded"][data-marxy-awake] .marxy-head, body[data-marxy-frame="folded"] .marxy-head:focus-within { opacity: 1; }
+body[data-marxy-frame="folded"] :is(.marxy-head-history, .marxy-head-panel) { display: none; }
+.marxy-quiet {
+  position: fixed; top: 8px; left: 10px; z-index: 30; display: none; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 7px;
+  background: var(--marxy-frame-chrome); color: var(--marxy-color-text-faint); box-shadow: var(--marxy-frame-float); padding: 0;
+}
+.marxy-quiet:hover { color: var(--marxy-color-text-strong); }
+body[data-marxy-frame="folded"][data-marxy-awake] .marxy-quiet, body[data-marxy-frame="folded"] .marxy-quiet:focus-visible { display: grid; }
+
+/* The panes under their heads: the page opens 56px under the head, as 19's column does (the article's own top padding
+   stays the half line its grid counts from); Source fills what the head leaves, find sits under the head. */
+body[data-marxy-frame] .marxy-pane > .marxy-article { margin-block-start: calc(56px - var(--marxy-half, 15px)); }
+body[data-marxy-frame] .marxy-find-slot { top: calc(var(--marxy-frame-tabs, 0px) + var(--marxy-frame-head, 44px)); }
+body[data-marxy-frame] #marxy-main:not([data-marxy-split]) .marxy-source-mount:not([hidden]) {
+  position: fixed; top: calc(var(--marxy-frame-tabs, 0px) + var(--marxy-frame-head, 44px)); left: var(--marxy-frame-left, 0px); right: var(--marxy-frame-right, 0px); bottom: 0; inset-block-end: 0; overflow: auto;
+}
+/* Its floor too: index.html's 100vh floor (which the panes inherit) would make the split the tab row taller than the window. */
+body[data-marxy-frame] #marxy-main[data-marxy-split] { height: calc(100vh - var(--marxy-frame-tabs, 0px)); min-height: calc(100vh - var(--marxy-frame-tabs, 0px)); }
+body[data-marxy-frame] #marxy-main[data-marxy-split] > .marxy-pane { height: calc(100vh - var(--marxy-frame-tabs, 0px)); position: relative; }
+body[data-marxy-frame] #marxy-main[data-marxy-split] .marxy-source-mount:not([hidden]) { position: absolute; top: var(--marxy-frame-head, 44px); left: 0; right: 0; bottom: 0; overflow: auto; }
+body[data-marxy-frame] #marxy-main:not([data-marxy-split]) > .marxy-pane[data-marxy-mode="source"] > [role="status"] { left: var(--marxy-frame-left, 0px); right: var(--marxy-frame-right, 0px); }
+body[data-marxy-frame] .marxy-source-mount:not([hidden]):has(> .marxy-source-frame) { padding: 12px; }
+/* The pane head already shows the address, so under the frame Source's top bar keeps only what the bytes say. */
+body[data-marxy-frame] .marxy-source-path { display: none; }
+body[data-marxy-frame] .marxy-source-facts { margin-inline-start: 0; }
+
+/* ---- the panel ---- */
+.marxy-panel {
+  grid-column: 4; grid-row: 1; position: sticky; top: var(--marxy-frame-tabs, 0px); align-self: start; height: calc(100vh - var(--marxy-frame-tabs, 0px)); z-index: 6; min-width: 0; overflow: hidden;
+  display: flex; flex-direction: column; background: var(--marxy-frame-chrome); box-shadow: inset 1px 0 0 var(--marxy-frame-hair);
+}
+.marxy-panel > * { width: 288px; }
+body:is([data-marxy-panel="edge"], [data-marxy-panel="closed"]):not([data-marxy-peek="right"]) .marxy-panel,
+body[data-marxy-frame="folded"]:not([data-marxy-peek="right"]) .marxy-panel { visibility: hidden; }
+body[data-marxy-panel="over"] .marxy-panel, body[data-marxy-frame="folded"][data-marxy-peek="right"] .marxy-panel {
+  /* Over the tab row's end too: its hide button lands where the row's panel door was pressed. */
+  position: fixed; right: 0; top: 0; bottom: 0; height: auto; width: 288px; z-index: 20; box-shadow: var(--marxy-frame-float); visibility: visible;
+  /* The docked rule's align-self: start would size a fixed box to its content, stopping it short of the bottom. */
+  align-self: stretch;
+}
+.marxy-panel-top { flex: none; height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 16px; box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); }
+.marxy-panel-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(12 * var(--marxy-c)); font-weight: 600; color: var(--marxy-color-text-secondary); }
+.marxy-panel-name b { font-weight: 600; }
+.marxy-panel-cards { flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; }
+.marxy-card { padding: 13px 16px 14px; box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); }
+.marxy-card[data-marxy-flash] { box-shadow: inset 2px 0 0 var(--marxy-color-accent), inset 0 -1px 0 var(--marxy-frame-hair); }
+.marxy-card-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0 0 9px;
+  font: 600 calc(10 * var(--marxy-c)) / 1.2 var(--marxy-face-chrome); letter-spacing: 0.09em; text-transform: uppercase; color: var(--marxy-color-text-faint);
+}
+.marxy-card-head small { font: 400 calc(11 * var(--marxy-c)) var(--marxy-face-chrome); letter-spacing: 0; text-transform: none; }
+.marxy-card-body { font-size: calc(12.5 * var(--marxy-c)); }
+.marxy-card-line { margin: 0 0 6px; line-height: 1.5; color: var(--marxy-color-text); }
+.marxy-card-line b { color: var(--marxy-color-text-strong); font-weight: 640; }
+.marxy-card-note { margin: 0 0 6px; color: var(--marxy-color-text-faint); line-height: 1.5; }
+.marxy-card-foot { margin: 8px 0 0; color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); }
+/* The file card: the settings file as it is, its last change's lines in the strong ink with a rule beside them. */
+.marxy-filecard {
+  max-height: calc(380 * var(--marxy-c)); overflow: auto; margin: 6px 0 0; padding: 8px 10px 8px 6px; border-radius: 6px;
+  background: var(--marxy-frame-chrome-2); color: var(--marxy-color-text-secondary);
+  font: 400 calc(11.5 * var(--marxy-c)) / 1.6 var(--marxy-font-mono); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.marxy-filecard-line { display: inline-block; width: 100%; padding-inline-start: 6px; box-shadow: inset 2px 0 0 transparent; }
+.marxy-filecard-changed { color: var(--marxy-color-text-strong); box-shadow: inset 2px 0 0 var(--marxy-color-text-strong); }
+.marxy-card-choose { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 2px; color: var(--marxy-color-text-secondary); }
+.marxy-reasons { margin: 4px 0 8px; padding: 0 0 0 14px; color: var(--marxy-color-text-secondary); line-height: 1.45; }
+.marxy-reasons small { color: var(--marxy-color-text-faint); }
+.marxy-reason-decisive { color: var(--marxy-color-text); }
+/* The Reading card's tiers: the three, this file's marked in the strong ink. */
+.marxy-tier { margin: 8px 0 4px; }
+.marxy-tiers { margin: 8px 0 8px; padding: 0 0 0 1.2em; color: var(--marxy-color-text-secondary); line-height: 1.45; }
+.marxy-tiers li { margin: 0 0 6px; }
+.marxy-tiers li b { display: block; font-weight: 600; color: var(--marxy-color-text-secondary); }
+.marxy-tiers li span { color: var(--marxy-color-text-faint); }
+.marxy-tiers li[data-marxy-here] b, .marxy-tiers li[data-marxy-here]::marker { color: var(--marxy-color-text-strong); }
+/* Text in another encoding: the Reading card's Encoding, and Read with encoding...'s rows, each the same bytes read
+   another way, the reading in the code face on the right. */
+.marxy-encoding { margin-top: 10px; }
+.marxy-encoding .marxy-encoding-title { margin-bottom: 2px; color: var(--marxy-color-text-strong); font-weight: 620; }
+.marxy-encoding-name { color: var(--marxy-color-text); }
+.marxy-enc-ways { display: grid; gap: 1px; margin: 0 -2px 8px; }
+.marxy-enc-way { display: flex; align-items: flex-start; gap: 10px; padding: 4px 6px; border-radius: 5px; color: var(--marxy-color-text); text-align: left; }
+.marxy-enc-way:hover { background: var(--marxy-frame-chrome-2); }
+.marxy-enc-way[aria-checked="true"] { box-shadow: inset 2px 0 0 var(--marxy-color-text-strong); color: var(--marxy-color-text-strong); font-weight: 620; }
+.marxy-enc-name { display: flex; flex-direction: column; min-width: 104px; }
+.marxy-enc-name small { color: var(--marxy-color-text-faint); font-size: calc(11 * var(--marxy-c)); font-weight: 400; }
+.marxy-enc-sample { margin-left: auto; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--marxy-font-mono); font-size: calc(11.5 * var(--marxy-c)); font-weight: 400; color: var(--marxy-color-text-secondary); }
+.marxy-head .marxy-guess-encoding { margin-left: 2px; }
+.marxy-fact { display: grid; grid-template-columns: 60px minmax(0, 1fr); gap: 4px 14px; line-height: 1.4; font-size: calc(12 * var(--marxy-c)); }
+/* A card's facts share one key column, as wide as its longest key (19's kv list). */
+:is(.marxy-panel, .marxy-drawer) :has(> .marxy-fact) { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 4px; }
+/* Every child of such a box spans both columns, picked by its fact siblings: `:has(> .marxy-fact) > *` (a :has() above a
+   subject that names nothing) made Chromium restyle the whole document at every element inserted anywhere. The panel and
+   drawer are named as plain ancestors, not in an :is(), so the engines reject an element of the page (a long run of
+   paragraphs) by its ancestors before scanning its siblings. A panel's row is never a fact's sibling, and is rejected by
+   its class before its siblings are scanned: each of an Outline's thousands of rows scanning all the others made every
+   restyle of the window cost seconds. */
+.marxy-panel * > .marxy-fact, .marxy-drawer * > .marxy-fact,
+.marxy-panel * > .marxy-fact ~ :not(.marxy-l-row), .marxy-drawer * > .marxy-fact ~ :not(.marxy-l-row),
+.marxy-panel * > :not(.marxy-l-row):has(~ .marxy-fact), .marxy-drawer * > :not(.marxy-l-row):has(~ .marxy-fact) { grid-column: 1 / -1; }
+:is(.marxy-panel, .marxy-drawer) :has(> .marxy-fact) > .marxy-fact { grid-template-columns: subgrid; }
+.marxy-fact-k { color: var(--marxy-color-text-faint); white-space: nowrap; }
+.marxy-fact-v { color: var(--marxy-color-text); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.marxy-fact-v.marxy-fact-one { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marxy-links { list-style: none; margin: 0 -6px; padding: 0; }
+.marxy-link-row { display: block; width: 100%; padding: 3px 6px; border-radius: 5px; }
+.marxy-link-row:hover { background: var(--marxy-frame-chrome-2); }
+.marxy-link-text { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--marxy-color-text); }
+.marxy-link-url { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--marxy-color-text-faint); font-size: calc(11 * var(--marxy-c)); }
+
+.marxy-notes { margin: 0 -6px; }
+.marxy-note-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; width: 100%; padding: 3px 6px; border-radius: 5px; text-align: left; line-height: 1.45; }
+.marxy-note-row:hover { background: var(--marxy-frame-chrome-2); }
+.marxy-note-label { color: var(--marxy-color-text-faint); font-variant-numeric: tabular-nums; }
+.marxy-note-text { color: var(--marxy-color-text); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.marxy-card[data-marxy-transient] { background: color-mix(in srgb, var(--marxy-frame-chrome) 70%, var(--marxy-color-accent-wash)); }
+.marxy-card .marxy-brow { padding: 6px 0 0; gap: 6px; }
+
+/* The panel's ≡: what it holds, card by card. */
+.marxy-panel-menu {
+  position: fixed; z-index: 40; width: 330px; max-height: calc(100vh - 80px); overflow: auto; padding: 8px 10px 10px; border-radius: 10px;
+  background: var(--marxy-frame-chrome); box-shadow: var(--marxy-frame-float); font-size: calc(12.5 * var(--marxy-c));
+}
+.marxy-panel-menu .marxy-menu-label { padding: 6px 2px 6px; font: 600 calc(10 * var(--marxy-c)) / 1.2 var(--marxy-face-chrome); letter-spacing: 0.09em; text-transform: uppercase; color: var(--marxy-color-text-faint); }
+.marxy-panel-menu-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 3px 2px; }
+.marxy-panel-menu-check { display: flex; align-items: center; gap: 8px; padding: 8px 2px 4px; }
+.marxy-panel-menu-note { margin: 6px 2px 0; color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); line-height: 1.45; }
+
+@media (prefers-reduced-motion: no-preference) {
+  body[data-marxy-frame][data-marxy-moving] { transition: grid-template-columns 0.28s ease; }
+}
+@media (max-width: 699.98px) {
+  .marxy-drawer > *, .marxy-panel > * { width: min(288px, calc(100vw - 64px)); }
+  body[data-marxy-drawer="over"] .marxy-drawer, body[data-marxy-panel="over"] .marxy-panel { width: min(288px, calc(100vw - 64px)); }
+  .marxy-head-history { display: none; }
+}
+
+/* ---- Turn the page (a proposal): the two lines carried over, marked a moment where they now sit ---- */
+.marxy-carry {
+  position: fixed; z-index: 7; pointer-events: none; border-radius: 3px;
+  background: color-mix(in srgb, var(--marxy-color-accent) 12%, transparent); box-shadow: inset 2px 0 0 var(--marxy-color-accent);
+  animation: marxy-carry 900ms ease-out forwards;
+}
+@keyframes marxy-carry { 0%, 45% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .marxy-carry { animation: none; } }
+
+/* ---- Drag a tab (a proposal) ---- */
+.marxy-pane[data-marxy-drop] > .marxy-head { box-shadow: inset 0 -2px 0 var(--marxy-color-accent); }
+
+/* ---- Shape as the scrollbar (a proposal): the page in miniature in place of the scrollbar ---- */
+[data-marxy-mmap] { scrollbar-width: none; }
+[data-marxy-mmap]::-webkit-scrollbar { display: none; }
+.marxy-mmap { position: fixed; z-index: 7; width: 16px; background: var(--marxy-color-bg); box-shadow: inset 1px 0 0 var(--marxy-frame-hair); cursor: pointer; overflow: hidden; }
+.marxy-mmap[hidden] { display: none; }
+.marxy-mmap i { position: absolute; left: 4px; right: 3px; border-radius: 1px; }
+.marxy-mmap i.p { background: var(--marxy-frame-hair-2); opacity: 0.6; }
+.marxy-mmap i.h { left: 2px; background: var(--marxy-color-text-secondary); }
+.marxy-mmap i.b { background: var(--marxy-color-surface); box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-mmap-view { position: absolute; left: 1px; right: 0; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--marxy-color-text-faint); background: color-mix(in srgb, var(--marxy-color-text-strong) 6%, transparent); }
+
+/* ---- What a character is (a proposal): Alt over a character ---- */
+.marxy-charinfo {
+  position: fixed; z-index: 40; display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; min-width: 200px; max-width: 280px;
+  padding: 8px 12px; border-radius: 8px; background: var(--marxy-frame-chrome); box-shadow: 0 6px 24px rgb(0 0 0 / 0.35), inset 0 0 0 1px var(--marxy-frame-hair);
+  font: 400 calc(11.5 * var(--marxy-c, 1px)) / 1.5 var(--marxy-face-chrome); color: var(--marxy-color-text-secondary); pointer-events: none;
+}
+.marxy-charinfo-glyph { grid-row: 1 / span 3; min-width: 1.4em; text-align: center; font: 400 28px/1 var(--marxy-font-text, serif); color: var(--marxy-color-text-strong); }
+.marxy-charinfo span:first-of-type { color: var(--marxy-color-text-strong); }
+
+/* ---- the Levels card ---- */
+.marxy-level-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.marxy-level-chip { padding: 2px 9px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); font-size: calc(11.5 * var(--marxy-c)); font-weight: 600; color: var(--marxy-color-text-secondary); font-variant-numeric: tabular-nums; }
+.marxy-level-chip.marxy-level-2, .marxy-level-chip.marxy-level-3 { color: var(--marxy-color-text-strong); box-shadow: inset 0 0 0 1.5px var(--marxy-color-text-strong); }
+.marxy-levels-times { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 8px; }
+.marxy-levels-times > .marxy-card-note { margin: 0; }
+
+
+/* ---- Export ---- */
+.marxy-export-scrim { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 24px; background: rgb(0 0 0 / 0.45); }
+.marxy-export {
+  display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: min(1000px, 100%); height: min(760px, 100%);
+  border-radius: 10px; background: var(--marxy-frame-chrome); box-shadow: 0 18px 60px rgb(0 0 0 / 0.45), inset 0 0 0 1px var(--marxy-frame-hair);
+  font: 400 calc(12.5 * var(--marxy-c)) / 1.45 var(--marxy-face-chrome); color: var(--marxy-color-text); overflow: hidden;
+}
+.marxy-export-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); }
+.marxy-export-head h2 { margin: 0; flex: 1 1 auto; font-size: calc(14 * var(--marxy-c)); font-weight: 650; color: var(--marxy-color-text-strong); }
+.marxy-export-size { color: var(--marxy-color-text-faint); font-variant-numeric: tabular-nums; }
+.marxy-export-body { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 0; }
+.marxy-export-side { padding: 12px 18px; overflow: auto; box-shadow: inset -1px 0 0 var(--marxy-frame-hair); }
+.marxy-export-format { display: grid; grid-template-columns: auto 1fr; gap: 0 10px; align-items: start; padding: 6px 0; cursor: pointer; }
+.marxy-export-format input { margin: 3px 0 0; accent-color: var(--marxy-color-text-strong); }
+.marxy-export-format b { display: block; font-weight: 600; color: var(--marxy-color-text-strong); }
+.marxy-export-format small { display: block; color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); }
+.marxy-export-preview { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; padding: 12px 18px; }
+/* The page's own rules for pre and headings are on bare elements: the dialog's are put back to its own. */
+.marxy-export-pre {
+  width: auto; min-width: 0; max-width: none; margin: 0; padding: 0; border-radius: 0; background: none; text-indent: 0; overflow: auto;
+  white-space: pre-wrap; overflow-wrap: anywhere; font: calc(12 * var(--marxy-c)) / 1.6 var(--marxy-font-mono); color: var(--marxy-color-text);
+}
+.marxy-export-head h2 { font-family: inherit; line-height: 1.3; letter-spacing: normal; }
+.marxy-export-foot { display: flex; align-items: center; gap: 12px; padding: 10px 18px; box-shadow: inset 0 1px 0 var(--marxy-frame-hair); }
+.marxy-export-note { flex: 1 1 auto; margin: 0; color: var(--marxy-color-text-faint); }
+.marxy-export .marxy-export-go { padding: 6px 14px; border: 0; border-radius: 6px; background: var(--marxy-color-text-strong); color: var(--marxy-color-bg); font: inherit; font-weight: 650; cursor: pointer; }
+
+/* ---- Print (Export as PDF): the page in front alone, without the frame; for paper, ink on white ---- */
+@media print {
+  :root[data-marxy-print] body { display: block !important; background: #fff; }
+  :root[data-marxy-print] :is(.marxy-rail, .marxy-drawer, .marxy-panel, .marxy-head, .marxy-mmap, .marxy-quiet, .marxy-carry, .marxy-charinfo, .marxy-export-scrim) { display: none !important; }
+  :root[data-marxy-print] .marxy-pane:not([data-marxy-print-pane]) { display: none !important; }
+  :root[data-marxy-print] .marxy-pane[data-marxy-print-pane] { display: block !important; overflow: visible !important; height: auto !important; }
+  :root[data-marxy-print="paper"] {
+    --marxy-color-bg: #ffffff; --marxy-color-text: #1d2023; --marxy-color-text-strong: #000000; --marxy-color-text-secondary: #444a50;
+    --marxy-color-text-faint: #5f666d; --marxy-color-rule: #d9d5ce; --marxy-color-rule-strong: #b9b4ab; --marxy-color-code-bg: #f4f3f0;
+    --marxy-color-surface: #f4f3f0;
+  }
+}
+
+/* An app page (frame/app-page.ts): what is no file, over the page area between the drawer and the panel. */
+.marxy-apppage {
+  position: fixed; z-index: 30; inset: var(--marxy-frame-tabs, 0px) var(--marxy-frame-right, 0px) 0 var(--marxy-frame-left, 0px); overflow: auto;
+  background: var(--marxy-color-bg); color: var(--marxy-color-text); font-family: var(--marxy-face-chrome);
+}
+.marxy-apppage-column { max-width: 760px; margin: 0 auto; padding: 36px 32px 80px; }
+.marxy-apppage-wide { max-width: 980px; }
+.marxy-apppage-bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 44px; padding: 0 12px 0 24px; background: var(--marxy-color-bg); box-shadow: 0 1px 0 var(--marxy-color-rule); }
+.marxy-apppage-crumb { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: calc(12.5 * var(--marxy-c)); color: var(--marxy-color-text-secondary); }
+.marxy-apppage-title { margin: 0 0 10px; font: 600 30px / 40px var(--marxy-face-chrome); letter-spacing: -0.01em; color: var(--marxy-color-text-strong); }
+.marxy-apppage-lead { max-width: 640px; margin: 0 0 18px; font: 400 15px / 24px var(--marxy-face-chrome); color: var(--marxy-color-text-secondary); }
+.marxy-apppage-h2 { margin: 34px 0 10px; font: 600 17px / 24px var(--marxy-face-chrome); color: var(--marxy-color-text-strong); }
+
+/* A folder's page: its entries as a table, each row opening what it names; a left-out row is quiet and says why. */
+.marxy-folderpage-crumbs { margin: 0; }
+/* `display: table` against base.css's block tables, which scroll inside the page's column. */
+.marxy-folderpage-table, .marxy-folderpage-rules { display: table; width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 1.45; }
+.marxy-folderpage-table th { padding: 0 16px 6px 0; text-align: start; font-size: 11.5px; font-weight: 600; color: var(--marxy-color-text-faint); box-shadow: inset 0 -1px 0 var(--marxy-frame-hair-2); }
+.marxy-folderpage-table td, .marxy-folderpage-rules td { padding: 6px 16px 6px 0; vertical-align: top; box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); }
+.marxy-folderpage-table :is(th, td).marxy-num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.marxy-folderpage-table td:last-child { white-space: nowrap; color: var(--marxy-color-text-faint); font-variant-numeric: tabular-nums; }
+.marxy-folderpage-row { cursor: pointer; }
+.marxy-folderpage-row:hover, .marxy-folderpage-row:focus-visible { background: var(--marxy-frame-chrome); outline: none; }
+.marxy-folderpage-name { font-family: var(--marxy-font-mono); font-size: 13px; color: var(--marxy-color-text-strong); white-space: nowrap; }
+.marxy-folderpage-row.marxy-dim .marxy-folderpage-name { color: var(--marxy-color-text-secondary); }
+.marxy-folderpage-why { display: block; margin-top: 1px; font-size: 12px; line-height: 1.35; color: var(--marxy-color-text-faint); }
+.marxy-folderpage-rules td:first-child { width: 28%; color: var(--marxy-color-text-strong); }
+.marxy-folderpage-rules td:nth-child(2) { width: 38%; color: var(--marxy-color-text-secondary); }
+.marxy-folderpage-res { color: var(--marxy-color-text-faint); }
+.marxy-folderpage-fold { margin: 20px 0 0; }
+.marxy-folderpage-fold > .marxy-account-body { max-width: none; }
+/* A folder of images: each row starts with its picture, drawn small (frame/folder-pictures.ts); a file that is no image
+   keeps an empty cell, one this system cannot draw shows its extension. */
+.marxy-folderpage-pictures td { vertical-align: middle; }
+.marxy-folderpage-pictures :is(th, td):last-child { padding-right: 0; }
+.marxy-folderpage-table .marxy-folderpage-piccell { width: 48px; padding-right: 14px; }
+.marxy-folderpage-pic { display: grid; place-items: center; width: 48px; height: 36px; border-radius: 3px; overflow: hidden; background: var(--marxy-frame-chrome); box-shadow: inset 0 0 0 1px var(--marxy-frame-hair); color: var(--marxy-color-text-faint); }
+.marxy-folderpage-pic[data-marxy-checks] { background: repeating-conic-gradient(#2a2d31 0 25%, #3a3e43 0 50%) 0 0 / 8px 8px; }
+:root[data-marxy-variant="light"] .marxy-folderpage-pic[data-marxy-checks] { background: repeating-conic-gradient(#cfcfcf 0 25%, #ffffff 0 50%) 0 0 / 8px 8px; }
+.marxy-folderpage-pic :is(canvas, img) { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
+.marxy-folderpage-ext { font-size: 9px; font-weight: 650; letter-spacing: 0.06em; }
+.marxy-ditem-page { flex: none; display: inline-flex; margin-left: 6px; opacity: 0; }
+.marxy-ditem:is(:hover, :focus-visible) .marxy-ditem-page { opacity: 1; }
+.marxy-ditem-page:hover .marxy-icon { color: var(--marxy-color-text-strong); }
+
+/* The hue test, its trials in the page's mono. A trial in ink is drawn as the log page and the patch draw (the
+   level's weight, the tints); only a trial in hue has hues, the status colours. */
+.marxy-huetest-title { margin: 0 0 12px; font: 600 30px / 40px var(--marxy-face-chrome); color: var(--marxy-color-text-strong); }
+.marxy-huetest-lead { max-width: 640px; margin: 0 0 14px; font: 400 16px / 26px var(--marxy-face-chrome); }
+.marxy-huetest-lead b, .marxy-huetest-head b { color: var(--marxy-color-text-strong); }
+.marxy-huetest-head { margin: 0 0 16px; font-size: 15px; }
+.marxy-huetest-said { min-height: 22px; margin: 10px 0 0; color: var(--marxy-color-text-faint); font-size: 13px; }
+.marxy-huetest-table { border-collapse: collapse; margin: 6px 0 16px; font-size: 15px; font-variant-numeric: tabular-nums; }
+.marxy-huetest-table :is(th, td) { padding: 6px 28px 6px 0; text-align: start; box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); }
+.marxy-huetest-table th { color: var(--marxy-color-text-faint); font-size: 12px; font-weight: 600; }
+.marxy-hue-trial { font: 400 var(--marxy-size-code) / 1.75 var(--marxy-font-mono); cursor: pointer; }
+.marxy-hue-row { display: grid; border-radius: 3px; white-space: pre; tab-size: 4; }
+.marxy-hue-log .marxy-hue-row { grid-template-columns: 14ch 7ch minmax(0, 1fr); }
+.marxy-hue-patch .marxy-hue-row { grid-template-columns: 2ch minmax(0, 1fr); }
+.marxy-hue-row:hover { box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-hue-time, .marxy-hue-row[data-marxy-kind="info"] .marxy-hue-level, .marxy-hue-row[data-marxy-kind="head"] { color: var(--marxy-color-text-faint); }
+.marxy-hue-row:is([data-marxy-kind="error"], [data-marxy-kind="warn"]) .marxy-hue-level { color: var(--marxy-color-text-strong); font-weight: 700; }
+.marxy-hue-row[data-marxy-kind="error"] .marxy-hue-text { color: var(--marxy-color-text-strong); }
+.marxy-hue-row[data-marxy-kind="add"] { background: var(--marxy-color-diff-add); }
+.marxy-hue-row[data-marxy-kind="del"] { background: var(--marxy-color-diff-del); }
+[data-marxy-cond="hue"] .marxy-hue-row[data-marxy-kind="error"] :is(.marxy-hue-level, .marxy-hue-text) { color: var(--marxy-color-status-err); }
+[data-marxy-cond="hue"] .marxy-hue-row[data-marxy-kind="warn"] :is(.marxy-hue-level, .marxy-hue-text) { color: var(--marxy-color-status-warn); }
+[data-marxy-cond="hue"] .marxy-hue-row[data-marxy-kind="add"] { background: var(--marxy-color-status-ok-wash); }
+[data-marxy-cond="hue"] .marxy-hue-row[data-marxy-kind="add"] .marxy-hue-mark { color: var(--marxy-color-status-ok); }
+[data-marxy-cond="hue"] .marxy-hue-row[data-marxy-kind="del"] { background: var(--marxy-color-status-err-wash); }
+[data-marxy-cond="hue"] .marxy-hue-row[data-marxy-kind="del"] .marxy-hue-mark { color: var(--marxy-color-status-err); }
+/* Code trials: in ink every token is the code text; with hue, the language's palette and the shared roles draw it. */
+.marxy-hue-code .marxy-hue-row { grid-template-columns: minmax(0, 1fr); }
+[data-marxy-cond="ink"].marxy-hue-code [class*="marxy-tok-"] { color: var(--marxy-color-code-text); font-style: normal; }
+
+/* ---- pages of the app's own: the image page, the file card and the bytes ----
+   Drawn in the pane's viewer mount, which fills what the head leaves as Source's does; they scroll inside, never as a
+   column. Chrome stays the app's: only an image's own pixels keep their colours. */
+.marxy-viewer-mount { box-sizing: border-box; height: 100vh; overflow: hidden; background: var(--marxy-color-bg); color: var(--marxy-color-text); font-family: var(--marxy-face-chrome); font-size: calc(13 * var(--marxy-c)); }
+.marxy-viewer-mount * { box-sizing: border-box; }
+:where(.marxy-viewer-mount) :where(button) { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; cursor: pointer; }
+body[data-marxy-frame] #marxy-main:not([data-marxy-split]) .marxy-viewer-mount:not([hidden]) {
+  position: fixed; top: calc(var(--marxy-frame-tabs, 0px) + var(--marxy-frame-head, 44px)); left: var(--marxy-frame-left, 0px); right: var(--marxy-frame-right, 0px); bottom: 0; height: auto;
+}
+body[data-marxy-frame] #marxy-main[data-marxy-split] .marxy-viewer-mount:not([hidden]) { position: absolute; top: var(--marxy-frame-head, 44px); left: 0; right: 0; bottom: 0; height: auto; }
+.marxy-viewer-mount .marxy-grow { flex: 1 1 auto; }
+.marxy-viewer-mount .marxy-icon-button svg { width: 15px; height: 15px; }
+.marxy-head .marxy-guess[data-marxy-tier] { color: var(--marxy-color-text-secondary); }
+
+/* The image page: a bar, the stage, and the folder's strip. */
+.marxy-imgpage { position: relative; display: flex; flex-direction: column; height: 100%; }
+:is(.marxy-imgbar, .marxy-hexbar) {
+  flex: none; display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px; white-space: nowrap;
+  box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); color: var(--marxy-color-text-secondary); font-size: calc(13 * var(--marxy-c));
+}
+.marxy-imgbar .marxy-seg button { min-width: 0; }
+.marxy-imgbar-zoom { min-width: 50px; text-align: center; font-variant-numeric: tabular-nums; color: var(--marxy-color-text-strong); font-weight: 560; }
+.marxy-imgbar-ground { margin-left: 10px; }
+.marxy-imgbar-pos { font-variant-numeric: tabular-nums; padding: 0 2px; }
+.marxy-imgbar-px { margin-left: 10px; display: inline-flex; align-items: center; gap: 6px; font: 400 calc(12.5 * var(--marxy-c)) / 1 var(--marxy-font-mono); color: var(--marxy-color-text-secondary); }
+.marxy-imgbar-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-imgbar-strip { margin-left: 4px; }
+.marxy-imgstage { flex: 1 1 auto; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 24px; outline: none; }
+.marxy-imgpage[data-marxy-zoomed] .marxy-imgstage { place-items: start; cursor: grab; }
+.marxy-imgstage[data-marxy-grab] { cursor: grabbing; }
+.marxy-imgbox { position: relative; margin: auto; overflow: hidden; box-shadow: 0 0 0 1px var(--marxy-frame-hair); }
+.marxy-imgpic { position: absolute; left: 0; top: 0; display: block; max-width: none; user-select: none; -webkit-user-drag: none; }
+.marxy-imgpic[data-marxy-square] { image-rendering: pixelated; }
+/* Checks under transparent pixels, in the look's own greys; Light and Dark grounds for the tab. */
+.marxy-imgbox[data-marxy-ground="checks"] {
+  --marxy-check-a: #cfcfcf;
+  --marxy-check-b: #ffffff;
+  background: repeating-conic-gradient(var(--marxy-check-a) 0 25%, var(--marxy-check-b) 0 50%) 0 0 / 16px 16px;
+}
+:root:not([data-marxy-variant="light"]) .marxy-imgbox[data-marxy-ground="checks"] { --marxy-check-a: #2a2d31; --marxy-check-b: #3a3e43; }
+.marxy-imgbox[data-marxy-ground="light"] { background: #f4f4f2; }
+.marxy-imgbox[data-marxy-ground="dark"] { background: #161616; }
+.marxy-imggrid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(to right, rgba(128, 128, 128, 0.55) 1px, transparent 1px), linear-gradient(to bottom, rgba(128, 128, 128, 0.55) 1px, transparent 1px); }
+.marxy-imggrid[hidden] { display: none; }
+/* A viewer's key is at the end of its bar; its account opens as a band under the bar, the sentences beneath the key. */
+:is(.marxy-imgpage, .marxy-pdfpage) > .marxy-account-body {
+  flex: none; display: none; flex-direction: column; align-items: flex-end; max-width: none; margin: 0; padding: 6px 12px 8px; border: 0;
+  box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); font-size: calc(12.5 * var(--marxy-c)); line-height: 1.55; color: var(--marxy-color-text-secondary);
+}
+:is(.marxy-imgpage, .marxy-pdfpage) > .marxy-account-body > p { width: 100%; max-width: 46em; }
+:root[data-marxy-account-open] :is(.marxy-imgpage, .marxy-pdfpage) > .marxy-account-body { display: flex; }
+:is(.marxy-imgbar, .marxy-pdfbar) > .marxy-account-key { flex: none; margin-left: 10px; }
+/* In a viewer's column the line of meta keeps the space its caption had. */
+.marxy-viewer-mount .marxy-account { margin: 0 0 14px; }
+.marxy-archpage > .marxy-account { flex: none; margin: 0 0 12px; }
+.marxy-imgstrip { flex: none; display: flex; gap: 8px; padding: 10px 12px; overflow-x: auto; box-shadow: inset 0 1px 0 var(--marxy-frame-hair); }
+.marxy-imgthumb { flex: none; width: 76px; height: 56px; border-radius: 6px; background: var(--marxy-frame-chrome); box-shadow: inset 0 0 0 1px var(--marxy-frame-hair); overflow: hidden; display: grid; place-items: center; opacity: 0.72; }
+.marxy-imgthumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.marxy-imgthumb span { font-size: calc(10.5 * var(--marxy-c)); font-weight: 650; letter-spacing: 0.08em; color: var(--marxy-color-text-faint); }
+.marxy-imgthumb:hover { opacity: 1; }
+.marxy-imgthumb[aria-selected="true"] { opacity: 1; box-shadow: 0 0 0 2px var(--marxy-color-text-strong); }
+
+/* The bytes: offsets, sixteen bytes and their text a row, a window of rows at a time. hex.ts sets the row's width
+   (--marxy-hex-per: 16, 8 or 4, whichever fits), the bytes' columns and the offset's digits; the columns never overlap. */
+.marxy-hexpage { height: 100%; }
+.marxy-hex {
+  --marxy-hex-pad: 24px; --marxy-hex-gap: 22px;
+  container: marxy-hex / inline-size; position: relative; display: flex; flex-direction: column; height: 100%; font: 400 calc(14 * var(--marxy-c)) / 22px var(--marxy-font-mono);
+}
+.marxy-hex-probe { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; white-space: pre; }
+.marxy-hexbar-what { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--marxy-color-text-secondary); font-family: var(--marxy-face-chrome); }
+.marxy-hexbar-go { flex: none; display: inline-flex; align-items: center; gap: 6px; font-family: var(--marxy-face-chrome); }
+.marxy-hexbar-input { width: 140px; height: 26px; padding: 0 8px; border: 0; border-radius: 6px; background: var(--marxy-frame-chrome); box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); color: var(--marxy-color-text-strong); font: 400 calc(13 * var(--marxy-c)) var(--marxy-font-mono); }
+.marxy-hexbar-input::placeholder { color: var(--marxy-color-text-faint); }
+.marxy-hexbar-end { flex: none; }
+:is(.marxy-hexhead, .marxy-hexrow) {
+  display: grid; grid-template-columns: calc(var(--marxy-hex-digits, 8) * 1ch) minmax(max-content, 1fr) calc(var(--marxy-hex-per, 16) * 1ch);
+  column-gap: var(--marxy-hex-gap); padding: 0 var(--marxy-hex-pad);
+}
+/* The head spans the scrollbar the rows sit beside, so its columns stop short of it by as much. */
+.marxy-hexhead { flex: none; height: 30px; align-items: center; padding-right: calc(var(--marxy-hex-pad) + var(--marxy-hex-gutter, 0px)); color: var(--marxy-color-text-faint); box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); }
+.marxy-hexhead :is(.marxy-hex-o, .marxy-hex-a) { font: 600 calc(11 * var(--marxy-c)) / 1 var(--marxy-face-chrome); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+/* The head's columns are counted in the rows' ch: only its labels are set smaller, never the boxes that hold them. */
+:is(.marxy-hexhead, .marxy-hexrow) .marxy-hex-b { display: grid; grid-template-columns: var(--marxy-hex-bytes, repeat(8, 2.4ch) 0.8ch repeat(8, 2.4ch)); column-gap: 0.2ch; }
+:is(.marxy-hexhead, .marxy-hexrow) .marxy-hex-b i:nth-child(9) { grid-column-start: 10; }
+.marxy-hex i { font-style: normal; }
+.marxy-hexhead .marxy-hex-b i { text-align: center; font-size: calc(12 * var(--marxy-c)); }
+.marxy-hexscroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: auto; position: relative; outline: none; }
+@container marxy-hex (max-width: 560px) {
+  :is(.marxy-hexhead, .marxy-hexrow) { --marxy-hex-pad: 14px; --marxy-hex-gap: 14px; }
+  .marxy-hexbar-go-label { display: none; }
+  .marxy-hexbar-input { width: 130px; }
+}
+.marxy-hexspace { position: relative; }
+.marxy-hexrows { position: absolute; left: 0; right: 0; top: 0; }
+.marxy-hexrow { position: absolute; left: 0; right: 0; height: 22px; }
+.marxy-hexrow .marxy-hex-o { color: var(--marxy-color-text-faint); font-variant-numeric: tabular-nums; }
+.marxy-hexrow .marxy-hex-b i { width: 2.4ch; text-align: center; border-radius: 3px; color: var(--marxy-color-text); cursor: default; }
+.marxy-hexrow .marxy-hex-a { display: grid; grid-template-columns: repeat(var(--marxy-hex-per, 16), 1ch); white-space: pre; color: var(--marxy-color-text); }
+.marxy-hexrow i.marxy-hex-zero, .marxy-hexrow i.marxy-hex-np { color: var(--marxy-color-text-faint); opacity: 0.7; }
+.marxy-hexrow i.marxy-hex-magic { color: var(--marxy-color-text-strong); opacity: 1; font-weight: 650; text-decoration: underline; text-decoration-color: var(--marxy-color-rule-strong); text-underline-offset: 4px; }
+.marxy-hexrow i[data-marxy-byte]:hover { background: var(--marxy-frame-chrome-2); }
+.marxy-hexrow i[data-marxy-on] { background: color-mix(in srgb, var(--marxy-color-accent) 22%, transparent); color: var(--marxy-color-text-strong); opacity: 1; box-shadow: 0 0 0 1px color-mix(in srgb, var(--marxy-color-accent) 55%, transparent); }
+
+/* The file card, the bytes beside it. */
+.marxy-fcpage { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); height: 100%; }
+.marxy-fcard { overflow-y: auto; padding: 40px 28px 40px 32px; box-shadow: inset -1px 0 0 var(--marxy-frame-hair); font-size: calc(14.5 * var(--marxy-c)); line-height: 22px; }
+.marxy-fcard-kicker { margin: 0 0 6px; font-size: calc(11.5 * var(--marxy-c)); font-weight: 600; line-height: 1; letter-spacing: 0.08em; text-transform: uppercase; color: var(--marxy-color-text-faint); }
+.marxy-fcard-name { margin: 0; font-family: var(--marxy-face-chrome); font-size: calc(24 * var(--marxy-c)); font-weight: 650; line-height: 32px; color: var(--marxy-color-text-strong); overflow-wrap: anywhere; letter-spacing: normal; }
+.marxy-fcard-where { margin: 2px 0 20px; color: var(--marxy-color-text-faint); font-size: calc(13.5 * var(--marxy-c)); overflow-wrap: anywhere; }
+.marxy-fcard-facts { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 6px 12px; margin: 0 0 20px; font-size: calc(13.5 * var(--marxy-c)); line-height: 20px; }
+.marxy-fcard-facts > .marxy-fact { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; font-size: inherit; line-height: inherit; }
+.marxy-fcard-why > span { display: block; margin-bottom: 4px; }
+.marxy-fact-code { font: 400 calc(12.5 * var(--marxy-c)) var(--marxy-font-mono); color: var(--marxy-color-text-strong); }
+.marxy-fact-quiet { color: var(--marxy-color-text-faint); }
+.marxy-fcard-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.marxy-fcard-note { margin: 16px 0 0; font-size: calc(13 * var(--marxy-c)); color: var(--marxy-color-text-secondary); }
+.marxy-fchex { min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
+/* Only a mount holding a card is a container: on every mount, size containment slowed the PDF page's first text layer
+   past 30 s in WebKit (frame-pdf's Find test). */
+.marxy-viewer-mount:has(> .marxy-fcpage) { container: marxy-viewer / inline-size; }
+/* Stacked when the pane, not the window, is too narrow for the card and eight bytes a row beside it (a split, a docked panel). */
+@container marxy-viewer (max-width: 799px) {
+  .marxy-fcpage { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .marxy-fcard { box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); max-height: 46vh; }
+}
+.marxy-exif-note { display: block; margin-top: 4px; }
+
+/* An archive's page: the lede, the plan to scale, the entries
+   windowed beside the preview's head; stacked in a narrow pane. Rows are 26 px tall: archive.ts places them by it (ROW_H). */
+.marxy-archpage { container: marxy-arch / inline-size; display: flex; flex-direction: column; height: 100%; overflow: hidden; outline: none; padding: 20px 28px 0; box-sizing: border-box; font-family: var(--marxy-face-chrome); font-size: calc(14 * var(--marxy-c)); line-height: 22px; color: var(--marxy-color-text); }
+.marxy-arch-lede { flex: none; margin: 0 0 12px; max-width: 72em; font-size: calc(15 * var(--marxy-c)); line-height: 1.55; color: var(--marxy-color-text-secondary); }
+.marxy-arch-lede .marxy-arch-wrap { color: var(--marxy-color-text-strong); font-weight: 620; }
+.marxy-arch-warn { color: var(--marxy-color-status-warn); }
+.marxy-arch-showing { color: var(--marxy-color-text-strong); }
+.marxy-arch-note { flex: none; margin: 0 0 10px; font-size: calc(13.5 * var(--marxy-c)); color: var(--marxy-color-text-secondary); }
+.marxy-arch-plan { position: relative; flex: none; height: 132px; overflow: hidden; border-radius: 3px; background: var(--marxy-frame-chrome); }
+.marxy-arch-cell { position: absolute; box-sizing: border-box; overflow: hidden; padding: 2px 5px; border: 1px solid var(--marxy-color-bg); background: var(--marxy-frame-chrome-2); font-size: calc(11.5 * var(--marxy-c)); line-height: 14px; color: var(--marxy-color-text); cursor: pointer; }
+.marxy-arch-cell:hover { background: var(--marxy-color-accent-wash); }
+.marxy-arch-cell-frame, .marxy-arch-cell-frame:hover { background: var(--marxy-frame-chrome); color: var(--marxy-color-text-faint); }
+.marxy-arch-cell-folder, .marxy-arch-cell-more { background: var(--marxy-frame-chrome); color: var(--marxy-color-text-faint); }
+.marxy-arch-cell-name { display: block; overflow: hidden; font-weight: 560; white-space: nowrap; text-overflow: ellipsis; }
+.marxy-arch-cell-frame > .marxy-arch-cell-name { display: inline; font-weight: 600; }
+.marxy-arch-cell-size { display: block; font-style: normal; font-variant-numeric: tabular-nums; color: var(--marxy-color-text-faint); }
+.marxy-arch-cell-frame > .marxy-arch-cell-size { display: inline; margin-left: 8px; }
+.marxy-arch-cell-warn { color: var(--marxy-color-status-warn); }
+.marxy-arch-cell-enc { background: repeating-linear-gradient(135deg, var(--marxy-frame-hair-2) 0 2px, transparent 2px 7px), var(--marxy-frame-chrome); }
+.marxy-arch-cell-pic { padding: 0; }
+.marxy-arch-pic { display: block; width: 100%; height: 100%; object-fit: cover; }
+.marxy-arch-cell-on { z-index: 1; outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+/* A frame lit by its border and its band only: raised over its own cells, it lets them show and take the pointer. */
+.marxy-arch-cell-frame.marxy-arch-cell-on { background: linear-gradient(var(--marxy-color-accent-wash), var(--marxy-color-accent-wash)) top / 100% 16px no-repeat; pointer-events: none; }
+/* The filter: what it does not keep stays in its place, faint. */
+.marxy-arch-cell-dim { opacity: 0.28; }
+.marxy-arch-under { display: flex; flex: none; align-items: baseline; gap: 10px; margin: 6px 0 10px; font-size: calc(12.5 * var(--marxy-c)); color: var(--marxy-color-text-faint); }
+.marxy-arch-cap { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.marxy-arch-gap { flex: 1; }
+.marxy-arch-ctl { white-space: nowrap; }
+.marxy-arch-opt { padding: 0 1px; border: 0; background: none; font: inherit; color: var(--marxy-color-text-secondary); white-space: nowrap; cursor: pointer; }
+.marxy-arch-opt[aria-pressed="true"] { color: var(--marxy-color-text-strong); font-weight: 620; text-decoration: underline; text-underline-offset: 4px; }
+.marxy-arch-body { display: grid; flex: 1 1 auto; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 28px; min-height: 0; }
+.marxy-arch-entries { display: flex; flex-direction: column; min-height: 0; }
+.marxy-arch-cols, .marxy-arow { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) 9em; align-items: center; gap: 0 12px; }
+.marxy-arch-cols { flex: none; padding: 0 8px 6px; font-size: calc(11.5 * var(--marxy-c)); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--marxy-color-text-faint); box-shadow: inset 0 -1px 0 var(--marxy-color-rule-strong); }
+.marxy-atree { position: relative; flex: 1 1 auto; min-height: 0; padding-bottom: 56px; overflow-y: auto; outline: none; }
+.marxy-arch-rows { position: relative; }
+.marxy-arow { position: absolute; left: 0; right: 0; box-sizing: border-box; height: 26px; padding: 0 8px; white-space: nowrap; box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); cursor: default; }
+.marxy-arow:hover { background: var(--marxy-frame-chrome); }
+.marxy-arch-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; padding-left: calc(18px + var(--marxy-arch-depth, 0) * 16px); }
+.marxy-arow-dir .marxy-arch-nm { padding-left: calc(var(--marxy-arch-depth, 0) * 16px); }
+.marxy-arow-dir .marxy-arch-name { color: var(--marxy-color-text-strong); font-weight: 600; }
+.marxy-arch-reads { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--marxy-color-text-secondary); }
+.marxy-arch-reads.marxy-arch-warn { color: var(--marxy-color-status-warn); }
+.marxy-arch-sz { display: flex; align-items: center; justify-content: flex-end; gap: 8px; font-variant-numeric: tabular-nums; text-align: right; color: var(--marxy-color-text-secondary); }
+.marxy-arch-bar { position: relative; flex: none; width: 3.5em; height: 3px; border-radius: 2px; background: var(--marxy-frame-hair); }
+.marxy-arch-bar > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--marxy-color-text-faint); }
+.marxy-arch-tw { position: relative; display: inline-block; width: 18px; height: 18px; margin: 0; padding: 0; border: 0; background: none; color: var(--marxy-color-text-faint); vertical-align: -4px; cursor: pointer; }
+.marxy-arch-tw::before { content: ""; position: absolute; left: 5px; top: 6px; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 0.12s; }
+.marxy-arch-tw[aria-expanded="true"]::before { left: 6px; top: 4px; transform: rotate(45deg); }
+.marxy-arch-preview { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+.marxy-arch-phead { flex: none; padding: 0 0 10px; box-shadow: inset 0 -1px 0 var(--marxy-frame-hair); }
+.marxy-arch-ppath { overflow-wrap: anywhere; font-size: calc(15 * var(--marxy-c)); color: var(--marxy-color-text-faint); }
+.marxy-arch-pname { color: var(--marxy-color-text-strong); font-weight: 620; }
+.marxy-arch-pfacts { margin-top: 2px; font-size: calc(12.5 * var(--marxy-c)); color: var(--marxy-color-text-secondary); }
+.marxy-arch-pwarn { margin-top: 2px; font-size: calc(12.5 * var(--marxy-c)); color: var(--marxy-color-status-warn); }
+.marxy-arch-pbody { position: relative; display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.marxy-arch-pslot { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.marxy-arch-pslot-coming { position: absolute; inset: 0; visibility: hidden; }
+/* The preview's body: the entry read as itself, a text kind in its own look, a viewer's page at the body's height. */
+.marxy-embed { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; }
+.marxy-embed-note { flex: none; margin: 10px 0 0; font-size: calc(12.5 * var(--marxy-c)); color: var(--marxy-color-text-secondary); }
+.marxy-embed-text { flex: 1 1 auto; padding: 14px 0 48px; background: var(--marxy-color-bg); color: var(--marxy-color-text); }
+.marxy-embed-text > .marxy-article { max-width: none; margin: 0; padding: 0; }
+.marxy-embed-viewer { position: relative; flex: 1 1 auto; min-height: 420px; margin-top: 10px; overflow: hidden; }
+.marxy-embed-mini { pointer-events: none; }
+.marxy-arch-link { color: var(--marxy-color-accent); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.marxy-arch-one { flex: 1 1 auto; }
+/* An archive inside the archive, previewed: its own lede, a short plan and its entries, no preview of its own. */
+.marxy-archpage-compact { padding: 12px 0 0; }
+.marxy-archpage-compact .marxy-arch-lede { font-size: calc(13.5 * var(--marxy-c)); }
+.marxy-archpage-compact .marxy-arch-plan { height: 84px; }
+.marxy-archpage-compact .marxy-arch-body { grid-template-columns: minmax(0, 1fr); }
+.marxy-card-sub { margin: 10px 0 4px; font-weight: 620; color: var(--marxy-color-text-strong); }
+.marxy-arch-largest { display: grid; gap: 2px; }
+.marxy-arch-big { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; width: 100%; padding: 2px 6px; border: 0; border-radius: 4px; background: none; font: inherit; line-height: 1.4; text-align: left; color: var(--marxy-color-text-secondary); cursor: pointer; }
+.marxy-arch-big:hover { background: var(--marxy-frame-chrome-2); }
+.marxy-arch-big-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.marxy-arch-big-size { font-size: calc(11 * var(--marxy-c)); font-variant-numeric: tabular-nums; color: var(--marxy-color-text-faint); }
+/* Reveal on an archive (viewers/archive-reveal.ts): the file as stored as a strip, three more columns, the record. */
+.marxy-arch-stripbox { flex: none; margin: 0 0 10px; }
+.marxy-arch-strip { position: relative; height: 22px; overflow: hidden; border-radius: 3px; background: var(--marxy-frame-chrome); }
+.marxy-arch-seg { position: absolute; top: 0; bottom: 0; box-sizing: border-box; overflow: hidden; border-right: 1px solid var(--marxy-color-bg); background: var(--marxy-frame-chrome-2); font-family: var(--marxy-font-mono); font-size: calc(11 * var(--marxy-c)); line-height: 22px; color: var(--marxy-color-text-secondary); white-space: nowrap; cursor: pointer; }
+.marxy-arch-seg:hover { background: var(--marxy-color-accent-wash); }
+.marxy-arch-seg:is([data-marxy-seg="directory"], [data-marxy-seg="end"], [data-marxy-seg="zip64"], [data-marxy-seg="tar-end"], [data-marxy-seg="stream-head"], [data-marxy-seg="stream-tail"]) { background: var(--marxy-frame-hair-2); cursor: default; }
+.marxy-arch-seg[data-marxy-seg="stream"] { cursor: default; }
+.marxy-arch-seg[data-marxy-seg="stream"]:hover { background: var(--marxy-frame-chrome-2); }
+.marxy-arch-seg:is([data-marxy-seg="stray"], [data-marxy-seg="before"]) { background: var(--marxy-color-status-warn); cursor: default; }
+.marxy-arch-seg-head { position: absolute; left: 0; top: 0; bottom: 0; background: var(--marxy-frame-hair-2); }
+.marxy-arch-seg-name { position: relative; padding: 0 4px; }
+.marxy-arch-seg-on { z-index: 1; outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-arch-stripcap { margin: 6px 0 0; max-width: 90em; font-size: calc(12.5 * var(--marxy-c)); line-height: 1.5; color: var(--marxy-color-text-faint); }
+/* What each reads as gives way to how it is stored, and the share bar to the numbers. */
+.marxy-arch-revealed :is(.marxy-arch-cols, .marxy-arow) { grid-template-columns: minmax(0, 1fr) 5.5em 5em 4.5em 5.5em; }
+.marxy-arch-revealed :is(.marxy-arch-bar, .marxy-arch-reads, .marxy-arch-cols > :nth-child(2)) { display: none; }
+.marxy-arch-rv { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; text-align: right; color: var(--marxy-color-text-secondary); }
+.marxy-arch-cols .marxy-arch-rv { color: inherit; }
+.marxy-arch-rec { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 1px 16px; margin-top: 8px; font-size: calc(12.5 * var(--marxy-c)); }
+.marxy-arch-rec-k { color: var(--marxy-color-text-faint); }
+.marxy-arch-rec-v { overflow-wrap: anywhere; font-family: var(--marxy-font-mono); color: var(--marxy-color-text-secondary); }
+.marxy-archpage .marxy-xray { flex: none; margin: 8px 0 0; padding: 6px 0; overflow-x: auto; border-radius: 3px; font-family: var(--marxy-font-mono); font-size: calc(11.5 * var(--marxy-c)); line-height: 18px; color: var(--marxy-color-code-text); background: var(--marxy-color-code-bg); }
+.marxy-archpage .marxy-xray-line { grid-template-columns: 8ch max-content; }
+.marxy-archpage .marxy-xray-text { white-space: pre; }
+/* A narrow pane stacks the three: a shorter plan, the entries a third of the height, the preview the rest. */
+@container marxy-arch (max-width: 700px) {
+  .marxy-arch-plan { height: 84px; }
+  .marxy-arch-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 2fr); gap: 12px 0; }
+  .marxy-arch-cols, .marxy-arow { grid-template-columns: minmax(0, 1fr) minmax(0, 9em) 7em; }
+  .marxy-arch-bar { display: none; }
+  .marxy-arch-revealed :is(.marxy-arch-cols, .marxy-arow) { grid-template-columns: minmax(0, 1fr) 5.5em 5em 4.5em 5.5em; }
+}
+/* The sheet: each entry its own page drawn small (a 440 x 320 page at 0.3), folders as headings; a folder's preview. */
+.marxy-arch-ctl-as { margin-left: 14px; }
+.marxy-arch-sheet { position: relative; flex: 1 1 auto; min-height: 0; padding-bottom: 56px; overflow-y: auto; outline: none; }
+.marxy-arch-srows { position: relative; }
+.marxy-arch-sheet .marxy-arch-tile { position: absolute; }
+.marxy-arch-shead { position: absolute; left: 0; right: 0; display: flex; gap: 10px; align-items: baseline; box-sizing: border-box; height: 28px; margin-top: 6px; padding: 3px 6px; border-radius: 4px; font-size: calc(12 * var(--marxy-c)); line-height: 22px; white-space: nowrap; color: var(--marxy-color-text-faint); cursor: default; }
+.marxy-arch-shead-name { color: var(--marxy-color-text-secondary); font-size: calc(13 * var(--marxy-c)); font-weight: 600; }
+.marxy-arch-shead-again { padding-left: 24px; }
+.marxy-arch-shead.marxy-cursor, .marxy-arch-shead.marxy-selected { background: var(--marxy-color-accent-wash); box-shadow: inset 3px 0 0 var(--marxy-color-accent); }
+.marxy-arch-tiles { display: grid; grid-template-columns: repeat(auto-fill, 132px); gap: 14px 12px; }
+.marxy-arch-ftiles { padding: 14px 0 40px; }
+.marxy-arch-tile { display: block; width: 132px; border-radius: 6px; cursor: pointer; }
+.marxy-arch-tile-pic { position: relative; display: block; width: 132px; height: 96px; overflow: hidden; border-radius: 5px; background: var(--marxy-color-bg); box-shadow: 0 0 0 1px var(--marxy-frame-hair-2); }
+.marxy-arch-tile-page { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; box-sizing: border-box; width: 440px; height: 320px; padding: 14px 16px; overflow: hidden; transform: scale(0.3); transform-origin: 0 0; pointer-events: none; }
+.marxy-arch-tile-page .marxy-embed-text { padding: 0; }
+.marxy-arch-tile-page .marxy-embed-viewer { min-height: 0; margin: 0; }
+.marxy-arch-tile-page :is(.marxy-imgbar, .marxy-hexbar) { display: none; }
+.marxy-arch-tile-page:has(.marxy-imgpage) { padding: 0; }
+.marxy-arch-tile-page .marxy-imgstage { padding: 0; }
+.marxy-arch-tile-names { margin: 0; padding: 0; list-style: none; font-size: 22px; line-height: 1.5; color: var(--marxy-color-text-secondary); }
+.marxy-arch-tile-enc { background: repeating-linear-gradient(135deg, var(--marxy-frame-hair-2) 0 2px, transparent 2px 7px), var(--marxy-frame-chrome); }
+.marxy-arch-tile-note { position: absolute; inset: 0; margin: 0; padding: 8px; overflow: hidden; font-size: calc(11 * var(--marxy-c)); line-height: 1.35; color: var(--marxy-color-text-secondary); }
+.marxy-arch-tile-name { display: block; margin-top: 5px; overflow: hidden; font-size: calc(12 * var(--marxy-c)); font-weight: 500; line-height: 1.3; white-space: nowrap; text-overflow: ellipsis; color: var(--marxy-color-text); }
+.marxy-arch-tile-says { display: block; overflow: hidden; font-size: calc(11 * var(--marxy-c)); line-height: 1.3; white-space: nowrap; text-overflow: ellipsis; color: var(--marxy-color-text-faint); }
+.marxy-arch-tile-warn .marxy-arch-tile-says { color: var(--marxy-color-status-warn); }
+.marxy-arch-tile.marxy-cursor .marxy-arch-tile-pic { box-shadow: 0 0 0 2px var(--marxy-color-accent); }
+.marxy-arch-tile.marxy-cursor .marxy-arch-tile-name { color: var(--marxy-color-text-strong); }
+.marxy-arch-tile.marxy-selected .marxy-arch-tile-pic { box-shadow: 0 0 0 1px var(--marxy-color-text-secondary); }
+
+/* Files from the system held over the window (Windows, shell/tauri.ts): the whole window takes them, so it says so.
+   A border, not a fill, so it reads in forced colours too. */
+body[data-marxy-dropping]::after {
+  content: ''; position: fixed; inset: 6px; z-index: 60; pointer-events: none; border-radius: 10px;
+  border: 2px dashed var(--marxy-color-accent); background: var(--marxy-color-accent-wash);
+}
+
+/* ---- Forced colours: shadows and fills are dropped, so what is pressed, shown or a field says so in the
+   system's own colours, with a border or the selection's ground, never by weight alone. ---- */
+@media (forced-colors: active) {
+  :is(.marxy-rail-button, .marxy-rs button, .marxy-seg button, .marxy-chip)[aria-pressed="true"],
+  .marxy-seg button[aria-checked="true"],
+  .marxy-settings-segment:has(input:checked) .marxy-settings-segment-label {
+    forced-color-adjust: none; background: SelectedItem; color: SelectedItemText; border-color: SelectedItem;
+  }
+  :is(.marxy-dfield, .marxy-select, .marxy-settings-select, .marxy-settings-text, .marxy-hexbar-input) { border: 1px solid CanvasText; }
+  .marxy-dfield:focus-within { outline: 2px solid Highlight; outline-offset: 1px; }
+  :is(.marxy-switch, .marxy-settings-switch) { border: 1px solid CanvasText; }
+  :is(.marxy-switch, .marxy-settings-switch)::after { forced-color-adjust: none; background: CanvasText; }
+  :is(.marxy-switch[aria-checked="true"], .marxy-settings-switch:checked)::after { background: Highlight; }
+  .marxy-ctl[data-marxy-touched] { border-inline-start: 2px solid Highlight; }
+  :is(.marxy-drawer, .marxy-rail) { border-inline-end: 1px solid CanvasText; }
+  .marxy-panel { border-inline-start: 1px solid CanvasText; }
+  .marxy-head { border-bottom: 1px solid CanvasText; }
+  :is(.marxy-panel-menu, .marxy-export, .marxy-charinfo) { border: 1px solid CanvasText; }
+  .marxy-guess .marxy-guess-how { text-decoration: underline dotted; text-underline-offset: 3px; }
+}
+/* The changes page's bar above its patch, and the tray's and a reply's pieces. */
+:where(.marxy-changes-bar, .marxy-page-bar, .marxy-pieces) button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: default; text-align: inherit; }
+:where(.marxy-page-bar, .marxy-pieces) { font-family: var(--marxy-face-chrome); }
+.marxy-changes-bar { display: flex; flex-wrap: wrap; gap: 8px; max-width: var(--marxy-measure, 680px); margin: 16px auto 0; padding: 0 24px; font-family: var(--marxy-face-chrome); }
+.marxy-changes-bar[hidden] { display: none; }
+.marxy-page-bar { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; }
+.marxy-pieces { display: flex; flex-direction: column; gap: 18px; }
+.marxy-piece { padding: 2px 0 2px 14px; border-inline-start: 2px solid var(--marxy-frame-hair-2); outline: 0; }
+.marxy-piece:focus, .marxy-piece:focus-within { border-inline-start-color: var(--marxy-color-accent); }
+.marxy-piece-src { padding: 0; font: 500 12px / 1.8 var(--marxy-font-mono); color: var(--marxy-color-text-faint); }
+.marxy-piece-src:hover { color: var(--marxy-color-accent); }
+.marxy-piece-text { margin: 2px 0 0; padding: 0; background: none; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 13px / 1.55 var(--marxy-font-mono); color: var(--marxy-color-text); }
+.marxy-piece-note { display: block; width: 100%; box-sizing: border-box; margin: 8px 0 0; padding: 4px 8px; border: 0; border-radius: 5px; background: var(--marxy-frame-chrome-2); color: var(--marxy-color-text-strong); font: 400 13px / 1.5 var(--marxy-face-chrome); }
+.marxy-piece-acts { display: flex; gap: 6px; margin-top: 8px; }
+.marxy-piece-said { margin: 6px 0 0; white-space: pre-wrap; font: 400 14px / 1.5 var(--marxy-face-chrome); color: var(--marxy-color-text-strong); }
+
+/* ---- the window: one row of tabs across the top, each pane's head as an address, the spine ----
+   frame/tab-row.ts, head.ts, crumbs.ts, spine.ts. The row is fixed over everything; <body> leaves it room with
+   --marxy-frame-tabs, which is 0 when folded. */
+.marxy-tabbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 9; box-sizing: border-box; height: var(--marxy-frame-tabs, 36px);
+  display: flex; align-items: stretch; gap: 2px; padding: 0 8px 0 6px;
+  background: var(--marxy-frame-chrome); box-shadow: inset 0 -1px 0 var(--marxy-frame-hair);
+  font: calc(12.5 * var(--marxy-c)) / 1.4 var(--marxy-face-chrome); color: var(--marxy-color-text);
+  -webkit-font-smoothing: antialiased; user-select: none; -webkit-user-select: none;
+}
+.marxy-tabbar * { box-sizing: border-box; }
+.marxy-tabbar :where(button) { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: default; text-align: inherit; }
+.marxy-tabbar :where(button:focus-visible, [tabindex]:focus-visible) { outline: 2px solid var(--marxy-color-accent); outline-offset: -2px; }
+.marxy-tabbar [hidden] { display: none !important; }
+body[data-marxy-frame="folded"] .marxy-tabbar { display: none; }
+.marxy-tabbar-grow { flex: 1 1 0; min-width: 12px; }
+.marxy-tabbar :is(.marxy-tab-new, .marxy-tabbar-split, .marxy-head-panel, .marxy-tabs-all) {
+  align-self: center; display: grid; place-items: center; width: 26px; height: 26px; margin: 0; border-radius: 6px; color: var(--marxy-color-text-secondary); flex: none;
+}
+.marxy-tabbar :is(.marxy-tab-new, .marxy-tabbar-split, .marxy-head-panel, .marxy-tabs-all):hover { background: var(--marxy-frame-chrome-2); color: var(--marxy-color-text-strong); }
+.marxy-tabbar-split[aria-pressed="true"] { color: var(--marxy-color-text-strong); }
+/* The door to every tab, only while some are out of the strip, with how many are not wholly in view. */
+.marxy-tabbar .marxy-tabs-all { display: flex; align-items: center; gap: 1px; width: auto; min-width: 26px; padding: 0 4px 0 5px; }
+.marxy-tabs-all-n { min-width: 2ch; text-align: end; font: calc(11 * var(--marxy-c)) / 1 var(--marxy-font-mono); color: var(--marxy-color-text-faint); font-variant-numeric: tabular-nums; }
+
+/* The tabs. tab-row.ts writes each tab's width: its natural width, measured in the current weight, or the one
+   width every longer tab is cut to. The strip scrolls past the floor and fades at an edge with tabs beyond it. */
+.marxy-tabs {
+  display: flex; align-items: stretch; gap: 1px; height: 100%; min-width: 0; flex: 0 1 auto; overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--lb-fade-start, 0px), #000 calc(100% - var(--lb-fade-end, 0px)), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 var(--lb-fade-start, 0px), #000 calc(100% - var(--lb-fade-end, 0px)), transparent);
+}
+.marxy-tabs::-webkit-scrollbar { display: none; }
+.marxy-tab {
+  position: relative; flex: none; display: flex; align-items: center; min-width: 56px; height: 100%; border-radius: 6px 6px 0 0;
+  color: var(--marxy-color-text-secondary); font-size: calc(12.5 * var(--marxy-c));
+}
+.marxy-tab:hover { background: var(--marxy-frame-chrome-2); color: var(--marxy-color-text-strong); }
+/* The focused pane's tab: the current weight and the accent under it; one the other pane shows has a faint rule. */
+.marxy-tab[aria-selected="true"] { color: var(--marxy-color-text-strong); font-weight: 620; }
+.marxy-tab::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 2px; border-radius: 2px 2px 0 0; }
+.marxy-tab[aria-selected="true"]::after { background: var(--marxy-color-accent); }
+.marxy-tab[data-marxy-visible]::after { background: var(--marxy-color-text-faint); }
+.marxy-tab[data-marxy-glance] .marxy-tab-name { font-style: italic; }
+.marxy-tab[data-marxy-dragging] { opacity: 0.45; }
+.marxy-tab-open { flex: 1 1 auto; min-width: 0; height: 100%; display: flex; align-items: center; gap: 6px; padding: 0 0 0 10px; overflow: hidden; white-space: nowrap; }
+.marxy-tab-name { flex: none; min-width: 0; overflow: hidden; white-space: nowrap; }
+.marxy-tab-cut { display: flex; min-width: 0; }
+/* tab-row.ts sets the head's width to the glyphs it shows and the ellipsis, so the ellipsis touches the tail. */
+.marxy-tab-head { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.marxy-tab-tail { flex: none; }
+.marxy-tab-nohead { display: none; }
+.marxy-tab-lead::before { content: "…"; }
+.marxy-tab-ext { color: var(--marxy-color-text-faint); }
+.marxy-tab-xdot { display: none; }
+.marxy-tab-dot { color: var(--marxy-color-text-faint); }
+/* Two open files of one name: each says, after its name, the folders that tell it from the other. */
+.marxy-tab-where { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--marxy-color-text-faint); font-size: calc(11 * var(--marxy-c)); font-weight: 400; font-style: normal; }
+.marxy-tab-pair { flex: none; color: var(--marxy-color-text-faint); font-weight: 400; }
+/* While the tab's file is not on disk (notices/disk.ts): said quietly, after the name, for as long as it is so. */
+.marxy-tab-gone { flex: none; color: var(--marxy-color-text-faint); font-weight: 400; font-size: calc(11 * var(--marxy-c)); }
+/* The close slot counts in every tab's width, so a tab is as wide hovered, current or not. */
+.marxy-tab-close { display: grid; place-items: center; width: 18px; height: 18px; margin: 0 4px 0 2px; border-radius: 4px; color: var(--marxy-color-text-faint); opacity: 0; flex: none; }
+.marxy-tab-close .marxy-icon { width: 10px; height: 10px; }
+.marxy-tab:hover .marxy-tab-close, .marxy-tab[aria-selected="true"] .marxy-tab-close, .marxy-tab:focus-within .marxy-tab-close { opacity: 1; }
+.marxy-tab-close:hover { background: color-mix(in srgb, var(--marxy-color-text) 14%, transparent); color: var(--marxy-color-text-strong); }
+.marxy-tab-close[data-marxy-dirty] { opacity: 1; }
+.marxy-tab-close[data-marxy-dirty]:not(:hover) .marxy-icon { display: none; }
+.marxy-tab-close[data-marxy-dirty]:not(:hover)::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--marxy-color-accent); }
+@media (hover: none) { .marxy-tab-close { opacity: 1; } }
+/* A cut tab the focused pane does not show lends its close slot to its name; the close comes over the name's end. */
+.marxy-tab-squeezed .marxy-tab-close {
+  position: absolute; right: 4px; top: 50%; margin: 0; transform: translateY(-50%);
+  background: var(--marxy-frame-chrome-2); box-shadow: -8px 0 6px -2px var(--marxy-frame-chrome-2);
+}
+.marxy-tab-squeezed .marxy-tab-close:hover { background: color-mix(in srgb, var(--marxy-color-text) 14%, var(--marxy-frame-chrome-2)); }
+/* Where a dragged tab would land. */
+.marxy-tab-drop { position: absolute; top: 6px; bottom: 6px; width: 2px; border-radius: 1px; background: var(--marxy-color-accent); pointer-events: none; }
+.marxy-tab-measure { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; white-space: pre; }
+.marxy-tab-measure > * { display: block; width: max-content; }
+@media (forced-colors: active) {
+  .marxy-tabbar { border-bottom: 1px solid CanvasText; }
+  .marxy-tab[aria-selected="true"]:not(:focus-visible) { outline: 1px solid CanvasText; outline-offset: -1px; }
+  .marxy-tab[aria-selected="true"] .marxy-tab-name { text-decoration: underline 2px; text-underline-offset: 4px; }
+  .marxy-tab[aria-selected="true"]::after, .marxy-tab-drop { forced-color-adjust: none; background: Highlight; }
+  .marxy-tab-close[data-marxy-dirty]:not(:hover)::before { forced-color-adjust: none; background: CanvasText; }
+  .marxy-tabs { -webkit-mask-image: none; mask-image: none; }
+}
+
+/* The head: back and forward, the address, then the kind's tools as quiet chips. */
+/* A pane of two scrolls itself, under the row: its head sticks to its own top. */
+#marxy-main[data-marxy-split] > .marxy-pane > .marxy-head { top: 0; }
+.marxy-head { gap: 4px; padding: 0 12px 0 8px; color: var(--marxy-color-text-faint); font-size: calc(12.5 * var(--marxy-c)); }
+#marxy-main[data-marxy-split] > .marxy-pane[data-marxy-focus] > .marxy-head { color: var(--marxy-color-text-secondary); }
+.marxy-crumbs { display: flex; align-items: center; flex: 1 1 0; min-width: 0; overflow: hidden; white-space: nowrap; }
+.marxy-crumb { flex: none; min-width: 0; max-width: 24em; padding: 4px 5px; border-radius: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--marxy-color-text-secondary); }
+.marxy-crumb:hover { background: var(--marxy-frame-chrome-2); color: var(--marxy-color-text-strong); }
+.marxy-crumb[data-marxy-crumb="file"] { flex: 0 1 auto; min-width: 5em; color: var(--marxy-color-text-strong); font-weight: 620; }
+.marxy-crumb[data-marxy-crumb="section"] { flex: 0 1 auto; min-width: 2.5em; }
+.marxy-crumb[data-marxy-crumb="section"]:last-child { flex: 0 0.2 auto; }
+.marxy-crumb-sep { flex: none; color: var(--marxy-frame-hair-2); font-size: calc(11 * var(--marxy-c)); }
+.marxy-crumbs [hidden] { display: none; }
+.marxy-ktools { display: flex; align-items: center; gap: 6px; flex: none; }
+.marxy-ktools .marxy-rs { margin: 0; padding: 2px; border-radius: 6px; background: var(--marxy-color-surface, var(--marxy-frame-chrome)); font-size: calc(12 * var(--marxy-c)); }
+.marxy-ktools .marxy-rs button { padding: 3px 9px; border-radius: 5px; color: var(--marxy-color-text-secondary); }
+.marxy-ktools .marxy-guess { height: 24px; padding: 0 9px; border-radius: 12px; box-shadow: inset 0 0 0 1px var(--marxy-frame-hair-2); font-size: calc(12 * var(--marxy-c)); font-weight: 400; }
+.marxy-head .marxy-head-step { color: var(--marxy-color-text-secondary); }
+
+/* The spine: fixed by spine.ts over the pane's right edge, under its head. The page's own scrollbar gives way to it. */
+.marxy-spine { position: fixed; z-index: 7; width: 18px; cursor: default; touch-action: none; }
+/* The page's column ends left of the spine. The room is every pane's from its first layout, spine or
+   not: a pane whose spine came a frame later was laid out twice, and the second relayout put back a place read before it. */
+body[data-marxy-frame] #marxy-main > .marxy-pane { padding-inline-end: 18px; }
+/* The pills still centre on the whole pane, as the verb bar does: their region reaches over the spine's room. */
+body[data-marxy-frame] #marxy-main > .marxy-pane:not([data-marxy-mode="source"]) > [role="status"] { margin-inline-end: -18px; }
+.marxy-spine[hidden] { display: none; }
+.marxy-spine-layer { position: absolute; inset: 0; }
+.marxy-spine-thumb { position: absolute; left: 5px; right: 4px; min-height: 22px; border-radius: 5px; background: var(--marxy-scroll-thumb); transition: background-color 0.15s; }
+.marxy-spine-thumb[hidden] { display: none; }
+.marxy-spine:hover .marxy-spine-thumb { background: var(--marxy-scroll-thumb-near); }
+.marxy-spine[data-marxy-dragging] .marxy-spine-thumb { background: var(--marxy-scroll-thumb-held); }
+.marxy-spine-tick { position: absolute; right: 4px; height: 1px; background: var(--marxy-color-text-faint); opacity: 0.8; }
+.marxy-spine-tick[data-marxy-level="1"] { width: 10px; height: 2px; background: var(--marxy-color-text-secondary); }
+.marxy-spine-tick[data-marxy-level="2"] { width: 8px; }
+.marxy-spine-tick[data-marxy-level="3"] { width: 5px; opacity: 0.55; }
+.marxy-spine-tick[data-marxy-level="4"] { width: 3px; opacity: 0.4; }
+.marxy-spine-mark { position: absolute; left: 1px; width: 4px; height: 3px; border-radius: 1px; background: var(--marxy-color-accent); }
+.marxy-spine-mark[data-marxy-mark="hit"] { left: 0; width: 6px; background: var(--marxy-color-find-current); box-shadow: 0 0 0 1px var(--marxy-color-find-edge); }
+.marxy-spine-mark[data-marxy-mark="cursor"] { left: 0; width: 0; height: 0; margin-top: -4px; border: 4px solid transparent; border-left-color: var(--marxy-color-accent); border-radius: 0; background: none; }
+.marxy-spine-tip {
+  position: fixed; z-index: 45; pointer-events: none; transform: translate(-100%, -50%); padding: 4px 9px; border-radius: 6px; white-space: nowrap;
+  background: var(--marxy-frame-chrome-2); color: var(--marxy-color-text-strong); box-shadow: var(--marxy-frame-float); font: calc(12 * var(--marxy-c)) var(--marxy-face-chrome);
+}
+:root:has(#marxy-main:not([data-marxy-split]) > .marxy-pane[data-marxy-spine]) { scrollbar-width: none; }
+:root:has(#marxy-main:not([data-marxy-split]) > .marxy-pane[data-marxy-spine])::-webkit-scrollbar { display: none; }
+#marxy-main[data-marxy-split] > .marxy-pane[data-marxy-spine] { scrollbar-width: none; }
+#marxy-main[data-marxy-split] > .marxy-pane[data-marxy-spine]::-webkit-scrollbar { display: none; }
+body[data-marxy-frame="folded"] .marxy-spine { opacity: 0; transition: opacity 0.2s; }
+body[data-marxy-frame="folded"] .marxy-spine:hover { opacity: 1; }
+@media print { .marxy-tabbar, .marxy-spine, .marxy-spine-tip { display: none !important; } }
+@media (forced-colors: active) {
+  .marxy-spine-thumb { forced-color-adjust: none; background: CanvasText; }
+}
+
+/* The head's state chips: Reveal on, and unsaved changes; the spine's marks for them and notes. */
+.marxy-ktools .marxy-head-chip {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; height: 24px; padding: 0 9px; border-radius: 12px; white-space: nowrap;
+  color: var(--marxy-color-text-strong); box-shadow: inset 0 0 0 1px var(--marxy-color-accent); font-size: calc(12 * var(--marxy-c));
+}
+.marxy-ktools .marxy-head-chip[hidden] { display: none; }
+.marxy-ktools .marxy-head-chip:hover { background: var(--marxy-frame-chrome-2); }
+.marxy-ktools .marxy-head-chip[data-marxy-chip="reveal"] { padding: 0 8px; border-radius: 5px; color: var(--marxy-color-accent); font: 400 calc(13 * var(--marxy-c)) / 1 var(--marxy-font-mono); }
+.marxy-head-chip-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--marxy-color-accent); }
+.marxy-spine-mark[data-marxy-mark="edit"] { left: 0; width: 2px; height: 6px; border-radius: 0; }
+.marxy-spine-mark[data-marxy-mark="note"] { width: 4px; height: 4px; border-radius: 50%; }
+@media (forced-colors: active) {
+  .marxy-ktools .marxy-head-chip { box-shadow: none; border: 1px solid ButtonText; }
+  .marxy-head-chip-dot, .marxy-spine-mark[data-marxy-mark="edit"], .marxy-spine-mark[data-marxy-mark="note"] { forced-color-adjust: none; background: Highlight; }
+}
+
+/* A viewer's own bar (the image, hex, PDF bars, 40 px) is at the pane's top, where find floats: find sits under it, so the
+   bar's right end (to the last byte, the fits) stays in reach while find is open. */
+.marxy-pane:has(.marxy-viewer-mount:not([hidden])) .marxy-find { top: calc(40px + 0.75rem); }

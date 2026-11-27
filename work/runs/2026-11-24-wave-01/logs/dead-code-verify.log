@@ -1,0 +1,53 @@
+verify-turn: slot a, dead-code, pnpm verify --tier changed (2026-11-24T17:12:55-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\dead-code
+66 files changed against master; unit suites: desktop, core, theme, scripts; browser files: 142; unmapped: apps/desktop/src/library/checks-digest.ts, apps/desktop/src/library/checks.test.ts, apps/desktop/src/library/checks.ts, apps/desktop/src/library/checks.worker.ts, apps/desktop/src/library/measure.test.ts, ...
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\dead-code-2026-11-25T01-12-56
+
+PASS    install        0.5s      
+PASS    typecheck      13.8s     
+PASS    lint           2.5s      
+PASS    check          13.4s     10 pass, 0 fail
+PASS    golden         1.8s      
+PASS    fidelity       15.0s     
+PASS    licences       0.8s      
+PASS    unit-core      208.3s    4234 pass, 0 fail, 3 skip
+PASS    unit-theme     50.7s     305 pass, 0 fail
+PASS    unit-scripts   46.6s     243 pass, 0 fail
+PASS    unit-desktop   218.5s    1279 pass, 0 fail, 1 skip
+FAIL    browser        3096.1s   1324 pass, 1 fail, 4 skip
+
+step          result  wall     tests
+------------  ------  -------  -------------------------
+install       pass    0.5s
+typecheck     pass    13.8s
+lint          pass    2.5s
+check         pass    13.4s    10 pass, 0 fail
+golden        pass    1.8s
+fidelity      pass    15.0s
+licences      pass    0.8s
+unit-core     pass    208.3s   4234 pass, 0 fail, 3 skip
+unit-theme    pass    50.7s    305 pass, 0 fail
+unit-scripts  pass    46.6s    243 pass, 0 fail
+unit-desktop  pass    218.5s   1279 pass, 0 fail, 1 skip
+browser       FAIL    3096.1s  1324 pass, 1 fail, 4 skip
+------------  ------  -------  -------------------------
+total                 3667.9s
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\dead-code-2026-11-25T01-12-56\12-browser.log)
+  AssertionError [ERR_ASSERTION]: no token span with text inline
+      at expectToken (file:///C:/Dev/reader/worktrees/dead-code/apps/desktop/test/source-looks.test.mjs:91:10)
+      at async TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/dead-code/apps/desktop/test/source-looks.test.mjs:123:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+verify changed: 11/12 steps passed; failed: browser; rerun with --from browser
+[ELIFECYCLE] Command failed with exit code 1.
+verify-turn: exit 1 (2026-11-24T18:14:04-08:00)

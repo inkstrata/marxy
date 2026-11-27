@@ -1,4 +1,4 @@
-// The DOM contract of docs/design/02-render.md, as far as provenance goes (ADR-0023, MARXY-75): every
+// The DOM contract, as far as provenance goes: every
 // element the renderer makes for a node carries that node's byte range, nothing else carries one, and
 // raw HTML keeps the shape it had before provenance existed.
 
@@ -8,14 +8,15 @@ import { test } from 'node:test';
 import type { Document, Node, Source } from '../contracts/ast.ts';
 import { parseMarkdown } from '../parse/parse.ts';
 import { policyFor } from '../sanitize/policy.ts';
+import { bylineRanges } from './frontmatter.ts';
 import { renderDocumentSafeHtml, renderSafeHtml } from './pipeline.ts';
 
 const corpus = new URL('../../../../fixtures/corpus/', import.meta.url);
 const files = readdirSync(corpus).filter((file) => file.endsWith('.md')).sort();
 
 /**
- * Node types the §02 table renders to an element of their own. `text`, `softBreak`, `html`,
- * `htmlBlock` makes none; `frontmatter` makes a `<dl>` (its rows and spans carry `data-marxy-fm-*` and no range, K-20); a tight list item's paragraph makes none (its item's
+ * Node types that render to an element of their own. `text`, `softBreak`, `html`,
+ * `htmlBlock` makes none; `frontmatter` makes a `<dl>` (its rows and spans carry `data-marxy-fm-*` and no range); a tight list item's paragraph makes none (its item's
  * `<li>` is the element); a reference to an undefined footnote is set as text.
  */
 const ELEMENT_TYPES: ReadonlySet<string> = new Set([
@@ -38,6 +39,8 @@ function expectedPairs(document: Document): string[] {
     if (own) pairs.push(key(node.src));
     // A fenced block's `<code>` carries the content range, inside the `<pre>` that carries the fence.
     if (node.type === 'codeBlock') pairs.push(key(node.content));
+    // A byline value carries its own bytes, inside the head that carries the front matter.
+    if (node.type === 'frontmatter') for (const r of bylineRanges(node)) pairs.push(`${r.start}-${r.end}`);
     const childTight = node.type === 'list' ? node.tight : node.type === 'listItem' ? tight : false;
     for (const child of node.children ?? []) walk(child, childTight);
   };
@@ -65,7 +68,7 @@ for (const file of files) {
   });
 }
 
-test('the sample of the §02 table: the element for each node type carries that node', () => {
+test('the sample of the render table: the element for each node type carries that node', () => {
   const source = [
     '# Head', '', 'Para *em* **st** ~~del~~ `code` [link](https://x.test/) ![alt](i.png) end  ', 'next[^1]', '',
     '> quote', '', '- [x] done', '- two', '', '1. one', '', '---', '', '```js', 'let a;', '```', '',
@@ -95,7 +98,7 @@ test('the sample of the §02 table: the element for each node type carries that 
 });
 
 test('inline raw HTML keeps its shape across the two raw-HTML nodes that make it', () => {
-  // `<kbd>` and `</kbd>` are separate inline `html` nodes. Sanitising each alone, as ADR-0023 first
+  // `<kbd>` and `</kbd>` are separate inline `html` nodes. Sanitising each alone, as was first
   // proposed, closes the first at once and drops the second: `<kbd></kbd>Ctrl`.
   const html = renderSafeHtml('Press <kbd>Ctrl</kbd> now\n', { file: 't.md' }).html;
   assert.match(html, /<kbd>Ctrl<\/kbd>/);
@@ -110,7 +113,7 @@ test('the secret names never reach the output, so two renders of one document ag
   assert.equal(a, '<h1 id="a" data-marxy-s="0" data-marxy-e="3">a</h1>');
 });
 
-// K-11: a heading that names a speaker carries its role, so the transcript profile can set it. Every kind gets the
+// a heading that names a speaker carries its role, so the transcript profile can set it. Every kind gets the
 // attribute; a document cannot write one itself, under any policy.
 test('a heading naming a speaker carries data-marxy-speaker with its role; other headings carry none', () => {
   const html = renderSafeHtml('## You\n\n### Tool · bash\n\n## **Assistant**\n\n## Tool use\n\n## Summary\n', { file: 't.md' }).html;
@@ -129,17 +132,17 @@ test('a document cannot write data-marxy-speaker: raw HTML, and a forged role, l
   }
 });
 
-// K-20: the front-matter head names each row's key and marks an article's byline and dek; a paragraph wholly in emphasis
-// says so. Every kind gets the attributes (only the article profile styles them); a document cannot write one itself.
-test('the head carries data-marxy-fm-key on every row and data-marxy-fm-part on the byline, its spans and the dek', () => {
+// the front-matter head marks itself, names each row's key and marks the byline; a paragraph wholly in emphasis says
+// so. Every kind gets the attributes; a document cannot write one itself.
+test('the head carries data-marxy-fm-key on every row and data-marxy-fm-part on itself, the byline and its quotes', () => {
   const src = '---\ntitle: T\nsummary: s\nauthor: "A"\nsource: https://example.org/a\n---\n\n# T\n\n*whole*\n\n*part* not\n';
   const html = renderSafeHtml(src, { file: 't.md' }).html;
   assert.equal((html.match(/<dt data-marxy-fm-key="/g) ?? []).length, 4);
   assert.equal((html.match(/<dd data-marxy-fm-key="/g) ?? []).length, 4);
-  assert.match(html, /<dl data-marxy-s="0" data-marxy-e="[0-9]+">\n<dt data-marxy-fm-key="title">/);
+  assert.match(html, /<dl data-marxy-fm-part="head" data-marxy-s="0" data-marxy-e="[0-9]+">\n<dt data-marxy-fm-key="title">/);
   assert.match(html, /<dt data-marxy-fm-key="author" data-marxy-fm-part="byline">/);
-  assert.match(html, /<span data-marxy-fm-part="quote">"<\/span>A<span data-marxy-fm-part="quote">"<\/span>/);
-  assert.match(html, /<span data-marxy-fm-part="url"><span data-marxy-fm-part="scheme">https:\/\/<\/span>example.org<span data-marxy-fm-part="path">\/a<\/span><\/span>/);
+  assert.match(html, /<span data-marxy-fm-part="quote">&quot;<\/span>A<span data-marxy-fm-part="quote">&quot;<\/span>/);
+  assert.match(html, /<dd data-marxy-fm-key="source">https:\/\/example.org\/a<\/dd>/);
   assert.doesNotMatch(html, /<a /);
   assert.match(html, /<p data-marxy-emphasis="whole" data-marxy-s="[0-9]+" data-marxy-e="[0-9]+"><em /);
   assert.equal((html.match(/data-marxy-emphasis/g) ?? []).length, 1, 'only the paragraph wholly in emphasis');

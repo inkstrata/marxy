@@ -1,23 +1,23 @@
-/* marxy theme token contract — version 2 (ADR-0059). Reviewed contract (ADR-0008, ADR-0045): token names and units still need an ADR to
-   change (checked by scripts/check-tokens.mjs); values are taste. Values are the DARK variant's
-   defaults (ADR-0024). Themes set these. marxy derives every vertical space from
+/* marxy theme token contract — version 2. Reviewed contract: token names and units change only deliberately
+   (checked by scripts/check-tokens.mjs); values are taste. Values are the DARK variant's
+   defaults. Themes set these. marxy derives every vertical space from
    --marxy-line-box and never lets a theme set margins directly. Everything not listed here is
-   system-owned. Contrast ratios in docs/design/05-theme.md §Palettes. */
+   system-owned. */
 :root {
   /* rhythm and measure */
-  --marxy-line-box: 30px;            /* 1.5 × body (ADR-0033); the grid unit is half of it (ADR-0030) */
-  --marxy-measure: calc(var(--marxy-measure-chars) * var(--marxy-avg-char) * 1em);   /* a length; never ch (ADR-0033) */
+  --marxy-line-box: 30px;            /* 1.5 × body; the grid unit is half of it */
+  --marxy-measure: calc(var(--marxy-measure-chars) * var(--marxy-avg-char) * 1em);   /* a length; never ch */
   --marxy-measure-chars: 66;          /* average characters per line; clamped by marxy to 45–80 */
-  --marxy-avg-char: 0.463;            /* the text face's average character advance in em, measured (ADR-0033) */
+  --marxy-avg-char: 0.463;            /* the text face's average character advance in em, measured */
   --marxy-size-body: 20px;
   --marxy-scale-ratio: 1.25;
   --marxy-size-code: 18px;            /* the mono x-height matched to the text's (constraint 5) */
   --marxy-line-box-code: 30px;        /* code lines; two grid units; blocks are padded by snapToGrid */
-  --marxy-size-source: 14px;          /* the Source editor's type: 0.7 of the body, to the half pixel; it holds no prose, so it leaves the prose grid (ADR-0067) */
-  --marxy-line-box-source: 21px;      /* a Source line: 1.5 × its size, to the pixel; not a grid multiple (ADR-0067) */
+  --marxy-size-source: 14px;          /* the Source editor's type: 0.7 of the body, to the half pixel; it holds no prose, so it leaves the prose grid */
+  --marxy-line-box-source: 21px;      /* a Source line: 1.5 × its size, to the pixel; not a grid multiple */
   --marxy-size-caption: 15px;
-  --marxy-lh-h1: 48px;                /* heading line boxes; ≥ size and ≤ 2 line boxes (base.css clamps at runtime, not the loader) */
-  --marxy-lh-h2: 38px;
+  --marxy-lh-h1: 45px;                /* heading line boxes; ≥ size and ≤ 2 line boxes (base.css clamps at runtime, not the loader) */
+  --marxy-lh-h2: 30px;
 
   /* families and weights */
   --marxy-font-text: "Literata", serif;
@@ -44,19 +44,19 @@
   --marxy-color-code-text: #e3dfd6;
   --marxy-color-quote-rule: #3a3833;
   --marxy-color-selection: #1f3651;
-  --marxy-color-find: #3a3010;        /* added by ADR-0024, with defaults: find highlight */
-  --marxy-color-find-current: #403510; /* told apart by an outline too, never colour alone (ADR-0033) */
-  --marxy-color-find-edge: #94701a;    /* the 2 px edge of a find match: 3:1 on the grounds, so a match shows without its fill (ADR-0055) */
+  --marxy-color-find: #3a3010;        /* added with defaults: find highlight */
+  --marxy-color-find-current: #403510; /* told apart by an outline too, never colour alone */
+  --marxy-color-find-edge: #94701a;    /* the 2 px edge of a find match: 3:1 on the grounds, so a match shows without its fill */
   --marxy-color-notice: #1f1e1b;      /* notices region background */
-  --marxy-color-diff-add: #1b2f28;    /* diff: added line tint (dark); marker is the primary cue (ADR-0036) */
+  --marxy-color-diff-add: #1b2f28;    /* diff: added line tint (dark); marker is the primary cue */
   --marxy-color-diff-del: #2d140b;    /* diff: deleted line tint (dark) */
   --marxy-color-diff-add-word: #17352b; /* diff: intra-line addition tint (dark) */
   --marxy-color-diff-del-word: #4a1e0e; /* diff: intra-line deletion tint (dark) */
 
-  /* code token colours (added by ADR-0024, with defaults; roles in packages/core/src/highlight/roles.ts).
-     These are the v1 fallbacks, the restrained palette of ADR-0033: colour marks strings, literals, comments
+  /* code token colours (added with defaults; roles in packages/core/src/highlight/roles.ts).
+     These are the v1 fallbacks, the restrained palette: colour marks strings, literals, comments
      and names being defined or called, and the other roles stay in the code text colour. The default theme
-     gives every role its own hue (ADR-0068). Comments are read, not dimmed. */
+     gives every role its own hue. Comments are read, not dimmed. */
   --marxy-tok-keyword: var(--marxy-color-code-text);
   --marxy-tok-string: #a8c48a;
   --marxy-tok-comment: #d4ad73;
@@ -70,8 +70,8 @@
   --marxy-tok-tag: #8fb4dd;
   --marxy-tok-attribute: var(--marxy-color-code-text);
 
-  /* contract 2 (ADR-0059). Each name is declared as its v1 fallback, as CSS, so a theme that sets only v1
-     tokens gets roles derived from its own values; Night and Paper set the real values (H-04). */
+  /* contract 2. Each name is declared as its v1 fallback, as CSS, so a theme that sets only v1
+     tokens gets roles derived from its own values; Night and Paper set the real values. */
 
   /* colour roles, set per variant */
   --marxy-color-surface: var(--marxy-color-notice);                   /* ground of every summoned surface: palette, verb menu, notices, workspace panels */
@@ -93,7 +93,7 @@
   --marxy-tok-marker: var(--marxy-tok-punctuation);                   /* Markdown syntax markers in Source (#, *, >, fences) */
   --marxy-tok-heading: var(--marxy-color-code-text);                  /* Markdown heading text in Source */
   --marxy-tok-link: var(--marxy-color-link);                          /* link text and destinations in Source */
-  --marxy-tok-builtin: var(--marxy-tok-function);                     /* names the language provides: print, len, Vec, console (ADR-0068) */
+  --marxy-tok-builtin: var(--marxy-tok-function);                     /* names the language provides: print, len, Vec, console */
   --marxy-tok-property: var(--marxy-tok-variable);                    /* a member read or defined: obj.name, a struct field, an object key */
   --marxy-tok-decorator: var(--marxy-tok-keyword);                    /* an annotation: @decorator, #[derive] */
   --marxy-tok-self: var(--marxy-tok-keyword);                         /* self, this, cls */
@@ -108,7 +108,7 @@
   --marxy-face-readme: var(--marxy-font-text);                        /* READMEs */
   --marxy-face-mono: var(--marxy-font-mono);                          /* code, data, logs, terminal output, and code inside prose */
 
-  /* chrome: the platform face at 13 px on summoned surfaces (the reader's chrome_size sets it on :root, H-07) */
+  /* chrome: the platform face at 13 px on summoned surfaces (the reader's chrome_size sets it on :root) */
   --marxy-face-chrome: system-ui, sans-serif;                         /* the face of controls on summoned surfaces */
   --marxy-size-chrome: 13px;                                          /* the size of control text; clamped to 11–26px */
 
@@ -127,6 +127,12 @@
   --marxy-code-padding: 0.75em;
   --marxy-quote-rule-width: 2px;
   --marxy-progress-rule: none;        /* 'none' or a colour; height is fixed at 1px by marxy */
-  --marxy-justify: 0;                 /* 0 ragged (default), 1 justified; K–P runs either way */
-  --marxy-typeset: auto;              /* auto | none (kill switch, docs/design/04-typeset.md) */
+  --marxy-justify: 0;                 /* 0 ragged (default), 1 justified by the browser; K–P breaks ragged text only */
+  --marxy-typeset: auto;              /* auto | none (kill switch) */
+
+  /* a look's type: set by the look engine on a pane, from its parameters */
+  --marxy-heading-style: normal;      /* normal | italic: headings h1 to h4 (Book sets them italic) */
+  --marxy-heading-case: none;         /* none | uppercase: headings in capitals, tracked by --marxy-tracking-heading */
+  --marxy-figures: normal;            /* the text's figures: normal, lining-nums or oldstyle-nums */
+  --marxy-paragraph-indent: 0px;      /* a paragraph after a paragraph is indented by this and set with no space between */
 }

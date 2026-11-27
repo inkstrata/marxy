@@ -1,4 +1,4 @@
-// The lines of a terminal session (K-17): which are a prompt and its command, which continue a command, and which are
+// The lines of a terminal session: which are a prompt and its command, which continue a command, and which are
 // the command's output. Pure: it reads lines and returns where things are, and writes nothing. Detection's own prompt
 // (`PROMPT`, kind/detect.ts) says whether a text is a session; this says what each line of one is.
 

@@ -1,4 +1,4 @@
-// F-79, commitment 5: a file that is one 2 MB line does not freeze the page. Two things took minutes before: WebKit
+// A file that is one 2 MB line does not freeze the page. Two things took minutes before: WebKit
 // laid out a run of letters with no space (a minified file, base64) in time quadratic in its length once the HTML parser
 // had cut it into text nodes (render/long-runs.ts puts a break in it), and the typesetter measured every word of a
 // one-paragraph file in a task before first text (packages/typeset caps what it sets). WebKit, through startApp and the
@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { createServer } from 'vite';
+import { createServer } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -114,7 +114,7 @@ test('a 2 MB line with no space in it lays out in seconds, holds exactly the fil
       void doc.offsetHeight;
       return performance.now() - t;
     });
-    assert.ok(layout < 10_000, `a layout from scratch took ${Math.round(layout)} ms (80,000 before F-79)`);
+    assert.ok(layout < 10_000, `a layout from scratch took ${Math.round(layout)} ms`);
     assert.ok(ready < 60_000 && stall < 30_000, `ready after ${Math.round(ready)} ms, longest stall ${Math.round(stall)} ms`);
   } finally {
     await browser.close();
@@ -127,14 +127,15 @@ test('a 2 MB line of words is read as it was, the typesetter leaves it to the en
   try {
     assert.ok(marks.includes('first_text'), marks.join());
     const shown = await page.evaluate(() => {
-      const p = document.querySelector('#doc p');
+      // The reading's account of how it shows the file is a paragraph too, ahead of the file's text.
+      const p = document.querySelector('#doc .marxy-prose > p');
       return { text: p.textContent, set: p.classList.contains('marxy-set'), lines: p.querySelectorAll('.marxy-lb').length, wbr: p.querySelectorAll('wbr').length };
     });
     assert.ok(shown.text.replaceAll(' ', ' ') === text, 'the text is the file\'s');
     assert.equal(shown.set, false, 'past the typesetter\'s limit the paragraph is not set');
     assert.equal(shown.lines, 0, 'and has none of its breaks');
     assert.equal(shown.wbr, 0, 'a paragraph of words needs no break put in it');
-    assert.ok(ready < 60_000 && stall < 25_000, `ready after ${Math.round(ready)} ms, longest stall ${Math.round(stall)} ms (60,000 and more before F-79)`);
+    assert.ok(ready < 60_000 && stall < 25_000, `ready after ${Math.round(ready)} ms, longest stall ${Math.round(stall)} ms`);
   } finally {
     await browser.close();
   }
@@ -169,7 +170,9 @@ for (const [path, build] of [
       await page.evaluate(() => window.__h.contentComplete());
       await page.waitForTimeout(2000);
       const shown = await page.evaluate(() => document.getElementById('doc').textContent);
-      assert.ok(shown.length >= text.length && shown.includes(text.slice(0, 1000)) && shown.includes(text.slice(-1000)), 'the page holds the text, head and tail');
+      // Read sets a .json as a tree, which shows the key and the value, never the file's `{"blob":"`: the letters are the text.
+      const body = path.endsWith('.json') ? letters(MB) : text;
+      assert.ok(shown.length >= body.length && shown.includes(body.slice(0, 1000)) && shown.includes(body.slice(-1000)), 'the page holds the text, head and tail');
       const layout = await page.evaluate(() => {
         const doc = document.getElementById('doc');
         doc.style.display = 'none';

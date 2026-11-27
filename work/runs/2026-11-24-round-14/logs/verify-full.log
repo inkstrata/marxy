@@ -1,0 +1,68 @@
+﻿node.exe : $ node scripts/verify.mjs "--tier" "full"
+At C:\Users\<user>\AppData\Roaming\fnm\aliases\default\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ node scripts/..."--tier" "full":String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+verify full in C:\Dev\reader\worktrees\round14
+32 files changed against master; unit suites: desktop, core, theme, scripts; browser files: 260
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\round14-2026-11-24T08-24-51
+
+PASS    install        0.4s      
+PASS    typecheck      11.1s     
+PASS    lint           2.2s      
+PASS    check          11.9s     10 pass, 0 fail
+PASS    golden         1.6s      
+PASS    fidelity       18.2s     
+PASS    licences       0.7s      
+PASS    unit-core      187.9s    4298 pass, 0 fail, 3 skip
+PASS    unit-theme     39.9s     305 pass, 0 fail
+PASS    unit-typeset   42.6s     80 pass, 0 fail
+PASS    unit-scripts   79.1s     261 pass, 0 fail
+PASS    unit-desktop   288.0s    1315 pass, 0 fail, 1 skip
+PASS    lint-rust      56.4s     
+FAIL    browser        2193.6s   2487 pass, 2 fail, 4 skip
+PASS    cargo          90.8s     624 pass, 0 fail, 5 skip
+PASS    build          327.0s    
+PASS    tauri          94.2s     117 pass, 0 fail
+
+step          result  wall     tests
+------------  ------  -------  -------------------------
+install       pass    0.4s
+typecheck     pass    11.1s
+lint          pass    2.2s
+check         pass    11.9s    10 pass, 0 fail
+golden        pass    1.6s
+fidelity      pass    18.2s
+licences      pass    0.7s
+unit-core     pass    187.9s   4298 pass, 0 fail, 3 skip
+unit-theme    pass    39.9s    305 pass, 0 fail
+unit-typeset  pass    42.6s    80 pass, 0 fail
+unit-scripts  pass    79.1s    261 pass, 0 fail
+unit-desktop  pass    288.0s   1315 pass, 0 fail, 1 skip
+lint-rust     pass    56.4s
+browser       FAIL    2193.6s  2487 pass, 2 fail, 4 skip
+cargo         pass    90.8s    624 pass, 0 fail, 5 skip
+build         pass    327.0s
+tauri         pass    94.2s    117 pass, 0 fail
+------------  ------  -------  -------------------------
+total                 3445.5s
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\round14-2026-11-24T08-24-51\14-browser.log)
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/round14/apps/desktop/test/palette.test.mjs:121:3)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+verify full: 16/17 steps passed; failed: browser; rerun with --from browser
+[ELIFECYCLE] Command failed with exit code 1.
+exit 1

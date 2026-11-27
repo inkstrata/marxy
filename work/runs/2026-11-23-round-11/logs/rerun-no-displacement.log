@@ -1,0 +1,37 @@
+﻿✔ folded: palette: opening and closing it moves neither the first visible line nor the scroll position (8625.3297ms)
+✔ folded: find: opening and closing it moves neither the first visible line nor the scroll position (3202.1283ms)
+✔ folded: verb menu: opening and closing it moves neither the first visible line nor the scroll position (3240.7476ms)
+✔ folded: transform sheet (document): opening and closing it moves neither the first visible line nor the scroll position (3496.4135ms)
+✔ folded: transform sheet (clipboard): opening and closing it moves neither the first visible line nor the scroll position (3376.5531ms)
+✔ folded: notice (raised, then dismissed): opening and closing it moves neither the first visible line nor the scroll position (3363.8394ms)
+✔ folded: notice (refusal, which stays until dismissed): opening and closing it moves neither the first visible line nor the scroll position (3415.1982ms)
+✔ folded: notice (decision, which takes focus; Esc dismisses it): opening and closing it moves neither the first visible line nor the scroll position (3170.6729ms)
+✔ folded: notices (three at once): opening and closing it moves neither the first visible line nor the scroll position (3562.2218ms)
+✔ folded: New menu (opened, then closed): opening and closing it moves neither the first visible line nor the scroll position (3210.8939ms)
+✔ folded: notice (empty clipboard transform): opening and closing it moves neither the first visible line nor the scroll position (3518.294ms)
+✔ unfolded: palette: opening and closing it moves neither the first visible line nor the scroll position (3260.3899ms)
+✔ unfolded: find: opening and closing it moves neither the first visible line nor the scroll position (3208.705ms)
+✔ unfolded: verb menu: opening and closing it moves neither the first visible line nor the scroll position (3251.4943ms)
+✔ unfolded: transform sheet (document): opening and closing it moves neither the first visible line nor the scroll position (3523.6067ms)
+✔ unfolded: transform sheet (clipboard): opening and closing it moves neither the first visible line nor the scroll position (3391.9869ms)
+✔ unfolded: notice (raised, then dismissed): opening and closing it moves neither the first visible line nor the scroll position (3338.9134ms)
+✔ unfolded: notice (refusal, which stays until dismissed): opening and closing it moves neither the first visible line nor the scroll position (3332.8955ms)
+✔ unfolded: notice (decision, which takes focus; Esc dismisses it): opening and closing it moves neither the first visible line nor the scroll position (3228.9433ms)
+✔ unfolded: notices (three at once): opening and closing it moves neither the first visible line nor the scroll position (3577.9422ms)
+✔ unfolded: New menu (opened, then closed): opening and closing it moves neither the first visible line nor the scroll position (3260.8765ms)
+✔ unfolded: notice (empty clipboard transform): opening and closing it moves neither the first visible line nor the scroll position (3454.1966ms)
+✔ split: notice (raised, then dismissed): opening and closing it moves neither the first visible line nor the scroll position (3796.5932ms)
+✔ split: notice (refusal, which stays until dismissed): opening and closing it moves neither the first visible line nor the scroll position (3957.3182ms)
+✔ split: notice (decision, which takes focus; Esc dismisses it): opening and closing it moves neither the first visible line nor the scroll position (3679.2197ms)
+✔ split: notices (three at once): opening and closing it moves neither the first visible line nor the scroll position (4063.7199ms)
+✔ split: Source in the other pane (opened, then left): opening and closing it moves neither the first visible line nor the scroll position (4099.8466ms)
+✔ split: replace preview (Replace all… in Source in the other pane): opening and closing it moves neither the first visible line nor the scroll position (4511.8869ms)
+✔ split: notice (empty clipboard transform): opening and closing it moves neither the first visible line nor the scroll position (4123.0174ms)
+ℹ tests 29
+ℹ suites 0
+ℹ pass 29
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 108031.8541

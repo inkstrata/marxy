@@ -1,7 +1,8 @@
-// The reader's place while the visibility observer sets paragraphs above the screen (B-02.5), and
+// The reader's place while the visibility observer sets paragraphs above the screen, and
 // that the first (viewport) pass leaves it alone. The app-level cases at 1 MB are in
-// apps/desktop/test/keep-place.test.mjs; this one stalls the idle chunks so that the observer is the
-// only thing setting paragraphs. Playwright WebKit only.
+// apps/desktop/test/keep-place.test.mjs; this one holds the idle chunks until it runs them, so that the
+// observer, and the part of the margin it hands to the front of the queue, are what set paragraphs.
+// Playwright WebKit only.
 import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, before, test as nodeTest } from 'node:test';
@@ -22,7 +23,7 @@ after(async () => { await harness?.close(); });
 // by a fixed amount, which is what the observer's pass has to keep out of the reader's way.
 const SET_IS_TALLER = 'p.marxy-set { padding-bottom: 7px; }';
 
-test('paragraphs above the screen set by the visibility observer leave the reading block within 1 px', async () => {
+test('paragraphs above the screen set by the visibility observer and the queue it feeds leave the reading block within 1 px', async () => {
   const html = Array.from({ length: 10 }, () => renderCorpus('01-long-technical.md')).join('\n');
   const page = await harness.open(html, { extraCss: SET_IS_TALLER });
   const r = await page.evaluate(async () => {
@@ -31,9 +32,11 @@ test('paragraphs above the screen set by the visibility observer leave the readi
     await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
     const place = [...doc.children].find((c) => c.getBoundingClientRect().bottom > 100);
     const top = place.getBoundingClientRect().top;
-    // Idle chunks never run: only the first pass and the observer set anything.
+    // Idle chunks run only when drained below: the observer sets the screen and as much of the margin as its budget
+    // holds, and puts the rest of the margin at the front of the queue, nearest first.
+    const jobs = [];
     window.controller = window.typeset.attach(doc, {
-      lineBox: window.lineBox, glueStretchEm: 0.6, lastLineMinWidth: 0.33, scheduler: { schedule() {} },
+      lineBox: window.lineBox, glueStretchEm: 0.6, lastLineMinWidth: 0.33, scheduler: { schedule: (work) => jobs.push(work) },
     });
     await window.controller.ready;
     const afterFirstPass = place.getBoundingClientRect().top - top;
@@ -41,6 +44,8 @@ test('paragraphs above the screen set by the visibility observer leave the readi
     const nativeTops = new Map([...doc.querySelectorAll('p')].map((p) => [p, p.getBoundingClientRect().height]));
     const setBefore = doc.querySelectorAll('.marxy-set').length;
     for (let i = 0; i < 10; i++) await new Promise((res) => requestAnimationFrame(res));
+    // Four batches of eight: the margin, which is all the queue holds ahead of the rest of the document.
+    for (let i = 0; i < 4 && jobs.length > 0; i++) jobs.shift()(() => Number.POSITIVE_INFINITY);
     const wholeAbove = [...doc.querySelectorAll('.marxy-set')].filter((p) => p.getBoundingClientRect().bottom < 0).length;
     let aboveDelta = 0;
     for (const [p, h] of nativeTops) if (p.getBoundingClientRect().bottom < 0) aboveDelta += p.getBoundingClientRect().height - h;
@@ -56,18 +61,18 @@ test('paragraphs above the screen set by the visibility observer leave the readi
     };
   });
   assert.ok(r.scrollY > 1000, `scrolled to ${r.scrollY}`);
-  assert.ok(r.setAfter > r.setBefore && r.wholeAbove > 0, `the observer set ${r.setAfter - r.setBefore} more, ${r.wholeAbove} wholly above the screen`);
+  assert.ok(r.setAfter > r.setBefore && r.wholeAbove > 0, `the observer and its queue set ${r.setAfter - r.setBefore} more, ${r.wholeAbove} wholly above the screen`);
   assert.ok(Math.abs(r.afterFirstPass) <= 1, `the first pass alone moved the reading block ${r.afterFirstPass.toFixed(2)} px`);
   assert.ok(Math.abs(r.drift) <= 1, `the reading block moved ${r.drift.toFixed(2)} px as the observer set paragraphs above (the page grew ${r.grew.toFixed(1)} px, paragraphs above the screen ${r.aboveDelta.toFixed(1)} px)`);
-  assert.ok(Math.abs(r.aboveDelta) >= 20, `the observer's passes changed the paragraphs above the screen by ${r.aboveDelta.toFixed(1)} px`);
+  assert.ok(Math.abs(r.aboveDelta) >= 20, `the passes changed the paragraphs above the screen by ${r.aboveDelta.toFixed(1)} px`);
   await page.close();
 });
 
-// B-02.8: a wheel listener anywhere in a WebKit document costs a paint of the whole page after every
-// layout, so the typesetter listens for the wheel only while the page is scrolled away from its top.
-// Away from the top, a wheel still holds off the compensation of a re-set above; once the reader stops,
-// the same re-set is kept in place; back at the top, the listener is gone again.
-test('the wheel is listened for only away from the top, and there a wheel still holds off a compensation', async () => {
+// The typesetter listens for the wheel from attach to destroy: a wheel listener added when the page first
+// left its top cost WebKit a repaint of its event region over the whole page in the frame of that wheel tick.
+// Away from the top, a wheel holds off the compensation of a re-set above; once the reader stops, the same
+// re-set is kept in place; the one listener stays through all of it.
+test('the wheel is listened for from attach, once, and a wheel holds off a compensation', async () => {
   const html = Array.from({ length: 6 }, () => renderCorpus('01-long-technical.md')).join('\n');
   const page = await harness.open(html);
   const r = await page.evaluate(async () => {
@@ -123,9 +128,9 @@ test('the wheel is listened for only away from the top, and there a wheel still 
   assert.ok(r.grewDuring >= 20 && r.grewAfter >= 20, `the paragraphs above grew ${r.grewDuring.toFixed(1)} and ${r.grewAfter.toFixed(1)} px`);
   assert.ok(Math.abs(r.movedDuring - r.grewDuring) <= 1, `during the wheel the reading block moved ${r.movedDuring.toFixed(2)} px: it should move with the ${r.grewDuring.toFixed(1)} px growth, uncompensated`);
   assert.ok(Math.abs(r.movedAfter) <= 1, `after the wheel stopped the reading block moved ${r.movedAfter.toFixed(2)} px`);
-  assert.equal(r.atTop, 0, 'no wheel listener while the page is at its top');
-  assert.equal(r.deep, 1, 'one wheel listener once the page is scrolled');
-  assert.equal(r.backAtTop, 0, 'the wheel listener is removed once the page is back at its top');
+  assert.equal(r.atTop, 1, 'one wheel listener from attach, at the top');
+  assert.equal(r.deep, 1, 'still one once the page is scrolled');
+  assert.equal(r.backAtTop, 1, 'and back at its top');
   await page.close();
 });
 
@@ -159,7 +164,7 @@ const installProbes = () => {
 };
 
 /**
- * One real wheel tick from the top (its listener is not there yet), then, once the tick's `scroll` has
+ * One real wheel tick from the top, then, once the tick's `scroll` has
  * been dispatched, a re-set above; and again a frame later. How far the reading block moved each time,
  * against the growth. The page's clock stands still from the tick on, so the reader's quiet window cannot
  * run out on a slow machine: what is tested is whether the tick counted as input, not how fast the page is.
@@ -199,12 +204,12 @@ async function wheelFromTop() {
 }
 
 const uncompensated = (r) => {
-  assert.equal(r.atTop, 0, 'no wheel listener at the top');
+  assert.equal(r.atTop, 1, 'the wheel is listened for at the top');
   for (const [name, x] of [['first', r.first], ['second', r.second]]) {
     assert.ok(x.grew >= 20, `the ${name} paragraph above grew ${x.grew.toFixed(1)} px`);
     assert.ok(Math.abs(x.moved - x.grew) <= 1, `${name} re-set: the reading block moved ${x.moved.toFixed(2)} px; it should move with the ${x.grew.toFixed(1)} px growth, uncompensated`);
   }
-  assert.equal(r.wheels, 1, 'the wheel is listened for once the page has left the top');
+  assert.equal(r.wheels, 1, 'by the one listener, not a second');
 };
 
 test('the wheel tick that leaves the top is the reader scrolling: re-sets above after its scroll event are not compensated', async () => {
@@ -237,8 +242,8 @@ test('a pass that finds the page left the top before its scroll event counts it 
     const early = scrollEvents;
     const first = await once();
     const inPass = window.__probe.wheels();
-    // After the `scroll` has been dispatched (it finds the wheel already listened for, and stamps
-    // nothing), a second re-set is still inside the window the pass opened.
+    // After the `scroll` has been dispatched (it finds the page already known to be away from the top,
+    // and stamps nothing), a second re-set is still inside the window the pass opened.
     while (scrollEvents === 0) await frame();
     const second = await once();
     performance.now = now;
@@ -247,7 +252,7 @@ test('a pass that finds the page left the top before its scroll event counts it 
   });
   assert.equal(r.early, 0, 'the first re-set ran before the scroll event (one task)');
   assert.ok(r.scrollY > 1000, `scrolled to ${r.scrollY}`);
-  assert.equal(r.inPass, 1, 'the pass that found the page scrolled added the wheel listener before its scroll event');
+  assert.equal(r.inPass, 1, 'one wheel listener throughout');
   for (const [name, x] of [['first', r.first], ['second', r.second]]) {
     assert.ok(x.grew >= 20, `the ${name} paragraph above grew ${x.grew.toFixed(1)} px`);
     assert.ok(Math.abs(x.moved - x.grew) <= 1, `${name} re-set: the reading block moved ${x.moved.toFixed(2)} px; leaving the top is input, so the ${x.grew.toFixed(1)} px growth is not compensated`);
@@ -256,7 +261,7 @@ test('a pass that finds the page left the top before its scroll event counts it 
   await page.close();
 });
 
-// F-11: the block under the reading line can be the paragraph the reader is inside, starting above the
+// the block under the reading line can be the paragraph the reader is inside, starting above the
 // screen. When lines of it above the reading line change height, its top does not move, so following
 // the block's top compensates nothing and the words under the line slide by lines. Each case notes the
 // character under the reading line, changes the paragraph's lines above it, and asks how far that
@@ -505,7 +510,7 @@ test('inside a set paragraph the pass leaves alone, the character is read again 
   await page.close();
 });
 
-// B-26: an article inside an element of its own that scrolls (a pane, D-05), below a band the reading
+// an article inside an element of its own that scrolls (a pane), below a band the reading
 // line must not be measured from. With `scroller` the typesetter holds the place on that element and
 // reads the reading line from its top; the window, which does not scroll, is left alone.
 test('in an element that scrolls on its own, below a band, a re-set above its reading line leaves the reading block within 1 px', async () => {
@@ -555,7 +560,7 @@ test('in an element that scrolls on its own, below a band, a re-set above its re
   await page.close();
 });
 
-// B-26.2: the listeners are on the window, so in a pane they also hear the other pane. Input outside
+// the listeners are on the window, so in a pane they also hear the other pane. Input outside
 // the scroller must not hold off this scroller's place; input inside it still does; the page's own
 // scroller takes every event, as before (the tests above).
 test('in a pane, a wheel, key or scroll outside it leaves its reading block within 1 px; the same inside it holds the compensation off', async () => {
@@ -615,8 +620,8 @@ test('in a pane, a wheel, key or scroll outside it leaves its reading block with
   await page.close();
 });
 
-// B-26.1: a scroller put at its end before its paragraphs are set. Inside a size container (the app's
-// pane, `container-type: inline-size`, D-01), WebKit lays a paragraph whose text node was split out,
+// a scroller put at its end before its paragraphs are set. Inside a size container (the app's
+// pane, `container-type: inline-size`), WebKit lays a paragraph whose text node was split out,
 // for a moment inside one layout, as short as what that node kept; a scroller within that much of its
 // end clamped its offset to it and kept the clamp, some hundreds of px a batch, inside the quiet window
 // after the reader's scroll where nothing compensates. The batch runs in the same task as the scroll

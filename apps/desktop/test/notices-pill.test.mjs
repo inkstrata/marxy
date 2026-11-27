@@ -1,4 +1,4 @@
-// U-02: news as pills off the reading column. A notice is a pill at the foot of the pane it is about, centred, with a glyph
+// news as pills off the reading column. A notice is a pill at the foot of the pane it is about, centred, with a glyph
 // and a word for its kind; outcomes fade at 4 s (held under the pointer or focus), refusals and errors stay until dismissed,
 // a decision stays until answered and takes focus; one key focuses the newest notice and Esc dismisses a focused one; three
 // show at most. The real app over the memory shell on the shipped skeleton, in WebKit (test/support/two-pane.mjs). That a
@@ -31,7 +31,7 @@ async function withApp(fn, { open = ['/r/A.md'], unfolded = false, viewport = { 
   try {
     const page = await browser.newPage({ viewport });
     await bootTwoPanes(page, { files, open, guard: true });
-    if (unfolded) await page.evaluate(() => window.__marxyHandle.workspace().unfold());
+    if (unfolded) await page.evaluate(() => window.__marxyHandle.frame().unfold());
     await page.evaluate(() => (document.querySelector('#marxy-main[data-marxy-split]') ? document.querySelector('.marxy-pane').scrollTo(0, 900) : window.scrollTo(0, 900)));
     await fn(page);
   } finally {
@@ -59,7 +59,8 @@ const gone = (page, timeout = 6000) => page.waitForFunction(() => document.query
 /** Where the pill, its region and its pane are, and whether the pill is in the article's flow. */
 const geometry = async (page, slot = 0) => {
   // The pill slides in over 160 ms; measure it where it comes to rest.
-  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
+  // The editor's blinking caret never finishes, so only animations that end are waited for.
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity));
   return page.evaluate((slot) => {
     const pane = document.querySelectorAll('section.marxy-pane')[slot];
     const region = pane.querySelector(':scope > [role="status"]');
@@ -295,7 +296,7 @@ for (const windowState of ['folded', 'unfolded']) {
   withApp(async (page) => {
     await page.keyboard.press('ControlOrMeta+e');
     await page.waitForSelector('#marxy-source .cm-content .cm-line');
-    // The editor scrolls in its own scroller, inside the frame (V-05): the bars stay where they are.
+    // The editor scrolls in its own scroller, inside the frame: the bars stay where they are.
     await page.evaluate(() => document.querySelector('#marxy-source .cm-scroller').scrollTo(0, 400));
     const place = () =>
       page.evaluate(() => {
@@ -354,11 +355,13 @@ test('reduced motion removes the pill\'s slide and its fade; forced colours keep
 nodeTest('the notice key is a pane chord on the physical key, so Option rewriting the letter on a Mac does not lose it', () => {
   const press = { code: 'KeyN', key: 'ñ', metaKey: true, ctrlKey: false, altKey: true, shiftKey: false };
   assert.equal(paneChordFor(press, true)?.command, 'notices.focus');
-  assert.equal(paneChordFor({ ...press, metaKey: false, ctrlKey: true }, false)?.command, 'notices.focus');
+  assert.equal(paneChordFor({ ...press, key: 'n', metaKey: false, ctrlKey: true }, false)?.command, 'notices.focus');
+  // Off a Mac, Ctrl+Alt that types another letter is AltGr typing it (US-International's ñ), never the chord.
+  assert.equal(paneChordFor({ ...press, metaKey: false, ctrlKey: true }, false), null, 'AltGr+N types ñ');
   assert.equal(paneChordFor({ ...press, altKey: false }, true), null, 'Mod+N alone is not it');
 });
 
-test('per kind: a Note that fades goes at 4 s; a Note, a block, a refusal, an error and a decision stay (U-02.1)', () =>
+test('per kind: a Note that fades goes at 4 s; a Note, a block, a refusal, an error and a decision stay', () =>
   withApp(async (page) => {
     // Seven, three show at a time: one pane each would hide the rest, so each kind is raised alone.
     const table = [
@@ -381,7 +384,7 @@ test('per kind: a Note that fades goes at 4 s; a Note, a block, a refusal, an er
     }
   }));
 
-test('the disk notices are refusals, except the fact that the file was removed (U-02.1)', () =>
+test('the disk notices are refusals, except the fact that the file was removed', () =>
   withApp(async (page) => {
     const kinds = await page.evaluate(async () => {
       const disk = await import('/src/notices/disk.ts');
@@ -402,7 +405,7 @@ test('the disk notices are refusals, except the fact that the file was removed (
     assert.deepEqual(kinds, { 'edits-kept': 'refused', choose: 'refused', removed: 'info', refused: 'refused' });
   }));
 
-test('every Dismiss is named for the notice it closes, and begins with its visible word (U-02.1)', () =>
+test('every Dismiss is named for the notice it closes, and begins with its visible word', () =>
   withApp(async (page) => {
     await raise(page, { kind: 'refused', text: 'Nothing was pasted.' });
     await raise(page, { kind: 'error', text: 'Could not save.' });
@@ -416,7 +419,7 @@ test('every Dismiss is named for the notice it closes, and begins with its visib
     assert.equal(await page.getByRole('button', { name: 'Dismiss Not done: Could not save.', exact: true }).count(), 1);
   }));
 
-test('in a decision, Tab and Shift+Tab stay among the pill\'s buttons (U-02.1)', () =>
+test('in a decision, Tab and Shift+Tab stay among the pill\'s buttons', () =>
   withApp(async (page) => {
     await raise(page, { kind: 'decision', text: 'Save first?', actions: ['Save and go', 'Go without saving'] });
     const where = () => page.evaluate(() => {
@@ -438,7 +441,7 @@ test('in a decision, Tab and Shift+Tab stay among the pill\'s buttons (U-02.1)',
     assert.deepEqual(back, ['Go without saving', 'Save and go', 'Dismiss', 'Go without saving']);
   }));
 
-test('in a Note, Tab past its last button goes on to the page (U-02.1)', () =>
+test('in a Note, Tab past its last button goes on to the page', () =>
   withApp(async (page) => {
     await raise(page, { kind: 'info', text: 'A note.', actions: ['Do it'] });
     await page.keyboard.press('ControlOrMeta+Alt+n');

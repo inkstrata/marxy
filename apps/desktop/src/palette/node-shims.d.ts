@@ -1,4 +1,4 @@
-// Node test typings for this folder. Desktop's tsconfig has DOM libs only (MARXY-36).
+// Node test typings for this folder. Desktop's tsconfig has DOM libs only.
 
 declare module 'node:test' {
   export function test(

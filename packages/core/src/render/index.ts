@@ -1,4 +1,4 @@
-// The render pipeline's public surface. `packages/core/src/index.ts` is not this story's to edit, so
+// The render pipeline's public surface. `packages/core/src/index.ts` is not this change's to edit, so
 // callers — including `scripts/gate-no-network.mjs` — import this file directly for now.
 
 export { renderSafeHtml, renderDocumentSafeHtml, renderDocumentSafeHtmlInSlices } from './pipeline.ts';

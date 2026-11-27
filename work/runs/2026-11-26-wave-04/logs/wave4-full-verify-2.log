@@ -1,0 +1,50 @@
+$ node scripts/verify.mjs "--tier" "full"
+verify full in C:\Dev\reader\worktrees\wave4
+57 files changed against master; unit suites: desktop, core, scripts; browser files: 270; rust changed
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\wave4-2026-11-26T07-52-11
+
+PASS    install        0.4s      
+PASS    typecheck      11.3s     
+PASS    lint           2.3s      
+PASS    check          11.6s     10 pass, 0 fail
+PASS    golden         1.7s      
+PASS    fidelity       13.3s     
+PASS    licences       0.8s      
+verify: holding place 1 of 2 (--no-lock skips it)
+
+PASS    unit-core      197.3s    4241 pass, 0 fail, 3 skip
+PASS    unit-theme     47.4s     305 pass, 0 fail
+PASS    unit-typeset   47.4s     90 pass, 0 fail
+PASS    unit-scripts   57.6s     289 pass, 0 fail
+PASS    unit-desktop   44.2s     1268 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 98.2s     44 pass, 0 fail, 1 skip
+PASS    lint-rust      5.3s      
+PASS    browser        2139.4s   2536 pass, 0 fail, 4 skip
+PASS    cargo          14.3s     643 pass, 0 fail, 6 skip
+PASS    build          234.6s    
+PASS    tauri          94.7s     117 pass, 0 fail
+
+step                  result  wall     tests
+--------------------  ------  -------  -------------------------
+install               pass    0.4s
+typecheck             pass    11.3s
+lint                  pass    2.3s
+check                 pass    11.6s    10 pass, 0 fail
+golden                pass    1.7s
+fidelity              pass    13.3s
+licences              pass    0.8s
+unit-core             pass    197.3s   4241 pass, 0 fail, 3 skip
+unit-theme            pass    47.4s    305 pass, 0 fail
+unit-typeset          pass    47.4s    90 pass, 0 fail
+unit-scripts          pass    57.6s    289 pass, 0 fail
+unit-desktop          pass    44.2s    1268 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    98.2s    44 pass, 0 fail, 1 skip
+lint-rust             pass    5.3s
+browser               pass    2139.4s  2536 pass, 0 fail, 4 skip
+cargo                 pass    14.3s    643 pass, 0 fail, 6 skip
+build                 pass    234.6s
+tauri                 pass    94.7s    117 pass, 0 fail
+--------------------  ------  -------  -------------------------
+total                         3021.7s
+
+verify full: 18/18 steps passed

@@ -1,4 +1,4 @@
-// Trust lives in trust/controller.ts and app.ts keeps one re-render path (B-10).
+// Trust lives in trust/controller.ts and app.ts keeps one re-render path.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -6,16 +6,17 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { routeSkeleton } from './support/two-pane.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const desktopRoot = new URL('..', import.meta.url).pathname;
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const desktopRoot = fileURLToPath(new URL('..', import.meta.url));
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
 
 /** A source file without comments, so a name mentioned in prose does not count as code. */
@@ -39,7 +40,7 @@ nodeTest('app.ts holds no trust state and no second re-render path', () => {
 });
 
 nodeTest('app.ts builds the deferred-startup context in one place', () => {
-  // The page and its deferred work moved into the per-article view (B-13): app.ts builds none.
+  // The page and its deferred work moved into the per-article view: app.ts builds none.
   assert.equal(appSource().match(/\bdeferredStartupContext\(/g), null);
   const calls = sourceOf('view/rendered-view.ts').match(/\bdeferredStartupContext\(/g) ?? [];
   // The declaration and its one call.
@@ -73,7 +74,7 @@ async function withApp(docName, fn, text) {
   const browser = await webkit.launch();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
-    await routeSkeleton(page, base); // the app's own skeleton: a notice is pinned in view, not at the end of the page (F-67)
+    await routeSkeleton(page, base); // the app's own skeleton: a notice is pinned in view, not at the end of the page
     await page.goto(`${base}app.html`);
     await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
     await page.evaluate(async ({ files, argv }) => {
@@ -81,7 +82,7 @@ async function withApp(docName, fn, text) {
       await handle.ready;
       window.__h = handle;
       // A render sets the page anew: one change to #doc's own children that removes the last page's.
-      // (onDocumentChange is the store's subscription since B-12, and a render of the same bytes is no change.)
+      // (onDocumentChange is the store's subscription, and a render of the same bytes is no change.)
       window.__renders = 0;
       new MutationObserver((records) => {
         for (const r of records) if (r.removedNodes.length > 0) window.__renders += 1;

@@ -1,0 +1,12 @@
+﻿structured: 1500 seeds, 37500 edits, region 29511, whole 7989, failures 0
+structured with definitions: 1500 seeds, 37500 edits, region 22700, whole 14800, failures 0
+✔ a reparse equals the whole parse for structured random documents and edits (94103.8283ms)
+✔ a reparse equals the whole parse for structured random documents with definitions, and parses a region for most edits (151723.9602ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 246950.1465

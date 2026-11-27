@@ -1,220 +1,111 @@
 name: ci
+# `pnpm verify` is the one definition of what checks a tree (scripts/verify.mjs, docs/testing.md); CI runs it and
+# nothing of its own, on the two platforms the code is known on.
+#
+# - macOS (a product target): every step that passes there — typecheck, lint, `pnpm check`, the gates, every unit
+#   suite, the Rust lint and tests, and the release build with its smoke launch. The browser suite is left out:
+#   14 of its files still fail on macOS WebKit (work/todo.md, M4). When they pass, add `browser` here.
+# - Windows: the same steps on a pull request and on main, but the release build. The browser suite is left out here
+#   too: it is green on a Windows desktop (2536/0), but 14 of its files fail on a hosted runner, mostly timing budgets
+#   that a slow machine misses (work/todo.md, M5); it takes two hours there as well. A run by hand takes the tier it is
+#   given, browser suite included. Only `full` runs `check:tauri` (the real-window check); whether a hosted runner can
+#   drive WebView2 for it is untried, so a run's integrator still runs it and the browser suite on a Windows desktop.
+#
+# The repository is public, so the minutes are free.
 on:
   pull_request:
-  merge_group:
   push:
     branches: [main]
-# Every commit on main gets its own completed run, so the first red one names the merge that broke it
-# (MARXY-334). A group per ref would still drop runs there: GitHub keeps one pending run per group and
-# cancels the rest. Pull requests keep one group per ref and cancel a superseded run.
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: "verify tier on Windows"
+        type: choice
+        options: [quick, changed, full]
+        default: full
 concurrency:
-  group: "ci-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}"
+  group: "ci-${{ github.ref }}"
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 permissions: { contents: read }
 env:
   CARGO_TERM_COLOR: always
-  PNPM_STORE: ~/.pnpm-store
 
 jobs:
-  # What changed decides what runs: a docs-only change never builds the app or starts a browser, a
-  # change that touches no Rust never starts the Rust job, and a push to main runs only `fast` (A-09).
-  # The paths behind each output are in scripts/ci-changes.mjs and its test.
-  #
-  # The pull-request path holds the five commitments and nothing else (G-03, ADR-0056): what leaves it
-  # (the mechanical aesthetics gate, the specimen gate, the Linux build, the release-profile binary and
-  # the CLI smoke, the fleet's tests, the slower WebKit files) runs in nightly.yml, where a red is a note
-  # for the next session and not a blocked merge.
-  changes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      docs_only: ${{ steps.detect.outputs.docs_only }}
-      web: ${{ steps.detect.outputs.web }}
-      rust: ${{ steps.detect.outputs.rust }}
-      lockfile: ${{ steps.detect.outputs.lockfile }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # base...HEAD needs the merge base
-      - id: detect
-        run: node scripts/ci-changes.mjs ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'HEAD~1' }}
-
-  conventions:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 8
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: jdx/mise-action@v2
-        with:
-          cache: true
-      - uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
-      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
-      - name: PR title is a valid squash subject
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: node orchestration/pr-mark.mjs --bare | pnpm exec commitlint --verbose
-
-  # Everything that needs neither a browser nor Rust: hygiene checks, types, lint, unit tests, goldens, fidelity, licences.
-  fast:
-    needs: changes
-    if: needs.changes.outputs.docs_only != 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-        with:
-          cache: true
-      - uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
-      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
-      - run: pnpm check
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm test
-      # Seconds, node only: the named palette tests must fail with searchPrepared switched off (A-10).
-      - run: pnpm --filter @marxy/desktop test:mutations
-      # The import-graph half: production main.ts must not reach the memory shell or the harness. Cheap
-      # without a build; the rust job runs it again over the built dist.
-      - run: pnpm gate:bundle
-      - name: CommonMark spec selftest
-        run: node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --selftest
-      # The spec is an immutable pinned version, and it was re-downloaded on every pull request: a
-      # red build because spec.commonmark.org was slow or rate-limiting is a failure that has
-      # nothing to do with the diff under review (MARXY-153). Fetched once and cached instead. The
-      # key is the script's own hash, because the version pin lives only in that file and the
-      # workflow is not allowed to name it.
-      - uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/marxy-commonmark
-          key: "commonmark-${{ hashFiles('packages/core/scripts/commonmark-spec.ts') }}"
-      - name: CommonMark spec suite
-        env:
-          MARXY_COMMONMARK_SPEC: ${{ runner.temp }}/marxy-commonmark/spec.json
-        run: |
-          DEST=$(node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --print-dest)
-          URL=$(node --experimental-strip-types packages/core/scripts/commonmark-spec.ts --print-url)
-          mkdir -p "$(dirname "$DEST")"
-          test -s "$DEST" || curl -fsSL --retry 3 --retry-all-errors "$URL" -o "$DEST"
-          pnpm --filter @marxy/core test:spec
-          test -z "$(git status --porcelain)"
-      - run: pnpm gate:golden
-      - run: pnpm gate:fidelity
-      - run: pnpm gate:licences
-
-  # Browser gates in the official Playwright image: browsers and their system libraries are already
-  # there. Pull requests and merge groups only: the push to main proves a tree its pull request proved.
-  # The desktop suite here is `test:lite` (A-10, G-04): the files that hold a commitment. Save, trust,
-  # data loss, close, reload, operations and progressive rendering (its 1 MB first-text test) are
-  # faithfulness and "first text never waits"; release CSP, remote images blocked and themes make no
-  # request are "nothing phones home". The full suite, the mutation check and the typeset, theme and
-  # core WebKit tests run in nightly.yml's browser-full.
-  #
-  # Two shards, so the job's wall time is half the suite's: `node --test --test-shard=i/2` takes every
-  # second file of test:lite's list. pnpm appends what follows the script name, without a `--`. The
-  # no-network gate runs in shard 1 only; it is one Vite build and two browsers, not worth doing twice.
-  # `ci` waits for `browser-lite` as one job: GitHub reports a matrix as the aggregate of its legs.
-  browser-lite:
-    needs: changes
-    if: needs.changes.outputs.web == 'true' && github.event_name != 'push'
-    runs-on: ubuntu-latest
-    container: mcr.microsoft.com/playwright:v1.63.0-noble
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-        with:
-          cache: true
-      - uses: actions/cache@v4
-        with:
-          path: ~/.pnpm-store
-          key: "pnpm-container-${{ hashFiles('pnpm-lock.yaml') }}"
-      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
-      - name: No network, in both engines (shard 1)
-        if: matrix.shard == 1
-        run: pnpm gate:no-network
-      # The desktop suite's WebKit tests (live reload, the open path, operations, Source mode) skip in
-      # `fast`, which has no browser; here WebKit is in the image, so a skip would be a lie and is
-      # refused. Nothing ran them on a pull request before MARXY-247, and the edit-after-reload data
-      # loss MARXY-246 fixed reached main through that gap. The Rust half of the images test is a
-      # `#[test]` that the rust job runs, so this job needs no C linker (G-04).
-      - name: Desktop lite suite with WebKit required (shard ${{ matrix.shard }} of 2)
-        run: pnpm --filter @marxy/desktop test:lite --test-shard=${{ matrix.shard }}/2
-        env:
-          MARXY_BROWSER_TESTS_REQUIRED: "1"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: browser-results-${{ matrix.shard }}
-          path: results/
-          if-no-files-found: ignore
-
-  # The Rust shell's own checks, on macOS (the product target; the repository is public, so the minutes
-  # are free), when the crate, the toolchain or a dependency changed: format, clippy and the crate's
-  # unit tests, then the licence gate over every crate in Cargo.lock. Nothing is built into a binary:
-  # `cargo test` of the plain dev profile does not embed the frontend, so there is no `dist/` to make
-  # first (verified in G-03). The release-profile binary, the CLI smoke and the Linux build run in
-  # nightly.yml (ADR-0046 amended by ADR-0056). On a lockfile-only change (an npm bump) only the
-  # licence steps run: nothing in Rust can have moved.
-  rust:
-    needs: changes
-    if: (needs.changes.outputs.rust == 'true' || needs.changes.outputs.lockfile == 'true') && github.event_name != 'push'
+  macos:
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # verify finds the merge base with the base branch even at `full`
       - uses: jdx/mise-action@v2
         with:
           cache: true
-      # The dependencies compiled for clippy and the tests. A pull request restores main's cache, which the
-      # nightly startup-macos job writes under the same shared key after running these same commands; with
-      # no run on main of its own, this job would otherwise compile Tauri from nothing every time.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
-          shared-key: macos-rust
-          cache-on-failure: true   # a red clippy or test must not throw away the compiled dependencies
-      - name: Rust format and clippy
-        if: needs.changes.outputs.rust == 'true'
-        run: pnpm lint:rust
-      - name: Rust unit tests
-        if: needs.changes.outputs.rust == 'true'
-        run: cd apps/desktop/src-tauri && cargo test --locked --quiet
-      # The gate reads every crate's licence from the cargo registry cache, which a fetch fills: it needs
-      # the sources, not a build (G-03).
-      - name: Fetch the locked crates
-        run: cd apps/desktop/src-tauri && cargo fetch --locked
-      # The gate also resolves every npm package's licence from node_modules/.pnpm.
-      - uses: actions/cache@v4
+          cache-on-failure: true
+      - run: pnpm install --frozen-lockfile
+      - name: WebKit for the desktop unit files that start it
+        run: pnpm exec playwright install webkit
+      - name: Verify (every step that passes on macOS)
+        env:
+          BASE: origin/${{ github.base_ref || 'main' }}
+        run: >-
+          node scripts/verify.mjs --tier full --base "$BASE" --no-lock --logs "$RUNNER_TEMP/verify"
+          --only install,typecheck,lint,check,golden,fidelity,licences,unit-core,unit-theme,unit-typeset,unit-scripts,unit-desktop,unit-desktop-browser,lint-rust,cargo,build
+      - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          path: ~/.pnpm-store
-          key: "pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}"
-      - run: pnpm config set store-dir ~/.pnpm-store && pnpm install --frozen-lockfile
-      - name: Licence gate (every crate in Cargo.lock, read from the registry)
-        run: node scripts/gate-licences.mjs --require-registry
+          name: verify-logs-macos
+          path: ${{ runner.temp }}/verify
+          if-no-files-found: ignore
 
-  # The one status check branch protection requires. It runs whatever happened above, so it reports on
-  # every pull request, path-filtered or docs-only; scripts/ci-verdict.mjs says what turns it red.
-  ci:
-    needs: [changes, conventions, fast, browser-lite, rust]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 180 # a run by hand at `full` takes the browser suite, about two hours
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
-      - name: Every job that ran succeeded
+        with:
+          fetch-depth: 0 # `changed` diffs against the merge base with the base branch
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          cache-on-failure: true
+      - run: pnpm install --frozen-lockfile
+      - name: WebKit for the browser tests
+        run: pnpm exec playwright install webkit
+      - name: Verify
         env:
-          NEEDS: ${{ toJSON(needs) }}
-        run: node scripts/ci-verdict.mjs
+          TIER: ${{ inputs.tier || 'changed' }}
+          BASE: origin/${{ github.base_ref || 'main' }}
+          MARXY_BROWSER_TESTS_REQUIRED: "1"
+          # Empty on a run by hand, which then runs its tier's steps.
+          ONLY: ${{ github.event_name != 'workflow_dispatch' && 'install,typecheck,lint,check,golden,fidelity,licences,unit-core,unit-theme,unit-typeset,unit-scripts,unit-desktop,unit-desktop-browser,lint-rust,cargo' || '' }}
+        run: node scripts/verify.mjs --tier "$TIER" --base "$BASE" --logs "$RUNNER_TEMP/verify" --no-lock ${ONLY:+--only "$ONLY"}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-logs-windows
+          path: ${{ runner.temp }}/verify
+          if-no-files-found: ignore
+
+  # Branch protection on main requires the one check `ci`; it passes only when both platforms did.
+  ci:
+    if: always()
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Both platforms passed
+        env:
+          MACOS: ${{ needs.macos.result }}
+          WINDOWS: ${{ needs.windows.result }}
+        run: |
+          echo "macos: $MACOS, windows: $WINDOWS"
+          test "$MACOS" = success && test "$WINDOWS" = success

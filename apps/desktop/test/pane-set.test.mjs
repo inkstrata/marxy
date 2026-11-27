@@ -1,4 +1,4 @@
-// The pane model and the two-pane skeleton (D-01): `PaneSet` opens a second `section.marxy-pane` beside
+// The pane model and the two-pane skeleton: `PaneSet` opens a second `section.marxy-pane` beside
 // the first, focuses, lays out and closes panes, and with one document the page is what it always was.
 // Booted on the shipped skeleton and CSS (test/support/two-pane.mjs), over the memory shell.
 import { strict as assert } from 'node:assert';
@@ -33,6 +33,14 @@ async function withPage(fn, viewport = { width: 1470, height: 900 }) {
   }
 }
 
+/** The window less the frame's sides (frame.ts sets them on <body>): where the panes are laid out. */
+const frameCentre = (page) =>
+  page.evaluate(() => {
+    const side = (name) => Number.parseFloat(getComputedStyle(document.body).getPropertyValue(name)) || 0;
+    const x = side('--marxy-frame-left');
+    return { x, width: window.innerWidth - x - side('--marxy-frame-right') };
+  });
+
 /** What the DOM says about the panes. */
 const layout = (page) =>
   page.evaluate(() => {
@@ -63,17 +71,20 @@ test('one document: one pane, no divider and no split, the skeleton the app alwa
       { ...state.panes[0], rect: undefined },
       { slot: '0', article: 'doc', notices: 'marxy-notices', source: 'marxy-source', focus: true, heading: 'Alpha', rect: undefined },
     );
-    // The pane fills the window: the article is laid out against the same width as before.
-    assert.equal(state.panes[0].rect.width, 1470);
-    // Nothing visible outside #marxy-main (the gate's checkChrome), and the find slot is empty and not drawn.
+    // The pane fills the frame's centre, between the rail and drawer and the panel.
+    const centre = await frameCentre(page);
+    assert.equal(state.panes[0].rect.x, centre.x);
+    assert.equal(state.panes[0].rect.width, centre.width);
+    // Nothing visible outside #marxy-main but the frame (the rail, the drawer, the window's tab row) and the minimap proposal (the gate's checkChrome), and the find
+    // slot is empty and not drawn.
     const outside = await page.evaluate(() => {
       const main = document.getElementById('marxy-main');
       return [...document.querySelectorAll('body *')].filter((el) => {
-        if (main.contains(el)) return false;
+        if (main.contains(el) || el.closest('.marxy-rail, .marxy-drawer, .marxy-tabbar, .marxy-quiet, .marxy-mmap')) return false;
         const s = getComputedStyle(el);
         const r = el.getBoundingClientRect();
         return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
-      }).map((el) => el.tagName);
+      }).map((el) => `${el.tagName}.${el.className}`);
     });
     assert.deepEqual(outside, []);
     const slot = await page.evaluate(() => {
@@ -100,21 +111,26 @@ test("openIn('other') makes a second pane beside the first, each with its own vi
         { slot: '1', article: 'doc-2', notices: 'marxy-notices-2', source: 'marxy-source-2', heading: 'Bravo' },
       ],
     );
-    // Side by side at the default ratio: two columns of half the window each.
+    // Side by side at the default ratio: two columns of half the frame's centre each.
     const [left, right] = state.panes;
-    assert.equal(left.rect.x, 0);
-    assert.ok(Math.abs(left.rect.width - 735) <= 1 && Math.abs(right.rect.x - 735) <= 1, JSON.stringify(state.panes));
+    const centre = await frameCentre(page);
+    const half = centre.width / 2;
+    assert.equal(left.rect.x, centre.x);
+    assert.ok(Math.abs(left.rect.width - half) <= 1 && Math.abs(right.rect.x - (centre.x + half)) <= 1, JSON.stringify({ centre, panes: state.panes }));
     // Each article is centred in its own pane: --marxy-room is measured against the pane, not the window.
     const centres = await page.evaluate(() =>
       ['doc', 'doc-2'].map((id) => {
         const article = document.getElementById(id).getBoundingClientRect();
-        const pane = document.getElementById(id).parentElement.getBoundingClientRect();
-        return Math.abs(article.x + article.width / 2 - (pane.x + pane.width / 2));
+        const paneEl = document.getElementById(id).parentElement;
+        const pane = paneEl.getBoundingClientRect();
+        // The page's column ends left of the spine: the pane keeps 18 px at its end (frame.css), the article centres in the rest.
+        const end = parseFloat(getComputedStyle(paneEl).paddingInlineEnd);
+        return Math.abs(article.x + article.width / 2 - (pane.x + (pane.width - end) / 2));
       }),
     );
     assert.ok(centres.every((d) => d <= 1), `articles off centre by ${centres}`);
     // The pane is the container its article's room (`100cqi` in --marxy-room) is measured against, not
-    // #marxy-main: a probe 100cqi wide in each article is its pane's width, half the window.
+    // #marxy-main: a probe 100cqi wide in each article is its pane's width, half the centre, less the spine's strip.
     const room = await page.evaluate(() =>
       ['doc', 'doc-2'].map((id) => {
         const probe = document.createElement('div');
@@ -125,7 +141,8 @@ test("openIn('other') makes a second pane beside the first, each with its own vi
         return Math.round(width);
       }),
     );
-    assert.deepEqual(room, [735, 735]);
+    // The pane's own width less the 18 px it keeps at its end for the spine (frame.css).
+    assert.deepEqual(room, [Math.round(left.rect.width - 18), Math.round(right.rect.width - 18)]);
     // The window title stays the focused pane's: the document opened beside it does not take it.
     const title = await page.evaluate(() => ({
       document: document.title,
@@ -206,7 +223,8 @@ test('closing the left pane leaves the survivor as #doc, unsplit, with one types
       await new Promise((resolve) => setTimeout(resolve, 0));
       return { closed, counts: handle.debugCounts(), path: handle.currentPath(), focused: panes.focused.slot, watches: [split, window.__marxyWatches] };
     });
-    assert.deepEqual(once, { closed: true, counts: { typesetters: 1, resizeObservers: 1 }, path: '/r/B.md', focused: 0, watches: [2, 1] });
+    assert.deepEqual(once, { closed: true, counts: { typesetters: 1, resizeObservers: 1 }, path: '/r/B.md', focused: 0, watches: [2, 2] });
+    // The two: B shown, and A the left pane held, now warm with its watch (a closed tab's store is `stores.retain`'s).
     const state = await layout(page);
     assert.equal(state.split, false);
     assert.deepEqual(
@@ -215,7 +233,7 @@ test('closing the left pane leaves the survivor as #doc, unsplit, with one types
     );
     assert.equal(await page.evaluate(() => document.getElementById('marxy-main').hasAttribute('style')), false, 'the grid template is cleared');
     // Every way a pane goes: the left one (its store shared with the survivor for the swap), the right one
-    // over a different document, and either one over the same document (one store and, since D-10, one
+    // over a different document, and either one over the same document (one store and one
     // watch: it is the store's, so a pane that lets go of a store the other still shows leaves it running).
     const cycles = await page.evaluate(async () => {
       const handle = window.__marxyHandle;
@@ -254,7 +272,9 @@ test('closing the left pane leaves the survivor as #doc, unsplit, with one types
       counts: { typesetters: 1, resizeObservers: 1 },
       panes: 1,
       docs: 1,
-      watches: { mixed: 1, closeLeft: 1, closeRight: 1, sameFileSplit: 1, sameFile: 1 },
+      // A pane's document moved off it is kept warm with its watch, so the count is the shown store's plus the kept ones
+      // (at most three in all, however many cycles): the ten cycles of each way must not add to it.
+      watches: { mixed: 2, closeLeft: 3, closeRight: 2, sameFileSplit: 2, sameFile: 2 },
     });
   });
 });
@@ -411,7 +431,7 @@ test("closing the left pane keeps what was typed in the right pane's Source, and
   });
 });
 
-test('closing the left pane closes its store when the survivor shows another document; an empty right pane refuses it', async () => {
+test('closing the left pane leaves its clean store warm for the tab, and the survivor shows another document, or the card of a file that could not be opened', async () => {
   await withPage(async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
     const result = await page.evaluate(async () => {
@@ -419,14 +439,16 @@ test('closing the left pane closes its store when the survivor shows another doc
       const isOpen = (s) => s.undo().then(() => true, () => false);
       const a = panes.panes[0].view.store();
       await panes.close(panes.panes[0]);
+      // The pane's document moves off it like any tab left: kept warm, clean, until the tab closes (`stores.retain`).
       const closedA = !(await isOpen(a));
-      // A right pane whose read failed shows nothing: closing the left one would drop the wrong document.
+      const warmA = panes.stores.warm().includes(a);
+      // A right pane whose read failed shows that file's card: closing the left one moves the card into slot 0.
       await panes.openIn('other', '/r/missing.md');
-      const empty = panes.panes[1].path();
-      const refused = await panes.close(panes.panes[0]);
-      return { closedA, empty, refused, panes: panes.panes.length, left: panes.panes[0].path() };
+      const failed = panes.panes[1].path();
+      const closed = await panes.close(panes.panes[0]);
+      return { closedA, warmA, failed, closed, panes: panes.panes.length, left: panes.panes[0].path() };
     });
-    assert.deepEqual(result, { closedA: true, empty: null, refused: false, panes: 2, left: '/r/B.md' });
+    assert.deepEqual(result, { closedA: false, warmA: true, failed: '/r/missing.md', closed: true, panes: 1, left: '/r/missing.md' });
   });
 });
 
@@ -473,5 +495,36 @@ test('over unsaved edits, openIn resolves at the prompt; the open change and onL
     await page.waitForFunction(() => window.__seen.length === 2);
     const landed = await page.evaluate(() => ({ path: window.__marxyHandle.panes().panes[0].path(), seen: window.__seen }));
     assert.deepEqual(landed, { path: '/r/C.md', seen: ['open:/r/C.md', 'landed'] });
+  });
+});
+
+test('closing the right pane over its prompt, while the left pane is closed meanwhile, leaves the one pane and its document', async () => {
+  await withPage(async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/A.md', '/r/B.md'] });
+    const result = await page.evaluate(async () => {
+      const panes = window.__marxyHandle.panes();
+      const [left, right] = panes.panes;
+      let release;
+      const gate = new Promise((resolve) => (release = resolve));
+      const seen = [];
+      panes.onChange((e) => e.kind === 'close' && seen.push(e.pane === right ? 'right' : 'left'));
+      // The reader's choice at the right pane's prompt is pending; meanwhile the left pane (no prompt of its own) closes,
+      // and the right pane's document takes slot 0.
+      panes.beforeReplace = (pane) => (pane === right ? gate.then(() => true) : Promise.resolve(true));
+      const closing = panes.close(right);
+      const leftClosed = await panes.close(left);
+      release();
+      const rightClosed = await closing;
+      return {
+        leftClosed,
+        rightClosed,
+        seen,
+        panes: panes.panes.length,
+        split: document.getElementById('marxy-main').hasAttribute('data-marxy-split'),
+        path: panes.panes[0].path(),
+        heading: document.querySelector('#doc h1')?.textContent,
+      };
+    });
+    assert.deepEqual(result, { leftClosed: true, rightClosed: false, seen: ['left'], panes: 1, split: false, path: '/r/B.md', heading: 'Bravo' });
   });
 });

@@ -1,0 +1,126 @@
+{
+  "tier": "full",
+  "base": "master",
+  "root": "C:\\Dev\\reader\\worktrees\\round9",
+  "rows": [
+    {
+      "name": "install",
+      "status": "pass",
+      "seconds": 0.403,
+      "tests": "",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\01-install.log"
+    },
+    {
+      "name": "typecheck",
+      "status": "pass",
+      "seconds": 12.31,
+      "tests": "",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\02-typecheck.log"
+    },
+    {
+      "name": "lint",
+      "status": "pass",
+      "seconds": 2.368,
+      "tests": "",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\03-lint.log"
+    },
+    {
+      "name": "check",
+      "status": "pass",
+      "seconds": 12.472,
+      "tests": "10 pass, 0 fail",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\04-check.log"
+    },
+    {
+      "name": "golden",
+      "status": "pass",
+      "seconds": 2.078,
+      "tests": "",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\05-golden.log"
+    },
+    {
+      "name": "fidelity",
+      "status": "pass",
+      "seconds": 28.109,
+      "tests": "",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\06-fidelity.log"
+    },
+    {
+      "name": "licences",
+      "status": "pass",
+      "seconds": 2.23,
+      "tests": "",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\07-licences.log"
+    },
+    {
+      "name": "unit-core",
+      "status": "FAIL",
+      "seconds": 207.275,
+      "tests": "4291 pass, 1 fail, 3 skip",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\08-unit-core.log"
+    },
+    {
+      "name": "unit-theme",
+      "status": "pass",
+      "seconds": 44.957,
+      "tests": "305 pass, 0 fail",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\09-unit-theme.log"
+    },
+    {
+      "name": "unit-typeset",
+      "status": "pass",
+      "seconds": 45.164,
+      "tests": "80 pass, 0 fail",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\10-unit-typeset.log"
+    },
+    {
+      "name": "unit-scripts",
+      "status": "FAIL",
+      "seconds": 83.114,
+      "tests": "249 pass, 2 fail",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\11-unit-scripts.log"
+    },
+    {
+      "name": "unit-desktop",
+      "status": "pass",
+      "seconds": 323.909,
+      "tests": "1315 pass, 0 fail, 1 skip",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\12-unit-desktop.log"
+    },
+    {
+      "name": "lint-rust",
+      "status": "pass",
+      "seconds": 56.126,
+      "tests": "",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\13-lint-rust.log"
+    },
+    {
+      "name": "browser",
+      "status": "FAIL",
+      "seconds": 2194.855,
+      "tests": "2463 pass, 1 fail, 4 skip",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\14-browser.log"
+    },
+    {
+      "name": "cargo",
+      "status": "pass",
+      "seconds": 29.901,
+      "tests": "597 pass, 0 fail, 5 skip",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\15-cargo.log"
+    },
+    {
+      "name": "build",
+      "status": "pass",
+      "seconds": 363.161,
+      "tests": "",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\16-build.log"
+    },
+    {
+      "name": "tauri",
+      "status": "pass",
+      "seconds": 94.602,
+      "tests": "117 pass, 0 fail",
+      "log": "C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs\\17-tauri.log"
+    }
+  ]
+}

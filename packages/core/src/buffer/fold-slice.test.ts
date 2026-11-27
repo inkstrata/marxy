@@ -58,17 +58,17 @@ const rows: Row[] = [
   row('a typed U+FFFD is EF BF BD, and the stray beside it keeps its byte', new Uint8Array([0x61, 0xff, 0x0a, 0x62, 0x0a]), [0, 4], 'a\udcff\u{fffd}b', new Uint8Array([0x61, 0xff, 0xef, 0xbf, 0xbd, 0x62, 0x0a])),
   row('a U+FFFD the file holds stays EF BF BD beside a stray', new Uint8Array([0x61, 0xef, 0xbf, 0xbd, 0xff, 0x0a]), [0, 6], 'b\u{fffd}\udcff\n', new Uint8Array([0x62, 0xef, 0xbf, 0xbd, 0xff, 0x0a])),
   row('BOM before the slice is untouched', new Uint8Array([0xef, 0xbb, 0xbf, ...bytesOf('a\r\nb\r\n')]), [3, 7], 'a\nc', new Uint8Array([0xef, 0xbb, 0xbf, ...bytesOf('a\r\nc\r\n')])),
-  // F-40: a block that mixes endings. The editor's text names every ending of the block as it is; only a line break
+  // a block that mixes endings. The editor's text names every ending of the block as it is; only a line break
   // the reader made (a bare LF) follows the first ending, and only when the part replaced has no bare LF of its own.
-  row('mixed, CRLF first: an edit across a bare LF leaves it (F-40)', 'line1\r\nline2\nline3\r\nline4', [0, 26], 'Xline1\r\nline2\nline3\r\nline4Y', 'Xline1\r\nline2\nline3\r\nline4Y'),
-  row('mixed, lone CR first: an edit across a bare LF and a CRLF leaves both (F-40)', 'a\rb\nc\r\nd', [0, 9], 'Xa\rb\nc\r\ndY', 'Xa\rb\nc\r\ndY'),
-  row('mixed, lone CR first: an edit across a CRLF leaves it a CRLF (F-40)', 'a\rb\r\nc', [0, 7], 'Xa\rb\r\ncY', 'Xa\rb\r\ncY'),
+  row('mixed, CRLF first: an edit across a bare LF leaves it', 'line1\r\nline2\nline3\r\nline4', [0, 26], 'Xline1\r\nline2\nline3\r\nline4Y', 'Xline1\r\nline2\nline3\r\nline4Y'),
+  row('mixed, lone CR first: an edit across a bare LF and a CRLF leaves both', 'a\rb\nc\r\nd', [0, 9], 'Xa\rb\nc\r\ndY', 'Xa\rb\nc\r\ndY'),
+  row('mixed, lone CR first: an edit across a CRLF leaves it a CRLF', 'a\rb\r\nc', [0, 7], 'Xa\rb\r\ncY', 'Xa\rb\r\ncY'),
   row('mixed, CRLF first: a new line break in a part with no bare LF follows the first ending', 'a\r\nb\r\nc\nd', [0, 11], 'a\n\r\nb\r\nc\nd', 'a\r\n\r\nb\r\nc\nd'),
   row('mixed, CRLF first: a new line break beside a bare LF of the part is written as typed', 'a\r\nb\r\nc\nd', [0, 11], 'a\n\r\nb\r\nc\ndY', 'a\n\r\nb\r\nc\ndY'),
-  // F-40.1: deleting only the CR of a CRLF is a real edit; the LF it leaves is the old one, not a new line break.
-  row('mixed, CRLF first: deleting only a CR of a CRLF is written (F-40.1)', 'a\r\n\r\nb\nc', [0, 9], 'a\n\r\nb\nc', 'a\n\r\nb\nc'),
-  row('mixed: deleting the CR of the second of two CRLFs is written (F-40.1)', 'a\r\n\r\nb\nc', [0, 9], 'a\r\n\nb\nc', 'a\r\n\nb\nc'),
-  row('mixed, lone CR first: deleting only the CR of a CRLF is written (F-40.1)', 'a\r\r\nb\r\nc', [0, 10], 'a\r\nb\r\nc', 'a\r\nb\r\nc'),
+  // deleting only the CR of a CRLF is a real edit; the LF it leaves is the old one, not a new line break.
+  row('mixed, CRLF first: deleting only a CR of a CRLF is written', 'a\r\n\r\nb\nc', [0, 9], 'a\n\r\nb\nc', 'a\n\r\nb\nc'),
+  row('mixed: deleting the CR of the second of two CRLFs is written', 'a\r\n\r\nb\nc', [0, 9], 'a\r\n\nb\nc', 'a\r\n\nb\nc'),
+  row('mixed, lone CR first: deleting only the CR of a CRLF is written', 'a\r\r\nb\r\nc', [0, 10], 'a\r\nb\r\nc', 'a\r\nb\r\nc'),
   row('CR-only slice takes CR for new lines', 'a\rb\rc', [0, 5], 'a\nb\nX\nc'.replace(/\n/g, '\r'), 'a\rb\rX\rc'),
 ];
 
@@ -219,7 +219,7 @@ test('property: folding an edited slice leaves every byte outside the edit range
   assert.ok(folds > 1000, `only ${folds} folds ran`);
 });
 
-// F-34.2: the block editor's text is the slice's Source text, so an edit either side of a stray byte keeps it.
+// the block editor's text is the slice's Source text, so an edit either side of a stray byte keeps it.
 const hexOf = (b: Uint8Array): string => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join(' ');
 const bytes = (...parts: Array<string | number[]>): Uint8Array => Uint8Array.from(parts.flatMap((p) => (typeof p === 'string' ? [...enc.encode(p)] : p)));
 const applied = (buffer: Buffer, slice: Source, text: string): string => {
@@ -277,7 +277,7 @@ test('foldSlice: text that names the bytes already there folds to nothing, thoug
   assert.equal(applied(buffer, slice, 'x\udcc3\udca9yz'), hexOf(bytes('x', [0xc3, 0xa9], 'yz')));
 });
 
-// F-40.1: in a block that mixes endings the text names every byte, so deleting any one character (a CR above all)
+// in a block that mixes endings the text names every byte, so deleting any one character (a CR above all)
 // is written as exactly that byte gone, whichever of CR, LF and CRLF its neighbours are.
 test('property: deleting one character of a mixed-ending block writes exactly that byte gone', () => {
   const pieces = ['a', 'bc', '\n', '\r\n', '\r', '\r\n\r\n', '\n\n', 'é', ' '];

@@ -1,0 +1,56 @@
+/* Compare: before on the left of a seam, now on the right. Colours only from tokens. */
+
+.marxy-studio-compare .marxy-studio-measure { display: none; }
+.marxy-studio-compare-before { z-index: 1; }
+
+.marxy-studio-compare-seam {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 15px;
+  margin-left: -7px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.marxy-studio-compare-seam::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 7px;
+  width: 1px;
+  background: var(--marxy-color-accent);
+}
+.marxy-studio-compare-grip {
+  position: absolute;
+  top: 50%;
+  left: 1px;
+  width: 13px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: 7px;
+  background: var(--marxy-color-surface);
+  box-shadow: 0 0 0 1px var(--marxy-color-accent);
+}
+.marxy-studio-compare-seam[data-marxy-held] .marxy-studio-compare-grip,
+.marxy-studio-compare-seam:focus-visible .marxy-studio-compare-grip { background: var(--marxy-color-accent); }
+.marxy-studio-compare-seam:focus-visible { outline: none; }
+
+.marxy-studio-compare-label {
+  position: absolute;
+  top: 12px;
+  z-index: 2;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: var(--marxy-color-surface);
+  color: var(--marxy-color-text-faint);
+  font-family: var(--marxy-face-chrome);
+  font-size: calc(10.5 * var(--marxy-c));
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.marxy-studio-compare-label-l { left: 12px; }
+.marxy-studio-compare-label-r { right: 12px; }

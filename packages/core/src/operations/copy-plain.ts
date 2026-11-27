@@ -1,4 +1,4 @@
-// copy-plain: the words of a block, section or document, without markup (C-07).
+// copy-plain: the words of a block, section or document, without markup.
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
 import { isBlockOrDocument } from './copy-source.ts';
 import { blocksOf, plainTextOf } from './plain-text.ts';

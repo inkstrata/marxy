@@ -1,4 +1,4 @@
-// Source gutter: line numbers, copy fidelity, folding, special chars, ligatures (MARXY-239).
+// Source gutter: line numbers, copy fidelity, folding, special chars, ligatures.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -6,15 +6,16 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const appRoot = join(repoRoot, 'apps', 'desktop');
 const corpusDir = join(repoRoot, 'fixtures', 'corpus');
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-source-gutter-'));
@@ -48,6 +49,8 @@ async function boot(page, files, argv) {
     const handle = await window.marxyApp.start(files, argv);
     await handle.ready;
     window.__marxyHandle = handle;
+    // Code lands in Read; this is about Source, one press away.
+    if (!argv[0].endsWith('.md') && document.body.dataset.marxyMode !== 'source') await handle.toggleMode();
   }, { files, argv });
   await page.waitForFunction(() => document.querySelector('#marxy-source .cm-editor') || document.body.dataset.marxyMode === 'source');
 }

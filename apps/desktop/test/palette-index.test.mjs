@@ -1,4 +1,4 @@
-// Palette index from loadIndex (src/index/walk.ts) + memory readDir (MARXY-196): heading search and open at byte offset.
+// Palette index from loadIndex (src/index/walk.ts) + memory readDir: heading search and open at byte offset.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { createMemoryShell } from '../src/shell/memory.ts';
 import { fileURLToPath } from 'node:url';
@@ -25,7 +25,7 @@ const filler = `${'word '.repeat(40)}\n\n`;
 // Landing puts the heading on the reading line, 40% down the viewport, which needs the page to
 // scroll: text above the heading so it starts below that line, and text after it so there is room
 // to scroll it up. With one paragraph above, the heading sat above the line at scroll 0 and the
-// offset read back was the next paragraph's, a fact about the theme's top padding (MARXY-272).
+// offset read back was the next paragraph's, a fact about the theme's top padding.
 const aboveHeading = filler.repeat(8);
 const guideBody = `# Guide\n\n${aboveHeading}## Installing\n\n${filler.repeat(8)}Done\n`;
 const installingOffset = Buffer.byteLength(`# Guide\n\n${aboveHeading}`, 'utf8');
@@ -95,7 +95,8 @@ test('typing Installing finds guide.md, not node_modules; Enter opens at the hea
     const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
     await page.keyboard.press(`${mod}+KeyP`);
     await page.fill('#marxy-palette .marxy-palette-query', 'Installing');
-    await page.keyboard.press('Tab');
+    // Go lists the headings beside the files (the Line): no Tab to reach them.
+    await page.waitForSelector('#marxy-palette .marxy-palette-row');
     const rows = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
       els.map((el) => el.textContent ?? ''),
     );

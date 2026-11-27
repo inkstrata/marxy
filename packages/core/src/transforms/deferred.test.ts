@@ -1,4 +1,4 @@
-// The five transforms J-03 left for J-03.1: Slack, Jira wiki, HTML, hard-wrap at 80 and delimited text to a table.
+// The five deferred transforms: Slack, Jira wiki, HTML, hard-wrap at 80 and delimited text to a table.
 // The registry sweep (registry.test.ts) holds each to the fidelity properties; these tests hold what each one does.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -177,7 +177,7 @@ test('the reflow property can fail', () => {
   canFail(() => assertReflows((s) => s.replace(/aaa/g, 'b')));
 });
 
-// ---- review fixes (J-03.1)
+// ---- review fixes
 
 test('wrap-80: words that merely start with a marker character wrap like any other', () => {
   for (const unit of ['**word** ', '_word_ ', '-x --flag ']) {

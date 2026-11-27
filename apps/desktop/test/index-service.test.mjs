@@ -1,7 +1,6 @@
-// The palette index has an owner (A-04): one walk per repository root, every root opened published.
-// WebKit: the three scenarios of the October 2026 audit (01-codebase-audit.md §1.3 [C9]), edits that
-// no longer re-walk [C10], and history.json roots. Node: the service over a memory shell, and index
-// reads through the Tauri shell's peekFile so they never land in its stale-write table.
+// The palette index has an owner: one walk per repository root, every root opened published.
+// WebKit: edits that no longer re-walk, and history.json roots. Node: the service over a memory shell,
+// and index reads through the Tauri shell's peekFile so they never land in its stale-write table.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -11,7 +10,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { createMemoryShell } from '../src/shell/memory.ts';
 import { createIndexService, indexShellFor } from '../src/index/service.ts';
@@ -154,7 +153,7 @@ nodeTest('a first walk that fails is not cached: the next ensureFor walks the ro
   assert.deepEqual(service.entries().map((e) => e.path).sort(), ['/b/README.md', '/b/notes.md'], 'the retry walked /b');
 });
 
-// A-05: the snapshot, and a walk that reads only what it must.
+// the snapshot, and a walk that reads only what it must.
 
 const sha1 = async (text) =>
   [...new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(text)))].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -184,8 +183,8 @@ const stampedShell = (files, mtimes = new Map()) => {
 };
 
 const walkCalls = (shell, method) =>
-  // The collection.toml read (C-10) is the deny list's, not the walk's; `.git` and `.git/HEAD` are
-  // C-15's probes for which checkout a folder is (counted in the test that names them).
+  // The collection.toml read is the deny list's, not the walk's; `.git` and `.git/HEAD` are
+  // The probes for which checkout a folder is (counted in the test that names them).
   shell.calls.filter((c) => c.method === method && !String(c.args[0]).startsWith('/data/') && c.args[0] !== '/collection.toml' && !isGitProbe(c));
 
 const isGitProbe = (c) => c.method === 'readFile' && /\/\.git(\/HEAD)?$/.test(String(c.args[0]));
@@ -197,7 +196,8 @@ nodeTest('a cold walk makes exactly one readDir per directory, one read per igno
   const probes = walkCalls(shell, 'readDir').length; // root detection lists the opened file's directory
   await service.ensureFor('/r/README.md');
   assert.equal(walkCalls(shell, 'readDir').length - probes, 3, 'readDir x directories (/r, /r/docs, /r/docs/deep)');
-  assert.equal(walkCalls(shell, 'readFile').length, 1 + 4, 'readFile x ignore files present + x markdown files');
+  assert.equal(walkCalls(shell, 'readFile').length, 1, 'readFile x ignore files present');
+  assert.equal(walkCalls(shell, 'readHead').length, 4, 'readHead x markdown files: headings need only the head');
   const mark = shell.calls.filter((c) => c.method === 'mark' && c.args[0] === 'index_loaded').map((c) => c.args[2]);
   assert.equal(mark.length, 1);
   assert.match(mark[0], /source=walk calls=8$/, 'calls= counts the walk: 3 listings + 1 ignore file + 4 markdown files');
@@ -207,7 +207,7 @@ nodeTest('a cold walk makes exactly one readDir per directory, one read per igno
 nodeTest('a directory with no ignore file costs no ignore probe', async () => {
   const { shell, host } = stampedShell({ '/r/.git/HEAD': enc('x'), '/r/a/b/c.md': enc('# C\n'), '/r/a/d/e.md': enc('# E\n') });
   await createIndexService(host).ensureFor('/r/a/b/c.md');
-  const read = walkCalls(shell, 'readFile').map((c) => c.args[0]);
+  const read = [...walkCalls(shell, 'readFile'), ...walkCalls(shell, 'readHead')].map((c) => c.args[0]);
   assert.deepEqual(read.sort(), ['/r/a/b/c.md', '/r/a/d/e.md'], `only markdown was read: ${read}`);
 });
 
@@ -244,7 +244,7 @@ nodeTest('a fresh session publishes the snapshot before its first listing resolv
   assert.ok(shell.calls.some((c) => c.method === 'mark' && /source=snapshot/.test(String(c.args[2]))), 'marked source=snapshot');
   release();
   await ensuring;
-  assert.equal(walkCalls(shell, 'readFile').filter((c) => String(c.args[0]).endsWith('.md')).length, 0, 'no markdown was read');
+  assert.equal([...walkCalls(shell, 'readFile'), ...walkCalls(shell, 'readHead')].filter((c) => String(c.args[0]).endsWith('.md')).length, 0, 'no markdown was read');
   assert.ok(shell.calls.some((c) => c.method === 'mark' && /source=walk calls=4$/.test(String(c.args[2]))), 'the check made 3 listings + 1 ignore file');
   assert.equal(shell.calls.filter((c) => c.method === 'writeFileAtomic').length, 0, 'an unchanged tree rewrites nothing');
 });
@@ -259,7 +259,7 @@ nodeTest('one changed file is the only markdown read, and its headings are updat
   const { shell, host } = stampedShell(files, new Map([['/r/docs/guide.md', 99]]));
   const service = createIndexService(host);
   await service.ensureFor('/r/README.md');
-  const read = walkCalls(shell, 'readFile').map((c) => c.args[0]).filter((p) => p.endsWith('.md'));
+  const read = walkCalls(shell, 'readHead').map((c) => c.args[0]).filter((p) => p.endsWith('.md'));
   assert.deepEqual(read, ['/r/docs/guide.md']);
   const guide = service.entries().find((e) => e.path === '/r/docs/guide.md');
   assert.equal(guide.title, 'Guide, revised');
@@ -340,9 +340,9 @@ nodeTest('a root .gitignore hides a file that exists, and the walk reads it', as
   assert.equal(paths.length, 4);
 });
 
-// C-10: declared folders are held with ensureRoot and let go with dropRoot; each root keeps a baseline.
+// declared folders are held with ensureRoot and let go with dropRoot; each root keeps a baseline.
 
-nodeTest('a second service instance over the same data directory reports the same baselineMs (C-10)', async () => {
+nodeTest('a second service instance over the same data directory reports the same baselineMs', async () => {
   const shell = createMemoryShell(snapshotRepo());
   const first = createIndexService(shell);
   assert.equal(first.baselineMs('/r'), undefined, 'no baseline before the root is indexed');
@@ -357,7 +357,7 @@ nodeTest('a second service instance over the same data directory reports the sam
   assert.equal(second.baselineMs('/r'), baseline, 'the baseline is kept in the snapshot and never moves');
 });
 
-nodeTest('a snapshot\'s baselineMs is served as kept, not replaced by its generatedAtMs or the walk time (C-10)', async () => {
+nodeTest('a snapshot\'s baselineMs is served as kept, not replaced by its generatedAtMs or the walk time', async () => {
   const shell = createMemoryShell(snapshotRepo());
   const snapshot = {
     version: 1,
@@ -374,7 +374,7 @@ nodeTest('a snapshot\'s baselineMs is served as kept, not replaced by its genera
   assert.equal(kept.baselineMs, 1_600_000_000_000, 'the rewritten snapshot carries the same baseline');
 });
 
-nodeTest('ensureRoot holds a folder as itself; dropRoot lets it go; isWatched follows the declaration (C-10)', async () => {
+nodeTest('ensureRoot holds a folder as itself; dropRoot lets it go; isWatched follows the declaration', async () => {
   const shell = createMemoryShell({
     '/c/.git/HEAD': enc('ref: refs/heads/main\n'),
     '/c/README.md': enc('# Home\n'),
@@ -391,7 +391,7 @@ nodeTest('ensureRoot holds a folder as itself; dropRoot lets it go; isWatched fo
   assert.equal(service.isWatched('/c'), true, 'the open document\'s repository counts as watched');
   assert.equal(service.isWatched('/c/sub'), true);
   assert.equal(service.isWatched('/d'), false, 'watch = false');
-  assert.equal(shell.calls.filter((c) => c.method === 'watch').length, 0, 'nothing is watched here (C-11 starts watches)');
+  assert.equal(shell.calls.filter((c) => c.method === 'watch').length, 0, 'nothing is watched here');
   service.dropRoot('/d');
   assert.deepEqual(of('/d'), []);
   assert.deepEqual(service.roots(), ['/c', '/c/sub']);
@@ -410,7 +410,7 @@ const deniedTree = (collection) => ({
 });
 const DENY_DRAFTS = '[[root]]\npath = "/c/docs"\n\n[[root]]\npath = "/r/n"\n\n[deny]\nglobs = ["**/drafts/**"]\n';
 
-nodeTest('the deny globs hold for the current repository and a recent root, not only the declared folders (C-10)', async () => {
+nodeTest('the deny globs hold for the current repository and a recent root, not only the declared folders', async () => {
   const shell = createMemoryShell(deniedTree(DENY_DRAFTS));
   const service = createIndexService(shell);
   // The repository's first walk already honours collection.toml: it is read before any walk.
@@ -428,7 +428,7 @@ nodeTest('the deny globs hold for the current repository and a recent root, not 
   );
 });
 
-nodeTest('setDeny with new globs re-walks every root held, and an emptied list brings the files back (C-10)', async () => {
+nodeTest('setDeny with new globs re-walks every root held, and an emptied list brings the files back', async () => {
   const { denyRulesFor } = await import('@marxy/core/src/index-model/collection.ts');
   const shell = createMemoryShell(deniedTree(undefined));
   const service = createIndexService(shell);
@@ -444,7 +444,7 @@ nodeTest('setDeny with new globs re-walks every root held, and an emptied list b
   assert.deepEqual(drafts(), ['/c/docs/drafts/secret.md', '/r/n/drafts/secret-r.md'], 'no rule lingers');
 });
 
-nodeTest('a glob added while Marxy was closed: the last snapshot never publishes the denied file (C-10 review 2)', async () => {
+nodeTest('a glob added while Marxy was closed: the last snapshot never publishes the denied file', async () => {
   const shell = createMemoryShell(deniedTree(undefined));
   const first = createIndexService(shell);
   await first.ensureFor('/c/README.md');
@@ -461,7 +461,7 @@ nodeTest('a glob added while Marxy was closed: the last snapshot never publishes
   assert.ok(!published.some((paths) => paths.some((p) => p.includes('/drafts/'))), JSON.stringify(published));
 });
 
-nodeTest('setDeny hides a matching entry at once, before its re-walk resolves (C-10 review 2)', async () => {
+nodeTest('setDeny hides a matching entry at once, before its re-walk resolves', async () => {
   const { denyRulesFor } = await import('@marxy/core/src/index-model/collection.ts');
   const shell = createMemoryShell(deniedTree(undefined));
   const service = createIndexService(shell);
@@ -474,7 +474,7 @@ nodeTest('setDeny hides a matching entry at once, before its re-walk resolves (C
   assert.deepEqual(service.entries().filter((e) => e.path.includes('/drafts/')), [], 'hidden synchronously');
 });
 
-nodeTest('index reads go through peekFile: none lands in the Tauri shell lastRead', async () => {
+nodeTest('index reads go through peekFile or readHead: none lands in the Tauri shell lastRead', async () => {
   register('./support/tauri-stub-hooks.mjs', import.meta.url);
   globalThis.navigator ??= { platform: 'MacIntel' };
   const { fs } = await import('./support/tauri-core-stub.mjs');
@@ -489,10 +489,16 @@ nodeTest('index reads go through peekFile: none lands in the Tauri shell lastRea
     peeked.push(path);
     return peekFile(path);
   };
+  const headed = [];
+  const readHead = tauri.readHead;
+  host.readHead = (path, max) => {
+    headed.push(path);
+    return readHead(path, max);
+  };
 
   const service = createIndexService(indexShellFor(host));
   await service.ensureFor('/b/README.md');
-  assert.ok(peeked.includes('/b/notes.md'), `index reads go through peekFile (peeked ${peeked.join(', ')})`);
+  assert.ok(headed.includes('/b/notes.md'), `markdown is read by its head (headed ${headed.join(', ')})`);
 
   // lastRead is private; a write is refused when it holds bytes that disk no longer matches. Change a
   // file the index read, then write it: had the index read armed the guard, the write would refuse.
@@ -540,7 +546,7 @@ async function search(page, mod, query) {
   await page.waitForSelector('#marxy-palette[open]');
   await page.fill('#marxy-palette .marxy-palette-query', query);
   const rows = await page.$$eval('#marxy-palette .marxy-palette-row', (els) =>
-    // A row's title, without the age a watched root's row carries beside it (C-12).
+    // A row's title, without the age a watched root's row carries beside it.
     els.map((el) => (el.querySelector('.marxy-palette-title') ?? el).textContent ?? ''),
   );
   await page.keyboard.press('Escape');
@@ -607,7 +613,7 @@ test('history.json records repository roots, /a and /b, not /a/docs', () =>
     assert.deepEqual(recentRoots, ['/b', '/a'], history);
   }));
 
-// The open document's folder watch re-walks its root only when no tree watch covers it (C-11): here the
+// The open document's folder watch re-walks its root only when no tree watch covers it: here the
 // shell refuses the tree watch, so the folder watch is what keeps /a fresh.
 test("with no tree watch: the echo of Marxy's own save re-walks nothing; another markdown file's change re-walks the root", () =>
   launch(['/a/README.md'], async (page) => {
@@ -647,7 +653,7 @@ test("with no tree watch: the echo of Marxy's own save re-walks nothing; another
     assert.ok(counts.other.readDir > counts.echo.readDir);
   }, { refuseTreeWatch: true }));
 
-test('with a live tree watch: neither the save echo nor another file re-walks the root; the new file is patched in (C-11)', () =>
+test('with a live tree watch: neither the save echo nor another file re-walks the root; the new file is patched in', () =>
   launch(['/a/README.md'], async (page, mod) => {
     await indexed(page, '/a');
     const counts = await page.evaluate(async () => {
@@ -670,9 +676,9 @@ test('with a live tree watch: neither the save echo nor another file re-walks th
     assert.ok((await search(page, mod, 'later')).includes('Later'), 'and in the palette');
   }));
 
-// ---- C-15: which checkout a path is in ---------------------------------------------------------------
+// ---- which checkout a path is in ---------------------------------------------------------------
 
-nodeTest('checkoutKey: worktrees of one repository share a group; a folder the walk hid is never probed (C-15)', async () => {
+nodeTest('checkoutKey: worktrees of one repository share a group; a folder the walk hid is never probed', async () => {
   const shell = createMemoryShell({
     '/r/.git/HEAD': enc('ref: refs/heads/main\n'),
     '/r/.gitignore': enc('hidden/\n'),
@@ -702,7 +708,7 @@ nodeTest('checkoutKey: worktrees of one repository share a group; a folder the w
   assert.ok(probed.every((p) => /\/\.git(\/HEAD)?$/.test(p)), 'only .git and .git/HEAD are read');
 });
 
-// C-10.1: a root as large as a home directory is walked under a budget, skips the folders macOS guards,
+// a root as large as a home directory is walked under a budget, skips the folders macOS guards,
 // and a recent one is served from its snapshot only.
 
 const HOME = '/Users/ian';
@@ -721,7 +727,7 @@ const homeTree = () => ({
   [`${HOME}/Desktop/desk.md`]: enc('# Desk\n'),
 });
 
-nodeTest('a declared ~ never lists Library, Desktop, Documents or Downloads (C-10.1)', async () => {
+nodeTest('a declared ~ never lists Library, Desktop, Documents or Downloads', async () => {
   const { shell, host } = homeShell(homeTree());
   const service = createIndexService(host);
   await service.ensureRoot(HOME, { watch: true });
@@ -735,7 +741,7 @@ nodeTest('a declared ~ never lists Library, Desktop, Documents or Downloads (C-1
   }
 });
 
-nodeTest('a folder inside Documents declared on its own is walked (C-10.1)', async () => {
+nodeTest('a folder inside Documents declared on its own is walked', async () => {
   const { shell, host } = homeShell(homeTree());
   const service = createIndexService(host);
   await service.ensureRoot(`${HOME}/Documents`, { watch: true });
@@ -743,7 +749,7 @@ nodeTest('a folder inside Documents declared on its own is walked (C-10.1)', asy
   assert.ok(listed(shell).includes(`${HOME}/Documents`));
 });
 
-nodeTest('a walk of ~ stops at its directory budget with one notice, shallow folders first (C-10.1)', async () => {
+nodeTest('a walk of ~ stops at its directory budget with one notice, shallow folders first', async () => {
   const files = { [`${HOME}/top.md`]: enc('# Top\n') };
   for (let i = 0; i < 12; i++) files[`${HOME}/d${String(i).padStart(2, '0')}/deep/er/f${i}.md`] = enc(`# F${i}\n`);
   const { shell, host } = homeShell(files);
@@ -765,7 +771,7 @@ nodeTest('a walk of ~ stops at its directory budget with one notice, shallow fol
   assert.equal(said.length, 1, 'one notice per root per session');
 });
 
-nodeTest('an ordinary repository has no budget and no notice (C-10.1)', async () => {
+nodeTest('an ordinary repository has no budget and no notice', async () => {
   const files = { '/r/.git/HEAD': enc('x') };
   for (let i = 0; i < 30; i++) files[`/r/d${i}/e/f.md`] = enc('# F\n');
   const { host } = homeShell(files);
@@ -776,7 +782,7 @@ nodeTest('an ordinary repository has no budget and no notice (C-10.1)', async ()
   assert.deepEqual(said, []);
 });
 
-nodeTest('a recent ~/Downloads loads from its snapshot and is not walked; a recent repository still is (C-10.1)', async () => {
+nodeTest('a recent ~/Downloads loads from its snapshot and is not walked; a recent repository still is', async () => {
   const downloads = `${HOME}/Downloads`;
   const files = { [`${downloads}/loose.md`]: enc('# Loose\n'), '/r/.git/HEAD': enc('x'), '/r/a.md': enc('# A\n') };
   const first = homeShell(files);
@@ -805,7 +811,7 @@ nodeTest('a recent ~/Downloads loads from its snapshot and is not walked; a rece
   assert.ok(listed(second.shell).includes(downloads), 'declared, it is walked');
 });
 
-nodeTest('startCollection serves a recent ~/Downloads from its snapshot and walks it only when a document in it is opened (C-10.1)', async () => {
+nodeTest('startCollection serves a recent ~/Downloads from its snapshot and walks it only when a document in it is opened', async () => {
   const { startCollection } = await import('../src/collection/load.ts');
   const downloads = `${HOME}/Downloads`;
   const files = { [`${downloads}/loose.md`]: enc('# Loose\n'), '/r/.git/HEAD': enc('x'), '/r/a.md': enc('# A\n') };
@@ -837,7 +843,7 @@ nodeTest('startCollection serves a recent ~/Downloads from its snapshot and walk
   collection.stop();
 });
 
-nodeTest('a snapshot of ~ written before Library was skipped never serves its files (C-10.1)', async () => {
+nodeTest('a snapshot of ~ written before Library was skipped never serves its files', async () => {
   const { shell, host } = homeShell(homeTree());
   const stale = {
     version: 1, root: HOME, generatedAtMs: 1, baselineMs: 1,
@@ -851,7 +857,7 @@ nodeTest('a snapshot of ~ written before Library was skipped never serves its fi
   assert.deepEqual(service.entries().map((e) => e.path), [`${HOME}/notes.md`]);
 });
 
-nodeTest('a volume root is budgeted and a plain folder is not (C-10.1)', async () => {
+nodeTest('a volume root is budgeted and a plain folder is not', async () => {
   const { walkPolicy } = await import('../src/index/home-sized.ts');
   assert.equal(walkPolicy('/Volumes/X', HOME, 9).budget, 9);
   assert.equal(walkPolicy(HOME, HOME, 9).budget, 9);
@@ -866,7 +872,7 @@ nodeTest('a volume root is budgeted and a plain folder is not (C-10.1)', async (
 
 const sayInto = (said) => (n) => said.push(n.text);
 
-nodeTest('the notice names the folders actually skipped, once, and a walk with no skip says nothing of skips (C-10.1)', async () => {
+nodeTest('the notice names the folders actually skipped, once, and a walk with no skip says nothing of skips', async () => {
   const said = [];
   const { host } = homeShell({ ...homeTree(), [`${HOME}/Pictures/p.md`]: enc('# P\n') });
   const service = createIndexService(host, { notify: sayInto(said) });
@@ -893,7 +899,7 @@ nodeTest('the notice names the folders actually skipped, once, and a walk with n
   assert.deepEqual(none, []);
 });
 
-nodeTest('a skip and a budget stop together make one notice (C-10.1)', async () => {
+nodeTest('a skip and a budget stop together make one notice', async () => {
   const files = { [`${HOME}/Library/a.md`]: enc('# A\n') };
   for (let i = 0; i < 8; i++) files[`${HOME}/d${i}/f.md`] = enc('# F\n');
   const said = [];
@@ -903,7 +909,7 @@ nodeTest('a skip and a budget stop together make one notice (C-10.1)', async () 
   assert.match(said[0], /does not include Library, which macOS protects\..* It is too large to index in full/);
 });
 
-nodeTest('an event under a skipped folder adds no entry and causes no read (C-10.1)', async () => {
+nodeTest('an event under a skipped folder adds no entry and causes no read', async () => {
   const { shell, host } = homeShell(homeTree());
   const service = createIndexService(host, { notify: () => {} });
   await service.ensureRoot(HOME, { watch: true });
@@ -923,7 +929,7 @@ nodeTest('an event under a skipped folder adds no entry and causes no read (C-10
   );
 });
 
-nodeTest('an unbudgeted walk lists an ordinary repository as before (C-10.1)', async () => {
+nodeTest('an unbudgeted walk lists an ordinary repository as before', async () => {
   const files = { '/r/.git/HEAD': enc('x'), '/r/.gitignore': enc('out/\n'), '/r/out/x.md': enc('# X\n') };
   for (const d of ['a', 'b/c', 'b/c/d', 'e']) files[`/r/${d}/n.md`] = enc(`# ${d}\n`);
   files['/r/z.md'] = enc('# Z\n');

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { groupOf, summarise } from './bundle-report.mjs';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('..', import.meta.url).pathname;
+const root = fileURLToPath(new URL('..', import.meta.url));
 
-test('F-111: a module belongs to its npm package, or to its folder under a workspace src/', () => {
+test('a module belongs to its npm package, or to its folder under a workspace src/', () => {
   assert.equal(groupOf(`${root}node_modules/.pnpm/micromark@4.0.2/node_modules/micromark/lib/x.js`), 'micromark');
   assert.equal(groupOf(`${root}node_modules/.pnpm/@lezer+common@1.0.0/node_modules/@lezer/common/dist/index.js`), '@lezer/common');
   assert.equal(groupOf(`${root}apps/desktop/src/palette/view.ts`), 'apps/desktop/src/palette');
@@ -13,7 +14,7 @@ test('F-111: a module belongs to its npm package, or to its folder under a works
   assert.equal(groupOf('\0vite/preload-helper.js'), 'vite/preload-helper.js');
 });
 
-test('F-111: a chunk is summed by group, largest first', () => {
+test('a chunk is summed by group, largest first', () => {
   const rows = summarise({
     modules: {
       [`${root}apps/desktop/src/a/x.ts`]: { renderedLength: 10 },

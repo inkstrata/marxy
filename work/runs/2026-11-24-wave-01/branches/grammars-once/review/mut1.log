@@ -1,0 +1,46 @@
+﻿✖ the constructor throws: both fences are plain lines, nothing is coloured, and the failure is logged once (15349.5426ms)
+✖ the worker reports an error: both fences are plain lines, nothing is coloured, and the failure is logged once (1367.6957ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17582.1767
+
+✖ failing tests:
+
+test at test\highlight-no-worker.test.mjs:17:28
+✖ the constructor throws: both fences are plain lines, nothing is coloured, and the failure is logged once (15349.5426ms)
+  AssertionError [ERR_ASSERTION]: no span carries a token role
+  
+  15 !== 0
+  
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/grammars-once/apps/desktop/test/highlight-no-worker.test.mjs:90:14)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 15,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\highlight-no-worker.test.mjs:17:28
+✖ the worker reports an error: both fences are plain lines, nothing is coloured, and the failure is logged once (1367.6957ms)
+  AssertionError [ERR_ASSERTION]: no span carries a token role
+  
+  15 !== 0
+  
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/grammars-once/apps/desktop/test/highlight-no-worker.test.mjs:90:14)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 15,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,4 +1,4 @@
-// Find and replace in Source (V-03): the change set Replace all makes and the rows its preview shows (`replace.ts`), and
+// Find and replace in Source: the change set Replace all makes and the rows its preview shows (`replace.ts`), and
 // the one transaction Apply makes over a real CodeMirror state with no DOM (`replace-sheet.ts` `applyReplacePlan`). The
 // file's bytes go in through `cmDocText` and `lineSeparatorFor` and come out through `leaveSourceMode`, the Source fold
 // the app uses, so what is checked is what would be saved.
@@ -195,7 +195,7 @@ test('a regular expression that does not parse, or an empty query, is a reason a
 });
 
 test('a match never splits a CRLF that a file of mixed endings holds inside a line', async () => {
-  // Mixed: the editor's separator is LF and the CR of each CRLF is a character of its line (F-24).
+  // Mixed: the editor's separator is LF and the CR of each CRLF is a character of its line.
   const bytes = encoder.encode('a\r\nb\nc\r\n');
   const run = await replaceAllBytes(bytes, { search: '^', replace: '> ', regexp: true });
   assert.equal(new TextDecoder().decode(run.bytes), '> a\r\n> b\n> c\r\n> ', 'every line start, and no "> " between a CR and its LF');

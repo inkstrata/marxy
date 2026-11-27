@@ -1,6 +1,6 @@
-// The `jsonl-transcript` deriver (ADR-0061, K-12) over the corpus's session, over hostile lines, and over 1,000 generated
+// The `jsonl-transcript` deriver over the corpus's session, over hostile lines, and over 1,000 generated
 // sessions checked against an independent reading of each line with `TextDecoder` and `JSON.parse`: the invariants of
-// ADR-0061 item 4 (the accounting rule and item 4.5 above all), slices that agree with a whole read, and the type
+// the accounting rule above all, slices that agree with a whole read, and the type
 // boundary that keeps a derived node away from every operation.
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -290,6 +290,33 @@ test('a result joins its call in the turn; a second result for one call, or one 
   assert.deepEqual(units.map((u) => [u.orphan, u.answered, u.failed, u.from.length]), [[false, true, true, 2], [true, true, true, 1], [true, true, true, 1]]);
 });
 
+test('a result with no id answers the call before it that named none: a tool_result line of its own, a role: tool line, a prompt\'s block', () => {
+  const bash = (command: string) => agent([{ type: 'text', text: 'Running it.' }, { type: 'tool_use', name: 'bash', input: { command } }]);
+  const tree = derive(
+    [
+      user('Summarise the failing tests'),
+      bash('go test ./auth/...'),
+      line({ type: 'tool_result', content: '--- FAIL: TestRefresh (0.01s)\nFAIL', timestamp: '2026-10-12T10:01:09Z' }),
+      bash('go vet ./...'),
+      line({ role: 'tool', content: 'vet: ok' }),
+      bash('ls'),
+      user([{ type: 'tool_result', content: 'a b' }]),
+      '',
+    ].join('\n'),
+  );
+  const units = turns(tree).flatMap((t) => t.children).filter((c): c is DerivedTool => c.type === 'tool');
+  assert.deepEqual(units.map((u) => [u.answered, u.orphan, u.children.map((c) => c.value)]), [
+    [true, false, ['bash', 'go test ./auth/...', '--- FAIL: TestRefresh (0.01s)\nFAIL']],
+    [true, false, ['bash', 'go vet ./...', 'vet: ok']],
+    [true, false, ['bash', 'ls', 'a b']],
+  ]);
+  assert.deepEqual(tree.dropped.filter((d) => d.record !== 'blank'), [], 'no line is left out as a record of unknown type');
+  // Two calls with no id are answered in order; an id that names no call still stands alone.
+  const two = derive([agent([{ type: 'tool_use', name: 'a', input: {} }, { type: 'tool_use', name: 'b', input: {} }]), line({ type: 'tool_result', content: 'first' }), line({ type: 'tool_result', content: 'second' }), line({ type: 'tool_result', tool_use_id: 'zz', content: 'stray' }), ''].join('\n'));
+  const tools = turns(two).flatMap((t) => t.children).filter((c): c is DerivedTool => c.type === 'tool');
+  assert.deepEqual(tools.map((u) => [u.orphan, u.children.map((c) => c.value).join('|')]), [[false, 'a|first'], [false, 'b|second'], [true, 'stray']]);
+});
+
 // ---- the JSON reader against JSON.parse ------------------------------------------------------------------------------------
 
 /** A small seeded generator, so a failing case is reproducible from its seed. */
@@ -562,7 +589,7 @@ test('a prompt that answers a call and then says something: the result joins the
   assert.deepEqual(turns(tree).map((t) => t.speaker), ['agent', 'you']);
 });
 
-test('the differential over 1,000 generated sessions: the accounting rule and item 4.5 hold for every one, and each line shows what JSON.parse finds in it', () => {
+test('the differential over 1,000 generated sessions: the accounting rule and the derived invariants hold for every one, and each line shows what JSON.parse finds in it', () => {
   const r = rng(0xc0ffee);
   let leaves = 0;
   let lines = 0;
@@ -574,7 +601,7 @@ test('the differential over 1,000 generated sessions: the accounting rule and it
   for (let n = 0; n < 1000; n++) {
     const bytes = randomSession(r, n);
     const tree = deriveTranscript(bytes, `/r/s${n}.jsonl`);
-    // Items 4.1 to 4.7, item 4.5 by TextDecoder and JSON.parse; item 4.6's parse on every tenth session (and the fixture's every leaf above).
+    // Every derived invariant, decoding checked by TextDecoder and JSON.parse; the inner-document parse on every tenth session (and the fixture's every leaf above).
     const problems = checkDerivedInvariants(tree, bytes, { markdown: n % 10 === 0 });
     assert.deepEqual(problems, [], `session ${n}`);
     // Each line, read independently: what it shows is exactly the leaves the tree took from it.

@@ -1,4 +1,4 @@
-// One hit for a document that several checkouts of one repository each hold (C-15).
+// One hit for a document that several checkouts of one repository each hold.
 // A worktree is a full copy of the repository, so `AGENTS.md` is in the collection once per
 // checkout. Copies that are the same file as far as the index can tell (same repository, same path
 // inside it, same size and title) fold to one hit; a copy that differs in either stays in the list,
@@ -21,7 +21,7 @@ export interface CheckoutKey {
  * `named` holds the folder names a query spelled out (`b/agents`): a copy in such a checkout is
  * listed as it is, never folded, so a folded copy is always one query away. `dropped[i]` is how many
  * copies folded into `hits[i]`. With `byHeading`, two hits on different headings of one document are not copies of each
- * other (a section list, W-13): only the same heading of the same file folds.
+ * other (a section list): only the same heading of the same file folds.
  */
 export function foldHitsCounted(
   hits: readonly IndexHit[],

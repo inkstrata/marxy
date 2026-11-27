@@ -1,4 +1,4 @@
-// The frontispiece on a launch with no document (MARXY-256, B-15: lifted from app.ts). A passage from
+// The frontispiece on a launch with no document (lifted from app.ts). A passage from
 // the Commonplace is shown, not opened: no path, no buffer, no watch, no Source mode and no reading
 // position, so the palette and every open replace it as they would the hint. The pieces, their parse
 // and their shaping stay behind the view's dynamic import of `frontispiece/index.ts`: nothing here

@@ -1,4 +1,4 @@
-// The chords held before the palette mounts, and what they come to (F-111, W-13.2).
+// The chords held before the palette mounts, and what they come to.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PALETTE_CHORDS } from './chords.ts';
@@ -36,10 +36,10 @@ test('no chord replays nothing; one opens what it opens', () => {
   assert.deepEqual(replayedOpening([slash!], false), { query: '>Transform' });
 });
 
-test('presses toggle as they would with the palette there: two of Mod+K leave it shut, three open it', () => {
-  assert.equal(replayedOpening([k!, k!], false), null);
+test('presses act as they would with the palette there: a second documents chord keeps it open', () => {
+  assert.deepEqual(replayedOpening([k!, k!], false), { query: undefined });
   assert.deepEqual(replayedOpening([k!, k!, k!], false), { query: undefined });
-  assert.equal(replayedOpening([p!, k!], false), null, 'Mod+P then Mod+K are both the document list');
+  assert.deepEqual(replayedOpening([p!, k!], false), { query: undefined }, 'Mod+P then Mod+K are both the document list');
   assert.equal(replayedOpening([shiftP!, shiftP!], false), null);
   assert.deepEqual(replayedOpening([shiftP!, slash!], false), { query: '>Transform' }, 'a different commands chord re-opens on its own query');
   assert.deepEqual(replayedOpening([k!, shiftP!], false), { query: '>' }, 'a commands chord on the open document list switches to commands');

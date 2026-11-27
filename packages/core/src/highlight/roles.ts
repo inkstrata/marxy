@@ -1,8 +1,8 @@
-// The one role table (V-13, ADR-0068). Each syntax role names the Lezer tags that colour it in Source and the
-// TextMate scopes that colour it in Rendered, so one token gets one role in both modes. Source builds its
-// HighlightStyle from `lezer` (the desktop app's Source highlight style); Rendered builds its Shiki theme and
-// scope lookup from `textmate` (scopes.ts). core takes no @lezer dependency, so tags are written as the names
-// `@lezer/highlight` exports: `name`, or `modifier(name)` nested to any depth.
+// The one role table. Each syntax role names the TextMate scopes that colour it, in Rendered and
+// in Source (Shiki's runs as marks), so one token gets one role in both modes; Rendered builds its Shiki theme
+// and scope lookup from `textmate` (scopes.ts). `lezer` is what colours Markdown's own marks in Source (the desktop
+// app's Source highlight style): Lezer keeps structure, not code colour. core takes no @lezer dependency, so tags are
+// written as the names `@lezer/highlight` exports: `name`, or `modifier(name)` nested to any depth.
 
 /** Every role the default theme gives a hue. `heading`, `marker`, `link` and `mark` are Source-only (Rendered sets headings as type). */
 export type MarxyRole =

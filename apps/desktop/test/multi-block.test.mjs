@@ -1,4 +1,4 @@
-// A run of sibling blocks in Rendered (E-05): Shift+click and Alt+Shift+Down extend a block selection, the run is one
+// A run of sibling blocks in Rendered: Shift+click and Alt+Shift+Down extend a block selection, the run is one
 // contiguous byte range with no node, "Dedupe lines" is offered for it (and not for one block), one undo step takes it back,
 // and a re-render resolves the run or clears it.
 import { strict as assert } from 'node:assert';
@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { fileURLToPath } from 'node:url';
 
@@ -46,13 +46,13 @@ before(async () => {
 });
 after(() => server?.close());
 
-async function bootText(page, docPath, text) {
+async function bootText(page, docPath, text, extra = {}) {
   await page.goto(`${base}test/palette-boot.html`);
   await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
   await page.evaluate(async ({ files, argv }) => {
     window.__marxyOpsBoot = await window.marxyPaletteBoot.start(files, argv, []);
     window.__testOrigBytes = new Uint8Array(await window.__marxyOpsBoot.handle.shell.readFile(argv[0]));
-  }, { files: { [docPath]: Buffer.from(text, 'utf8').toString('base64') }, argv: [docPath] });
+  }, { files: Object.fromEntries(Object.entries({ ...extra, [docPath]: text }).map(([k, v]) => [k, Buffer.from(v, 'utf8').toString('base64')])), argv: [docPath] });
   await page.waitForFunction(() => typeof window.marxySelection?.getSelectionState === 'function');
   await page.waitForFunction(() => window.__marxyOpenSynced === true);
 }
@@ -120,7 +120,8 @@ test('Alt+Shift+Down grows the run by one sibling; Alt+Down and Alt+Up collapse 
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
-    await bootText(page, '/five.md', FIVE);
+    // With the verbs on, Alt+↑/↓ move the part; off, they select as usual.
+    await bootText(page, '/five.md', FIVE, { '/config': 'verbs = false\n' });
     await paragraph(page, 1).click();
     await page.keyboard.press('Alt+Shift+ArrowDown');
     let s = await sel(page);

@@ -1,4 +1,4 @@
-// Clipboard payload to markdown (E-14): the golden pairs, the semantic property, the hostile payloads
+// Clipboard payload to markdown: the golden pairs, the semantic property, the hostile payloads
 // and the promise that a conversion touches nothing in the live document. Playwright WebKit drives
 // `window.marxyPaste`, because the converter needs a DOM.
 import { strict as assert } from 'node:assert';
@@ -9,7 +9,7 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { renderSafeHtml } from '../../../packages/core/src/render/pipeline.ts';
 import { DEFAULT_POLICY, sanitizeHtml } from '../../../packages/core/src/sanitize/index.ts';

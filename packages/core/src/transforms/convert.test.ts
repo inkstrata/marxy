@@ -39,3 +39,8 @@ test('json-string quotes the characters exactly, line endings included, and drop
 test('json-pretty keeps numbers and key order as written', () => {
   assert.equal(runTransform('json-min', '{ "2": 1.0, "1": 12345678901234567890 }'), '{"2":1.0,"1":12345678901234567890}');
 });
+
+test('fence: text with 200,000 backtick runs is fenced, not a RangeError', () => {
+  const text = `${'a`'.repeat(100_000)}a\`\`\`\`\`b${'a`'.repeat(100_000)}`;
+  assert.ok(transformById('fence')!.fn(text, {}).startsWith('``````\n'));
+});

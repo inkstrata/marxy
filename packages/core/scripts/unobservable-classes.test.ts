@@ -1,4 +1,4 @@
-// Criteria 1 and 2 of MARXY-83: the gate's printed report names every request class it cannot
+// The gate's printed report names every request class it cannot
 // observe, and each of those classes is safe because the allow-list refuses the element or API it
 // needs, not merely because nobody has demonstrated otherwise.
 import { strict as assert } from 'node:assert';
@@ -53,7 +53,7 @@ test('a service worker registration needs a script element, and script is refuse
   );
 });
 
-test('criterion 1: the gate prints the observability report unconditionally, every run', () => {
+test('the gate prints the observability report unconditionally, every run', () => {
   assert.match(gateSource, /import\s*\{\s*formatObservabilityReport\s*\}\s*from\s*['"][^'"]*gate-observability\.ts['"]/, 'the gate must import formatObservabilityReport');
   // Must appear before either browser engine is launched, so it runs on every invocation, not only
   // on a passing one — a check fails here if the print is missing or made conditional.

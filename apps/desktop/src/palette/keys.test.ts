@@ -1,4 +1,4 @@
-// Back and forward keys walk the session history (ADR-0011).
+// Back and forward keys walk the session history.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -63,7 +63,7 @@ test('history keys yield to an editor, a claimed event, or a visible Source view
   assert.equal(on(null), false);
 });
 
-test('a dismissed palette input still focused does not swallow history keys (MARXY-337)', () => {
+test('a dismissed palette input still focused does not swallow history keys', () => {
   const inClosedDialog = { tagName: 'INPUT', closest: (s: string) => (s === 'dialog:not([open])' ? {} : null) };
   assert.equal(historyKeyBelongsToEditor({ target: inClosedDialog }, false), false);
   const inOpenDialog = { tagName: 'INPUT', closest: () => null };

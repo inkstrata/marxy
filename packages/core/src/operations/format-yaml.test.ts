@@ -1,4 +1,4 @@
-// format-yaml (E-10): table rows in LF, CRLF, CR, no trailing newline and BOM; declines; the corpus; properties.
+// format-yaml: table rows in LF, CRLF, CR, no trailing newline and BOM; declines; the corpus; properties.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { CodeBlock, Document, Node } from '../contracts/ast.ts';

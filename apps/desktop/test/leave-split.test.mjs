@@ -1,5 +1,6 @@
-// Leaving Split (F-44; ADR-0058 item 7): Read, Source and Split again from Split end in one pane. The real app and
-// toolbar over the memory shell in WebKit; real clicks on the Read/Split/Source control and real chords.
+// Leaving Split: Read, Source and Split again from Split end in one pane. The real app over the
+// memory shell in WebKit, driven by the real chords. There is no toolbar Read/Split/Source control: Split is
+// Mod+2 (or the palette), and each pane's head has its own Read / Source switch, which must agree with its pane.
 import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
@@ -46,7 +47,7 @@ async function boot(browser, { data = {}, open = '/r/A.md' } = {}) {
     },
     { encoded, open },
   );
-  await page.evaluate(() => window.__marxyHandle.workspace().unfold());
+  await page.evaluate(() => window.__marxyHandle.frame().unfold());
   return page;
 }
 
@@ -61,15 +62,33 @@ async function withPage(fn, opts) {
   }
 }
 
+/**
+ * The panes, their modes, and the window's state as the old control said it (`radios`: Split when one document is shown
+ * twice, else the focused pane's mode), read from each pane's head switch, which must agree with its pane.
+ */
 const state = (page) =>
   page.evaluate(() => {
     const set = window.__marxyHandle.panes();
-    const radios = Object.fromEntries(
-      [...document.querySelectorAll('[role=radio]')].map((r) => [r.textContent, r.getAttribute('aria-checked')]),
-    );
-    return { paths: set.panes.map((p) => p.path()), modes: set.panes.map((p) => p.view.mode), radios };
+    const heads = set.panes.map((p) => {
+      const head = document.querySelector(`[data-marxy-head="${p.slot}"]`);
+      return { read: head?.querySelector('.marxy-rs-read')?.getAttribute('aria-pressed'), source: head?.querySelector('.marxy-rs-source')?.getAttribute('aria-pressed') };
+    });
+    const paths = set.panes.map((p) => p.path());
+    const modes = set.panes.map((p) => p.view.mode);
+    const split = paths.length === 2 && paths[0] !== null && paths[0] === paths[1];
+    const focused = set.focused.view.mode;
+    const radios = { Read: String(!split && focused === 'rendered'), Split: String(split), Source: String(!split && focused === 'source') };
+    return { paths, modes, heads, radios };
   });
-const radio = (page, label) => page.locator('[role=radiogroup] [role=radio]', { hasText: label });
+const CHORD = { Read: '1', Split: '2', Source: '3' };
+/** What the control's press did: the chord of `label` (Mod+1, Mod+2, Mod+3). */
+const press = async (page, label) => {
+  const mod = (await page.evaluate(() => navigator.platform.toUpperCase().includes('MAC'))) ? 'Meta' : 'Control';
+  await page.keyboard.press(`${mod}+${CHORD[label]}`);
+};
+/** Each pane's head switch says its own pane's mode. */
+const headsAgree = (s) =>
+  assert.deepEqual(s.heads, s.modes.map((m) => ({ read: String(m === 'rendered'), source: String(m === 'source') })), 'each head says the mode of its own pane');
 const settled = (page, n, mode) =>
   page.waitForFunction(
     ([n, mode]) => {
@@ -79,42 +98,45 @@ const settled = (page, n, mode) =>
     [n, mode],
   );
 const goSplit = async (page) => {
-  await radio(page, 'Split').click();
+  await press(page, 'Split');
   await page.waitForFunction(() => window.__marxyHandle.panes().panes.length === 2 && window.__marxyHandle.panes().panes[1].view.mode === 'source');
 };
 
-test('in Split, clicking Read returns to one pane in Read, and the control agrees at every step', async () => {
+test('in Split, Read returns to one pane in Read, and the control agrees at every step', async () => {
   await withPage(async (page) => {
     let s = await state(page);
     assert.equal(s.radios.Read, 'true');
+    headsAgree(s);
     await goSplit(page);
     s = await state(page);
     assert.deepEqual(s.radios, { Read: 'false', Split: 'true', Source: 'false' });
-    await radio(page, 'Read').click();
+    headsAgree(s);
+    await press(page, 'Read');
     await settled(page, 1, 'rendered');
     s = await state(page);
     assert.deepEqual(s.paths, ['/r/A.md']);
     assert.deepEqual(s.radios, { Read: 'true', Split: 'false', Source: 'false' });
+    headsAgree(s);
   });
 });
 
-test('in Split, clicking Source returns to one pane in Source', async () => {
+test('in Split, Source returns to one pane in Source', async () => {
   await withPage(async (page) => {
     await goSplit(page);
-    await radio(page, 'Source').click();
+    await press(page, 'Source');
     await settled(page, 1, 'source');
     const s = await state(page);
     assert.deepEqual(s.radios, { Read: 'false', Split: 'false', Source: 'true' });
   });
 });
 
-test('pressing Split again (the chord and the control) toggles back to Read in one pane', async () => {
+test('pressing Split again toggles back to Read in one pane', async () => {
   await withPage(async (page, mod) => {
     await goSplit(page);
     await page.keyboard.press(`${mod}+2`);
     await settled(page, 1, 'rendered');
     await goSplit(page);
-    await radio(page, 'Split').click();
+    await press(page, 'Split');
     await settled(page, 1, 'rendered');
     assert.deepEqual((await state(page)).radios, { Read: 'true', Split: 'false', Source: 'false' });
   });
@@ -137,11 +159,11 @@ test('Source text typed in the closing pane is folded into the survivor, nothing
     await goSplit(page);
     await page.locator('section.marxy-pane').nth(1).locator('.cm-content').click();
     await page.keyboard.type('TYPED-IN-SOURCE ');
-    await radio(page, 'Read').click();
+    await press(page, 'Read');
     await settled(page, 1, 'rendered');
     const text = await page.evaluate(() => window.__marxyHandle.panes().panes[0].article.textContent);
     assert.ok(text.includes('TYPED-IN-SOURCE'), 'the typed text shows in the surviving Read pane');
-    await radio(page, 'Source').click();
+    await press(page, 'Source');
     await settled(page, 1, 'source');
     const src = await page.evaluate(() => document.querySelector('.cm-content').textContent);
     assert.ok(src.includes('TYPED-IN-SOURCE'));
@@ -155,7 +177,7 @@ test('the reading place survives leaving Split', async () => {
     await goSplit(page);
     const before = await page.evaluate(() => window.__marxyHandle.panes().panes[0].view.position().byteOffset);
     assert.ok(before > 200, `scrolled: ${before}`);
-    await radio(page, 'Read').click();
+    await press(page, 'Read');
     await settled(page, 1, 'rendered');
     await page.waitForTimeout(400);
     const after = await page.evaluate(() => window.__marxyHandle.panes().panes[0].view.position().byteOffset);
@@ -185,7 +207,7 @@ test('quitting after leaving Split relaunches with one pane (the stuck layout)',
     const layout = async (p) =>
       p.evaluate(async () => new TextDecoder().decode(await window.__marxyHandle.shell.readFile('/data/layout.json')));
     await goSplit(page);
-    await radio(page, 'Read').click();
+    await press(page, 'Read');
     await settled(page, 1, 'rendered');
     await page.waitForTimeout(600);
     await page.evaluate(() => window.__marxyHandle.shell.quit(0));

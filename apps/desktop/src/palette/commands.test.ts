@@ -1,8 +1,8 @@
-// The palette's command list, chord labels and key dispatch (A-12).
+// The palette's command list, chord labels and key dispatch.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { AppContext, Command } from '../commands/registry.ts';
-import { commandForKey, drillText, keyLabel, PALETTE_GROUPS, paletteCommands, paletteGroupOf } from './commands.ts';
+import { commandForKey, drillText, isPageKey, keyLabel, PALETTE_GROUPS, paletteCommands, paletteGroupOf, sequenceFor } from './commands.ts';
 import { documentCommands } from '../commands/document.ts';
 import { setAppHandle } from '../commands/app-handle.ts';
 import type { AppHandle } from '../app.ts';
@@ -67,27 +67,27 @@ test('paletteCommands orders by palette group (Navigate, File, View, Copy, Sourc
   ]);
 });
 
-test('every registered command has a palette group, and the groups are the seven of the mock', async () => {
+test('every registered command has a palette group, and there are seven groups', async () => {
   const { commands } = await import('../commands/index.ts');
   const seen = new Set(commands().map((c) => paletteGroupOf(c)));
   assert.deepEqual([...PALETTE_GROUPS].filter((g) => seen.has(g)), [...PALETTE_GROUPS]);
 });
 
-test('"Show this file as" collapses to one row that opens its own list', () => {
+test('"Read this file as" collapses to one row that opens its own list', () => {
   const kinds = ['markdown', 'code', 'log'];
   const all = [
-    ...kinds.map((k) => cmd(`kind.show-as.${k}`, `Show this file as ${k}`, 'document')),
-    cmd('kind.show-as.detected', 'Show this file as detected', 'document'),
+    ...kinds.map((k) => cmd(`kind.show-as.${k}`, `Read this file as ${k}`, 'document')),
+    cmd('kind.show-as.detected', 'Read this file as Marxy would', 'document'),
     cmd('document.save', 'Save', 'document'),
   ];
   const rows = (q: string) => paletteCommands(all, ctx, q).map((c) => c.title);
-  assert.deepEqual(rows(''), ['Save', 'Show this file as…']);
-  assert.equal(rows('').filter((t) => t.startsWith('Show this file as')).length, 1);
-  assert.deepEqual(rows('show'), ['Show this file as…']);
-  assert.deepEqual(rows('as'), ['Show this file as…'], 'only the family\'s own words: still one row');
-  assert.equal(rows('Show this file as').length, 4, 'the phrase lists the members');
-  assert.equal(drillText('palette.drill.show-as'), 'Show this file as ');
-  assert.equal(drillText('palette.drill.show-as', '>show lo'), 'Show this file as lo', 'a typed remainder is kept');
+  assert.deepEqual(rows(''), ['Read this file as…', 'Save']);
+  assert.equal(rows('').filter((t) => t.startsWith('Read this file as')).length, 1);
+  assert.deepEqual(rows('read'), ['Read this file as…']);
+  assert.deepEqual(rows('as'), ['Read this file as…'], 'only the family\'s own words: still one row');
+  assert.equal(rows('Read this file as').length, 4, 'the phrase lists the members');
+  assert.equal(drillText('palette.drill.show-as'), 'Read this file as ');
+  assert.equal(drillText('palette.drill.show-as', '>read lo'), 'Read this file as lo', 'a typed remainder is kept');
   assert.equal(drillText('document.save'), undefined);
 });
 
@@ -118,7 +118,35 @@ test('commandForKey matches an alternate chord in keys and checks when', () => {
   assert.equal(commandForKey(key('o', { meta: true }), [off], ctx, { inEditable: false, mac: true }), undefined);
 });
 
-// ---- V-07: the two choices are commands, present only while a changed file waits for one ----
+test('isPageKey: one character, Shift at most, or a sequence of them', () => {
+  for (const spec of ['j', 'Shift+J', ']', '\\', 'g g']) assert.equal(isPageKey(spec), true, spec);
+  for (const spec of ['Escape', 'Enter', 'Mod+K', 'Alt+ArrowDown', 'Ctrl+[', 'Alt+W', 'BrowserBack']) assert.equal(isPageKey(spec), false, spec);
+});
+
+test('commandForKey: a page key runs only where the page has the keys; a chord runs either way', () => {
+  const next = cmd('next', 'Next part', 'selection', { key: 'j' });
+  const grow = cmd('grow', 'Take the next part too', 'selection', { key: 'Shift+J' });
+  const chord = cmd('chord', 'Next block', 'selection', { key: 'Alt+ArrowDown' });
+  const all = [next, grow, chord];
+  assert.equal(commandForKey(key('j'), all, ctx, { inEditable: false, mac: true }), undefined, 'no pageKeys: never');
+  assert.equal(commandForKey(key('j'), all, ctx, { inEditable: false, mac: true, pageKeys: true }), next);
+  assert.equal(commandForKey(key('J', { shift: true }), all, ctx, { inEditable: false, mac: true, pageKeys: true }), grow);
+  assert.equal(commandForKey(key('j', { meta: true }), all, ctx, { inEditable: false, mac: true, pageKeys: true }), undefined, 'Mod+J is not j');
+  assert.equal(commandForKey(key('j'), all, ctx, { inEditable: true, mac: true, pageKeys: true }), undefined, 'never in a field');
+  assert.equal(commandForKey(key('ArrowDown', { alt: true }), all, ctx, { inEditable: false, mac: true }), chord);
+});
+
+test('sequenceFor: the first key is a prefix while its command holds; the second completes it', () => {
+  const first = cmd('first', 'The first part', 'selection', { key: 'g g' });
+  assert.deepEqual(sequenceFor(key('g'), [first], ctx, null, true), { prefix: 'g' });
+  assert.deepEqual(sequenceFor(key('g'), [first], ctx, 'g', true), { command: first });
+  assert.equal(sequenceFor(key('j'), [first], ctx, 'g', true), null, 'another key ends the sequence');
+  assert.equal(sequenceFor(key('G', { shift: true }), [first], ctx, null, true), null, 'G is not g');
+  assert.equal(sequenceFor(key('g'), [cmd('off', 'Off', 'selection', { key: 'g g', when: () => false })], ctx, null, true), null);
+  assert.equal(keyLabel('g g', true), 'g g');
+});
+
+// ---- the two choices are commands, present only while a changed file waits for one ----
 
 const KEEP = 'document.keep-mine-as-copy';
 const TAKE = 'document.take-version-on-disk';
@@ -159,7 +187,7 @@ function runWith(store: DocumentStore, id: string, app: Partial<AppHandle>, said
   return documentCommands().find((c) => c.id === id)!.run(context);
 }
 
-test('Source text not yet folded in is counted: Keep my version copies it, Take theirs discards it (V-07)', async () => {
+test('Source text not yet folded in is counted: Keep my version copies it, Take theirs discards it', async () => {
   for (const id of [KEEP, TAKE]) {
     const { store, files, writes } = conflictStore();
     // Nothing in the store yet: the reader's edit is only in Source, which holds it while the file changes.
@@ -192,7 +220,7 @@ test('Source text not yet folded in is counted: Keep my version copies it, Take 
   }
 });
 
-test('a pane whose Source text cannot be folded is refused: nothing is written or discarded (V-07)', async () => {
+test('a pane whose Source text cannot be folded is refused: nothing is written or discarded', async () => {
   const { store, writes } = conflictStore();
   await store.apply({ range: { file: '/d/a.md', start: 2, end: 5 }, replacement: 'Two', label: 'edit' });
   assert.equal(await store.reload(enc.encode('# Theirs\n')), 'kept');
@@ -204,7 +232,7 @@ test('a pane whose Source text cannot be folded is refused: nothing is written o
   assert.equal(said.length, 1);
 });
 
-test('a failed copy says why, and the edits and the pending choice stay (V-07)', async () => {
+test('a failed copy says why, and the edits and the pending choice stay', async () => {
   const files = new Map<string, Uint8Array>([['/d/a.md', enc.encode('# One\n')]]);
   const store = openDocumentStore(
     {
@@ -225,7 +253,7 @@ test('a failed copy says why, and the edits and the pending choice stay (V-07)',
   assert.ok(store.conflict());
 });
 
-test('the notice for a changed file names both commands by their palette titles, after what it always said (V-07)', () => {
+test('the notice for a changed file names both commands by their palette titles, after what it always said', () => {
   for (const id of [KEEP, TAKE]) {
     const title = documentCommands().find((c) => c.id === id)!.title;
     assert.ok(DISK_CHANGED_CHOOSE.includes(`"${title}"`), title);
@@ -233,7 +261,7 @@ test('the notice for a changed file names both commands by their palette titles,
   assert.ok(DISK_CHANGED_CHOOSE.startsWith('The file changed on disk · your edits were kept'));
 });
 
-test('Take theirs also counts Source text unfolded in the OTHER pane: the fold reaches every view, and Undo is not promised (V-07)', async () => {
+test('Take theirs also counts Source text unfolded in the OTHER pane: the fold reaches every view, and Undo is not promised', async () => {
   const { store, files } = conflictStore();
   assert.equal(await store.reload(enc.encode('# Theirs\n'), { holds: () => true }), 'kept');
   files.set('/d/a.md', enc.encode('# Theirs\n'));
@@ -257,15 +285,45 @@ test('Take theirs also counts Source text unfolded in the OTHER pane: the fold r
   assert.match(said.join(' '), /discarded and Undo cannot bring them back/);
 });
 
-test('a typed kind name lists the members directly, as before the collapse (U-04 review)', () => {
+test('a typed kind name lists the members directly, as before the collapse', () => {
   const all = [
     ...['log', 'changelog', 'code'].flatMap((k) => [
-      cmd(`kind.show-as.${k}`, `Show this file as ${k}`, 'document'),
+      cmd(`kind.show-as.${k}`, `Read this file as ${k}`, 'document'),
       cmd(`kind.folder.${k}`, `Always open this folder as ${k}`, 'app'),
     ]),
   ];
   const rows = (q: string) => paletteCommands(all, ctx, q).map((c) => c.title);
-  assert.deepEqual(rows('log').sort(), ['Always open this folder as changelog', 'Always open this folder as log', 'Show this file as changelog', 'Show this file as log']);
-  assert.deepEqual(rows('show as log').filter((t) => t.startsWith('Show')).sort(), ['Show this file as changelog', 'Show this file as log']);
+  assert.deepEqual(rows('log').sort(), ['Always open this folder as changelog', 'Always open this folder as log', 'Read this file as changelog', 'Read this file as log']);
+  assert.deepEqual(rows('read as log').filter((t) => t.startsWith('Read')).sort(), ['Read this file as changelog', 'Read this file as log']);
   assert.ok(!rows('as log').some((t) => t.endsWith('\u2026')), 'no drill row once a kind is named');
+});
+
+test('a letter on a Cyrillic or Greek layout runs by where it sits; Option and other places do not', () => {
+  const next = cmd('next', 'Next part', 'selection', { key: 'j' });
+  const grow = cmd('grow', 'Take the next part too', 'selection', { key: 'Shift+J' });
+  const on = { inEditable: false, mac: false, pageKeys: true };
+  assert.equal(commandForKey({ ...key('о'), code: 'KeyJ' }, [next, grow], ctx, on), next);
+  assert.equal(commandForKey({ ...key('О', { shift: true }), code: 'KeyJ' }, [next, grow], ctx, on), grow);
+  assert.equal(commandForKey({ ...key('ξ'), code: 'KeyJ' }, [next], ctx, on), next);
+  assert.equal(commandForKey({ ...key('о'), code: 'KeyO' }, [next], ctx, on), undefined);
+  assert.equal(commandForKey({ ...key('∆', { alt: true }), code: 'KeyJ' }, [next], ctx, { ...on, mac: true }), undefined, 'Mac Option+J');
+  assert.equal(commandForKey({ ...key(';'), code: 'KeyJ' }, [next], ctx, on), undefined, 'ASCII is matched as typed');
+});
+
+test('the Line openers answer `/` and `@` typed with Shift, AltGr or Option', async () => {
+  const { lineCommands } = await import('../line/commands.ts');
+  const { typedCharacter } = await import('../selection/bind.ts');
+  const openers = lineCommands().map((c) => ({ ...c, when: () => true }));
+  const on = { inEditable: false, mac: false, pageKeys: true };
+  const id = (e: Parameters<typeof commandForKey>[0], mac = false) => commandForKey(e, openers, ctx, { ...on, mac })?.id;
+  assert.equal(id(key('/', { shift: true })), 'line.find', 'German Shift+7');
+  assert.equal(id(key('/')), 'line.find');
+  const altGr = typedCharacter({ ...key('@', { ctrl: true, alt: true }), code: 'KeyQ' }, false);
+  assert.ok(altGr);
+  assert.equal(id(altGr), 'line.outline', 'German AltGr+Q');
+  const option = typedCharacter({ ...key('~', { alt: true }), code: 'KeyN' }, true);
+  assert.ok(option);
+  assert.equal(id(option, true), 'line.pair', 'German Mac Option+N');
+  assert.equal(typedCharacter({ ...key('k', { ctrl: true, alt: true }), code: 'KeyK' }, false), null, 'Ctrl+Alt+K is a chord');
+  assert.equal(typedCharacter({ ...key('/'), code: 'Slash' }, false), null);
 });

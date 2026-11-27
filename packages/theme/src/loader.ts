@@ -1,4 +1,4 @@
-// Applying a theme and a variant, and loading a user theme (docs/design/05-theme.md §Loader).
+// Applying a theme and a variant, and loading a user theme.
 
 import { parse } from 'smol-toml';
 import { rewriteUrls } from './css-urls.ts';
@@ -42,7 +42,7 @@ export interface ThemeManifest {
   readonly variants: readonly Variant[];
 }
 
-/** Maps `config.variant` to the palette block the default theme applies (docs/design/05-theme.md §Loader). */
+/** Maps `config.variant` to the palette block the default theme applies. */
 export function resolveVariantPreference(preference: VariantPreference, prefersDark: boolean): Variant {
   if (preference === 'auto') return prefersDark ? 'dark' : 'light';
   return preference;
@@ -51,9 +51,14 @@ export function resolveVariantPreference(preference: VariantPreference, prefersD
 /** Replaces the user theme's stylesheet, injected after the built-in ones so it wins ties. */
 export function applyTheme(css: string, doc: Document = document): void {
   adoptRuntimeSheet(doc, THEME_ID, css);
+  // The default theme index.html inlines for the first paint gives way to whichever theme is applied (that one included).
+  doc.getElementById(FIRST_THEME_ID)?.remove();
 }
 
-/** Sets `html[data-marxy-variant]`; the default theme's light block keys on it, dark is the default (ADR-0024). */
+/** The `<style>` index.html carries the default bundled theme in, so the first paint wears it before any script runs. */
+export const FIRST_THEME_ID = 'marxy-first-theme';
+
+/** Sets `html[data-marxy-variant]`; the default theme's light block keys on it, dark is the default. */
 export function applyVariant(variant: Variant, doc: Document = document): void {
   doc.documentElement.setAttribute('data-marxy-variant', variant);
 }
@@ -129,7 +134,7 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// ADR-0059 item 7: what a theme may set where. Names are the contract's; values are never checked here
+// what a theme may set where. Names are the contract's; values are never checked here
 // beyond the clamps below.
 
 /** Names a theme sets on `:root` and the variant only: a summoned surface, the chrome and the dividers are one object whatever the kind. */
@@ -146,7 +151,7 @@ const GLOBAL_ONLY = [
   '--marxy-typeset',
 ] as const;
 
-/** Names Marxy computes or owns: a theme setting one anywhere is dropped (item 7 "Never set by a theme", item 8). */
+/** Names Marxy computes or owns: a theme setting one anywhere is dropped. */
 const NEVER_THEME = [
   '--marxy-weight-offset',
   '--marxy-lang',
@@ -165,11 +170,11 @@ interface KindSize {
   /** The ratio range: the `:root` clamp over the default value where there is one (13–28 px of 20, 20–48 px of 30), else 0.5–2. */
   readonly min: number;
   readonly max: number;
-  /** A line box is rounded to an even whole pixel once multiplied (ADR-0030). */
+  /** A line box is rounded to an even whole pixel once multiplied. */
   readonly even?: boolean;
 }
 
-/** Tokens a kind scope may set only as a multiple of the reader's value (item 7, "The reader's size wins"). */
+/** Tokens a kind scope may set only as a multiple of the reader's value (the reader's size wins). */
 const KIND_SIZES: Readonly<Record<string, KindSize>> = {
   '--marxy-size-body': { root: '--marxy-root-size-body', min: 13 / 20, max: 28 / 20 },
   '--marxy-size-code': { root: '--marxy-root-size-code', min: 0.5, max: 2 },
@@ -182,7 +187,7 @@ const KIND_SIZES: Readonly<Record<string, KindSize>> = {
 
 const SLOTS = ['--marxy-font-text', '--marxy-font-heading', '--marxy-font-mono'] as const;
 
-/** The contract-2 colour roles a complete theme sets in every variant (ADR-0059 item 3). */
+/** The contract-2 colour roles a complete theme sets in every variant. */
 export const V2_COLOUR_ROLES = [
   '--marxy-color-surface',
   '--marxy-color-surface-glass',
@@ -281,6 +286,26 @@ function globalScopeVariant(selector: string): string | null {
   return variant;
 }
 
+const LANG_ATTR = /\[\s*data-marxy-lang\s*(?:([~|^$*]?)=\s*["']?([^"'\]\s]+)["']?(?:\s+[is])?)?\s*\]/i;
+
+/** The language a selector scopes to (`*` for any, or for a match by part such as `^=`), or null when it is not a language scope. */
+function langScopeOf(selector: string): string | null {
+  for (const part of splitSelectorList(selector)) {
+    const m = LANG_ATTR.exec(part);
+    if (m) return m[2] !== undefined && m[1] === '' ? m[2] : '*';
+  }
+  return null;
+}
+
+/** A language scope's body (theme contract): only `--marxy-tok-*` names; any other Marxy name is dropped. */
+function clampLangBody(body: string, lang: string, warnings: string[]): string {
+  const where = lang === '*' ? 'a language scope' : `language '${lang}'`;
+  return body.replace(/(--marxy-(?!tok-)[a-z0-9-]+)(?:\s|\/\*[\s\S]*?\*\/)*:\s*([^;}\n]+)/gi, (_full, prop: string, raw: string) => {
+    warnings.push(`${prop} was ${raw.trim()} in ${where}; a language scope sets only --marxy-tok-* names, so it is dropped`);
+    return '';
+  });
+}
+
 const sets = (body: string, prop: string): boolean => declaration(prop).test(body);
 
 function dropDeclaration(css: string, prop: string, warnings: string[], why: string): string {
@@ -290,7 +315,7 @@ function dropDeclaration(css: string, prop: string, warnings: string[], why: str
   });
 }
 
-/** A kind scope's body under ADR-0059 item 7: global-only and system-owned names dropped, sizes compiled from a ratio, the measure clamped. */
+/** A kind scope's body: global-only and system-owned names dropped, sizes compiled from a ratio, the measure clamped. */
 function clampKindBody(body: string, kind: string, warnings: string[]): string {
   const where = kind === '*' ? 'a kind scope' : `kind '${kind}'`;
   let out = body;
@@ -325,31 +350,42 @@ function clampThemeValues(css: string, warnings: string[]): string {
   // read the compiled calc() as a value they cannot check.
   const masked: string[] = [];
   let out = css;
-  let reach = css.length;
   const kinds = findRules(css)
-    .filter((r) => !r.selector.startsWith('@') && kindScopeOf(r.selector) !== null)
+    .filter((r) => !r.selector.startsWith('@') && (kindScopeOf(r.selector) !== null || langScopeOf(r.selector) !== null))
     .sort((a, b) => b.from - a.from);
+  // Inner scopes come first; a scope around them is clamped too, its body holding their placeholders.
+  // `done` keeps each outermost mask so far, with how much it changed the text's length.
+  let done: { readonly from: number; readonly to: number; readonly delta: number }[] = [];
   for (const rule of kinds) {
-    if (rule.to > reach) continue; // inside a scope already masked
-    reach = rule.from;
-    const body = clampKindBody(css.slice(rule.from, rule.to), kindScopeOf(rule.selector)!, warnings);
-    out = `${out.slice(0, rule.from)}/*__marxy_kind_${masked.length}__*/${out.slice(rule.to)}`;
+    const inner = done.filter((d) => d.from >= rule.from && d.to <= rule.to);
+    const to = rule.to + inner.reduce((n, d) => n + d.delta, 0);
+    const text = out.slice(rule.from, to);
+    const kind = kindScopeOf(rule.selector);
+    const body = kind !== null ? clampKindBody(text, kind, warnings) : clampLangBody(text, langScopeOf(rule.selector)!, warnings);
+    const placeholder = `/*__marxy_kind_${masked.length}__*/`;
+    out = `${out.slice(0, rule.from)}${placeholder}${out.slice(to)}`;
     masked.push(body);
+    done = [...done.filter((d) => !inner.includes(d)), { from: rule.from, to: rule.to, delta: placeholder.length - (rule.to - rule.from) }];
   }
 
-  // The measure is counted in average characters (ADR-0033); base.css clamps the drawn column to
+  // The measure is counted in average characters; base.css clamps the drawn column to
   // 45–80 of them whatever a theme writes, and a legacy ch value is still held to its old range.
   out = clampCssNumber(out, '--marxy-measure-chars', 45, 80, warnings);
   out = clampCssLength(out, '--marxy-measure', '45ch', '90ch', warnings);
   out = clampCssLength(out, '--marxy-line-box', '20px', '48px', warnings);
   out = clampCssLength(out, '--marxy-size-body', '13px', '28px', warnings);
-  // The theme's chrome size is a default the reader's setting overrides; it holds the same 11–26 px (ADR-0059 item 6).
+  // The theme's chrome size is a default the reader's setting overrides; it holds the same 11–26 px.
   out = clampCssLength(out, '--marxy-size-chrome', '11px', '26px', warnings);
   for (const prop of NEVER_THEME) out = dropDeclaration(out, prop, warnings, 'Marxy owns it and a theme cannot set it');
-  return out.replace(/\/\*__marxy_kind_(\d+)__\*\//g, (_m, i: string) => masked[Number(i)]!);
+  // A restored body may hold its inner scopes' placeholders: restore until none is left.
+  for (let prev = ''; prev !== out; ) {
+    prev = out;
+    out = out.replace(/\/\*__marxy_kind_(\d+)__\*\//g, (_m, i: string) => masked[Number(i)]!);
+  }
+  return out;
 }
 
-/** A slot pointed at a face role on `:root` with the role unset there refers back to itself: a theme error (item 7). */
+/** A slot pointed at a face role on `:root` with the role unset there refers back to itself: a theme error. */
 function slotCycles(css: string): string[] {
   const globals = findRules(css).filter((r) => !r.selector.startsWith('@') && globalScopeVariant(r.selector) !== null);
   const bodies = globals.map((r) => css.slice(r.from, r.to));
@@ -438,7 +474,7 @@ export async function loadTheme(
   return { manifest, css, warnings };
 }
 
-/** How far a declared `--marxy-avg-char` may sit from the measured one before a theme is told (H-06). */
+/** How far a declared `--marxy-avg-char` may sit from the measured one before a theme is told. */
 export const AVG_CHAR_TOLERANCE = 0.03;
 
 /** The value `prop` has in the theme's global scopes (`:root`, `html`, a variant), the last declaration winning, or null. */
@@ -453,8 +489,8 @@ function globalValue(css: string, prop: string): string | null {
 }
 
 /**
- * Warns when a theme's declared `--marxy-avg-char` is more than 3 % from what its text face measures
- * (docs/theme-contract.md §Measuring a face). `measure` takes the face's CSS font-family value and answers
+ * Warns when a theme's declared `--marxy-avg-char` is more than 3 % from what its text face measures.
+ * `measure` takes the face's CSS font-family value and answers
  * its average advance in em, or null when it cannot be measured (the face is not loaded, or no canvas); null
  * and a theme that declares no number or no face are silent. It never rewrites the theme's value, and it
  * is a separate, later step from `loadTheme` because measuring waits for the face: call it after first paint.

@@ -1,6 +1,6 @@
-// Jump to source is the same Source as Mod+E (F-03): what the reader types after the jump is saved by
+// Jump to source is the same Source as Mod+E: what the reader types after the jump is saved by
 // Mod-S, counts as unsaved for the close guard, survives a round trip through Rendered and is undoable.
-// Before F-03 the jump toggled the DOM on its own, the app stayed in Rendered, and the text was lost.
+// The jump once toggled the DOM on its own, the app stayed in Rendered, and the text was lost.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -8,15 +8,16 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const desktopRoot = new URL('..', import.meta.url).pathname;
+const desktopRoot = fileURLToPath(new URL('..', import.meta.url));
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-jump-edits-'));
 let server;
 let base;
@@ -145,7 +146,7 @@ test('Jump to source, type, Mod+E twice keeps the text; Mod+Z undoes it', async 
   await page.close();
 });
 
-test('F-05: a click in one document is not the jump target after another document opens', async () => {
+test('a click in one document is not the jump target after another document opens', async () => {
   const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
   await page.goto(`${base}test/palette-boot.html`);
   await page.waitForFunction(() => typeof window.marxyPaletteBoot?.start === 'function');
@@ -175,7 +176,7 @@ async function bootTwo() {
   return page;
 }
 
-test('F-12: toggling line numbers in Rendered, then opening another document, Jump to source shows that document', async () => {
+test('toggling line numbers in Rendered, then opening another document, Jump to source shows that document', async () => {
   const page = await bootTwo();
   await page.click('#doc p >> nth=0');
   await page.evaluate(() => window.marxyRunCommand('view.toggle-line-numbers'));
@@ -192,7 +193,7 @@ test('F-12: toggling line numbers in Rendered, then opening another document, Ju
   await page.close();
 });
 
-test('F-12: Mod+E after the same sequence shows the new document too', async () => {
+test('Mod+E after the same sequence shows the new document too', async () => {
   const page = await bootTwo();
   await page.click('#doc p >> nth=0');
   await page.evaluate(() => window.marxyRunCommand('view.toggle-line-numbers'));
@@ -204,7 +205,7 @@ test('F-12: Mod+E after the same sequence shows the new document too', async () 
   await page.close();
 });
 
-test('F-12: commitEdit of a real change while Source holds typed text is refused and loses nothing', async () => {
+test('commitEdit of a real change while Source holds typed text is refused and loses nothing', async () => {
   const page = await boot();
   await jumpAndType(page);
   const refused = await page.evaluate(async () => {
@@ -219,7 +220,7 @@ test('F-12: commitEdit of a real change while Source holds typed text is refused
   await page.close();
 });
 
-test('F-12: palette Undo in Source takes out what was typed and nothing else', async () => {
+test('palette Undo in Source takes out what was typed and nothing else', async () => {
   const page = await boot();
   await jumpAndType(page);
   await page.keyboard.press(`${await modOf(page)}+KeyP`);
@@ -234,7 +235,7 @@ test('F-12: palette Undo in Source takes out what was typed and nothing else', a
   await page.close();
 });
 
-test('F-12: Mod+S in Source after typing writes exactly the typed bytes', async () => {
+test('Mod+S in Source after typing writes exactly the typed bytes', async () => {
   const page = await boot();
   await jumpAndType(page);
   await page.keyboard.press(`${await modOf(page)}+s`);
@@ -243,7 +244,7 @@ test('F-12: Mod+S in Source after typing writes exactly the typed bytes', async 
   await page.close();
 });
 
-test('F-12: the toggle in Source still flips the numbers live', async () => {
+test('the toggle in Source still flips the numbers live', async () => {
   const page = await bootTwo();
   await page.click('#doc p >> nth=0');
   await page.evaluate(() => window.marxyRunCommand('view.jump-to-source'));

@@ -1,4 +1,4 @@
-// B-17: `typeset = false` in config.toml turns the typesetter off through the --marxy-typeset kill switch,
+// `typeset = false` in config.toml turns the typesetter off through the --marxy-typeset kill switch,
 // so the engine wraps every paragraph; with no config the typesetter sets them.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -8,7 +8,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'

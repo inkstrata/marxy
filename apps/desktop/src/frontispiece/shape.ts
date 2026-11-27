@@ -1,4 +1,4 @@
-// The Commonplace piece, set as a page (MARXY-257). The piece has already been through the one parse
+// The Commonplace piece, set as a page. The piece has already been through the one parse
 // and the sanitiser and is in `#doc`; this only moves those elements into place and names them with
 // classes. It writes no markup: every node here was made by createElement or already existed.
 import { directionOf, type PieceMatter } from './pieces.ts';
@@ -119,9 +119,10 @@ export function shapeFrontispiece(doc: HTMLElement, matter: PieceMatter): HTMLEl
   root.append(page);
   doc.append(root);
 
+  // The head is drawn as a byline after the title, so it is dropped on either side of the H1.
   for (const child of [...page.children]) {
-    if (child.tagName === 'H1') break;
     if (child.tagName === 'DL') child.remove();
+    else if (child.tagName !== 'H1') break;
   }
 
   const rules = [...page.children].filter((el) => el.tagName === 'HR');

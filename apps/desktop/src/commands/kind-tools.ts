@@ -1,10 +1,9 @@
-// The tool commands of the kinds from K-17 on (terminal, changelog, docs, transcript): a kind's tools that read the open file and hand something to
+// The tool commands of the kinds (terminal, changelog, docs, transcript): a kind's tools that read the open file and hand something to
 // the pasteboard or move the view, one list here rather than a file for each kind (log.ts and data.ts keep theirs). Every tool is a view:
-// it writes nothing to the file, and Copy is the only action. A transcript's filters (K-12) act on the derived view, whose module
-// is loaded only when one is shown: these commands reach it through the page, never through a static import (F-111).
+// it writes nothing to the file, and Copy is the only action. A transcript's filters act on the derived view, whose module
+// is loaded only when one is shown: these commands reach it through the page, never through a static import.
 import { newestRelease, type Release } from '@marxy/core/src/operations/release-notes.ts';
 import { parseMarkdown, textOf, type Buffer } from '@marxy/core';
-import { selectInspectorTab } from '../workspace/inspector.ts';
 import { copyCommands, copyOutput, terminalGroups, textLines } from '@marxy/core/src/highlight/terminal-lines.ts';
 import type { AppPane } from '../pane/index.ts';
 import type { Pane } from '../pane/pane-set.ts';
@@ -86,20 +85,15 @@ async function copyReleaseNotes(ctx: AppContext): Promise<void> {
   await writeCopy(ctx, { text }, `Copied the notes for ${release.label}, ${count(lines, 'line', 'lines')}, the newest version`);
 }
 
-/** Whether the inspector can be docked now: unfolded and not shut by a narrow window over Source or Split. */
-const inspectorReachable = (): boolean => {
-  const w = appHandle()?.workspace();
-  return w?.hasFill('inspector') === true && !w.inspectorHidden();
-};
 
-/** The focused pane when it shows a JSONL session's derived view in Read (K-12). */
+/** The focused pane when it shows a JSONL session's derived view in Read. */
 function focusedTranscript(): Pane<AppPane> | null {
   const pane = appHandle()?.panes().focused;
   if (!pane || pane.kind() !== 'transcript' || pane.view.mode !== 'rendered') return null;
   return pane.parts.article.querySelector(':scope > [data-marxy-derived="jsonl-transcript"]') === null ? null : pane;
 }
 
-/** Why a transcript's tool is off: said on the strip's button (K-08's rule). */
+/** Why a transcript's tool is off: said on the strip's button. */
 function whyNoTurns(): string | null {
   const pane = appHandle()?.panes().focused;
   if (!pane || pane.kind() !== 'transcript' || focusedTranscript() !== null) return null;
@@ -122,12 +116,12 @@ export function kindToolCommands(): readonly Command[] {
   return [
     {
       id: 'inspector.show-outline',
-      title: 'Show the page\'s headings in the inspector',
+      title: 'Show the page\'s headings in the panel',
       group: 'view',
-      when: () => inspectorReachable() && appHandle()?.openDocument() != null,
+      when: () => appHandle()?.openDocument() != null,
       run: async (ctx) => {
         ctx.closePalette();
-        selectInspectorTab('outline');
+        appHandle()?.frame().showPanel({ card: 'contents' });
       },
     },
     {

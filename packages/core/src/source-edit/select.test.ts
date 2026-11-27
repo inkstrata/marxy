@@ -1,4 +1,4 @@
-// Structural selection returns the parse's own ranges: block and section in bytes, converted at the seam (V-01).
+// Structural selection returns the parse's own ranges: block and section in bytes, converted at the seam.
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

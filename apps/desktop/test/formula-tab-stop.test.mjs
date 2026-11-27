@@ -1,4 +1,4 @@
-// L-08.3: a display formula wider than the column scrolls (base.css `.katex-display`), so it takes a tab stop
+// a display formula wider than the column scrolls (base.css `.katex-display`), so it takes a tab stop
 // and a name like a scrolling table; one that fits takes neither. Real WebKit at 320 px, the default theme.
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';

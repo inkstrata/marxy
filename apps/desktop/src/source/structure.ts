@@ -1,8 +1,8 @@
-// Structural selection and line operations in the Source editor (V-01): CodeMirror commands over the pure
+// Structural selection and line operations in the Source editor: CodeMirror commands over the pure
 // functions in `@marxy/core`'s `source-edit/`. Nothing here decides what a block, a section or a join is;
 // it reads the editor's text, asks core for a range or a list of splices, and dispatches one transaction, so
 // the undo is the editor's and the Source fold (`buffer-commit.ts`) is still the one way a change reaches the
-// store. Lazy-loaded with CodeMirror: it stays off the startup path (MARXY-33).
+// store. Lazy-loaded with CodeMirror: it stays off the startup path.
 
 import {
   addTableColumnOutcome,
@@ -37,6 +37,7 @@ import type { NoticeInput } from '../notices/index.ts';
 import { tableRefusalText } from '../notices/table-copy.ts';
 import type { TableTool } from '../commands/source-edit.ts';
 import { selectNextOccurrence, selectSelectionMatches } from '@codemirror/search';
+import { isMarkdownPath } from '@marxy/core/src/kind/registry.ts';
 import { EditorSelection, Transaction, type EditorState, type StateCommand } from '@codemirror/state';
 import type { KeyBinding } from '@codemirror/view';
 
@@ -47,11 +48,9 @@ export type { StructureOp } from './structure-ops.ts';
 
 export type { TableTool } from '../commands/source-edit.ts';
 
-const MARKDOWN_PATH = /\.(md|markdown|mdown|mkd|mdx)$/i;
-
 /** Markdown gets blocks and sections from the parse; any other file gets paragraphs and no sections. */
 export function structureKindFor(path: string): StructureKind {
-  return MARKDOWN_PATH.test(path) ? 'markdown' : 'text';
+  return isMarkdownPath(path) ? 'markdown' : 'text';
 }
 
 /** The text as the editor counts it: lines joined by one "\n", so an offset in it is a CodeMirror position. */
@@ -89,8 +88,8 @@ function apply(target: Target, edit: LineEdit | null): boolean {
 }
 
 /**
- * Replaces `[from, to)` of the document with `text` as one transaction and one undo step (W-21's Apply). `text` is
- * in the file's own line endings, as `state.doc.sliceString(from, to, state.lineBreak)` gives it and a transform
+ * Replaces `[from, to)` of the document with `text` as one transaction and one undo step (a transform's Apply). `text` is
+ * in the file's own line endings, as `state.doc.sliceString(from, state.lineBreak)` gives it and a transform
  * returns it: it is inserted as given, so CodeMirror splits it on the editor's own separator and nothing is
  * doubled (unlike `apply`, whose core edits are written with "\n"). Isolated from the history's grouping. The
  * selection becomes the replaced text. False, with nothing dispatched, when the range is not in the document or
@@ -124,7 +123,7 @@ export function runTableTool(tool: TableTool, target: Target, path: string, say?
   const { state } = target;
   const run = { alignTable: alignTableOutcome, addTableRow: addTableRowOutcome, addTableColumn: addTableColumnOutcome, sortTableRows: sortTableRowsOutcome }[tool];
   const text = textOf(state);
-  // A refusal (the tool found a table and will not edit it) is said once and writes nothing; no table, or nothing to do, is silent (V-02.1).
+  // A refusal (the tool found a table and will not edit it) is said once and writes nothing; no table, or nothing to do, is silent.
   const finish = (outcome: TableOutcome, edit: (e: LineEdit) => boolean): boolean => {
     if (outcome && 'refused' in outcome) {
       say?.({ kind: 'refused', text: tableRefusalText(tool, outcome.refused) });
@@ -135,7 +134,7 @@ export function runTableTool(tool: TableTool, target: Target, path: string, say?
   if (!holdsStrayBytes(text)) return finish(run(text, state.selection.main.head), (e) => apply(target, e));
   // A byte that is not UTF-8 is a lone surrogate in the editor's text, which the tools' own check refuses. They work
   // on a copy with each one stood in for by a private-use character the text does not hold, one code unit for one,
-  // so every offset stays; what they write is mapped back, so the byte stays itself (F-34.1).
+  // so every offset stays; what they write is mapped back, so the byte stays itself.
   const base = strayStandInBase(text);
   if (base === null) return false;
   const stood = text.replace(/[\uDC80-\uDCFF]/gu, (c) => String.fromCharCode(base + c.charCodeAt(0) - 0xdc00));
@@ -159,11 +158,11 @@ function strayStandInBase(text: string): number | null {
   return null;
 }
 
-/** The table at the caret as CSV (the text C-07's Copy table as CSV puts on the pasteboard), or null where there is none. */
+/** The table at the caret as CSV (the text Copy table as CSV puts on the pasteboard), or null where there is none. */
 export function tableCsvAt(state: EditorState, path: string): string | null {
   if (structureKindFor(path) !== 'markdown') return null;
   const csv = tableCsv(textOf(state), state.selection.main.head);
-  // A byte that is not UTF-8 is a lone surrogate in the editor's text; it goes on the pasteboard as U+FFFD (F-34.1).
+  // A byte that is not UTF-8 is a lone surrogate in the editor's text; it goes on the pasteboard as U+FFFD.
   return csv === null ? null : readableText(csv);
 }
 

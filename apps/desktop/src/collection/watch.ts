@@ -1,8 +1,8 @@
-// The tree watches that keep the collection fresh (C-11): one recursive shell watch per distinct
+// The tree watches that keep the collection fresh: one recursive shell watch per distinct
 // watched tree, opened when a root becomes watched (the open document's repository, a folder declared
 // with `watch`) and closed when it stops being one or the collection stops. A folder nested in another
 // watched folder shares the outer one's watch: two watches on one tree would report every change twice.
-// The open document's own folder watch (ADR-0018, document/live-reload.ts `watchDocument`) is not touched here.
+// The open document's own folder watch (document/live-reload.ts `watchDocument`) is not touched here.
 import { isUnderRoot, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 import type { WatchEvent } from '@marxy/shell-api';
 import type { IndexService } from '../index/service.ts';
@@ -13,13 +13,13 @@ export interface TreeWatchShell {
   watch?(
     root: string,
     onEvents: (events: readonly WatchEvent[]) => void,
-    opts?: { readonly recursive?: boolean; readonly onRefused?: (reason: string) => void },
-  ): Promise<{ close(): void }>;
+    opts?: { readonly recursive?: boolean; readonly onRefused?: (reason: string) => void; readonly ignore?: readonly string[] },
+  ): Promise<{ close(): void; setIgnore?(folders: readonly string[]): Promise<void> }>;
 }
 
 export type TreeWatchIndex = Pick<
   IndexService,
-  'watchedRoots' | 'onWatchedRootsChange' | 'applyEvents' | 'setTreeWatch' | 'revalidate' | 'homeSized'
+  'watchedRoots' | 'onWatchedRootsChange' | 'ignoredFolders' | 'onIgnoredChange' | 'applyEvents' | 'setTreeWatch' | 'revalidate' | 'homeSized'
 >;
 
 export interface TreeWatchHandle {
@@ -47,7 +47,9 @@ export function distinctTrees(roots: readonly string[]): string[] {
 export function startTreeWatches(deps: { readonly shell: TreeWatchShell; readonly index: TreeWatchIndex }): TreeWatchHandle {
   const { shell, index } = deps;
   /** Open watches by tree; a refused tree is held with no handle. */
-  const open = new Map<string, { close(): void } | null>();
+  const open = new Map<string, { close(): void; setIgnore?(folders: readonly string[]): Promise<void> } | null>();
+  /** The folders each open watch was last told to leave out. */
+  const told = new Map<string, string>();
   let stopped = false;
   let chain: Promise<void> = Promise.resolve();
 
@@ -58,13 +60,14 @@ export function startTreeWatches(deps: { readonly shell: TreeWatchShell; readonl
         for (const [tree, handle] of [...open]) {
           if (wanted.includes(tree)) continue;
           open.delete(tree);
+          told.delete(tree);
           handle?.close();
           index.setTreeWatch(tree, undefined);
         }
         for (const tree of wanted) {
           if (open.has(tree)) continue;
           // A tree that holds the home folder is never watched recursively: the watch would descend into
-          // Library (C-10.1). A declared ~/Documents or a volume is budgeted but watched.
+          // Library. A declared ~/Documents or a volume is budgeted but watched.
           if (!shell.watch || (await index.homeSized(tree))) {
             open.set(tree, null);
             index.setTreeWatch(tree, 'refused');
@@ -77,7 +80,8 @@ export function startTreeWatches(deps: { readonly shell: TreeWatchShell; readonl
             // here, and walked again whenever the palette is summoned. The shell may say so before
             // `watch` has resolved; that is handled once it has.
             let refusal: string | undefined;
-            let handle: { close(): void } | undefined;
+            let handle: { close(): void; setIgnore?(folders: readonly string[]): Promise<void> } | undefined;
+            const ignore = index.ignoredFolders(tree);
             const refuse = (reason: string, h: { close(): void }) => {
               console.warn(`marxy: not watching ${tree}: ${reason}`);
               open.set(tree, null);
@@ -88,7 +92,12 @@ export function startTreeWatches(deps: { readonly shell: TreeWatchShell; readonl
               if (handle && open.get(tree) === handle) refuse(reason, handle);
               else refusal = reason;
             };
-            handle = await shell.watch(tree, (events) => index.applyEvents(events), { recursive: true, onRefused });
+            handle = await shell.watch(tree, (events) => index.applyEvents(events), {
+              recursive: true,
+              onRefused,
+              ...(ignore.length > 0 ? { ignore } : {}),
+            });
+            told.set(tree, ignore.join('|'));
             if (stopped || !distinctTrees(index.watchedRoots()).includes(tree)) {
               // Unwanted while it opened: the next sync would not see it, so close it here.
               handle.close();
@@ -107,10 +116,26 @@ export function startTreeWatches(deps: { readonly shell: TreeWatchShell; readonl
           }
         }
       })
+      .then(async () => {
+        // A walk found other folders left out, or a folder no longer is: tell the open watch, which rescans.
+        for (const [tree, handle] of [...open]) {
+          if (!handle?.setIgnore) continue;
+          const ignore = index.ignoredFolders(tree);
+          const key = ignore.join('|');
+          if (told.get(tree) === key) continue;
+          told.set(tree, key);
+          await handle.setIgnore(ignore).catch((e: unknown) => console.warn(`marxy: tree watch of ${tree}: ${String(e)}`));
+        }
+      })
       .catch((e: unknown) => console.warn(`marxy: tree watches: ${String(e)}`));
   };
 
-  const unsubscribe = index.onWatchedRootsChange(sync);
+  const unwatched = index.onWatchedRootsChange(sync);
+  const unignored = index.onIgnoredChange(sync);
+  const unsubscribe = () => {
+    unwatched();
+    unignored();
+  };
   sync();
 
   return {
@@ -126,7 +151,7 @@ export function startTreeWatches(deps: { readonly shell: TreeWatchShell; readonl
 }
 
 /**
- * Feed the palette from the index for the whole session and keep it fresh (A-04, C-11): a watch
+ * Feed the palette from the index for the whole session and keep it fresh: a watch
  * event's patch changes only its rows, anything else rebuilds what the palette searches; watched
  * folders get their tree watches. Summoning the palette (`palette/view.ts`) re-walks one that could not be.
  */

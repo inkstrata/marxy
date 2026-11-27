@@ -1,8 +1,8 @@
-// MARXY-263: the article opens near the top of the window instead of reading as vertically
+// the article opens near the top of the window instead of reading as vertically
 // centered, and its side gutter is a measure-derived remainder with a floor rather than a flat
 // 3rem — Reader Typography ch.4 "Margins" ("these pages keep at least 16px on phones and 24px
 // on larger screens"). Rendered over the corpus with Playwright WebKit, same page shape as
-// grid.test.mjs (docs/design/10-gates-and-testing.md).
+// grid.test.mjs.
 
 import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
@@ -97,7 +97,7 @@ test('a narrow window never lets the gutter shrink to zero or overflow the viewp
   }
 });
 
-// L-03: a mark hangs into the margin only as far as there is room, so it never crosses the gutter's
+// a mark hangs into the margin only as far as there is room, so it never crosses the gutter's
 // floor (Reader Typography ch.4 "Margins": a minimum gutter of 16px on phones and 24px above). Where
 // the room holds the whole hang, the markers still hang fully and the item text keeps the prose edge.
 const LISTS = '- a bullet item\n- another\n\n1. first item\n2. second\n\n- [ ] an open task\n- [x] a done task\n';
@@ -134,7 +134,7 @@ function measureMarks() {
   };
 }
 
-test('at 320px with 28px type, list markers and checkboxes stay inside the gutter floor (L-03)', async () => {
+test('at 320px with 28px type, list markers and checkboxes stay inside the gutter floor', async () => {
   const page = await openPage(browser, renderMarkdown(LISTS), { width: 320, extraCss: ':root { --marxy-size-body: 28px; }' });
   const m = await page.evaluate(measureMarks);
   await page.close();
@@ -146,7 +146,7 @@ test('at 320px with 28px type, list markers and checkboxes stay inside the gutte
   assert.ok(m.bulletText - 1.25 * m.em >= 16 - 0.5, `a bullet's text starts at ${m.bulletText}px: its bullet could cross the floor`);
 });
 
-test('at 1280px the markers still hang fully: item text on the column edge, the marker 2.25em left of it (L-03)', async () => {
+test('at 1280px the markers still hang fully: item text on the column edge, the marker 2.25em left of it', async () => {
   const page = await openPage(browser, renderMarkdown(LISTS), { width: 1280 });
   const m = await page.evaluate(measureMarks);
   await page.close();
@@ -157,7 +157,7 @@ test('at 1280px the markers still hang fully: item text on the column edge, the 
   for (const left of m.checkboxes) assert.ok(left < m.colL, `a checkbox at ${left}px does not hang left of the column (${m.colL}px)`);
 });
 
-// F-22: the number comes from the list's own counter, so <ol start> is honoured, and the marker box
+// the number comes from the list's own counter, so <ol start> is honoured, and the marker box
 // grows with its number so a long one never runs into the item's text.
 function measureOl() {
   const items = [...document.querySelectorAll('#doc > ol > li')];
@@ -176,7 +176,7 @@ function measureOl() {
   });
 }
 
-test('an ordered list that starts at 7 shows 7, 8, 9 (F-22)', async () => {
+test('an ordered list that starts at 7 shows 7, 8, 9', async () => {
   // A pseudo-element's counter cannot be read back, so the marker glyphs are compared as pixels with a
   // reference list written with explicit item values (7, 8, 9), and against a list that starts at 1.
   const page = await openPage(browser, renderMarkdown('7. seven\n8. eight\n9. nine\n\ntext\n\n1. same\n2. same\n3. same\n'), { width: 1280 });
@@ -209,7 +209,7 @@ test('an ordered list that starts at 7 shows 7, 8, 9 (F-22)', async () => {
 });
 
 for (const width of [320, 1280]) {
-  test(`a 1000-item list's markers never overlap their text at ${width}px (F-22)`, async () => {
+  test(`a 1000-item list's markers never overlap their text at ${width}px`, async () => {
     const md = Array.from({ length: 1005 }, (_, i) => `${i + 1}. item ${i + 1}`).join('\n') + '\n';
     const page = await openPage(browser, renderMarkdown(md), { width });
     const items = await page.evaluate(measureOl);
@@ -221,10 +221,10 @@ for (const width of [320, 1280]) {
   });
 }
 
-// F-22: the marker box must not grow its line: a list's height stays a whole number of grid units
+// the marker box must not grow its line: a list's height stays a whole number of grid units
 // (half a line box), at the default size and at 28px (where the unit is 21px), so what follows it keeps the grid.
 for (const size of [20, 28]) {
-  test(`an ordered list is a whole number of grid units tall at ${size}px type (F-22)`, async () => {
+  test(`an ordered list is a whole number of grid units tall at ${size}px type`, async () => {
     const md = '1. one\n2. two\n3. three\n\n10. ten\n11. eleven\n\nafter\n';
     const page = await openPage(browser, renderMarkdown(md), { width: 1280, extraCss: `:root { --marxy-size-body: ${size}px; --marxy-line-box: ${size * 1.5}px; --marxy-line-box-code: ${size * 1.5}px; }` });
     const r = await page.evaluate(() => {
@@ -246,7 +246,7 @@ for (const size of [20, 28]) {
 
 // The same thing on the corpus page the gate judges (09-gfm-everything: `1. 2. 10.` and a `3) 4)` list), at the
 // gate's cell: 960px wide, 28px type (grid unit 21px). Every block after an ordered list must stay on the grid.
-test('09-gfm-everything keeps every top-level block on the grid at 960px and 28px type (F-22)', async () => {
+test('09-gfm-everything keeps every top-level block on the grid at 960px and 28px type', async () => {
   const page = await openPage(browser, renderCorpus('09-gfm-everything.md'), { width: 960, extraCss: ':root { --marxy-size-body: 28px; --marxy-line-box: 42px; --marxy-line-box-code: 42px; }' });
   const r = await page.evaluate(() => {
     const probe = document.createElement('div');
@@ -267,9 +267,9 @@ test('09-gfm-everything keeps every top-level block on the grid at 960px and 28p
   assert.deepEqual(r.off, []);
 });
 
-// F-26: the sanitiser keeps `<ol start="-3">` and `<li value>`, so the list shows what the document wrote.
+// the sanitiser keeps `<ol start="-3">` and `<li value>`, so the list shows what the document wrote.
 // The reference list is built through the DOM (li.value), so it does not rely on the sanitiser either way.
-test('a sanitised <ol start="-3"> shows -3, -2, and a mid-list <li value="10"> shows 1, 10, 11 (F-26)', async () => {
+test('a sanitised <ol start="-3"> shows -3, -2, and a mid-list <li value="10"> shows 1, 10, 11', async () => {
   const html = '<ol start="-3"><li>aa</li><li>bb</li></ol>\n\n<p>text</p>\n\n<ol><li>aa</li><li value="10">bb</li><li>cc</li></ol>\n';
   const page = await openPage(browser, renderMarkdown(html), { width: 1280 });
   const boxes = await page.evaluate(() => {

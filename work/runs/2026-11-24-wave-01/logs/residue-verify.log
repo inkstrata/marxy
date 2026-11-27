@@ -1,0 +1,46 @@
+verify-turn: slot a, residue, pnpm verify --tier changed --base agent/wave1 (2026-11-24T19:55:12-08:00)
+$ node scripts/verify.mjs "--tier" "changed" "--base" "agent/wave1"
+verify changed in C:\Dev\reader\worktrees\residue
+218 files changed against agent/wave1; unit suites: desktop, core, theme, typeset, scripts; browser files: 209; rust changed; unmapped: AGENTS.md
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\residue-2026-11-25T03-55-13
+
+PASS    install        0.4s      
+PASS    typecheck      11.0s     
+PASS    lint           2.3s      
+PASS    check          11.3s     10 pass, 0 fail
+PASS    golden         1.6s      
+PASS    fidelity       13.4s     
+PASS    licences       0.7s      
+PASS    unit-core      191.9s    4234 pass, 0 fail, 3 skip
+PASS    unit-theme     44.4s     305 pass, 0 fail
+PASS    unit-typeset   45.0s     80 pass, 0 fail
+PASS    unit-scripts   25.4s     263 pass, 0 fail
+PASS    unit-desktop   45.7s     1256 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 92.1s     44 pass, 0 fail, 1 skip
+PASS    lint-rust      4.9s      
+PASS    browser        2086.9s   1895 pass, 0 fail, 4 skip
+PASS    cargo          20.0s     624 pass, 0 fail, 5 skip
+
+step                  result  wall     tests
+--------------------  ------  -------  -------------------------
+install               pass    0.4s
+typecheck             pass    11.0s
+lint                  pass    2.3s
+check                 pass    11.3s    10 pass, 0 fail
+golden                pass    1.6s
+fidelity              pass    13.4s
+licences              pass    0.7s
+unit-core             pass    191.9s   4234 pass, 0 fail, 3 skip
+unit-theme            pass    44.4s    305 pass, 0 fail
+unit-typeset          pass    45.0s    80 pass, 0 fail
+unit-scripts          pass    25.4s    263 pass, 0 fail
+unit-desktop          pass    45.7s    1256 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    92.1s    44 pass, 0 fail, 1 skip
+lint-rust             pass    4.9s
+browser               pass    2086.9s  1895 pass, 0 fail, 4 skip
+cargo                 pass    20.0s    624 pass, 0 fail, 5 skip
+--------------------  ------  -------  -------------------------
+total                         2597.1s
+
+verify changed: 16/16 steps passed
+verify-turn: exit 0 (2026-11-24T20:38:30-08:00)

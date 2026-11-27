@@ -1,5 +1,5 @@
 // CommonMark line endings: CRLF, CR and LF all end a line. One helper so a
-// later caller cannot assume LF (ADR-0003).
+// later caller cannot assume LF.
 
 /** True if `text` contains any of the three CommonMark line endings. */
 export const LINE_ENDING = /\r|\n/;

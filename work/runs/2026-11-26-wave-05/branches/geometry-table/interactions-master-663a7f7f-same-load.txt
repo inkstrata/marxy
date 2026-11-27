@@ -1,0 +1,47 @@
+  warming the dev server
+  long-reference: open 1/3
+  long-reference: open 2/3
+  long-reference: open 3/3
+  long-reference: first click
+  long-reference: cursor keys
+  long-reference: undo 1/3
+  long-reference: undo 2/3
+  long-reference: undo 3/3
+  long-reference: reload 1/3
+  long-reference: reload 2/3
+  long-reference: reload 3/3
+  long-reference: tabs
+  long-reference: Source and Read
+  long-reference-plain: open 1/3
+  long-reference-plain: open 2/3
+  long-reference-plain: open 3/3
+  long-reference-plain: undo 1/3
+  long-reference-plain: undo 2/3
+  long-reference-plain: undo 3/3
+  long-reference-plain: reload 1/3
+  long-reference-plain: reload 2/3
+  long-reference-plain: reload 3/3
+measure-interactions: 7409351b (uncommitted changes), 2026-11-26T11:55:58.402Z, win32-x64, 16 x AMD Ryzen 7 8845HS w/ Radeon 780M Graphics, 31 GB, msedge 158.0.4370.33, 3 runs
+
+long-reference
+  open               nodes 10080  layouts 472  recalcs 820  firstContentMs 248.5  taskMs 2683.21  scriptMs 505.08  layoutMs 562.93  styleMs 400.18  longestTaskMs 255  settleMs 2966.7
+  cursor key (j)     layouts 4  recalcs 5  handlerMs 28.05  taskMs 28.69  scriptMs 7.37  layoutMs 2.47
+  first click        layouts 6  recalcs 9  handlerMs 10.6  taskMs 53.53  scriptMs 11.19  layoutMs 4.56  styleMs 11.8
+  undo               removedTop 33  addedTop 33  layouts 80  recalcs 92  taskMs 621.9  scriptMs 28.32  layoutMs 90.82  styleMs 220.41  longestTaskMs 149
+  reload from disk   removedTop 31  addedTop 33  layouts 85  recalcs 91  taskMs 706.77  scriptMs 28.82  layoutMs 97.5  styleMs 237.51  longestTaskMs 160
+  tab switch to it   layouts 622  recalcs 1120  shownMs 422  taskMs 4553.52  scriptMs 1000.02  layoutMs 854.99
+  tab switch away    layouts 71  recalcs 133  shownMs 199  taskMs 237.89  scriptMs 34.47  layoutMs 20.51
+  Source to Read     layouts 60  recalcs 62  shownMs 330.3  taskMs 455.07  scriptMs 32.08  layoutMs 130.28
+  Read to Source     layouts 9  recalcs 12  shownMs 41.3  taskMs 145.61  scriptMs 26.93  layoutMs 12.43
+
+long-reference-plain
+  open               nodes 9841  layouts 441  recalcs 781  firstContentMs 246.7  taskMs 2479.08  scriptMs 486.43  layoutMs 505.5  styleMs 367.68  longestTaskMs 253  settleMs 2819.1
+  undo               removedTop 3  addedTop 3  layouts 72  recalcs 82  taskMs 661.97  scriptMs 25.92  layoutMs 113.2  styleMs 148.93  longestTaskMs 160
+  reload from disk   removedTop 0  addedTop 2  layouts 70  recalcs 74  taskMs 508.05  scriptMs 19.06  layoutMs 104.84  styleMs 60.81  longestTaskMs 71
+
+Counts first; they do not depend on the machine. removedTop/addedTop: top-level nodes of the article taken out and put in.
+taskMs, scriptMs, layoutMs, styleMs and the counts run from the action until the main thread has been idle for about a second,
+  so they include typesetting that follows it: not the time until the page shows it. A cursor key: the 150 ms after each press.
+shownMs: until the tab or mode is current and two frames have painted. firstContentMs: until the article holds the text.
+handlerMs: event handlers only (a click sees handlers of 16 ms or more). longestTaskMs: tasks of 50 ms or more only.
+record written to C:\Dev\reader\work\wave5\geometry-table\interactions-master-663a7f7f-same-load.json

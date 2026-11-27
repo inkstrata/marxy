@@ -1,0 +1,14 @@
+﻿launch 1 (cold): 1101 ms, exit 0, webview start 804 ms, stderr: [1123/063201.834:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+launch 2 (cold): 769 ms, exit 0, webview start 482 ms, stderr: [1123/063205.044:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+launch 3 (cold): 752 ms, exit 0, webview start 473 ms, stderr: [1123/063208.212:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+launch 4 (cold): 783 ms, exit 0, webview start 489 ms, stderr: [1123/063211.430:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+launch 5 (cold): 778 ms, exit 0, webview start 505 ms, stderr: [1123/063214.624:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+launch 6 (cold): 770 ms, exit 0, webview start 483 ms, stderr: [1123/063217.812:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+launch 7 (cold): 784 ms, exit 0, webview start 498 ms, stderr: [1123/063221.024:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+launch 8 (cold): 786 ms, exit 0, webview start 498 ms, stderr: [1123/063224.220:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+launch 9 (cold): 770 ms, exit 0, webview start 494 ms, stderr: [1123/063227.397:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+launch 10 (cold): 762 ms, exit 0, webview start 465 ms, stderr: [1123/063230.583:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1412
+cold start (median of 10 cold launches) 774 ms (reference mode, win32-x64)
+cold procedure: process-cold only
+0 of 10 launch(es) were frame-sourced (first_text by frame, not paint): median n/a ms vs 774 ms by paint
+marks (median ms since spawn): main_start=24 window_shown=392.5 bundled_theme=543 script_start=516 weight_offset=573.5 args=574.5 file_read=589.5 parsed=624 rendered=670 first_screen=742.5 fonts_ready=747 render=751 painted=774 first_text=774 typeset_viewport=808 highlight_ms=838.5 position_restored=851.5 index_loaded=859.5 quit=983.5; 0 launch(es) said no_paint; written to results/perf-startup.json

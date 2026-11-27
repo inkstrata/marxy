@@ -1,5 +1,5 @@
-// The one-parse check must be able to fail: leftover deps, leftover imports, or a plan.md
-// that names markdown-it again are the regressions this story exists to keep out.
+// The one-parse check must be able to fail: a leftover dependency or a leftover import of a second
+// Markdown parser or sanitiser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -9,7 +9,6 @@ import {
   leftoverDependenciesInManifest,
   leftoverDependenciesInLockfile,
   leftoverImportsInSource,
-  planNamesOneParse,
   check,
 } from './check-one-parse.mjs';
 
@@ -60,12 +59,6 @@ test('imports of leftover parsers/sanitisers fail; @marxy/core and core source p
     const other = await import('dompurify');
   `);
   assert.deepEqual(hits.sort(), ['dompurify', 'markdown-it']);
-});
-
-test('plan.md must name mdast/micromark and must not name markdown-it', () => {
-  assert.equal(planNamesOneParse('parser (mdast/micromark, CommonMark + GFM — ADR-0021)'), true);
-  assert.equal(planNamesOneParse('parser (markdown-it, CommonMark + GFM)'), false);
-  assert.equal(planNamesOneParse('parser (something else)'), false);
 });
 
 test('the live tree has no leftover parser and the check exits 0', () => {

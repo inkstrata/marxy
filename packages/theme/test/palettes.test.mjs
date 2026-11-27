@@ -1,4 +1,4 @@
-// MARXY-46: the light palette is designed on its own ground — fixture match, no 255-complement of dark, baselines present.
+// the light palette is designed on its own ground — fixture match, no 255-complement of dark, baselines present.
 
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
@@ -28,7 +28,7 @@ function propsInBlock(css, needle) {
 }
 
 function readDarkTokens() {
-  // Night: the default theme's :root (H-04). tokens.css keeps the contract's fallbacks, not the default's values.
+  // Night: the default theme's :root. tokens.css keeps the contract's fallbacks, not the default's values.
   const theme = readFileSync(new URL('../default/theme.css', import.meta.url), 'utf8');
   return propsInBlock(theme, ':root');
 }
@@ -51,7 +51,7 @@ function corpusStems() {
     .map((f) => f.replace(/\.md$/, ''));
 }
 
-test('MARXY-46: dark tokens and the light block match docs/design/05-theme.md §Palettes (palettes.json)', () => {
+test('dark tokens and the light block match the palettes (palettes.json)', () => {
   const dark = readDarkTokens();
   const light = readLightBlock();
   for (const [token, expected] of Object.entries(palettes.dark)) {
@@ -62,7 +62,7 @@ test('MARXY-46: dark tokens and the light block match docs/design/05-theme.md §
   }
 });
 
-test('MARXY-46: no light colour is the 255-complement of its dark counterpart', () => {
+test('no light colour is the 255-complement of its dark counterpart', () => {
   const dark = readDarkTokens();
   const light = readLightBlock();
   for (const token of Object.keys(palettes.light)) {
@@ -75,7 +75,7 @@ test('MARXY-46: no light colour is the 255-complement of its dark counterpart', 
   }
 });
 
-test('MARXY-46: resolveVariantPreference maps config.variant light and auto', () => {
+test('resolveVariantPreference maps config.variant light and auto', () => {
   assert.equal(resolveVariantPreference('light', true), 'light');
   assert.equal(resolveVariantPreference('dark', false), 'dark');
   assert.equal(resolveVariantPreference('auto', true), 'dark');
@@ -107,7 +107,7 @@ function resolveColor(value, table) {
   return v;
 }
 
-test('MARXY-235: every Marxy foreground token is at least 4.5:1 on all four diff tints (both variants, unrounded)', () => {
+test('every Marxy foreground token is at least 4.5:1 on all four diff tints (both variants, unrounded)', () => {
   const dark = { ...readDarkTokens(), ...palettes.dark };
   const light = { ...readLightBlock(), ...palettes.light };
   const diffTokens = [
@@ -147,7 +147,7 @@ test('MARXY-235: every Marxy foreground token is at least 4.5:1 on all four diff
   }
 });
 
-test('MARXY-46: committed screenshot baselines exist for light at 960 px (both engines)', () => {
+test('committed screenshot baselines exist for light at 960 px (both engines)', () => {
   const stems = corpusStems();
   for (const engine of ['webkit-macos', 'webkit-linux']) {
     const base = join(fileURLToPath(new URL('fixtures/baselines/', root)), engine);
@@ -158,7 +158,7 @@ test('MARXY-46: committed screenshot baselines exist for light at 960 px (both e
   }
 });
 
-test('L-11: the find edge is 3:1 on page and code grounds, current differs from other by 3:1, text on fills keeps 4.5:1', () => {
+test('the find edge is 3:1 on page and code grounds, current differs from other by 3:1, text on fills keeps 4.5:1', () => {
   const dark = { ...readDarkTokens(), ...palettes.dark };
   const light = { ...readLightBlock(), ...palettes.light };
   for (const [label, t] of [['dark', dark], ['light', light]]) {
@@ -180,11 +180,12 @@ test('L-11: the find edge is 3:1 on page and code grounds, current differs from 
   }
 });
 
-test('H-04: Night is the default dark and Paper the default light; Ink keeps the warm ground; both speak contract 2', () => {
+test('Night is the default dark and Paper the default light; Ink keeps the warm ground; both speak contract 2', () => {
   const night = readDarkTokens();
   const paper = readLightBlock();
-  assert.equal(night['--marxy-color-bg'], '#000000');
-  assert.equal(night['--marxy-weight-body'], '370');
+  // Night: a ground just off black, and the body a touch heavier on it.
+  assert.equal(night['--marxy-color-bg'], '#0f1113');
+  assert.equal(night['--marxy-weight-body'], '380');
   assert.equal(paper['--marxy-color-bg'], '#fbfaf8');
   assert.equal(paper['--marxy-weight-body'], '400');
   const ink = readFileSync(new URL('../ink/theme.css', import.meta.url), 'utf8');
@@ -195,11 +196,11 @@ test('H-04: Night is the default dark and Paper the default light; Ink keeps the
   }
 });
 
-// ---- H-05: Dusk and Sepia, Fjord, high contrast --------------------------------------------------------------------
+// ---- Dusk and Sepia, Fjord, high contrast --------------------------------------------------------------------
 const CODE_ROLE_TOKENS = ['builtin', 'property', 'decorator', 'self', 'escape', 'mark'].map((r) => `--marxy-tok-${r}`);
 const themeCss = (dir) => readFileSync(new URL(`../${dir}/theme.css`, import.meta.url), 'utf8');
 
-test('H-05: warm is Dusk dark and Sepia light, and each block sets every colour role and the six code roles', () => {
+test('warm is Dusk dark and Sepia light, and each block sets every colour role and the six code roles', () => {
   const css = themeCss('warm');
   const dusk = propsInBlock(css, ':root');
   const sepia = propsInBlock(css, ':root[data-marxy-variant="light"]');
@@ -212,7 +213,7 @@ test('H-05: warm is Dusk dark and Sepia light, and each block sets every colour 
   }
 });
 
-test('H-05: fjord is dark only and holds its dark values under the light variant, so Paper never shows through', () => {
+test('fjord is dark only and holds its dark values under the light variant, so Paper never shows through', () => {
   const css = themeCss('fjord').replace(/\/\*[\s\S]*?\*\//g, '');
   assert.match(css, /:root,\s*:root\[data-marxy-variant="light"\]\s*\{/);
   assert.equal(propsInBlock(css, ':root')['--marxy-color-bg'], '#242933');
@@ -220,7 +221,7 @@ test('H-05: fjord is dark only and holds its dark values under the light variant
   for (const role of CODE_ROLE_TOKENS) assert.ok(role in propsInBlock(css, ':root'), role);
 });
 
-test('H-05: high contrast is white on black and black on white, with its code roles', () => {
+test('high contrast is white on black and black on white, with its code roles', () => {
   const css = themeCss('high-contrast');
   assert.equal(propsInBlock(css, ':root')['--marxy-color-bg'], '#000000');
   assert.equal(propsInBlock(css, ':root')['--marxy-color-text'], '#ffffff');
@@ -229,7 +230,7 @@ test('H-05: high contrast is white on black and black on white, with its code ro
   for (const role of CODE_ROLE_TOKENS) assert.ok(role in propsInBlock(css, ':root[data-marxy-variant="light"]'), role);
 });
 
-// ---- V-13 (ADR-0068): a hue per code role, built in OKLCH ------------------------------------------------------
+// ---- a hue per code role, built in OKLCH ------------------------------------------------------
 // The roles are the names in the one role table (packages/core/src/highlight/roles.ts), read as text so this test
 // needs no TypeScript loader.
 const ROLE_NAMES = [...readFileSync(new URL('../../core/src/highlight/roles.ts', import.meta.url), 'utf8').matchAll(/^  (\w+): \{/gm)].map((m) => m[1]);
@@ -253,7 +254,7 @@ function variantTables() {
   };
 }
 
-test('V-13: the role table names the roles the default theme gives a value, in both variants', () => {
+test('the role table names the roles the default theme gives a value, in both variants', () => {
   assert.ok(ROLE_NAMES.length >= 21, ROLE_NAMES.join());
   for (const [label, table] of Object.entries(variantTables())) {
     for (const role of ROLE_NAMES) {
@@ -262,7 +263,7 @@ test('V-13: the role table names the roles the default theme gives a value, in b
   }
 });
 
-test('V-13: every role is at least 4.5:1 on the code ground and on the page ground, in both variants', () => {
+test('every role is at least 4.5:1 on the code ground and on the page ground, in both variants', () => {
   for (const [label, table] of Object.entries(variantTables())) {
     for (const role of ROLE_NAMES) {
       const fg = parseHex(resolveColor(table[`--marxy-tok-${role}`], table));
@@ -274,7 +275,7 @@ test('V-13: every role is at least 4.5:1 on the code ground and on the page grou
   }
 });
 
-test('V-13: roles that sit side by side in code differ in lightness as well as hue (OKLab L, at least 0.05)', () => {
+test('roles that sit side by side in code differ in lightness as well as hue (OKLab L, at least 0.05)', () => {
   const pairs = [['keyword', 'function'], ['type', 'variable'], ['string', 'escape']];
   for (const [label, table] of Object.entries(variantTables())) {
     for (const [a, b] of pairs) {
@@ -285,7 +286,7 @@ test('V-13: roles that sit side by side in code differ in lightness as well as h
   }
 });
 
-test('V-13: comments are read, not dimmed (5:1 on the code ground), and no two hue roles share a colour except where the table says', () => {
+test('comments are read, not dimmed (5:1 on the code ground), and no two hue roles share a colour except where the table says', () => {
   const SHARED = [['number', 'constant'], ['function', 'tag'], ['property', 'attribute']];
   for (const [label, table] of Object.entries(variantTables())) {
     const ratio = contrastRgb(parseHex(resolveColor(table['--marxy-tok-comment'], table)), parseHex(resolveColor(table['--marxy-color-code-bg'], table)));

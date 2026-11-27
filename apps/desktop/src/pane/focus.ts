@@ -1,4 +1,4 @@
-// Which pane has focus, and what follows it (D-06; docs/design/09-app-shell.md §Keyboard map). A press in a
+// Which pane has focus, and what follows it. A press in a
 // pane focuses it, and so does a wheel gesture over it after a pause; the selection acts on the focused
 // pane's article and is cleared when focus moves; a pane in Source hands focus on to its editor; an
 // overlay remembers the pane it was opened from and gives focus back to it. `PaneSet.focus` stays the
@@ -110,8 +110,8 @@ export function bindFocus<C extends PaneContent>(panes: PaneSet<C>, selection: (
 }
 
 /**
- * Where focus goes back to when an overlay closes (D-06 step 6): the pane focused when it opened, if it is
- * still there, else the pane focused now. D-07 (the palette) and D-13 (find, outline) call it on open and
+ * Where focus goes back to when an overlay closes: the pane focused when it opened, if it is
+ * still there, else the pane focused now. The palette, find and outline call it on open and
  * `restore()` on `Esc` or dismissal.
  */
 export function focusOrigin<C extends PaneContent>(panes: PaneSet<C>): { readonly pane: Pane<C>; restore(): void } {

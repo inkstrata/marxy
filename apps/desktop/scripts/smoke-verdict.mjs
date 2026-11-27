@@ -1,10 +1,9 @@
 // Classifies the desktop CLI smoke: skip only when the machine delivered no frames,
 // fail when a machine that can paint did not, and keep required mode a hard fail even
-// in the frameless state (MARXY-72). The frames >= 2 assertion (MARXY-13) is never weakened.
-// In CI the smoke is required: the `CLI smoke check on the built binary` step runs `verify:cli`
-// (`MARXY_SMOKE_REQUIRED=1`) in ci.yml's `rust` job and in nightly.yml's macOS and Linux builds (A-09).
+// in the frameless state. The frames >= 2 assertion is never weakened.
+// `verify:cli` runs it by hand with `MARXY_SMOKE_REQUIRED=1`, which makes a machine that cannot paint a failure.
 
-/** The MARXY-13 floor: first_text must be at least this many animation frames after render. */
+/** The floor: first_text must be at least this many animation frames after render. */
 export const MIN_FRAMES_AFTER_RENDER = 2;
 
 /** Printed on every frameless skip so the next agent does not delete the frames assertion. */
@@ -16,8 +15,8 @@ export const NEUTRALISE_AFTER_PAINT = 'MARXY_SMOKE_NEUTRALISE_AFTER_PAINT';
 
 /**
  * Whether this smoke run must fail instead of skip.
- * `MARXY_SMOKE_REQUIRED=1` is required mode: `verify:cli` sets it, and so does CI's
- * `CLI smoke check on the built binary` step. Local `pnpm build` does not.
+ * `MARXY_SMOKE_REQUIRED=1` is required mode: `verify:cli` sets it. A plain
+ * `pnpm build` does not.
  */
 export function smokeIsRequired(env = process.env) {
   return env.MARXY_SMOKE_REQUIRED === '1';
@@ -66,7 +65,7 @@ export function framesFromPaintedLine(painted, { neutralizeAfterPaint = false } 
 /**
  * Final paint verdict after the other launch checks have passed.
  * `noPaint` means the machine delivered no frames (MARK no_paint or the harness watchdog).
- * A machine that can paint and reports frames below the MARXY-13 floor always fails,
+ * A machine that can paint and reports frames below the floor always fails,
  * including when afterPaint() has been neutralized.
  *
  * @returns {{ status: 'ok' | 'skip' | 'fail', message: string }}
@@ -86,9 +85,11 @@ export function paintVerdict({ noPaint, frames, required, how, environment }) {
 }
 
 /**
- * The verdict for a launch whose `MARK painted` said `signal=frames-only` (F-31): frames ticked, the engine
- * never produced a paint entry, and the app went on without reporting `first_text`. It is not a paint, so it is
- * never `ok`: skipped where the smoke is optional, a failure where it is required (a CI runner that cannot
+ * The verdict for a launch whose `MARK painted` said `signal=frames-only`: frames ticked, the engine
+ * produced no paint entry after the render (WebView2's one contentful paint had already come, which the line says as
+ * `fcp_before_ms`), and the app timed `first_text` by its second frame (`source=frame`), which can be about one frame
+ * earlier than a paint. The startup harness keeps such a launch and counts it; the smoke never passes it. It is not a paint, so it is
+ * never `ok`: skipped where the smoke is optional, a failure where it is required (a machine that cannot
  * paint cannot answer what this check asks; the run is retried, not passed).
  *
  * @returns {{ status: 'skip' | 'fail', message: string }}
@@ -96,7 +97,7 @@ export function paintVerdict({ noPaint, frames, required, how, environment }) {
 export function framesOnlyVerdict({ required, how }) {
   const message = [
     'the engine delivered animation frames but no paint entry, so the boot continued as signal=frames-only and is not',
-    `a paint (${how}). No first_text was printed, which is the correct behaviour here.`,
+    `a paint (${how}). first_text was printed from the frame time, which can be about one frame earlier than a paint, not an engine paint.`,
   ].join(' ');
   return { status: required ? 'fail' : 'skip', message };
 }
@@ -113,7 +114,7 @@ export function launchSpawnOptions(platform = process.platform) {
 /**
  * Ends a launch and everything it started. Killing only the direct child (`xvfb-run`) orphans the
  * app, its session bus and the document portal, which keeps the FUSE mount: every later launch on
- * that runner then logs `fuse init failed` and starts from a dirtier machine (CI run 37040073668).
+ * that runner then logs `fuse init failed` and starts from a dirtier machine.
  */
 export function killLaunch(child, signal = 'SIGKILL') {
   if (child.pid === undefined) return;

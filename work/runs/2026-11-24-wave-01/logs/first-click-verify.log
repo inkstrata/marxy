@@ -1,0 +1,36 @@
+verify-turn: slot b, first-click, pnpm verify --tier changed (2026-11-24T16:02:17-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\first-click
+6 files changed against master; unit suites: desktop, theme, scripts; browser files: 24
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\first-click-2026-11-25T00-02-18
+
+PASS    install        0.6s      
+PASS    typecheck      16.2s     
+PASS    lint           2.5s      
+PASS    check          13.4s     10 pass, 0 fail
+PASS    golden         2.0s      
+PASS    fidelity       20.0s     
+PASS    licences       0.8s      
+PASS    unit-theme     50.1s     305 pass, 0 fail
+PASS    unit-scripts   50.7s     243 pass, 0 fail
+PASS    unit-desktop   357.6s    1319 pass, 0 fail, 1 skip
+PASS    browser        650.5s    236 pass, 0 fail
+
+step          result  wall    tests
+------------  ------  ------  -------------------------
+install       pass    0.6s
+typecheck     pass    16.2s
+lint          pass    2.5s
+check         pass    13.4s   10 pass, 0 fail
+golden        pass    2.0s
+fidelity      pass    20.0s
+licences      pass    0.8s
+unit-theme    pass    50.1s   305 pass, 0 fail
+unit-scripts  pass    50.7s   243 pass, 0 fail
+unit-desktop  pass    357.6s  1319 pass, 0 fail, 1 skip
+browser       pass    650.5s  236 pass, 0 fail
+------------  ------  ------  -------------------------
+total                 1164.2s
+
+verify changed: 11/11 steps passed
+verify-turn: exit 0 (2026-11-24T16:21:42-08:00)

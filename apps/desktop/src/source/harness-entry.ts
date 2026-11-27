@@ -39,7 +39,7 @@ async function scrollPerf(bytesB64: string, path: string, steps: number) {
 
 /**
  * Rendered → Source → Rendered with no edit: Source is scrolled to `byteOffset` on the reading line,
- * and the place read back is what Source shows there, measured, not the offset passed in (S-07-0003).
+ * and the place read back is what Source shows there, measured, not the offset passed in.
  */
 async function roundTrip(bytesB64: string, path: string, byteOffset: number) {
   const { editor, buffer } = await mountEditor(bytesB64, path);
@@ -57,7 +57,7 @@ async function roundTrip(bytesB64: string, path: string, byteOffset: number) {
   };
 }
 
-/** Mount `path` and report at once what Source shows, then again after the grammar has had time to arrive (V-14 round 1). */
+/** Mount `path` and report at once what Source shows, then again after the grammar has had time to arrive. */
 async function mountTimed(bytesB64: string, path: string, waitMs: number) {
   const started = performance.now();
   const { editor } = await mountEditor(bytesB64, path);
@@ -83,7 +83,7 @@ async function multiCursorUndo(bytesB64: string, path: string) {
 }
 
 /**
- * A file with bytes that are not UTF-8, in the editor (F-34.1): the markers it shows, whether any lone surrogate is in
+ * A file with bytes that are not UTF-8, in the editor: the markers it shows, whether any lone surrogate is in
  * the page's text, what a copy of everything puts on the clipboard, and the bytes after that copy is pasted at the end,
  * a line moved, and the editor's text folded back.
  */
@@ -142,7 +142,7 @@ function clipboardEvent(view: import('@codemirror/view').EditorView, type: 'copy
 }
 
 /**
- * The returns of the first review of F-34.1 (#584): (a) copy a stray line, start and end a drag with no drop, paste;
+ * The returns of the first review: (a) copy a stray line, start and end a drag with no drop, paste;
  * (b) copy a stray byte, another program copies a real U+FFFD, paste; (c) a pasteboard item whose readable text is not
  * what the editor's own type says. Each returns the file's bytes after the paste and a fold.
  */
@@ -211,7 +211,7 @@ async function strayClipboard(bytesB64: string, path: string) {
     // The next mount must build a new editor in #host, not reuse this one.
     editor.destroy();
   }
-  // The second review of #584: a forged item whose readable text is one U+FFFD and whose type holds a lone surrogate
+  // A forged item whose readable text is one U+FFFD and whose type holds a lone surrogate
   // that is no stray byte's, pasted just before a stray byte. A lone high surrogate fused with it into a valid pair.
   for (const [name, forged] of [['forgedHigh', '"\\ud800"'], ['forgedLow', '"\\udc00"'], ['forgedMixed', '"\\udce9\\ud800"']] as const) {
     const { editor, buffer } = await mountEditor(bytesB64, path);
@@ -248,9 +248,9 @@ async function strayFind(bytesB64: string, path: string) {
 }
 
 /**
- * Two stray bytes made neighbours by deleting the line break between them (C3, A9: they spell é), then Q typed at the
+ * Two stray bytes made neighbours by deleting the line break between them (they spell é), then Q typed at the
  * end of the line, then the fold read back into the editor as a save does: the caret and the undo history must stay,
- * and every undo must put back exactly the bytes the reader had (F-34.1, F-34.2). `variant`: 'plain' (Q then save),
+ * and every undo must put back exactly the bytes the reader had. `variant`: 'plain' (Q then save),
  * 'moved' (the caret moved after Q, so the last edit has a selection after it), 'redo' (Q undone before the save).
  * Returns the bytes the editor's text names after each undo (and redo), as hex.
  */
@@ -291,8 +291,103 @@ declare global {
       strayClipboard: typeof strayClipboard;
       strayFind: typeof strayFind;
       strayJoin: typeof strayJoin;
+      sourceColour: typeof sourceColour;
+      readColour: typeof readColour;
     };
   }
 }
 
-window.marxySourceHarness = { scrollPerf, roundTrip, multiCursorUndo, mountTimed, strayBytes, strayClipboard, strayFind, strayJoin };
+const TOK = 'marxy-tok-';
+
+/** Each character under `root` and the role of the innermost `marxy-tok-*` element around it, in document order. */
+function rolesUnder(root: Element, skip: (node: Text) => boolean = () => false): { text: string; roles: (string | null)[]; colours: string[] } {
+  let text = '';
+  const roles: (string | null)[] = [];
+  // What is drawn, not only what is named: each character's computed colour.
+  const colours: string[] = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+    if (skip(node)) continue;
+    let role: string | null = null;
+    for (let el = node.parentElement; el && el !== root; el = el.parentElement) {
+      const cls = [...el.classList].find((c) => c.startsWith(TOK));
+      if (cls) {
+        role = cls.slice(TOK.length);
+        break;
+      }
+    }
+    text += node.data;
+    const colour = node.parentElement ? getComputedStyle(node.parentElement).color : '';
+    for (let i = 0; i < node.data.length; i++) {
+      roles.push(role);
+      colours.push(colour);
+    }
+  }
+  return { text, roles, colours };
+}
+
+/** Waits until `ready()` holds, or `ms` pass. */
+async function until(ready: () => boolean, ms: number): Promise<boolean> {
+  const end = performance.now() + ms;
+  while (!ready()) {
+    if (performance.now() > end) return false;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  return true;
+}
+
+/**
+ * Source's colour for `path`, as drawn: each character of the editor's lines and its role, read from the DOM once the
+ * marks have come and stopped changing. `language` is the editor root's `data-marxy-lang`.
+ */
+async function sourceColour(bytesB64: string, path: string, waitMs = 5000, edit?: { at: number; insert: string }) {
+  const started = performance.now();
+  const { editor } = await mountEditor(bytesB64, path);
+  const content = editor.view.contentDOM;
+  if (edit) {
+    // The reader's edit once the first colour is in: the runs after it are read again and laid.
+    await until(() => content.querySelector(`[class*="${TOK}"]`) !== null, waitMs);
+    editor.view.dispatch({ changes: { from: edit.at, insert: edit.insert } });
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  const coloured = (): boolean => content.querySelector(`[class*="${TOK}"]`) !== null;
+  const firstColourMs = (await until(coloured, waitMs)) ? performance.now() - started : -1;
+  // Settled: no new marks for a few frames.
+  let last = '';
+  await until(() => {
+    const now = content.innerHTML;
+    const same = now === last;
+    last = now;
+    return same;
+  }, waitMs);
+  const lines = [...content.querySelectorAll('.cm-line')].map((line) => rolesUnder(line));
+  editor.destroy();
+  return {
+    firstColourMs,
+    language: editor.view.dom.dataset.marxyLang ?? null,
+    text: lines.map((l) => l.text).join('\n'),
+    roles: lines.flatMap((l, i) => (i === 0 ? l.roles : [null, ...l.roles])),
+    colours: lines.flatMap((l, i) => (i === 0 ? l.colours : ['', ...l.colours])),
+  };
+}
+
+/**
+ * Read's colour for `text` in `lang`, as Read draws a fence: a `<pre><code class="language-…">` coloured by the same
+ * worker job, each character and the role of its span.
+ */
+async function readColour(text: string, lang: string) {
+  const { applyHighlightToCode } = await import('../render/highlight.ts');
+  const pre = document.createElement('pre');
+  const code = document.createElement('code');
+  code.className = `language-${lang}`;
+  code.textContent = text;
+  pre.append(code);
+  document.body.append(pre);
+  await applyHighlightToCode(code);
+  // The elided-text notes are drawn beside the text, not part of it.
+  const out = rolesUnder(code, (node) => node.parentElement?.classList.contains('marxy-elided') === true);
+  pre.remove();
+  return out;
+}
+
+window.marxySourceHarness = { scrollPerf, roundTrip, multiCursorUndo, mountTimed, strayBytes, strayClipboard, strayFind, strayJoin, sourceColour, readColour };

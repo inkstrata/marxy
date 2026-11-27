@@ -1,4 +1,4 @@
-// Test support for the transform library (J-03): E-01's `tableTest` takes an `Operation` and rows, so a transform
+// Test support for the transform library: `tableTest` takes an `Operation` and rows, so a transform
 // is seen as the operation "replace the whole document with fn(text)" and each group's table runs through the
 // kit unchanged (as written, CRLF, lone CR, no trailing newline, and behind a BOM for an `edit`).
 import type { Operation } from '../../contracts/operation.ts';

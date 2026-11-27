@@ -1,0 +1,155 @@
+/* Catppuccin: Mocha pastels. Latte by day.
+   Written from packages/theme/src/looks/catppuccin.ts by packages/theme/scripts/write-theme-sheets.mjs: change that file
+   and run the script, never this one (theme-sheets.test.ts holds them equal).
+   Hues from Catppuccin, Mocha and Latte (MIT); Latte’s bright accents darkened to their floor.
+*/
+:root {
+  --marxy-weight-body: 380;
+  --marxy-weight-heading: 580;
+  --marxy-weight-strong: 640;
+
+  --marxy-color-bg: #1e1e2e;
+  --marxy-color-text: #cdd6f4;
+  --marxy-color-text-strong: #e6ebfb;
+  --marxy-color-text-secondary: #a6adc8;
+  --marxy-color-text-faint: #999fb8;
+  --marxy-color-accent: #89b4fa;
+  --marxy-color-accent-strong: #b4befe;
+  --marxy-color-accent-fg: #1e1e2e;
+  --marxy-color-accent-wash: #292c41;
+  --marxy-color-link: var(--marxy-color-accent);
+  --marxy-color-rule: #2f3041;
+  --marxy-color-rule-strong: #3e3f50;
+  --marxy-color-edge: #6c7086;
+  --marxy-color-divider: var(--marxy-color-rule);
+  --marxy-color-divider-focus: var(--marxy-color-accent);
+  --marxy-color-quote-rule: #3e3f50;
+  --marxy-color-surface: #181825;
+  --marxy-color-surface-glass: var(--marxy-color-surface);
+  --marxy-color-notice: var(--marxy-color-surface);
+  --marxy-shadow-surface: 0 0 0 1px #3e3f50, 0 18px 50px rgba(0, 0, 0, 0.55);
+  --marxy-color-code-bg: #181825;
+  --marxy-color-code-text: #cdd6f4;
+  --marxy-color-selection: #313244;
+  --marxy-color-find: #312e31;
+  --marxy-color-find-current: #3b3632;
+  --marxy-color-find-edge: #f9e2af;
+  --marxy-color-status-ok: #a6e3a1;
+  --marxy-color-status-warn: #f9e2af;
+  --marxy-color-status-err: #f38ba8;
+  --marxy-color-status-info: var(--marxy-color-accent);
+  --marxy-color-status-ok-wash: #2a2f39;
+  --marxy-color-status-warn-wash: #302f3a;
+  --marxy-color-status-err-wash: #312839;
+  --marxy-color-diff-add: #2d343d;
+  --marxy-color-diff-del: #342a3b;
+  --marxy-color-diff-add-word: #394447;
+  --marxy-color-diff-del-word: #443245;
+  --marxy-tok-keyword: #cba6f7;
+  --marxy-tok-string: #a6e3a1;
+  --marxy-tok-comment: #a7adc6;
+  --marxy-tok-number: #fab387;
+  --marxy-tok-function: #89b4fa;
+  --marxy-tok-type: #f9e2af;
+  --marxy-tok-variable: var(--marxy-color-code-text);
+  --marxy-tok-operator: #89dceb;
+  --marxy-tok-punctuation: var(--marxy-color-code-text);
+  --marxy-tok-constant: #fab387;
+  --marxy-tok-tag: #cba6f7;
+  --marxy-tok-attribute: #f9e2af;
+  --marxy-tok-marker: #a7adc7;
+  --marxy-tok-heading: #b4befe;
+  --marxy-tok-builtin: #f78fac;
+  --marxy-tok-property: #b4befe;
+  --marxy-tok-decorator: #f5c2e7;
+  --marxy-tok-self: #f78fac;
+  --marxy-tok-escape: #f5c2e7;
+  --marxy-tok-mark: var(--marxy-tok-marker);
+  --marxy-tok-link: var(--marxy-color-link);
+}
+:root[data-marxy-variant="light"] {
+  --marxy-weight-body: 400;
+  --marxy-weight-heading: 600;
+  --marxy-weight-strong: 660;
+
+  --marxy-color-bg: #eff1f5;
+  --marxy-color-text: #474a64;
+  --marxy-color-text-strong: #303245;
+  --marxy-color-text-secondary: #54576c;
+  --marxy-color-text-faint: #54576a;
+  --marxy-color-accent: #0e58e6;
+  --marxy-color-accent-strong: #3943b3;
+  --marxy-color-accent-fg: #eff1f5;
+  --marxy-color-accent-wash: #d7e2f6;
+  --marxy-color-link: var(--marxy-color-accent);
+  --marxy-color-rule: #d7d9dd;
+  --marxy-color-rule-strong: #c5c7ca;
+  --marxy-color-edge: #7f8292;
+  --marxy-color-divider: var(--marxy-color-rule);
+  --marxy-color-divider-focus: var(--marxy-color-accent);
+  --marxy-color-quote-rule: #c5c7ca;
+  --marxy-color-surface: #e6e9ef;
+  --marxy-color-surface-glass: var(--marxy-color-surface);
+  --marxy-color-notice: var(--marxy-color-surface);
+  --marxy-shadow-surface: 0 0 0 1px #c5c7ca, 0 18px 46px rgba(40, 34, 24, 0.18);
+  --marxy-color-code-bg: #e6e9ef;
+  --marxy-color-code-text: #3d4059;
+  --marxy-color-selection: #ccd0da;
+  --marxy-color-find: #f5e1a3;
+  --marxy-color-find-current: #f9d460;
+  --marxy-color-find-edge: #bb7300;
+  --marxy-color-status-ok: #1a7300;
+  --marxy-color-status-warn: #8e5600;
+  --marxy-color-status-err: #c70032;
+  --marxy-color-status-info: var(--marxy-color-accent);
+  --marxy-color-status-ok-wash: #d6e2da;
+  --marxy-color-status-warn-wash: #e4deda;
+  --marxy-color-status-err-wash: #efdadc;
+  --marxy-color-diff-add: #ccdcce;
+  --marxy-color-diff-del: #efd4d6;
+  --marxy-color-diff-add-word: #b1cbb1;
+  --marxy-color-diff-del-word: #edbbbc;
+  --marxy-tok-keyword: #7008d1;
+  --marxy-tok-string: #135f00;
+  --marxy-tok-comment: #4e5063;
+  --marxy-tok-number: #903200;
+  --marxy-tok-function: #0044c9;
+  --marxy-tok-type: #774600;
+  --marxy-tok-variable: var(--marxy-color-code-text);
+  --marxy-tok-operator: #00577c;
+  --marxy-tok-punctuation: var(--marxy-color-code-text);
+  --marxy-tok-constant: #903200;
+  --marxy-tok-tag: #7008d1;
+  --marxy-tok-attribute: #774600;
+  --marxy-tok-marker: #4d5063;
+  --marxy-tok-heading: #3a44b5;
+  --marxy-tok-builtin: #a70028;
+  --marxy-tok-property: #3a44b5;
+  --marxy-tok-decorator: #901f77;
+  --marxy-tok-self: #a70028;
+  --marxy-tok-escape: #901f77;
+  --marxy-tok-mark: var(--marxy-tok-marker);
+  --marxy-tok-link: #0044c7;
+}
+[data-marxy-lang] {
+  --marxy-tok-keyword: #cba6f7;
+  --marxy-tok-type: #f9e2af;
+  --marxy-tok-string: #a6e3a1;
+  --marxy-tok-number: #fab387;
+  --marxy-tok-decorator: #f5c2e7;
+  --marxy-tok-self: #f78fac;
+  --marxy-tok-builtin: #f78fac;
+  --marxy-tok-escape: #f5c2e7;
+  --marxy-tok-constant: #fab387;
+}
+:root[data-marxy-variant="light"] [data-marxy-lang] {
+  --marxy-tok-keyword: #7008d1;
+  --marxy-tok-type: #774600;
+  --marxy-tok-string: #135f00;
+  --marxy-tok-number: #903200;
+  --marxy-tok-decorator: #901f77;
+  --marxy-tok-self: #a70028;
+  --marxy-tok-builtin: #a70028;
+  --marxy-tok-escape: #901f77;
+  --marxy-tok-constant: #903200;
+}

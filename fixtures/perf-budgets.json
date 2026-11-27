@@ -1,5 +1,5 @@
 {
-  "note": "Installed weight only, which scripts/gate-bundle.mjs reads. Interaction times are recorded, never gated (ADR-0032): the nightly perf-harness and startup-macos jobs write them to results/perf-nightly.json and results/perf-startup.json.",
+  "note": "Installed weight only, which scripts/gate-bundle.mjs reads. Interaction times are measured by hand with scripts/perf-harness.mjs and scripts/measure-startup.mjs and are never gated.",
   "bundle_installed_mb": {
     "linux": 25,
     "macos": 30

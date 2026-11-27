@@ -1,4 +1,4 @@
-// The `delimited-table` deriver (ADR-0071, amending ADR-0061; K-10b): a CSV or TSV file read as records of fields, each
+// The `delimited-table` deriver: a CSV or TSV file read as records of fields, each
 // field a byte range of the file. Pure: no DOM, no shell. It never writes and nothing it makes reaches a splice.
 //
 // Two shapes of the same reading:
@@ -8,10 +8,10 @@
 // - a **tree** (`deriveTable`, `tableOf`): `contracts/derived.ts`'s nodes, for the invariants, the tests and one cell
 //   at a time (`cellOf`).
 //
-// The rules, in bytes (ADR-0071 items 1 to 3):
+// The rules, in bytes:
 // - the delimiter comes from the extension, never from the content: `.csv` is `,`, `.tsv` a tab;
 // - a record ends at a line break outside quotes: `\n`, `\r\n`, or a lone `\r` (an old Mac file's line ending; Source
-//   shows the bytes as they are, the table reads them as line breaks: F-89);
+//   shows the bytes as they are, the table reads them as line breaks);
 // - a leading UTF-8 BOM is its own range, in no field;
 // - a line with no bytes before its terminator is a blank line: dropped from the rows and counted (`dropped`);
 // - CSV: a field whose first byte is `"` is quoted and runs to its closing `"` (a `""` inside is one `"`), and may hold
@@ -20,7 +20,7 @@
 //   shown raw, and reading resumes at the next line, so one bad quote reaches its own line and no further. The lines
 //   after it that its quote reached into are still read as rows of their own, so the row says how many (`swallowed`):
 //   the lines a quote that never closes runs through to the end of the file, or the lines up to the quote that closed
-//   late (F-89, commitment 4: a reader is told which rows may have been misread);
+//   late (commitment 4: a reader is told which rows may have been misread);
 // - TSV: no quoting at all. A field is the bytes between tabs, a `"` is data, and no record is ever unreadable;
 // - a record a file still being read has not finished (`final: false`) is the one `pending` record.
 // Every byte of the file is then in exactly one cell, delimiter, terminator, BOM, unreadable row, dropped blank line or
@@ -57,7 +57,7 @@ export const RECORD_PENDING = 2;
 
 /** Bits of `fieldFlags`. */
 export const FIELD_QUOTED = 1;
-/** A `""` collapsed: the value differs from the bytes between the quotes (ADR-0071 item 4's mark). */
+/** A `""` collapsed: the value differs from the bytes between the quotes. */
 export const FIELD_DECODED = 2;
 /** The value holds a line break. */
 export const FIELD_BREAK = 4;
@@ -106,6 +106,11 @@ export interface TableScan {
   readonly bytes: Uint8Array;
   readonly delimiter: ',' | '\t';
   readonly final: boolean;
+  /**
+   * False for a scan that keeps no fields: records alone, for an index of where each one starts. Its `fields` stay empty
+   * and every `firstField` is 0.
+   */
+  readonly keepFields: boolean;
   /** The leading byte-order mark, `[0, 3)`, when there is one. */
   readonly bom: boolean;
   /** Where reading resumes; `bytes.length` once done. */
@@ -130,17 +135,18 @@ export interface TableScan {
   readonly fields: { readonly start: Grow; readonly end: Grow; readonly flags: GrowBytes };
   /** Per unreadable record (by record index): why, the byte the fault was found at, and how many lines after its own its quote reached into. */
   readonly faults: Map<number, { readonly reason: UnreadableReason; readonly at: number; readonly swallowed: number }>;
-  /** Each blank line's terminator range, as [start, end] pairs. */
+  /** Each blank line's terminator range, as [start, end] pairs; empty for a scan that keeps no fields. */
   readonly blanks: Grow;
 }
 
 /** A scan of `bytes` at its start. `final: false` reads a file still being written: its unfinished last record is pending. */
-export function createScan(bytes: Uint8Array, delimiter: ',' | '\t', opts: { readonly final?: boolean } = {}): TableScan {
+export function createScan(bytes: Uint8Array, delimiter: ',' | '\t', opts: { readonly final?: boolean; readonly fields?: boolean } = {}): TableScan {
   const bom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
   return {
     bytes,
     delimiter,
     final: opts.final ?? true,
+    keepFields: opts.fields ?? true,
     bom,
     pos: bom ? 3 : 0,
     done: false,
@@ -250,7 +256,8 @@ function firstLine(bytes: Uint8Array, at: number): { readonly end: number; reado
 }
 
 /**
- * Reads up to `budget.records` more records, or until `budget.until()` says stop (checked every 256 records). Returns
+ * Reads up to `budget.records` more steps (a record or a blank line), or until `budget.until()` says stop (checked
+ * every 256 steps). Returns
  * true once the whole file is read. Records already read never change, so a caller may draw them between calls.
  */
 export function scanSome(scan: TableScan, budget: { readonly records?: number; readonly until?: () => boolean } = {}): boolean {
@@ -260,19 +267,24 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
   const delim = csv ? COMMA : TAB;
   const rec = scan.records;
   const fld = scan.fields;
+  const keep = scan.keepFields;
   const limit = budget.records ?? Number.POSITIVE_INFINITY;
   const from = scan.pos;
   let p = scan.pos;
   let made = 0;
   while (p < n && made < limit) {
     if ((made & 255) === 255 && budget.until?.()) break;
-    // A blank line: its terminator, dropped and counted.
+    // A blank line: its terminator, dropped and counted. It costs a step like a record, so a long run of them ends the
+    // call at the limit and reaches `until`; an index (no fields kept) has no use for where each one was.
     const blank = breakAt(bytes, p, n, final);
     if (blank > 0) {
-      scan.blanks.push(p);
-      scan.blanks.push(p + blank);
+      if (keep) {
+        scan.blanks.push(p);
+        scan.blanks.push(p + blank);
+      }
       if (blank === 1 && bytes[p] === CR) scan.loneCr++;
       p += blank;
+      made++;
       continue;
     }
     if (blank < 0) {
@@ -288,8 +300,9 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
     }
     const recStart = p;
     const firstField = fld.start.length;
+    let count = 0;
     // The lines a fault's quote reached into are counted from its own field; a valid multi-line field earlier in the
-    // record reached into the lines before it, which the record's own first line does not cover (F-89.1).
+    // record reached into the lines before it, which the record's own first line does not cover.
     const reachedBefore = (at: number): number => breaksIn(bytes, firstLine(bytes, recStart).end, at);
     let fault: { reason: UnreadableReason; at: number; swallowed: number } | null = null;
     let recEnd = -1;
@@ -338,7 +351,7 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
         }
         fe = close + 1;
         after = fe;
-        flags = FIELD_QUOTED | contentFlags(bytes, fs + 1, close, decoded, broke);
+        flags = keep ? FIELD_QUOTED | contentFlags(bytes, fs + 1, close, decoded, broke) : 0;
         if (after < n && bytes[after] !== delim) {
           const gap = breakAt(bytes, after, n, final);
           if (gap < 0) {
@@ -359,11 +372,14 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
         }
         fe = q;
         after = q;
-        flags = contentFlags(bytes, fs, fe, false, false);
+        flags = keep ? contentFlags(bytes, fs, fe, false, false) : 0;
       }
-      fld.start.push(fs);
-      fld.end.push(fe);
-      fld.flags.push(flags);
+      count++;
+      if (keep) {
+        fld.start.push(fs);
+        fld.end.push(fe);
+        fld.flags.push(flags);
+      }
       if (after === n) {
         if (!final) unfinished = true;
         recEnd = n;
@@ -379,9 +395,12 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
             unfinished = true;
             break;
           }
-          fld.start.push(n);
-          fld.end.push(n);
-          fld.flags.push(FIELD_EMPTY);
+          count++;
+          if (keep) {
+            fld.start.push(n);
+            fld.end.push(n);
+            fld.flags.push(FIELD_EMPTY);
+          }
           recEnd = n;
           next = n;
           break;
@@ -432,7 +451,6 @@ export function scanSome(scan: TableScan, budget: { readonly records?: number; r
     rec.end.push(recEnd);
     rec.next.push(next);
     rec.firstField.push(firstField);
-    const count = fld.start.length - firstField;
     if (count > scan.widest) scan.widest = count;
     p = next;
     made++;
@@ -451,9 +469,11 @@ export function scanAll(scan: TableScan): TableScan {
 
 /** Line breaks in `[from, to)`: each `\n`, each lone `\r`, and a `\r\n` once. */
 export function breaksIn(bytes: Uint8Array, from: number, to: number): number {
+  // A view bounded at `to`: indexOf on the whole array runs to EOF when the byte is absent (no CR in a Unix CSV).
+  const span = bytes.subarray(from, to);
   let count = 0;
-  for (let i = bytes.indexOf(LF, from); i >= 0 && i < to; i = bytes.indexOf(LF, i + 1)) count++;
-  for (let i = bytes.indexOf(CR, from); i >= 0 && i < to; i = bytes.indexOf(CR, i + 1)) if (bytes[i + 1] !== LF) count++;
+  for (let i = span.indexOf(LF); i >= 0; i = span.indexOf(LF, i + 1)) count++;
+  for (let i = span.indexOf(CR); i >= 0; i = span.indexOf(CR, i + 1)) if (bytes[from + i + 1] !== LF) count++;
   return count;
 }
 
@@ -463,7 +483,7 @@ export function lineOfByte(bytes: Uint8Array, at: number): number {
 }
 
 /**
- * A hint, never a re-parse (ADR-0071 rejects sniffing the delimiter): when the rows read so far are all one field and
+ * A hint, never a re-parse (sniffing the delimiter is rejected): when the rows read so far are all one field and
  * every one of the first 20 holds the same number of one other candidate (`;`, a tab, `|`, or `,` in a TSV), the file
  * may use that between fields. The table stays as the extension reads it and the view says so.
  */
@@ -521,7 +541,7 @@ export function isValidUtf8(bytes: Uint8Array, s: number, e: number): boolean {
 }
 
 /**
- * The `csv-field` decoding of one whole raw field (ADR-0071 item 2): a field not starting with `"` is its bytes as
+ * The `csv-field` decoding of one whole raw field: a field not starting with `"` is its bytes as
  * UTF-8; a quoted one is the bytes between its quotes with each `""` read as one `"`. Throws on bytes that are not one
  * well-formed field (a quoted field without its closing quote, or with a lone `"` inside).
  */
@@ -552,7 +572,7 @@ export function rawText(scan: TableScan, s: number, e: number): string {
   return utf8.decode(scan.bytes.subarray(s, e));
 }
 
-/** The `cell` node of field `f`: what a selection of it is (ADR-0071 item 5). */
+/** The `cell` node of field `f`: what a selection of it is. */
 export function cellOf(scan: TableScan, f: number, file: string): DerivedCell {
   return {
     type: 'cell',
@@ -606,7 +626,7 @@ export function deriveTable(bytes: Uint8Array, path: string, opts: { readonly fi
 }
 
 /**
- * Whether the first row is a header (ADR-0071 ruling 2): every field in it is non-numeric and the fields are distinct.
+ * Whether the first row is a header: every field in it is non-numeric and the fields are distinct.
  * The view says so and one click makes it a data row; nothing is written.
  */
 export function inferHeader(values: readonly string[]): boolean {

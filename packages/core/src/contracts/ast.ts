@@ -1,5 +1,5 @@
 /**
- * The AST contract. Reviewed contract (ADR-0003, ADR-0045): changes by pull request; the invariants
+ * The AST contract. Reviewed contract: changes need review; the invariants
  * are tested (parse/invariants.ts, `pnpm gate:golden`, `pnpm gate:fidelity`).
  *
  * Every node carries byte provenance: which file, and the half-open byte range [start, end)
@@ -37,7 +37,7 @@ export interface Paragraph extends NodeBase { readonly type: 'paragraph'; readon
 export interface Blockquote extends NodeBase { readonly type: 'blockquote'; readonly children: readonly Block[]; }
 export interface List extends NodeBase { readonly type: 'list'; readonly ordered: boolean; readonly start?: number; readonly tight: boolean; readonly children: readonly ListItem[]; }
 export interface ListItem extends NodeBase { readonly type: 'listItem'; readonly task?: 'checked' | 'unchecked'; readonly children: readonly Block[]; }
-export interface CodeBlock extends NodeBase { readonly type: 'codeBlock'; readonly lang?: string; readonly info?: string; readonly value: string; /** byte range of the content only, excluding the fence lines */ readonly content: Source; /** Set on each piece of a code file read as code (V-10): the pieces tile the file and are drawn as one block. */ readonly run?: true; }
+export interface CodeBlock extends NodeBase { readonly type: 'codeBlock'; readonly lang?: string; readonly info?: string; readonly value: string; /** byte range of the content only, excluding the fence lines */ readonly content: Source; /** Set on each piece of a code file read as code: the pieces tile the file and are drawn as one block. */ readonly run?: true; }
 export interface HtmlBlock extends NodeBase { readonly type: 'htmlBlock'; readonly value: string; }
 export interface ThematicBreak extends NodeBase { readonly type: 'thematicBreak'; }
 export interface Table extends NodeBase { readonly type: 'table'; readonly align: readonly ('left' | 'center' | 'right' | null)[]; readonly children: readonly TableRow[]; }
@@ -45,7 +45,7 @@ export interface TableRow extends NodeBase { readonly type: 'tableRow'; readonly
 export interface TableCell extends NodeBase { readonly type: 'tableCell'; readonly children: readonly Inline[]; }
 export interface MathBlock extends NodeBase { readonly type: 'mathBlock'; readonly value: string; }
 export interface FootnoteDefinition extends NodeBase { readonly type: 'footnoteDefinition'; readonly label: string; readonly children: readonly Block[]; }
-export interface Frontmatter extends NodeBase { readonly type: 'frontmatter'; readonly value: string; }
+export interface Frontmatter extends NodeBase { readonly type: 'frontmatter'; readonly value: string; /** byte range of the value only, between the fence lines */ readonly content?: Source; }
 
 export type Block = Heading | Paragraph | Blockquote | List | ListItem | CodeBlock | HtmlBlock | ThematicBreak | Table | TableRow | TableCell | MathBlock | FootnoteDefinition | Frontmatter;
 

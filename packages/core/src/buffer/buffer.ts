@@ -1,16 +1,24 @@
-// The document as bytes, and the only way those bytes change (ADR-0003, ADR-0004).
+// The document as bytes, and the only way those bytes change.
 // Splice concatenates; nothing here re-serialises or normalises the file.
 
 import type { Source } from '../contracts/ast.ts';
 import { decodeWithOffsets, type ByteOffsets } from '../parse/byte-offsets.ts';
 import { encodeSourceText, sourceTextOf } from './source-text.ts';
 
+export { byteToUtf16 } from '../parse/byte-offsets.ts';
+
 const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
 const encoder = new TextEncoder();
 
-const utf16Cache = new WeakMap<object, Uint32Array>();
+/** One operation's bytes, so undoing it is a splice of `after` back to `before`. */
+export interface Edit {
+  readonly range: Source;
+  readonly before: Uint8Array;
+  readonly after: Uint8Array;
+  readonly label: string;
+}
 
-/** A document's bytes and the tables derived from them. One buffer is one file (ADR-0003). */
+/** A document's bytes and the tables derived from them. One buffer is one file. */
 export interface Buffer {
   readonly path: string;
   readonly bytes: Uint8Array;
@@ -81,7 +89,7 @@ export function fromText(path: string, text: string, like: Buffer): Buffer {
  * `text` is a Source text (`sourceTextOf`, without the BOM), in which each byte that is not UTF-8 is its own code
  * unit, so equal text is equal bytes: everything before and after the edit keeps its bytes, and the part that
  * differs is written as the bytes the text names (a stray byte typed nowhere but moved, copied or left inside the
- * edit is still its own byte; a U+FFFD is EF BF BD). The result is the bytes `text` stands for, exactly (F-34.1).
+ * edit is still its own byte; a U+FFFD is EF BF BD). The result is the bytes `text` stands for, exactly.
  * Inside the edit, line endings follow the file (CRLF for a CRLF file). `null` when no byte differs.
  */
 export function foldText(like: Buffer, text: string): { range: Source; replacement: Uint8Array } | null {
@@ -124,19 +132,6 @@ function sameBytes(bytes: Uint8Array, start: number, end: number, replacement: U
 
 const isHigh = (code: number): boolean => code >= 0xd800 && code < 0xdc00;
 const isLow = (code: number): boolean => code >= 0xdc00 && code < 0xe000;
-
-/** CodeMirror's UTF-16 offset for `byte`. ASCII is identity; otherwise a cached inverse table. */
-export function byteToUtf16(buffer: Buffer, byte: number): number {
-  const { text, offsets } = buffer;
-  const clamped = byte < 0 ? 0 : byte > offsets.byteLength ? offsets.byteLength : byte;
-  if (offsets.byteLength === text.length) return clamped;
-  let inverse = utf16Cache.get(buffer);
-  if (!inverse) {
-    inverse = invertOffsets(text, offsets);
-    utf16Cache.set(buffer, inverse);
-  }
-  return inverse[clamped]!;
-}
 
 /** Byte offset of UTF-16 code unit `cu`. The table from `byte-offsets.ts`, not a second scan. */
 export function utf16ToByte(buffer: Buffer, cu: number): number {
@@ -261,7 +256,7 @@ function assertUtf8Boundary(bytes: Uint8Array, offset: number): void {
 /**
  * True when `offset` falls inside a well-formed UTF-8 character. A continuation byte that belongs to no character
  * (a stray 80 to BF, or the tail of a cut-off sequence) is a boundary like any other: the Source text gives it a
- * code unit of its own, so an edit may start or end there (F-34.1; found as F-35).
+ * code unit of its own, so an edit may start or end there.
  */
 function insideCharacter(bytes: Uint8Array, offset: number): boolean {
   if (offset <= 0 || offset >= bytes.length || (bytes[offset]! & 0xc0) !== 0x80) return false;
@@ -284,15 +279,4 @@ function wellFormed(bytes: Uint8Array, at: number, length: number): boolean {
   if (second < lower || second > upper) return false;
   for (let i = 2; i < length; i++) if ((bytes[at + i]! & 0xc0) !== 0x80) return false;
   return true;
-}
-
-function invertOffsets(text: string, offsets: ByteOffsets): Uint32Array {
-  const inverse = new Uint32Array(offsets.byteLength + 1);
-  for (let i = 0; i < text.length; i++) {
-    const from = offsets.at(i);
-    const to = offsets.at(i + 1);
-    for (let b = from; b < to; b++) inverse[b] = i;
-  }
-  inverse[offsets.byteLength] = text.length;
-  return inverse;
 }

@@ -1,7 +1,7 @@
 // A code fence the app splits into one span per source line (`span.marxy-line`, highlight.ts) keeps
-// every block after it on the grid (B-02.1). The line spans arrive after the grid pass has run, and a
+// every block after it on the grid. The line spans arrive after the grid pass has run, and a
 // wrapped diff line hangs past its marker, so the fence can change height after it was padded; the
-// fence is in the real app here (B-01's gate entry), not a copy of it. Playwright WebKit only.
+// fence is in the real app here (the gate entry), not a copy of it. Playwright WebKit only.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -10,7 +10,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'

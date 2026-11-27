@@ -1,10 +1,10 @@
-//! Recursive watch of a collection folder (C-05): one snapshot of every regular file in the tree,
+//! Recursive watch of a collection folder: one snapshot of every regular file in the tree,
 //! patched from the paths the OS reports rather than rescanned on every event.
 //!
 //! Std only. The tree is read with `fs::symlink_metadata`, so a symlink is never followed: a
 //! symlinked directory is not descended and a symlinked file is not reported (the index walker,
-//! `packages/core/src/index-model/walk.ts`, does the same). The directory names in
-//! `DENY_DIRECTORY_NAMES` are skipped wherever they appear, as `index-model/deny.ts` does. Events
+//! `packages/core/src/index-model/walk.ts`, does the same). A folder named in the shell's deny list
+//! (`commands/fs.rs`) is skipped wherever it appears, as `index-model/deny.ts` does. Events
 //! come from the folder watch's own `watch::diff`, so an inode change at a path (write-temp-then-
 //! rename) is `Renamed` onto it exactly as it is for the open document's folder.
 
@@ -13,71 +13,17 @@ use std::fs::{self, Metadata};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::watch::{diff, file_id, Snapshot, WatchEvent};
-
-/// The names in `DENY_DIRECTORY_NAMES` of `packages/core/src/index-model/deny.ts`; a test reads that
-/// file and fails when a name there is missing here.
-pub const DENY_DIRECTORY_NAMES: [&str; 12] = [
-    "node_modules",
-    "target",
-    ".venv",
-    "venv",
-    "dist",
-    "build",
-    "out",
-    ".git",
-    "__pycache__",
-    ".next",
-    ".turbo",
-    "coverage",
-];
+use crate::file_scheme::plain;
+use crate::watch::ids::{file_id_at, list, Kind, Listed};
+use crate::watch::{canonical, diff, Snapshot, WatchEvent};
 
 /// Past this many files a tree is refused, so the app can fall back rather than hold a snapshot of
-/// a whole disk. Only files the index walk would list count (`is_listed`), at open and afterwards.
+/// a whole disk. Every regular file counts: the index lists every file, whatever its name says,
+/// so no name may be filtered out here without its edits going missing from the index.
 pub const MAX_FILES: usize = 200_000;
 
-/// What `open` and `apply` answer when the tree holds more than `MAX_FILES` listed files.
+/// What `open` and `apply` answer when the tree holds more than `MAX_FILES` files.
 pub const TOO_MANY: &str = "too many files";
-
-/// The extensions of `MARKDOWN`, `TEXT` and `SOURCE` in `packages/core/src/index-model/kinds.ts`; a
-/// test reads that file and fails when an extension there is missing here.
-const LISTED_EXTENSIONS: &[&str] = &[
-    "md", "mdx", "markdown", "mdown", "mkd", "txt", "text", "ts", "tsx", "js", "jsx", "mjs", "cjs",
-    "mts", "cts", "rs", "py", "go", "java", "kt", "kts", "c", "h", "cc", "cpp", "cxx", "hpp", "hh",
-    "rb", "php", "swift", "sh", "bash", "zsh", "json", "toml", "yaml", "yml", "html", "htm", "xml",
-    "sql", "graphql", "lua", "r", "ex", "exs", "hs", "vue", "svelte", "css", "scss", "log", "out",
-    "diff", "patch", "term", "session", "csv", "tsv", "jsonl",
-];
-
-/// File names `classify` accepts whatever their extension, and the two ignore files whose change
-/// makes the index walk a root again (`apply-events.ts`).
-const LISTED_NAMES: &[&str] = &[
-    "theme.css",
-    "theme.toml",
-    "Dockerfile",
-    "Makefile",
-    ".gitignore",
-    ".ignore",
-];
-
-/// Whether the index walk could list a file of this name (`classify` in `kinds.ts`, or an ignore
-/// file). The snapshot holds only these: a tree of images and binaries costs nothing against
-/// `MAX_FILES`, and its files make no events. The walk's ignore rules are not applied here, so this
-/// is an upper bound on what the walk lists.
-pub fn is_listed(name: &std::ffi::OsStr) -> bool {
-    let name = name.to_string_lossy();
-    if LISTED_NAMES.contains(&name.as_ref()) {
-        return true;
-    }
-    // `extensionOf`: the text after the last dot, none when the dot leads the name.
-    match name.rfind('.') {
-        Some(i) if i > 0 => {
-            let ext = name[i + 1..].to_lowercase();
-            !ext.is_empty() && LISTED_EXTENSIONS.contains(&ext.as_str())
-        }
-        _ => false,
-    }
-}
 
 /// A watched tree: its canonical root and the identity of every regular file under it.
 pub struct TreeWatch {
@@ -85,6 +31,8 @@ pub struct TreeWatch {
     snapshot: Snapshot,
     /// `MAX_FILES`, smaller in a test that must cross it.
     max: usize,
+    /// Keys (`key`) of the folders left out: the ones the index walk left out by an ignore file or a deny glob.
+    ignored: BTreeSet<String>,
 }
 
 impl TreeWatch {
@@ -92,22 +40,77 @@ impl TreeWatch {
     /// a readable directory or holds more than `MAX_FILES` listed files.
     #[cfg(test)]
     pub fn open(root: &Path) -> Result<Self, String> {
-        Self::open_limited(root, MAX_FILES)
+        Self::open_limited(root, MAX_FILES, &[])
     }
 
-    pub(crate) fn open_limited(root: &Path, max: usize) -> Result<Self, String> {
-        let root = fs::canonicalize(root).map_err(|e| format!("{}: {e}", root.display()))?;
+    /// `ignore` names folders to leave out; one that is not strictly inside `root` is dropped, so the list cannot
+    /// reach beyond the tree.
+    pub(crate) fn open_limited(
+        root: &Path,
+        max: usize,
+        ignore: &[PathBuf],
+    ) -> Result<Self, String> {
+        let root = canonical(root).map_err(|e| format!("{}: {e}", root.display()))?;
         let meta = lstat(&root).map_err(|e| format!("{}: {e}", root.display()))?;
         if !meta.is_dir() {
             return Err(format!("{}: not a directory", root.display()));
         }
+        let ignored = ignored_inside(&root, ignore);
         let mut snapshot = BTreeMap::new();
-        scan_tree(&root, &mut snapshot, Some(max))?;
+        scan_tree(&root, &mut snapshot, Some(max), &ignored)?;
         Ok(Self {
             root,
             snapshot,
             max,
+            ignored,
         })
+    }
+
+    /// Replace the folders left out. Folders newly left out drop their files from the snapshot without events (the
+    /// index dropped them in the walk that found the rule). A folder no longer left out is read again, and its files
+    /// come back as created.
+    pub fn set_ignored(&mut self, ignore: &[PathBuf]) -> Result<Vec<WatchEvent>, String> {
+        let next = ignored_inside(&self.root, ignore);
+        if next == self.ignored {
+            return Ok(Vec::new());
+        }
+        let widened = !self.ignored.iter().all(|old| covered(old, &next));
+        self.ignored = next;
+        let gone: Vec<PathBuf> = self
+            .snapshot
+            .keys()
+            .filter(|path| self.inside_ignored(&key(path)))
+            .cloned()
+            .collect();
+        for path in gone {
+            self.snapshot.remove(&path);
+        }
+        if widened {
+            self.apply(&[], true)
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    /// `k` is a folder left out or lies under one.
+    fn inside_ignored(&self, k: &str) -> bool {
+        if self.ignored.is_empty() {
+            return false;
+        }
+        covered(k, &self.ignored)
+    }
+
+    /// How many of `paths` the tree can learn something from: those under the root and outside a denied folder.
+    /// A build writing into `target/` reports thousands that `apply` drops, and counting them would owe a whole rescan.
+    pub(crate) fn countable(&self, paths: &[PathBuf]) -> usize {
+        paths
+            .iter()
+            .filter(|path| {
+                path.strip_prefix(&self.root)
+                    .is_ok_and(|rel| !rel.components().any(|c| is_denied(c.as_os_str())))
+                    && !self.inside_ignored(&key(path))
+            })
+            .count()
     }
 
     /// How many files the snapshot holds.
@@ -146,7 +149,7 @@ impl TreeWatch {
         let room = self.max.saturating_sub(kept);
         let mut next = Snapshot::new();
         for region in &regions {
-            examine(region, &mut next, room)?;
+            examine(region, &mut next, room, &self.ignored)?;
         }
         let events = diff(&prev, &next);
         for path in prev.keys() {
@@ -165,7 +168,21 @@ impl TreeWatch {
             let Ok(rel) = path.strip_prefix(&self.root) else {
                 continue;
             };
-            if rel.components().any(|c| is_denied(c.as_os_str())) {
+            // Every part but the last is a folder; the last is one only when the disk says so (a file `out` is a file).
+            let mut parts = rel.components();
+            let last = parts.next_back();
+            if parts.any(|c| is_denied(c.as_os_str()))
+                || last.is_some_and(|c| {
+                    is_denied(c.as_os_str()) && lstat(path).is_ok_and(|m| m.is_dir())
+                })
+            {
+                continue;
+            }
+            // Under a folder left out, or the folder itself when the disk still says it is one.
+            let k = key(path);
+            if self.inside_ignored(&k)
+                && (!self.ignored.contains(&k) || lstat(path).is_ok_and(|m| m.is_dir()))
+            {
                 continue;
             }
             wanted.insert(path.clone());
@@ -211,19 +228,25 @@ fn outermost(paths: BTreeSet<PathBuf>) -> Vec<PathBuf> {
 /// What `region` holds now: itself when it is a listed regular file, its subtree when it is a real
 /// directory, nothing when it is gone, a symlink or anything else. Past `room` listed files in
 /// `out` it is `TOO_MANY`.
-fn examine(region: &Path, out: &mut Snapshot, room: usize) -> Result<(), String> {
+fn examine(
+    region: &Path,
+    out: &mut Snapshot,
+    room: usize,
+    ignored: &BTreeSet<String>,
+) -> Result<(), String> {
     let Ok(meta) = lstat(region) else {
         return Ok(());
     };
+    if (meta.is_file() || meta.is_dir()) && !spelled_as_on_disk(region) {
+        return Ok(());
+    }
     if meta.is_file() {
-        if region.file_name().is_some_and(is_listed) {
-            out.insert(region.to_path_buf(), file_id(&meta));
-            if out.len() > room {
-                return Err(TOO_MANY.into());
-            }
+        out.insert(region.to_path_buf(), file_id_at(region, &meta));
+        if out.len() > room {
+            return Err(TOO_MANY.into());
         }
     } else if meta.is_dir() {
-        match scan_tree(region, out, Some(room)) {
+        match scan_tree(region, out, Some(room), ignored) {
             Err(e) if e == TOO_MANY => return Err(e),
             // A directory that vanished or cannot be read now has nothing to list.
             _ => {}
@@ -234,28 +257,41 @@ fn examine(region: &Path, out: &mut Snapshot, room: usize) -> Result<(), String>
 
 /// Every listed regular file under `dir`, never following a symlink and skipping denied names. An
 /// unreadable subdirectory is skipped; an unreadable `dir` is an error.
-fn scan_tree(dir: &Path, out: &mut Snapshot, limit: Option<usize>) -> Result<(), String> {
+fn scan_tree(
+    dir: &Path,
+    out: &mut Snapshot,
+    limit: Option<usize>,
+    ignored: &BTreeSet<String>,
+) -> Result<(), String> {
     let mut stack = vec![dir.to_path_buf()];
     let mut first = true;
     while let Some(next) = stack.pop() {
-        let entries = match read_dir(&next) {
+        let entries = match list_dir(&next) {
             Ok(entries) => entries,
             Err(e) if first => return Err(format!("{}: {e}", next.display())),
             Err(_) => continue,
         };
         first = false;
-        for entry in entries.flatten() {
-            if is_denied(&entry.file_name()) {
-                continue;
-            }
-            let path = entry.path();
-            let Ok(meta) = lstat(&path) else {
-                continue;
+        for entry in entries {
+            let path = next.join(&entry.name);
+            // The listing settles files and folders. Only an entry it cannot (a link, a reparse point) is asked
+            // of the file itself, and a link is neither descended nor listed.
+            let (is_dir, is_file, id) = match entry.kind {
+                Kind::Dir => (true, false, entry.id),
+                Kind::File => (false, true, entry.id),
+                Kind::Other => match lstat(&path) {
+                    Ok(meta) => (meta.is_dir(), meta.is_file(), entry.with_meta(&meta)),
+                    Err(_) => continue,
+                },
             };
-            if meta.is_dir() {
-                stack.push(path);
-            } else if meta.is_file() && is_listed(&entry.file_name()) {
-                out.insert(path, file_id(&meta));
+            if is_dir {
+                if !is_denied(&entry.name)
+                    && !(!ignored.is_empty() && ignored.contains(&key(&path)))
+                {
+                    stack.push(path);
+                }
+            } else if is_file {
+                out.insert(path, id);
                 if limit.is_some_and(|max| out.len() > max) {
                     return Err(TOO_MANY.into());
                 }
@@ -265,8 +301,57 @@ fn scan_tree(dir: &Path, out: &mut Snapshot, limit: Option<usize>) -> Result<(),
     Ok(())
 }
 
+/// Whether `path`, which exists, is spelled as the disk spells it. On a case-insensitive volume the old name of a
+/// case-only rename (`A.md` to `a.md`, `Docs` to `docs`) still finds the file, and listing it there as well as under
+/// its new name would leave a ghost of it, or of a whole folder, in the index.
+fn spelled_as_on_disk(path: &Path) -> bool {
+    if !cfg!(any(windows, target_os = "macos")) {
+        return true;
+    }
+    canonical(path).is_ok_and(|real| plain(&real) == plain(path))
+}
+
+/// A path as one comparable string: forward slashes, no trailing one, and lower case where the volume ignores case.
+fn key(path: &Path) -> String {
+    let mut k = path.to_string_lossy().replace('\\', "/");
+    while k.len() > 1 && k.ends_with('/') {
+        k.pop();
+    }
+    if cfg!(windows) {
+        k = k.to_lowercase();
+    }
+    k
+}
+
+/// `k` is in `set` or lies under a member.
+fn covered(k: &str, set: &BTreeSet<String>) -> bool {
+    if set.contains(k) {
+        return true;
+    }
+    k.match_indices('/')
+        .any(|(i, _)| i > 0 && set.contains(&k[..i]))
+}
+
+/// The keys of the folders in `list` that lie strictly inside `root`, spelled without `.` or `..` parts.
+fn ignored_inside(root: &Path, list: &[PathBuf]) -> BTreeSet<String> {
+    let base = key(root);
+    let prefix = if base.ends_with('/') {
+        base
+    } else {
+        format!("{base}/")
+    };
+    list.iter()
+        .map(|path| key(path))
+        .filter(|k| {
+            k.strip_prefix(&prefix)
+                .is_some_and(|rest| rest.split('/').all(|part| !matches!(part, "" | "." | "..")))
+        })
+        .collect()
+}
+
+/// A folder name the shell's one deny list holds (`commands/fs.rs`), in any case. Asked of folders only.
 fn is_denied(name: &std::ffi::OsStr) -> bool {
-    DENY_DIRECTORY_NAMES.iter().any(|d| name == *d)
+    name.to_str().is_some_and(crate::commands::fs::denied_name)
 }
 
 fn lstat(path: &Path) -> io::Result<Metadata> {
@@ -275,14 +360,14 @@ fn lstat(path: &Path) -> io::Result<Metadata> {
     fs::symlink_metadata(path)
 }
 
-fn read_dir(path: &Path) -> io::Result<fs::ReadDir> {
+fn list_dir(path: &Path) -> io::Result<Vec<Listed>> {
     #[cfg(test)]
     stat_count::bump();
-    fs::read_dir(path)
+    list(path)
 }
 
 /// Test-only count of the file-system calls this module makes (each `symlink_metadata` and each
-/// `read_dir`), per thread so parallel tests do not see each other's.
+/// directory listing), per thread so parallel tests do not see each other's.
 #[cfg(test)]
 pub(crate) mod stat_count {
     use std::cell::Cell;
@@ -314,7 +399,7 @@ mod tests {
             std::env::temp_dir().join(format!("marxy-c05-tree-{name}-{n}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("scratch");
-        fs::canonicalize(&dir).expect("canonicalize scratch")
+        canonical(&dir).expect("canonicalize scratch")
     }
 
     fn write(path: &Path, body: &[u8]) {
@@ -324,6 +409,120 @@ mod tests {
 
     fn cleanup(dir: &Path) {
         let _ = fs::remove_dir_all(dir);
+    }
+
+    /// The scan as it was before the listing carried the metadata: `read_dir`, a `symlink_metadata` per entry, and the
+    /// id from an open of the file itself.
+    fn reference_scan(dir: &Path, out: &mut Snapshot) {
+        for entry in fs::read_dir(dir).expect("read_dir").flatten() {
+            let path = entry.path();
+            let Ok(meta) = fs::symlink_metadata(&path) else {
+                continue;
+            };
+            if meta.is_dir() {
+                if !is_denied(&entry.file_name()) {
+                    reference_scan(&path, out);
+                }
+            } else if meta.is_file() {
+                out.insert(path.clone(), file_id_at(&path, &meta));
+            }
+        }
+    }
+
+    /// A junction, through `mklink /J` (no privilege needed). False where there is no such thing.
+    fn junction(link: &Path, target: &Path) -> bool {
+        cfg!(windows)
+            && std::process::Command::new("cmd")
+                .args(["/C", "mklink", "/J"])
+                .arg(link.to_string_lossy().replace('/', "\\"))
+                .arg(target.to_string_lossy().replace('/', "\\"))
+                .output()
+                .is_ok_and(|o| o.status.success())
+    }
+
+    /// A symlink to a file; false, with the reason printed, where the machine refuses one.
+    fn file_symlink(link: &Path, target: &Path) -> bool {
+        #[cfg(windows)]
+        let made = std::os::windows::fs::symlink_file(target, link);
+        #[cfg(unix)]
+        let made = std::os::unix::fs::symlink(target, link);
+        match made {
+            Ok(()) => true,
+            Err(e) => {
+                println!("symlink case skipped: {e}");
+                false
+            }
+        }
+    }
+
+    #[test]
+    fn the_listing_scan_equals_the_per_file_scan_field_for_field() {
+        let dir = scratch("differential");
+        let outside = scratch("differential-outside");
+        write(&outside.join("far.md"), b"far");
+        write(&dir.join("plain.md"), b"plain");
+        write(&dir.join("empty.md"), b"");
+        fs::create_dir_all(dir.join("empty-folder")).expect("empty folder");
+        write(&dir.join("a/b/c/d/e/f/deep.md"), b"deep");
+        write(&dir.join("node_modules/denied.md"), b"denied");
+        write(&dir.join("Case.md"), b"upper");
+        write(&dir.join("case.txt"), b"lower");
+        write(&dir.join("CASE.TXT"), b"upper again, longer");
+        write(&dir.join(format!("{}.md", "long".repeat(50))), b"long name");
+        write(&dir.join("with space and \u{e9}.md"), b"unicode");
+        write(&dir.join("hard-src.md"), b"hard");
+        fs::hard_link(dir.join("hard-src.md"), dir.join("hard-twin.md")).expect("hard link");
+        let junction_made = junction(&dir.join("junction"), &outside)
+            && junction(&dir.join("a/inner-junction"), &dir.join("a/b"));
+        let symlink_made = file_symlink(&dir.join("link.md"), &dir.join("plain.md"));
+        println!("differential: junctions {junction_made}, symlink {symlink_made}");
+
+        let mut old = Snapshot::new();
+        reference_scan(&dir, &mut old);
+        let mut new = Snapshot::new();
+        scan_tree(&dir, &mut new, None, &BTreeSet::new()).expect("scan");
+        assert_eq!(new, old);
+        assert!(new.len() >= 9, "{} files", new.len());
+        assert!(!new.keys().any(|p| p.ends_with("denied.md")));
+        assert!(
+            !new.keys().any(|p| p.ends_with("far.md")),
+            "no junction is followed"
+        );
+        cleanup(&dir);
+        cleanup(&outside);
+    }
+
+    #[test]
+    fn a_scan_lists_each_folder_once_and_opens_only_reparse_entries() {
+        let dir = scratch("one-listing");
+        let outside = scratch("one-listing-outside");
+        for d in ["", "a", "a/b"] {
+            for f in 0..5 {
+                write(&dir.join(d).join(format!("f{f}.md")), b"x");
+            }
+        }
+        let mut out = Snapshot::new();
+        let before = stat_count::get();
+        scan_tree(&dir, &mut out, None, &BTreeSet::new()).expect("scan");
+        let plain_calls = stat_count::get() - before;
+        assert_eq!(out.len(), 15);
+        assert_eq!(plain_calls, 3, "one listing per folder, no stat per file");
+
+        if junction(&dir.join("j1"), &outside) && junction(&dir.join("a/j2"), &outside) {
+            let mut out = Snapshot::new();
+            let before = stat_count::get();
+            scan_tree(&dir, &mut out, None, &BTreeSet::new()).expect("scan");
+            assert_eq!(out.len(), 15, "a junction is not followed");
+            assert_eq!(
+                stat_count::get() - before,
+                3 + 2,
+                "one stat per junction, nothing else"
+            );
+        } else {
+            println!("junction call count skipped: no junctions here");
+        }
+        cleanup(&dir);
+        cleanup(&outside);
     }
 
     #[test]
@@ -462,6 +661,24 @@ mod tests {
     }
 
     #[test]
+    fn paths_under_denied_folders_do_not_count_toward_a_reconcile() {
+        let dir = scratch("countable");
+        write(&dir.join("keep.md"), b"k");
+        let tree = TreeWatch::open(&dir).expect("open");
+        let root = canonical(&dir).expect("canonical");
+        let reported = vec![
+            root.join("target/debug/a.o"),
+            root.join("node_modules/pkg/index.js"),
+            root.join("src/node_modules/x.js"),
+            root.join("keep.md"),
+            root.join("src/b.md"),
+            dir.parent().expect("parent").join("outside.md"),
+        ];
+        assert_eq!(tree.countable(&reported), 2);
+        cleanup(&dir);
+    }
+
+    #[test]
     fn files_under_denied_directories_are_never_reported() {
         let dir = scratch("deny");
         write(&dir.join("keep.md"), b"k");
@@ -531,100 +748,68 @@ mod tests {
             write(&dir.join(format!("d/{i}.md")), b"x");
         }
         assert_eq!(
-            scan_tree(&dir, &mut out, Some(4)),
+            scan_tree(&dir, &mut out, Some(4), &BTreeSet::new()),
             Err("too many files".to_string())
         );
         cleanup(&dir);
     }
 
+    /// The index lists every file, so the watch reports every file: an image, an extension-less README and the names
+    /// the registry knows (Program.cs, Dockerfile.dev, Justfile) all count against the limit and make events.
     #[test]
-    fn files_the_walk_would_not_list_do_not_count_against_the_limit() {
-        let dir = scratch("unlisted");
-        for i in 0..10 {
-            write(&dir.join(format!("img/{i}.png")), b"x");
-            write(&dir.join(format!("bin/{i}.dat")), b"x");
-        }
-        write(&dir.join("a.md"), b"a");
-        write(&dir.join("sub/b.TS"), b"b");
-        write(&dir.join(".gitignore"), b"x");
-        let mut out = Snapshot::new();
-        scan_tree(&dir, &mut out, Some(3)).expect("three listed files fit a limit of three");
-        assert_eq!(out.len(), 3, "{out:?}");
-        let tree = TreeWatch::open_limited(&dir, 3).expect("open");
-        assert_eq!(tree.len(), 3);
-        cleanup(&dir);
-    }
-
-    #[test]
-    fn is_listed_follows_the_walks_classification() {
-        use std::ffi::OsStr;
-        for yes in [
+    fn every_regular_file_is_listed_and_reported_whatever_its_name() {
+        let dir = scratch("every");
+        let names = [
             "a.md",
-            "A.MD",
-            "x.test.ts",
-            "notes.txt",
-            "Dockerfile",
-            "Makefile",
-            "theme.css",
-            "theme.toml",
-            ".gitignore",
-            ".ignore",
-            "a.b.rs",
-        ] {
-            assert!(is_listed(OsStr::new(yes)), "{yes}");
-        }
-        for no in [
-            "a.png",
-            "a",
-            ".md",
-            ".ts",
-            "a.",
-            "readme",
-            "archive.zip",
-            "dockerfile",
-            "x.mdx.bak",
-        ] {
-            assert!(!is_listed(OsStr::new(no)), "{no}");
-        }
-    }
-
-    #[test]
-    fn an_extension_in_the_file_type_table_is_listed_here() {
-        let table_ts = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../packages/core/src/index-model/file-types.ts");
-        let source = fs::read_to_string(&table_ts).expect("read file-types.ts");
-        let start = source.find("const BY_EXTENSION").expect("BY_EXTENSION");
-        let mid = source.find("/** By exact name").expect("BY_NAME");
-        let end = source
-            .find("/**\n * The extension-less")
-            .expect("text family");
-        let mut names = Vec::new();
-        for line in source[start..mid].lines().skip(1) {
-            if let Some(key) = line.strip_prefix("  ").and_then(|l| l.split(':').next()) {
-                if !key.is_empty()
-                    && key.chars().all(|c| c.is_ascii_alphanumeric())
-                    && line.contains(": ")
-                {
-                    names.push(key.to_string());
-                }
-            }
-        }
-        assert!(names.len() >= 50, "parsed {names:?}");
+            "img/logo.png",
+            "README",
+            "src/Program.cs",
+            "Dockerfile.dev",
+            "Justfile",
+            "x.mk",
+            "bin/blob",
+        ];
         for name in names {
-            assert!(
-                is_listed(std::ffi::OsStr::new(&format!("f.{name}"))),
-                "{name} is in file-types.ts but not in tree.rs"
-            );
+            write(&dir.join(name), b"x");
         }
-        // The special names the table gives whatever their extension.
-        let by_name = &source[mid..end];
-        for name in ["theme.css", "theme.toml", "Dockerfile", "Makefile"] {
-            assert!(
-                by_name.contains(name),
-                "{name} is no longer special in file-types.ts"
-            );
-            assert!(is_listed(std::ffi::OsStr::new(name)), "{name}");
-        }
+        let mut out = Snapshot::new();
+        scan_tree(&dir, &mut out, None, &BTreeSet::new()).expect("scan");
+        assert_eq!(out.len(), names.len(), "{out:?}");
+        assert_eq!(
+            scan_tree(
+                &dir,
+                &mut Snapshot::new(),
+                Some(names.len() - 1),
+                &BTreeSet::new()
+            ),
+            Err(TOO_MANY.to_string())
+        );
+        let mut tree = TreeWatch::open(&dir).expect("open");
+        let cs = dir.join("src/Program.cs");
+        fs::remove_file(&cs).expect("remove");
+        let events = tree.apply(std::slice::from_ref(&cs), false).expect("apply");
+        assert_eq!(
+            events,
+            vec![WatchEvent {
+                kind: WatchKind::Removed,
+                path: cs,
+                to: None
+            }]
+        );
+        let png = dir.join("img/new.png");
+        write(&png, b"png");
+        let events = tree
+            .apply(std::slice::from_ref(&png), false)
+            .expect("apply");
+        assert_eq!(
+            events,
+            vec![WatchEvent {
+                kind: WatchKind::Created,
+                path: png,
+                to: None
+            }]
+        );
+        cleanup(&dir);
     }
 
     #[test]
@@ -632,7 +817,8 @@ mod tests {
         let dir = scratch("grows");
         write(&dir.join("a.md"), b"a");
         write(&dir.join("b.md"), b"b");
-        let mut tree = TreeWatch::open_limited(&dir, 3).expect("two files fit a limit of three");
+        let mut tree =
+            TreeWatch::open_limited(&dir, 3, &[]).expect("two files fit a limit of three");
         // A new file brings it to three: still within the limit.
         let c = dir.join("sub/c.md");
         write(&c, b"c");
@@ -693,24 +879,220 @@ mod tests {
         cleanup(&dir);
     }
 
+    /// The reviewer's case: a case-only rename of a file and of a folder, as ReadDirectoryChangesW reports them (old
+    /// name, then new). The old spelling still finds the file on a case-insensitive volume, and must not stay listed.
+    /// Skipped, loudly, on a case-sensitive volume, where the two spellings are two names.
     #[test]
-    fn the_deny_list_matches_the_index_walkers() {
-        let deny_ts = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../packages/core/src/index-model/deny.ts");
-        let source = fs::read_to_string(&deny_ts).expect("read deny.ts");
-        let start = source
-            .find("DENY_DIRECTORY_NAMES")
-            .expect("DENY_DIRECTORY_NAMES in deny.ts");
-        let open = start + source[start..].find("= [").expect("array start");
-        let close = open + source[open..].find(']').expect("array end");
-        let list = source[open..close].replace('"', "'");
-        let names: Vec<&str> = list.split('\'').skip(1).step_by(2).collect();
-        assert!(names.len() >= 12, "parsed {names:?}");
-        for name in names {
-            assert!(
-                DENY_DIRECTORY_NAMES.contains(&name),
-                "{name} is in deny.ts but not in tree.rs"
-            );
+    fn a_case_only_rename_leaves_no_ghost_of_the_file_or_the_folder() {
+        let dir = scratch("case-rename");
+        write(&dir.join("Docs/x.md"), b"x");
+        write(&dir.join("A.md"), b"a");
+        if lstat(&dir.join("a.md")).is_err() {
+            println!("case-rename: skipped: this volume is case-sensitive");
+            cleanup(&dir);
+            return;
         }
+        let mut tree = TreeWatch::open(&dir).expect("open");
+        fs::rename(dir.join("A.md"), dir.join("a.md")).expect("rename file");
+        let events = tree
+            .apply(&[dir.join("A.md"), dir.join("a.md")], false)
+            .expect("apply");
+        assert_eq!(
+            events,
+            vec![WatchEvent {
+                kind: WatchKind::Renamed,
+                path: dir.join("A.md"),
+                to: Some(dir.join("a.md"))
+            }]
+        );
+        fs::rename(dir.join("Docs"), dir.join("docs")).expect("rename folder");
+        let events = tree
+            .apply(&[dir.join("Docs"), dir.join("docs")], false)
+            .expect("apply");
+        assert_eq!(
+            events,
+            vec![WatchEvent {
+                kind: WatchKind::Renamed,
+                path: dir.join("Docs/x.md"),
+                to: Some(dir.join("docs/x.md"))
+            }]
+        );
+        assert_eq!(tree.len(), 2, "one entry per file");
+        assert!(
+            tree.apply(&[], true).expect("rescan").is_empty(),
+            "a full rescan agrees"
+        );
+        fs::remove_file(dir.join("a.md")).expect("remove");
+        let events = tree.apply(&[dir.join("a.md")], false).expect("apply");
+        assert_eq!(events.len(), 1, "{events:?}");
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn a_denied_name_in_any_case_is_never_listed() {
+        let dir = scratch("deny-case");
+        write(&dir.join("keep.md"), b"k");
+        write(&dir.join("Build/out.md"), b"x");
+        write(&dir.join("a/Node_Modules/x.md"), b"x");
+        let mut tree = TreeWatch::open(&dir).expect("open");
+        assert_eq!(tree.len(), 1);
+        write(&dir.join("Build/new.md"), b"x");
+        assert!(tree
+            .apply(&[dir.join("Build/new.md"), dir.join("Build")], false)
+            .expect("apply")
+            .is_empty());
+        cleanup(&dir);
+    }
+
+    /// the tree watch judges a name as `read_dir` does (its list is checked against deny.ts in fs.rs).
+    #[test]
+    fn the_deny_list_is_the_shells_one() {
+        for name in crate::commands::fs::DENY_DIRECTORY_NAMES {
+            for spelt in [name.to_string(), name.to_ascii_uppercase()] {
+                assert!(is_denied(std::ffi::OsStr::new(&spelt)), "{spelt}");
+            }
+        }
+        assert!(!is_denied(std::ffi::OsStr::new("notes")));
+    }
+
+    /// the list names folders; a file called `out` or `Build` is a file, listed and reported.
+    #[test]
+    fn a_file_named_like_a_denied_folder_is_listed_and_reported() {
+        let dir = scratch("deny-file");
+        write(&dir.join("out"), b"o");
+        write(&dir.join("scripts/Build"), b"b");
+        write(&dir.join("dist/x.md"), b"x");
+        let mut tree = TreeWatch::open(&dir).expect("open");
+        assert_eq!(tree.len(), 2);
+        write(&dir.join("scripts/Build"), b"rebuilt, longer");
+        let events = tree
+            .apply(&[dir.join("scripts/Build")], false)
+            .expect("apply");
+        assert_eq!(events.len(), 1, "{events:?}");
+        write(&dir.join("dist/y.md"), b"y");
+        assert!(tree
+            .apply(&[dir.join("dist/y.md"), dir.join("dist")], false)
+            .expect("apply")
+            .is_empty());
+        cleanup(&dir);
+    }
+
+    /// A fixture with a build folder the index walk left out: its files are not in the snapshot, the count or the events.
+    fn with_build_folder(name: &str) -> PathBuf {
+        let dir = scratch(name);
+        for n in 0..3 {
+            write(&dir.join(format!("notes/n{n}.md")), b"n");
+        }
+        write(&dir.join("readme.md"), b"r");
+        for n in 0..50 {
+            write(&dir.join(format!("gen-out/deep/f{n}.js")), b"g");
+        }
+        dir
+    }
+
+    #[test]
+    fn a_folder_left_out_has_no_files_in_the_snapshot_the_count_or_the_events() {
+        let dir = with_build_folder("ignore-fixture");
+        let before = TreeWatch::open(&dir).expect("open").len();
+        let mut tree =
+            TreeWatch::open_limited(&dir, MAX_FILES, &[dir.join("gen-out")]).expect("open");
+        println!(
+            "tree watch snapshot files: {before} without a folder left out, {} with it",
+            tree.len()
+        );
+        assert_eq!(before, 54);
+        assert_eq!(tree.len(), 4);
+
+        write(&dir.join("gen-out/deep/new.js"), b"n");
+        write(&dir.join("gen-out/deep/f1.js"), b"changed");
+        let reported = [
+            dir.join("gen-out"),
+            dir.join("gen-out/deep"),
+            dir.join("gen-out/deep/new.js"),
+            dir.join("gen-out/deep/f1.js"),
+        ];
+        assert_eq!(
+            tree.countable(&reported),
+            0,
+            "a build writing there owes no rescan"
+        );
+        assert!(tree.apply(&reported, false).expect("apply").is_empty());
+        assert!(tree.apply(&[], true).expect("rescan").is_empty());
+        assert_eq!(tree.len(), 4);
+
+        write(&dir.join("notes/n9.md"), b"9");
+        let events = tree
+            .apply(&[dir.join("notes/n9.md")], false)
+            .expect("apply");
+        assert_eq!(events.len(), 1, "the rest of the tree is still watched");
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn a_folder_that_stops_being_left_out_is_read_again_and_its_files_are_created() {
+        let dir = with_build_folder("ignore-lift");
+        let mut tree =
+            TreeWatch::open_limited(&dir, MAX_FILES, &[dir.join("gen-out")]).expect("open");
+        let events = tree.set_ignored(&[]).expect("lift");
+        assert_eq!(tree.len(), 54);
+        assert_eq!(events.len(), 50, "{events:?}");
+        assert!(events.iter().all(|e| e.kind == WatchKind::Created));
+        // And left out again: the files go from the snapshot without a word, and with no rescan.
+        let calls = stat_count::get();
+        let events = tree.set_ignored(&[dir.join("gen-out")]).expect("again");
+        assert!(events.is_empty());
+        assert_eq!(stat_count::get(), calls, "narrowing reads nothing");
+        assert_eq!(tree.len(), 4);
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn a_folder_inside_a_folder_left_out_changes_nothing_when_the_outer_one_stays() {
+        let dir = with_build_folder("ignore-nested");
+        let mut tree =
+            TreeWatch::open_limited(&dir, MAX_FILES, &[dir.join("gen-out")]).expect("open");
+        let events = tree
+            .set_ignored(&[dir.join("gen-out"), dir.join("gen-out/deep")])
+            .expect("set");
+        assert!(events.is_empty());
+        assert_eq!(tree.len(), 4);
+        cleanup(&dir);
+    }
+
+    /// The front end may spell a folder with other separators or, on Windows, in other case.
+    #[test]
+    fn a_folder_is_left_out_whatever_its_spelling() {
+        let dir = with_build_folder("ignore-spelling");
+        let spelled = if cfg!(windows) {
+            PathBuf::from(format!("{}\\GEN-OUT\\", dir.display()).replace('/', "\\"))
+        } else {
+            PathBuf::from(format!("{}/gen-out/", dir.display()))
+        };
+        let tree = TreeWatch::open_limited(&dir, MAX_FILES, &[spelled]).expect("open");
+        assert_eq!(tree.len(), 4);
+        cleanup(&dir);
+    }
+
+    #[test]
+    fn a_folder_outside_the_root_cannot_be_named() {
+        let dir = with_build_folder("ignore-outside");
+        let sibling = scratch("ignore-outside-sibling");
+        write(&sibling.join("x.md"), b"x");
+        let named = [
+            sibling.clone(),
+            dir.clone(),
+            dir.join("notes/../../escape"),
+            dir.join("notes/./"),
+            PathBuf::from("notes"),
+            PathBuf::from(format!("{}-notes", dir.display())),
+            // Other spellings of a folder inside are dropped too: the list only ever narrows by plain prefix.
+            PathBuf::from(format!(r"\\?\{}\gen-out", dir.display())),
+            PathBuf::from(format!(r"\\localhost\{}\gen-out", dir.display())),
+        ];
+        let tree = TreeWatch::open_limited(&dir, MAX_FILES, &named).expect("open");
+        assert_eq!(tree.len(), 54, "nothing was left out");
+        assert!(tree.ignored.is_empty(), "{:?}", tree.ignored);
+        cleanup(&dir);
+        cleanup(&sibling);
     }
 }

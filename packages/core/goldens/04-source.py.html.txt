@@ -1,5 +1,5 @@
-<pre class="language-python marxy-run" data-marxy-s="0" data-marxy-e="9956"><code class="language-python" data-marxy-s="0" data-marxy-e="9956">#!/usr/bin/env python3
-"""Turn the spike's raw results into results/summary.md, with the decision-rule thresholds applied mechanically.
+<pre class="language-python marxy-run" data-marxy-lang="python" data-marxy-s="0" data-marxy-e="9956"><code class="language-python" data-marxy-s="0" data-marxy-e="9956">#!/usr/bin/env python3
+&quot;&quot;&quot;Turn the spike's raw results into results/summary.md, with the decision-rule thresholds applied mechanically.
 
 usage (from tools/measure so uv's venv is used):
   uv run ../analyze.py                 # write ../../results/summary.md
@@ -10,7 +10,7 @@ Inputs, all under results/ (produced by run-spike.sh):
   startup-&lt;shell&gt;.json                                from startup.mjs
   &lt;label&gt;-cm6.marks, &lt;label&gt;-index.marks              CodeMirror and index marks
 The decision itself is written by a person from summary.md; this script only fills in the numbers.
-"""
+&quot;&quot;&quot;
 import csv, glob, io, json, os, re, subprocess, sys
 from collections import defaultdict
 import numpy as np
@@ -36,7 +36,7 @@ def series(rows):
     return {k: sorted(v) for k, v in d.items()}
 
 def effective(ref, sub):
-    """map subject coverages to effective weights on the reference curve; returns {key: [(w, eff, off)]}"""
+    &quot;&quot;&quot;map subject coverages to effective weights on the reference curve; returns {key: [(w, eff, off)]}&quot;&quot;&quot;
     out = {}
     for k, sv in sub.items():
         if k not in ref: continue
@@ -118,7 +118,7 @@ def main():
     w('### T1 — compensable? (Linux WebKitGTK, Literata, font-weight; pass = |residual| ≤ 25 at 400 and 600 after compensation)\n\n| machine | size | dpr | offset applied | residual @400 | residual @600 | pass |\n| --- | --- | --- | --- | --- | --- | --- |\n')
     for label, size, dpr, off, r4, r6 in verdict_t1:
         ok = r4 is not None and r6 is not None and abs(r4) &lt;= 25 and abs(r6) &lt;= 25
-        w(f'| {label} | {size} | {dpr} | {off} | {r4:+.0f} | {r6:+.0f} | {"yes" if ok else "no"} |\n')
+        w(f'| {label} | {size} | {dpr} | {off} | {r4:+.0f} | {r6:+.0f} | {&quot;yes&quot; if ok else &quot;no&quot;} |\n')
     w('\nInspect the `-off&lt;k&gt;` reading-size crops by eye before calling T1: the threshold covers weight only, not hinting or synthetic bold.\n\n')
     # startup
     w('## M3 — cold start on the target machine (ms from spawn; median / p90 of first_text)\n\n| shell | n | app/webview ready | first_text median | first_text p90 |\n| --- | --- | --- | --- | --- |\n')
@@ -127,22 +127,22 @@ def main():
         p = os.path.join(RES, f'startup-{shell}.json')
         if not os.path.exists(p): w(f'| {shell} | — | — | — | — |\n'); continue
         s = json.load(open(p))['stats']; ft = s.get('first_text', {}); ready = s.get('script_start', {})
-        med[shell] = ft.get('median'); w(f'| {shell} | {ft.get("n")} | {ready.get("median")} | {ft.get("median")} | {ft.get("p90")} |\n')
+        med[shell] = ft.get('median'); w(f'| {shell} | {ft.get(&quot;n&quot;)} | {ready.get(&quot;median&quot;)} | {ft.get(&quot;median&quot;)} | {ft.get(&quot;p90&quot;)} |\n')
     if med.get('tauri') and med.get('electron'):
         r = med['tauri'] / med['electron']
         t2 = 'real (≤0.8×)' if r &lt;= 0.8 else ('wash (0.8–1.25×)' if r &lt;= 1.25 else 'Electron faster (&gt;1.25×)')
-        w(f'\nT2: Tauri/Electron median ratio **{r:.2f}** → **{t2}**. Budget check: Tauri {med["tauri"]} ms vs 500 ms budget → {"under" if med["tauri"] &lt; 500 else "OVER"}.\n\n')
+        w(f'\nT2: Tauri/Electron median ratio **{r:.2f}** → **{t2}**. Budget check: Tauri {med[&quot;tauri&quot;]} ms vs 500 ms budget → {&quot;under&quot; if med[&quot;tauri&quot;] &lt; 500 else &quot;OVER&quot;}.\n\n')
     # cm6
     w('## M4 — CodeMirror 6 plain text, multi-megabyte file (scroll frame times, ms)\n\n| run | interactive | p50 | p95 | max | frames &gt;100ms | pass |\n| --- | --- | --- | --- | --- | --- | --- |\n')
     for p in sorted(glob.glob(os.path.join(RES, '*cm6*.marks'))):
         m = marks(p); sc = json.loads(m['cm6_scroll']) if m.get('cm6_scroll') else None; ti = m.get('cm6_interactive')
-        if sc: w(f'| {os.path.basename(p)[:-6]} | {ti} | {sc["p50"]} | {sc["p95"]} | {sc["max"]} | {sc["over100"]} | {"yes" if sc["over100"] == 0 and ti and int(ti) &lt; 500 else "no"} |\n')
+        if sc: w(f'| {os.path.basename(p)[:-6]} | {ti} | {sc[&quot;p50&quot;]} | {sc[&quot;p95&quot;]} | {sc[&quot;max&quot;]} | {sc[&quot;over100&quot;]} | {&quot;yes&quot; if sc[&quot;over100&quot;] == 0 and ti and int(ti) &lt; 500 else &quot;no&quot;} |\n')
     # index
     w('\n## M5 — index and fuzzy search\n\n| run | files | build ms | keystroke p50 | p95 | max | backend p95 | T3 disappoints? |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n')
     for p in sorted(glob.glob(os.path.join(RES, '*index*.marks'))):
         m = marks(p); b = json.loads(m['index_build']) if m.get('index_build') else None; q = json.loads(m['index_query']) if m.get('index_query') else None
         if b and q:
-            rt = q['roundtrip_incl_render']; w(f'| {os.path.basename(p)[:-6]} | {b["count"]} | {b["ms"]:.0f} | {rt["p50"]} | {rt["p95"]} | {rt["max"]} | {q["backend_only"]["p95"]} | {"yes" if rt["p95"] &gt; 16 else "no"} |\n')
+            rt = q['roundtrip_incl_render']; w(f'| {os.path.basename(p)[:-6]} | {b[&quot;count&quot;]} | {b[&quot;ms&quot;]:.0f} | {rt[&quot;p50&quot;]} | {rt[&quot;p95&quot;]} | {rt[&quot;max&quot;]} | {q[&quot;backend_only&quot;][&quot;p95&quot;]} | {&quot;yes&quot; if rt[&quot;p95&quot;] &gt; 16 else &quot;no&quot;} |\n')
     w('\n## Typesetting captures for human review\n\n')
     for p in sorted(glob.glob(os.path.join(RES, '*typeset*.png'))): w(f'- `{os.path.basename(p)}`\n')
     w('\n## Bundle size (context only, excluded from the rule)\n\n')

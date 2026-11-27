@@ -1,0 +1,5 @@
+$ pnpm gate:golden   (in .)
+
+$ pnpm --filter @marxy/core test:golden
+$ node --experimental-strip-types scripts/golden.ts
+golden: 34 corpus fixtures and 1 derived session match their golden AST, derived and HTML files, and every file kind matches kinds.json, invariants hold

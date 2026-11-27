@@ -1,5 +1,5 @@
-// The Convert group (J-03), the part that is pure text work or an E operation seen as text: plain text, tables
-// as CSV and JSON, JSON, fence, quote, indent, and (J-03.1) Slack, Jira wiki, HTML and delimited text in.
+// The Convert group, the part that is pure text work or an E operation seen as text: plain text, tables
+// as CSV and JSON, JSON, fence, quote, indent, and Slack, Jira wiki, HTML and delimited text in.
 import type { Table } from '../contracts/ast.ts';
 import { alignTablePipes } from '../operations/align-table-pipes.ts';
 import { copyPlain } from '../operations/copy-plain.ts';
@@ -34,7 +34,7 @@ export const tableToJson: TransformDef = { id: 'table-to-json', kind: 'derive', 
 
 const finalBreak = (lf: string): string => (lf.endsWith('\n') ? '\n' : '');
 
-/** The formatter is E-09's; text that is not JSON comes back as it was (the catalogue's guard). */
+/** The JSON formatter; text that is not JSON comes back as it was (the catalogue's guard). */
 export const jsonPretty: TransformDef = {
   id: 'json-pretty',
   kind: 'edit',
@@ -84,7 +84,9 @@ export const fence: TransformDef = {
     const { lines, finalEol } = splitLinesLf(lf);
     const code = lines.join('\n');
     // A fence longer than any backtick run inside, so the content cannot close it.
-    const longest = Math.max(0, ...(code.match(/`+/g) ?? []).map((r) => r.length));
+    // A loop, not Math.max(...runs): a minified file has more runs than the engine's argument limit.
+    let longest = 0;
+    for (const [run] of code.matchAll(/`+/g)) if (run.length > longest) longest = run.length;
     const ticks = '`'.repeat(Math.max(3, longest + 1));
     const lang = ctx.lang !== undefined && /^[\w+#.-]+$/.test(ctx.lang) ? ctx.lang : '';
     return `${ticks}${lang}\n${code}${code === '' ? '' : '\n'}${ticks}${finalEol ? '\n' : ''}`;
@@ -128,7 +130,7 @@ export const dedent: TransformDef = {
   },
 };
 
-/** Bare HTML: the document through Marxy's own writer and its sanitiser (ADR-0021), as the reader sees it, without the renderer's byte-provenance attributes. */
+/** Bare HTML: the document through Marxy's own writer and its sanitiser, as the reader sees it, without the renderer's byte-provenance attributes. */
 export const toHtml: TransformDef = {
   id: 'to-html',
   kind: 'derive',

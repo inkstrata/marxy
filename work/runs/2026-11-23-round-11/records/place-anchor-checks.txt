@@ -1,0 +1,32 @@
+﻿packages/theme typecheck: Done
+packages/core typecheck: Done
+apps/desktop typecheck$ tsc -p tsconfig.json --noEmit
+apps/desktop typecheck: Done
+typecheck exit 0
+packages/theme lint: Done
+apps/desktop lint$ biome check --formatter-enabled=false .
+apps/desktop lint: Checked 914 files in 617ms. No fixes applied.
+apps/desktop lint: Done
+lint exit 0
+✓ check-commonplace
+✓ check-listeners
+
+check: 10/10 passed
+check exit 0
+
+step       result  wall    tests
+---------  ------  ------  ---------------
+install    pass    22.3s
+typecheck  pass    58.9s
+lint       pass    55.0s
+check      pass    59.6s   10 pass, 0 fail
+golden     pass    23.7s
+fidelity   pass    568.7s
+licences   pass    15.0s
+browser    pass    190.2s  15 pass, 0 fail
+---------  ------  ------  ---------------
+total              993.5s
+
+verify changed: 8/8 steps passed
+verify exit 0
+ALLDONE

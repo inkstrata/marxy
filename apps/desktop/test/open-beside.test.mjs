@@ -1,4 +1,4 @@
-// Open beside (D-07): `Mod+Alt+\` opens the palette in beside mode, whose empty list is the recent documents
+// Open beside: `Mod+Alt+\` opens the palette in beside mode, whose empty list is the recent documents
 // not on screen; `Enter` opens the first in the other pane (made when there is one), `Mod+Enter` opens any
 // row beside; a window narrower than two columns at the typography floor makes no second pane and says so.
 // Booted on the shipped skeleton (palette dialog included) over the memory shell, with the real palette.
@@ -38,7 +38,8 @@ const entries = Object.keys(files).map((path) => ({
   size: files[path].length,
   kind: 'markdown',
 }));
-const FIT = 'Marxy needs a window at least 929 px wide to show two documents side by side.';
+// 929 px of two columns at the floor, and the frame's 44 px rail beside them (pane/fit.ts counts what the window holds beside the panes).
+const FIT = 'Marxy needs a window at least 973 px wide to show two documents side by side.';
 
 async function withPage(width, fn) {
   const browser = await launchWebkit();
@@ -125,14 +126,58 @@ test('1,470 px, one document, two more in the MRU: Mod+Alt+\\ then Enter splits 
     const before = await place(page);
     await beside(page);
     assert.equal(await dialogOpen(page), true);
-    assert.deepEqual(await rows(page), ['Charlie', 'Bravo'], 'Recent without the document on screen');
+    // The launch's own file is a read too (palette/view.ts: any open the app records, the command line included).
+    assert.deepEqual(await rows(page), ['Charlie', 'Bravo', 'Note one'], 'Recent without the document on screen');
     assert.equal(await paletteNotice(page), 'Open beside');
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[1]?.path() === '/r/C.md');
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/C.md']);
     assert.equal(await dialogOpen(page), false);
+    // The pane takes focus once its document has landed, a task after the path is set.
+    await page.waitForFunction(() => window.__marxyHandle.panes().focused.slot === 1, null, { timeout: 5000 }).catch(() => {});
     assert.equal(await focusedSlot(page), 1, 'focus follows the document into its pane');
     assert.deepEqual(await place(page), before, "the first pane's document and place are untouched");
+  });
+});
+
+test('AltGr on Windows is typing: AltGr+C (c-acute) and German AltGr+ß (a backslash) are not taken by a chord', async () => {
+  await withPage(1470, async (page) => {
+    await boot(page, { open: ['/r/A.md'] });
+    const press = (code, key) =>
+      page.evaluate(([code, key]) => {
+        const event = new KeyboardEvent('keydown', { key, code, ctrlKey: true, altKey: true, modifierAltGraph: true, bubbles: true, cancelable: true });
+        document.body.dispatchEvent(event);
+        return event.defaultPrevented;
+      }, [code, key]);
+    const isMac = await page.evaluate(() => navigator.platform.toUpperCase().includes('MAC'));
+    if (isMac) return;
+    const drawer = () => page.evaluate(() => document.body.getAttribute('data-marxy-drawer'));
+    const before = await drawer();
+    assert.equal(await press('KeyC', 'ć'), false);
+    assert.equal(await press('Minus', '\\'), false);
+    assert.equal(await press('Backslash', '\\'), false);
+    assert.equal(await dialogOpen(page), false, 'open beside did not run');
+    assert.equal(await drawer(), before, 'no branch opened');
+  });
+});
+
+test('a pane key whose command fails says so in a notice, as the palette does', async () => {
+  await withPage(1470, async (page) => {
+    await boot(page, { open: ['/r/A.md', '/r/B.md'] });
+    await page.evaluate(async () => {
+      const handle = window.__marxyHandle;
+      await handle.panes().openIn('other', '/r/C.md');
+      const real = handle.panes.bind(handle);
+      handle.panes = () =>
+        new Proxy(real(), { get: (target, key) => (key === 'focus' ? () => { throw new Error('the pane would not take focus'); } : target[key]) });
+    });
+    const isMac = await page.evaluate(() => navigator.platform.toUpperCase().includes('MAC'));
+    await page.keyboard.press(`${isMac ? 'Meta' : 'Control'}+Alt+ArrowRight`);
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('.marxy-notice-text')].some((e) => e.textContent === 'Focus right pane did not run: the pane would not take focus'),
+      null,
+      { timeout: 5000 },
+    );
   });
 });
 
@@ -143,7 +188,7 @@ test('Mod+Alt+\\ with two panes and Enter replaces the other pane, not the focus
     await focus(page, 0);
     const before = await place(page);
     await beside(page);
-    assert.deepEqual(await rows(page), ['Bravo'], 'neither pane\'s document is offered');
+    assert.deepEqual(await rows(page), ['Bravo', 'Note one'], 'neither pane\'s document is offered');
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].path() === '/r/B.md');
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md']);
@@ -156,6 +201,8 @@ test('Mod+Enter on the third row of a typed result opens that file beside; plain
   await withPage(1470, async (page) => {
     await boot(page, { open: ['/r/A.md'] });
     await page.keyboard.press('ControlOrMeta+KeyP');
+    // The Line open with its first rows: a query typed before it has opened is taken back by its opening.
+    await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
     await page.fill('#marxy-palette .marxy-palette-query', 'note');
     await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length >= 4);
     const titles = await rows(page);
@@ -164,18 +211,24 @@ test('Mod+Enter on the third row of a typed result opens that file beside; plain
     await page.keyboard.press('ControlOrMeta+Enter');
     const third = `/r/note-${['one', 'two', 'three', 'four'].indexOf(titles[2].split(' ')[1].toLowerCase()) + 1}.md`;
     await page.waitForFunction((p) => window.__marxyHandle.panes().panes[1]?.path() === p, third);
+    // Focus follows the document into the new pane once its open lands (after the window's title names it): focusing the
+    // first pane before then raced it.
+    await page.waitForFunction((p) => window.__marxyHandle.panes().focused.slot === 1 && document.title.startsWith(p.split('/').pop()), third);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     assert.deepEqual(await paths(page), ['/r/A.md', third]);
     // Plain Mod+P and Enter open here, as before.
     await focus(page, 0);
     await page.keyboard.press('ControlOrMeta+KeyP');
+    await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
     await page.fill('#marxy-palette .marxy-palette-query', 'Bravo');
+    await page.waitForFunction(() => document.querySelector('#marxy-palette .marxy-palette-row .marxy-palette-title')?.textContent === 'Bravo');
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].path() === '/r/B.md');
     assert.deepEqual(await paths(page), ['/r/B.md', third]);
   });
 });
 
-test('900 px: Mod+Alt+\\ shows the fit notice naming 929 px and opens no palette and no second pane; 929 px splits', async () => {
+test('900 px: Mod+Alt+\\ shows the fit notice naming 973 px and opens no palette and no second pane; 973 px splits', async () => {
   await withPage(900, async (page) => {
     await boot(page, { open: ['/r/note-1.md', '/r/B.md', '/r/A.md'] });
     await beside(page);
@@ -183,15 +236,15 @@ test('900 px: Mod+Alt+\\ shows the fit notice naming 929 px and opens no palette
     assert.equal(await dialogOpen(page), false);
     assert.deepEqual(await paths(page), ['/r/A.md']);
     assert.deepEqual((await notices(page, 0)).map((n) => n.text), [FIT]);
-    // The set itself refuses too, whoever asks (a link followed beside, D-09).
+    // The set itself refuses too, whoever asks (a link followed beside).
     await page.evaluate(() => window.__marxyHandle.open('/r/B.md', { target: 'other' }));
     assert.deepEqual(await paths(page), ['/r/A.md'], 'AppHandle.open beside makes no second pane either');
-    // 928 is still too narrow; 929 holds two columns.
-    await page.setViewportSize({ width: 928, height: 900 });
+    // 972 is still too narrow; 973 holds two columns.
+    await page.setViewportSize({ width: 972, height: 900 });
     await beside(page);
     await page.waitForTimeout(200);
     assert.equal(await dialogOpen(page), false);
-    await page.setViewportSize({ width: 929, height: 900 });
+    await page.setViewportSize({ width: 973, height: 900 });
     await beside(page);
     assert.equal(await dialogOpen(page), true);
     await page.keyboard.press('Enter');
@@ -253,7 +306,7 @@ test('open beside a dirty document in the other pane asks in that pane and repla
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].view.store()?.snapshot().dirty === true);
     await focus(page, 0);
     await beside(page);
-    assert.deepEqual(await rows(page), ['Charlie'], 'the dirty document on screen is not offered');
+    assert.deepEqual(await rows(page), ['Charlie', 'Note one'], 'the dirty document on screen is not offered');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(400);
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md'], 'nothing replaced yet');
@@ -296,14 +349,20 @@ test('Esc in the palette gives focus back to the pane it was summoned from', asy
   });
 });
 
-plain('paneChordFor needs Mod (and only Mod) for every chord (D-06 review, M10)', () => {
+plain('paneChordFor needs Mod (and only Mod) for every chord', () => {
   const press = (init) => ({ metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, code: '', ...init });
   for (const mac of [true, false]) {
     const mod = mac ? { metaKey: true } : { ctrlKey: true };
     const other = mac ? { ctrlKey: true } : { metaKey: true };
     for (const chord of PANE_CHORDS) {
-      // A chord with `ctrl` (W-03) is Control and Command on a Mac, and has no spelling elsewhere.
+      // A chord with `ctrl` is Control and Command on a Mac, and has no spelling elsewhere.
       const keys = { code: chord.code, shiftKey: chord.shift ?? false, altKey: chord.alt ?? false };
+      // A `bare` chord (Alt+W closes a tab) takes no Mod, and is refused with one.
+      if (chord.bare) {
+        assert.equal(paneChordFor(press(keys), mac), chord, `${chord.command} bare`);
+        assert.equal(paneChordFor(press({ ...keys, ...mod }), mac), null, `${chord.command} with Mod`);
+        continue;
+      }
       if (chord.ctrl) {
         assert.equal(paneChordFor(press({ ...keys, metaKey: true, ctrlKey: true }), true), chord, `${chord.command} with Control and Command`);
         assert.equal(paneChordFor(press({ ...keys, metaKey: true }), true), null, `${chord.command} without Control`);

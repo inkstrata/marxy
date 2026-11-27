@@ -1,4 +1,4 @@
-// Snapshot bytes and mtime invalidation. A stale index is worse than none (ADR-0012).
+// Snapshot bytes and mtime invalidation. A stale index is worse than none.
 
 import type { IndexEntry } from '../contracts/index-entry.ts';
 import type { IndexNotice } from './ceiling.ts';
@@ -14,7 +14,7 @@ export interface IndexSnapshot {
   readonly notice?: IndexNotice;
   /**
    * When Marxy first indexed this root (epoch ms). Set once and carried by every later snapshot of
-   * the root, so a folder added today does not count every file in it as changed (ADR-0053).
+   * the root, so a folder added today does not count every file in it as changed.
    * Optional: a snapshot written before it existed still parses, and the version stays 1.
    */
   readonly baselineMs?: number;

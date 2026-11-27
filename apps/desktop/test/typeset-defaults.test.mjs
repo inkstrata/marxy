@@ -1,5 +1,5 @@
-// Typeset defaults in the app readers open (MARXY-137): hyphenation and left-edge hanging
-// follow the package defaults, proven through the MARXY-95 harness rather than the typeset one.
+// Typeset defaults in the app readers open: hyphenation and left-edge hanging
+// follow the package defaults, proven through the other harness rather than the typeset one.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -8,11 +8,11 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { fileURLToPath } from 'node:url';
 
 /**
- * A job without Playwright's WebKit (CI's `fast` job) skips the browser cases and says why, unless
+ * A run without Playwright's WebKit skips the browser cases and says why, unless
  * MARXY_BROWSER_TESTS_REQUIRED=1, where a missing browser is a failure as it should be.
  */
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -44,12 +44,22 @@ after(() => server?.close());
 
 /** Normalised attach() option literals from a source file (the per-article view). */
 function attachOptionsFrom(src) {
-  const match = src.match(/attach\(article, \{([^}]+)\}\)/);
-  assert.ok(match, 'source still calls attach(article, { … })');
-  return match[1].replace(/\s+/g, ' ').trim();
+  const start = src.indexOf('attach(article, {');
+  assert.ok(start >= 0, 'source still calls attach(article, { … })');
+  // The options object to its matching brace: an option's body (onPass) has braces of its own.
+  const open = start + 'attach(article, '.length;
+  let depth = 0;
+  let end = open;
+  for (; end < src.length; end++) {
+    if (src[end] === '{') depth++;
+    else if (src[end] === '}' && --depth === 0) break;
+  }
+  assert.equal(src.slice(end + 1, end + 2), ')', 'the options object closes the call');
+  // Comments are prose, not options: a word in one must not pass or fail the checks.
+  return src.slice(open + 1, end).replace(/\/\/[^\n]*/g, '').replace(/\s+/g, ' ').trim();
 }
 
-/** The app's typesetter is the per-article view's (B-13). */
+/** The app's typesetter is the per-article view's. */
 function attachOptionsApp() {
   return attachOptionsFrom(readFileSync(join(repoRoot, 'apps', 'desktop', 'src', 'view', 'rendered-view.ts'), 'utf8'));
 }
@@ -69,10 +79,11 @@ test('app.ts attach() does not pass hyphenate or hanging, and no other argument 
   assert.doesNotMatch(opts, /\bhyphenate\b/, 'hyphenate must not be passed; the package default is true');
   assert.doesNotMatch(opts, /\bhanging\b/, "hanging must not be passed; the package default is 'left'");
   assert.match(opts, /\blineBox\b/);
-  assert.doesNotMatch(opts, /glueStretchEm|engine/, 'the justif engine option is gone (B-17)');
+  assert.doesNotMatch(opts, /glueStretchEm|engine/, 'the justif engine option is gone');
   assert.match(opts, /lastLineMinWidth:\s*0\.33/);
-  // Background idle batches are coalesced; a pass the reader can see is snapped at once (MARXY-198).
-  assert.match(opts, /onPass:\s*\(kind\)\s*=>\s*\(kind === 'background' \? scheduleSnap\(article\) : snap\(article\)\)/);
+  // Background idle batches are coalesced; a pass the reader can see is snapped at once: over the blocks holding the
+  // paragraphs a visible pass set, else the whole article.
+  assert.match(opts, /onPass: \(kind, set\) => \{ if \(kind === 'background'\) scheduleSnap\(article\); else if \(kind === 'visible' && set !== undefined && set\.length > 0 && !derived\) snapChanged\(article, topLevelOf\(article, set\)\); else snap\(article\); \}/);
 });
 
 test('01-long-technical.md through the app ends a line on the generated hyphen, which is not selectable text', async () => {
@@ -106,9 +117,9 @@ test('01-long-technical.md through the app ends a line on the generated hyphen, 
     assert.equal(writes.length, 0, 'the document must paint without error');
     const viewport = marks.find((m) => m.name === 'typeset_viewport');
     const viewportMs = Number(/ms=([\d.]+)/.exec(String(viewport?.data ?? ''))?.[1]);
-    // Recorded, not a CI failure (ADR-0032); a missing mark is.
+    // Recorded, not a CI failure; a missing mark is.
     assert.ok(Number.isFinite(viewportMs), `typeset_viewport was not measured (${viewport?.data})`);
-    console.log(`typeset_viewport ${viewportMs} ms (100 ms product budget; recorded, ADR-0032)`);
+    console.log(`typeset_viewport ${viewportMs} ms (100 ms product budget; recorded)`);
     assert.ok(result.hyphenCount > 0, `expected a generated hyphen on 01-long-technical.md, got ${result.hyphenCount}`);
     assert.equal(result.empty, true, 'the hyphen span is empty: the glyph is generated content, not a document byte');
     assert.equal(result.selected, '', `selecting the hyphen span must yield no text, got ${JSON.stringify(result.selected)}`);

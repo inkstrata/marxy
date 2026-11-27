@@ -1,7 +1,7 @@
-// No-network assertion (ADR-0009): put every corpus document and every named vector through the
+// No-network assertion: put every corpus document and every named vector through the
 // real @marxy/core parse → render → sanitise pipeline, in a real browser, in both engines, and
 // assert that nothing in the result reaches off the machine and nothing outside the allow-list
-// reaches the DOM. Nothing here comes from apps/desktop (ADR-0020).
+// reaches the DOM. Nothing here comes from apps/desktop.
 //
 // The assertion is a measurement, not a silence. Three controls run first in each engine: a page
 // that deliberately fetches, which must be observed; the hostile fixture rendered *without* the
@@ -12,7 +12,7 @@
 // Documents are served from a real origin rather than injected into `about:blank`, so a relative
 // reference becomes a same-origin request instead of something each engine invents a scheme for.
 // The origin and the directory come from `@marxy/core`, where the assumption they encode is written
-// down for MARXY-45 to reconcile with the shell's real scheme; they are not this harness's to pick.
+// down to be reconciled with the shell's real scheme; they are not this harness's to pick.
 //
 // A same-origin request is only allowed if it resolves *inside the document's own directory* and
 // the whole reference appears in the document's source. Anything else — including a path that
@@ -20,11 +20,11 @@
 // a gate that prints more than it checked is worse than one that prints less.
 //
 // The harness sets no Content-Security-Policy on purpose. A CSP would suppress these requests before
-// the network layer saw them, and the gate would be measuring the CSP the shell will ship (MARXY-45)
+// the network layer saw them, and the gate would be measuring the CSP the shell will ship
 // instead of the allow-list this gate exists to check.
 //
 // What this gate can and cannot see a document attempt, and why the checks below cannot be deleted
-// without something failing, are recorded in ADR-0009 (MARXY-83): the printed observability report
+// without something failing, are recorded: the printed observability report
 // covers the first, `GATE_ASSERTION_IDS` plus `gate-assertions.test.ts` cover the second.
 import { chromium, webkit } from 'playwright';
 import { spawnSync } from 'node:child_process';
@@ -43,13 +43,13 @@ import {
   isReferenceInSource, isRenderedBlank, sawHost,
 } from '../packages/core/scripts/gate-checks.ts';
 
-// Criterion 1 (MARXY-83): printed every run, pass or fail, before any control has even opened a
+// Criterion 1: printed every run, pass or fail, before any control has even opened a
 // page, because "the gate observed nothing unusual" and "the gate cannot observe this class at all"
 // must never look the same in the output.
 console.log(formatObservabilityReport());
 
-// Criterion 3 (MARXY-83): the fast half of the mutation-coverage suite runs as part of this gate
-// too, not only on demand, so a PR that deletes a covering test (`gate-assertions.test.ts`) or the
+// Criterion 3: the fast half of the mutation-coverage suite runs as part of this gate
+// too, not only on demand, so a change that deletes a covering test (`gate-assertions.test.ts`) or the
 // proof that the allow-list refuses each unobservable class (`unobservable-classes.test.ts`) fails
 // the same gate the browser checks below fail, rather than a suite nobody remembered to run.
 const unitTests = spawnSync(
@@ -83,14 +83,14 @@ const controlPage = [
 ].join('\n');
 
 /**
- * Pages that fire their request late (A-10.2): after 500 ms and after 2 s, from a timer the page
+ * Pages that fire their request late: after 500 ms and after 2 s, from a timer the page
  * sets itself. The gate must see both in both engines; if it stops watching too early they pass
  * silently, and the `control-interception` check below turns red.
  */
 const latePage = (delayMs) => `<script>setTimeout(() => { fetch('https://${CONTROL_HOST}/late-${delayMs}').catch(() => {}); }, ${delayMs});</script>`;
 
 /**
- * Quiescence rule (A-10.2). A fixed wait after load cannot see a request a page makes later, and
+ * Quiescence rule. A fixed wait after load cannot see a request a page makes later, and
  * "no request for N ms" cannot be made long enough to see a 2 s timer without adding that wait to
  * every one of the script-free documents. So the gate watches the page's own pending work instead:
  * an init script counts the timers, intervals and animation frames the page has scheduled and not
@@ -133,7 +133,7 @@ const trackPendingWork = () => {
 
 const page = (body) => `<!doctype html><html><head><meta charset="utf-8"></head><body><article id="doc">\n${body}\n</article></body></html>`;
 
-/** Flat allow-lists for the live-DOM check, one per policy the gate renders under (MARXY-96). */
+/** Flat allow-lists for the live-DOM check, one per policy the gate renders under. */
 const buildAllowed = (policy) => ({
   elements: Object.keys(policy.elements),
   attributes: Object.fromEntries(Object.entries(policy.elements).map(([element, rule]) => [
@@ -153,7 +153,7 @@ const failures = [];
 
 for (const engine of [webkit, chromium]) {
   const name = engine.name();
-  // Criterion 3 (MARXY-83): every named check this run is supposed to make, recorded as it runs, so
+  // Criterion 3: every named check this run is supposed to make, recorded as it runs, so
   // the gate can fail on its own silence — a `check(...)` call deleted from below without also being
   // deleted from `GATE_ASSERTION_IDS` shrinks `ran` and the comparison at the end of this engine's
   // pass catches it, the same run that lost the check.
@@ -262,7 +262,7 @@ for (const engine of [webkit, chromium]) {
       observed.push(`#navigation-during-load (${String(error).slice(0, 60)})`);
     }
     if (loaded) {
-      // Watch until the page goes quiet, not for a fixed time (A-10.2); see SETTLE_CAP_MS.
+      // Watch until the page goes quiet, not for a fixed time; see SETTLE_CAP_MS.
       const started = Date.now();
       let quietPolls = 0;
       while (true) {
@@ -284,7 +284,7 @@ for (const engine of [webkit, chromium]) {
       await tab.waitForTimeout(SETTLE_FLOOR_MS);
     }
     // A control page is read only once the very elements its checks need are in the live DOM
-    // (A-10.1): `load` and a quiet 150 ms are not a signal that Chromium has built them, and a
+    // `load` and a quiet 150 ms are not a signal that Chromium has built them, and a
     // read that beat the render made a control look silent. A selector that never appears within
     // the timeout is not swallowed into a pass: the read goes ahead, finds the element missing,
     // and the named control check fails with its own message, so an element genuinely absent from
@@ -348,7 +348,7 @@ for (const engine of [webkit, chromium]) {
     `${name}: the control page attempted no observable request, so this gate cannot see one and every result below is vacuous`);
   report.controls[`${name}/interception`] = control.remote.length;
 
-  // Controls 1b, 1c (A-10.2): the gate keeps watching until the page goes quiet, so a request fired
+  // Controls 1b, 1c: the gate keeps watching until the page goes quiet, so a request fired
   // 500 ms and 2 s after load is observed. Recorded under `control-interception` (the same
   // question: can this gate see a request) so `GATE_ASSERTION_IDS` is unchanged.
   for (const delayMs of [500, 2000]) {
@@ -385,7 +385,7 @@ for (const engine of [webkit, chromium]) {
   // Control 4: a reference that climbs out of the document's directory is *seen* to leave it. This
   // is what pins the directory itself: served from the origin root, `../../../../etc/passwd`
   // resolves inside the root, every request is "contained" by construction, and the containment
-  // check below becomes the tautology it was in round 1.
+  // check below becomes the tautology it once was.
   const traversal = await run(sanitizeHtml('<img src="../../../../../../etc/passwd" alt="traversal">').html, 'control-traversal.html');
   // Kept as the literal `traversal.escaped.length === 0` comparison, not `hasEntries(...)`, because
   // `boundary.test.ts` pins this exact substring against a revert that quietly drops this control.
@@ -446,7 +446,7 @@ for (const engine of [webkit, chromium]) {
   check('parity-element-names', !hasEntries(report.resurrectedElements.filter((entry) => entry.startsWith(`${name} `))), null);
   check('parity-attribute-urls', !hasEntries(report.resurrectedUrls.filter((entry) => entry.startsWith(`${name} `))), null);
 
-  // Criterion 3 (MARXY-83): the gate fails on its own silence. A `check(id, ...)` call deleted from
+  // Criterion 3: the gate fails on its own silence. A `check(id, ...)` call deleted from
   // this file without `id` also being deleted from `GATE_ASSERTION_IDS` shrinks `ran` below the
   // declared list, and this is where that shows up — the same run that lost the check, not a
   // property someone has to remember to test for separately.

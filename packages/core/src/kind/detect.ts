@@ -1,19 +1,23 @@
-// Kind detection (ADR-0060 items 3 to 6, K-03): what a file is read as, from its path, a bounded prefix of
+// Kind detection: what a file is read as, from its path, a bounded prefix of
 // its bytes, its front matter and the reader's rules. A pure function: no DOM, no Node built-ins, no I/O.
-// Nothing in the app calls it yet (K-05 does); no file's opening mode changes.
+// What the name says (the text family, the format) is the registry's; this is the layer above it: the reader's
+// choices and the head's shape.
 //
 // Seven tiers, highest first: reader, name, format, shape, byline, weak shape, default. The first tier with an
 // applicable signal decides; inside a tier the strongest signal wins (its strength is stated beside each signal),
 // and a tie goes to the kind earlier in KINDS. Every signal that fired is kept as a reason.
 //
-// Never a signal (item 5): of the front matter only the presence of `author`, `published` and `source` is read,
+// Never a signal: of the front matter only the presence of `author`, `published` and `source` is read,
 // never a value; no path that names a tool or vendor is matched; a speaker heading naming a product is no speaker.
 
 import { DEFAULT_KIND, KINDS } from '../contracts/kinds.ts';
 import type { Kind } from '../contracts/kinds.ts';
 import { basename, dirname, normalizePath } from '../index-model/paths.ts';
+import { fileTypeFor } from './registry.ts';
+import { atxHeading } from '../util/text.ts';
+import { logHead } from '../log/head.ts';
 
-/** Bytes of body read after the front matter ends (ADR-0060 item 6). Shape signals live inside it, never beyond. */
+/** Bytes of body read after the front matter ends. Shape signals live inside it, never beyond. */
 export const KIND_PREFIX_BYTES = 16 * 1024;
 /** How far into a file the end of its front matter is looked for. A longer block is treated as no front matter. */
 export const KIND_FRONT_MATTER_SCAN_BYTES = 64 * 1024;
@@ -21,16 +25,18 @@ export const KIND_FRONT_MATTER_SCAN_BYTES = 64 * 1024;
 export const KIND_HEAD_BYTES = KIND_FRONT_MATTER_SCAN_BYTES + KIND_PREFIX_BYTES;
 
 /**
- * Thresholds ADR-0060 leaves to K-03 (recorded with `kinds.json`):
+ * Thresholds recorded with `kinds.json`:
  *  - "several" is more than one: two distinct working headings make `report`; two admonitions or docs sections
  *    (Parameters, Returns, Errors, Example) make `docs`.
  *  - speaker headings: two, naming at least two distinct roles.
  *  - JSONL role objects: at least 80% of the lines that are not a cut-off last line parse as objects, and at
  *    least one carries a `role` (or a `message.role`) in ROLES, or a `type` in MESSAGE_TYPES.
- *  - log: at least three lines open with a timestamp then a level word, and they are 60% of the non-blank lines
- *    outside code fences.
+ *  - log: at least three lines open as a log's lines do (`logHead`: a time, a level, or both, in a shape a common
+ *    writer uses), and they are 60% of the non-blank lines outside code fences that do not open with a space (an
+ *    indented line continues an entry: a stack frame, .NET's message under its level).
  *  - terminal: at least two prompt lines each followed directly by an output line, and the first non-blank
- *    line is itself a prompt (F-92: a session opens at its prompt; prose that merely quotes `$ ` lines does not).
+ *    line is itself a prompt (a session opens at its prompt; prose that merely quotes `$ ` lines does not), or the
+ *    prompts name a user and a host (a login banner may come first).
  *  - book: a "Chapter" heading and three paragraphs of 600 characters or more, or a chapter-numbered file name.
  */
 export const THRESHOLDS = {
@@ -46,7 +52,7 @@ export const THRESHOLDS = {
   bookParagraphChars: 600,
 } as const;
 
-/** A reader's `[[kind]]` rule (K-04 parses it). The glob arrives already expanded (`~`) and is matched against the whole path. */
+/** A reader's `[[kind]]` rule. The glob arrives already expanded (`~`) and is matched against the whole path. */
 export interface KindRule {
   readonly glob: string;
   readonly is: string;
@@ -60,7 +66,7 @@ export interface DetectInput {
   /** The parsed front matter. When absent, the key names are read from `head`. Only three keys are ever looked at. */
   readonly frontMatter?: Record<string, unknown>;
   readonly rules?: readonly KindRule[];
-  /** *Show as* chosen for this file (ADR-0060 item 9): tier 1, above any rule. */
+  /** *Show as* chosen for this file: tier 1, above any rule. */
   readonly showAs?: string;
 }
 
@@ -89,16 +95,6 @@ interface Signal {
   applies: boolean;
 }
 
-const TEXT_EXT = new Set(['.md', '.markdown', '.mdx', '.txt']);
-const TEXT_NAMES = ['readme', 'contributing', 'changelog', 'changes', 'history'];
-const FORMAT_KIND: Record<string, Kind> = {
-  '.diff': 'diff', '.patch': 'diff',
-  '.html': 'html', '.htm': 'html',
-  '.log': 'log', '.out': 'log',
-  '.term': 'terminal', '.session': 'terminal',
-  '.json': 'data', '.jsonl': 'data', '.yaml': 'data', '.yml': 'data', '.toml': 'data', '.csv': 'data', '.tsv': 'data',
-};
-const BUILD_FILES = new Set(['makefile', 'dockerfile', 'gnumakefile', 'justfile', 'rakefile', 'gemfile', 'procfile']);
 const ROLES = new Set(['user', 'assistant', 'system', 'tool', 'human', 'ai', 'agent', 'developer', 'function']);
 const MESSAGE_TYPES = new Set(['user', 'assistant', 'system', 'tool', 'tool_use', 'tool_result', 'message']);
 /** The speaker words, each to the role it names. `you`, `user` and `human` are one reader; `assistant` and `agent` one writer. */
@@ -117,11 +113,6 @@ const isKind = (value: unknown): value is Kind => typeof value === 'string' && (
 function extensionOf(name: string): string {
   const dot = name.lastIndexOf('.');
   return dot <= 0 ? '' : name.slice(dot).toLowerCase();
-}
-
-function isTextFamily(name: string, ext: string): boolean {
-  if (TEXT_EXT.has(ext)) return true;
-  return ext === '' && TEXT_NAMES.includes(name.toLowerCase());
 }
 
 /** A `[[kind]]` glob as a whole-path pattern: `**` any folders, `*` and `?` within one name. */
@@ -200,8 +191,8 @@ function proseLines(body: string): Line[] {
 }
 
 const headingText = (line: string): string | null => {
-  const m = /^ {0,3}#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/.exec(line);
-  return m ? m[1]!.replace(/[*_`]/g, '').replace(/:$/, '').trim() : null;
+  const m = atxHeading(line, 6);
+  return m ? m.text.replace(/[*_`]/g, '').replace(/:$/, '').trim() : null;
 };
 
 /** A speaker heading's role and the name after the speaker word, when it has one (`Tool · bash` is `tool` and `bash`). */
@@ -211,7 +202,7 @@ export interface Speaker {
 }
 
 /**
- * Whether a heading's text names a speaker (K-11): a speaker word alone, or followed by ` · `, `: ` or ` — ` and a
+ * Whether a heading's text names a speaker: a speaker word alone, or followed by ` · `, `: ` or ` — ` and a
  * name. Detection and Rendered share this one rule, so a file is read as a transcript by the headings that are
  * then set as speakers. A heading that merely begins with a speaker word (`Tool use`, `Assistant professor`) is none.
  */
@@ -225,38 +216,38 @@ export function speakerOf(text: string): Speaker | null {
 
 const singular = (word: string): string => word.toLowerCase().replace(/s$/, '');
 
-/**
- * A log line's head: a timestamp, a separator, a level word. The groups are what K-08 reads a log by: (1) any opening
- * bracket, (2) the timestamp, (3) what stands between it and the level (the closing bracket, spaces, a `[thread]` as log4j
- * writes it, a `local.` as Laravel writes it), (4) the level word. Detection only tests it; the log's line classes
- * (`highlight/line-classes.ts`) and the level filter read the groups, so one pattern says what a log line is.
- */
-export const TIMESTAMP = /^(\[?)(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?|\d{2}:\d{2}:\d{2}(?:[.,]\d+)?)(\]?[\s|\-[]*(?:\[[^\]\r\n]{1,64}\][\s|\-]*|[A-Za-z][\w-]{0,31}\.)*)(TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERROR|ERR|FATAL|CRITICAL|CRIT|SEVERE|ALERT|EMERG|EMERGENCY)\b/i;
-/** One shell-prompt line, as detection reads it (a `$ ` line or `user@host path %`); K-17 reads the others from it. */
+/** One shell-prompt line, as detection reads it (a `$ ` line or `user@host path %`). */
 export const PROMPT = /^(?:\$ \S.*|[\w.-]+@[\w.-]+[ :].*?[ ][%$#](?: .*)?)$/;
+/** A prompt that names a user and a host: no prose writes one, so a session may open with a banner before it. */
+const HOST_PROMPT = /^[\w.-]+@[\w.-]+[ :]/;
 
 interface Shape { kind: Kind; signal: string; at: string; strength: number }
 
-/** The shape signals of ADR-0060 tier 4 that fired in `body`; markup-based ones only when `markup` is true. */
+/** The shape signals of tier 4 that fired in `body`; markup-based ones only when `markup` is true. */
 function shapes(body: string, markup: boolean, path: string): Shape[] {
   const out: Shape[] = [];
   const lines = proseLines(body);
 
   const nonBlank = lines.filter((l) => l.text.trim() !== '');
-  const logLines = nonBlank.filter((l) => TIMESTAMP.test(l.text));
-  if (logLines.length >= THRESHOLDS.logLines && logLines.length >= THRESHOLDS.logShare * nonBlank.length) {
-    out.push({ kind: 'log', signal: 'timestamp and level word open most lines', at: `line ${logLines[0]!.n}`, strength: logLines.length });
+  const logLines = nonBlank.filter((l) => logHead(l.text) !== null);
+  const entries = nonBlank.filter((l) => !/^\s/.test(l.text)).length;
+  if (logLines.length >= THRESHOLDS.logLines && logLines.length >= THRESHOLDS.logShare * entries) {
+    out.push({ kind: 'log', signal: "most lines open as a log's lines do", at: `line ${logLines[0]!.n}`, strength: logLines.length });
   }
   let prompts = 0;
   let firstPrompt = 0;
+  let firstText = '';
   for (let i = 0; i < lines.length - 1; i++) {
     if (!PROMPT.test(lines[i]!.text)) continue;
     const next = lines[i + 1]!;
     if (next.n === lines[i]!.n + 1 && next.text.trim() !== '' && !PROMPT.test(next.text)) {
-      if (prompts++ === 0) firstPrompt = lines[i]!.n;
+      if (prompts++ === 0) {
+        firstPrompt = lines[i]!.n;
+        firstText = lines[i]!.text;
+      }
     }
   }
-  if (prompts >= THRESHOLDS.terminalPrompts && nonBlank.length > 0 && PROMPT.test(nonBlank[0]!.text)) {
+  if (prompts >= THRESHOLDS.terminalPrompts && nonBlank.length > 0 && (PROMPT.test(nonBlank[0]!.text) || HOST_PROMPT.test(firstText))) {
     out.push({ kind: 'terminal', signal: 'prompt lines each followed by output', at: `line ${firstPrompt}`, strength: prompts });
   }
   if (!markup) return out;
@@ -324,7 +315,9 @@ export function detectKind(input: DetectInput): DetectResult {
   const path = normalizePath(input.path);
   const name = basename(path);
   const ext = extensionOf(name);
-  const family = isTextFamily(name, ext);
+  const type = fileTypeFor(path);
+  // The text family: Markdown, and plain text read by its shape.
+  const family = type.kind === 'markdown' || type.reading === 'prose';
   const head = input.head.subarray(0, KIND_HEAD_BYTES);
   const fm = frontMatterOf(head);
   const bodyBytes = head.subarray(fm?.end ?? (head[0] === 0xef && head[1] === 0xbb && head[2] === 0xbf ? 3 : 0));
@@ -339,27 +332,25 @@ export function detectKind(input: DetectInput): DetectResult {
   // Tier 1: the reader.
   if (isKind(input.showAs)) add(1, 'show as', input.showAs, path, 2);
   for (const rule of input.rules ?? []) {
-    if (!isKind(rule.is)) continue; // an unknown kind is K-04's notice; here it is ignored
+    if (!isKind(rule.is)) continue; // an unknown kind is noticed where the rule is parsed; here it is ignored
     if (globToRegExp(rule.glob).test(path)) { add(1, 'reader rule', rule.is, rule.glob, 1); break; } // first match wins
   }
 
   // Tier 2: the name, inside the text family.
   if (family) {
     const lower = name.toLowerCase();
-    if (/^(?:readme|contributing)/.test(lower)) add(2, 'file name', 'readme', name, 1);
-    else if (/^(?:changelog|changes|history)/.test(lower)) add(2, 'file name', 'changelog', name, 1);
+    // The registry's prose names (`text-*` rows) by kind; the names added after the first three are matched whole or
+    // before a dot (`SECURITY.md`), so `supporting.md` or `newsletter.md` stay articles.
+    if (/^(?:readme|contributing)|^(?:security|code_of_conduct|governance|support|faq|hacking|bugs)(?:\.|$)/.test(lower)) add(2, 'file name', 'readme', name, 1);
+    else if (/^(?:changelog|changes|history)|^(?:news|releases)(?:\.|$)/.test(lower)) add(2, 'file name', 'changelog', name, 1);
+    else if (/^(?:notes|todo|roadmap)$/.test(lower)) add(2, 'file name', 'notes', name, 1);
   }
 
   // Tier 3: the format, outside the text family.
   let format: Signal | undefined;
   if (!family) {
-    const mapped = FORMAT_KIND[ext];
-    if (mapped) add(3, `extension ${ext}`, mapped, name, 1);
-    else if (ext === '' && !name.startsWith('.') && !BUILD_FILES.has(name.toLowerCase()) && !(body.startsWith('#!'))) {
-      add(3, 'no extension', 'code', name, 1);
-    } else if (ext === '') {
-      add(3, body.startsWith('#!') ? 'shebang' : name.startsWith('.') ? 'dotfile' : 'build file', 'code', name, 1);
-    } else add(3, `extension ${ext}`, 'code', name, 1);
+    const signal = ext !== '' ? `extension ${ext}` : body.startsWith('#!') ? 'shebang' : name.startsWith('.') ? 'dotfile' : type.id !== 'unknown' ? 'build file' : 'no extension';
+    add(3, signal, type.readerKind, name, 1);
     format = signals[signals.length - 1];
   }
 

@@ -1,4 +1,4 @@
-// §03 table tests and corpus fidelity for copy-section and copy-code-clean (MARXY-42).
+// Table tests and corpus fidelity for copy-section and copy-code-clean.
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -313,7 +313,7 @@ test('align-table-pipes: alignment row :---: stretches', () => {
   assert.match(out.replacement, /:\-+:/);
 });
 
-test('align-table-pipes: a 40-row table aligns, and the median time is recorded, not asserted (ADR-0032)', () => {
+test('align-table-pipes: a 40-row table aligns, and the median time is recorded, not asserted', () => {
   const rows = ['| a | b |', '| - | - |', ...Array.from({ length: 38 }, (_, i) => `| ${i} | x |`)];
   const source = `${rows.join('\n')}\n`;
   const doc = parse(source);
@@ -365,7 +365,7 @@ test('fidelity: replacement === text for every clipboard operation at every node
   assert.ok(checked > 0);
 });
 
-test('catalogue: OPERATIONS is the clipboard operations then the mutating ones, each list sorted by id (F-32)', () => {
+test('catalogue: OPERATIONS is the clipboard operations then the mutating ones, each list sorted by id', () => {
   const ids = (ops: readonly { id: string }[]): string[] => ops.map((op) => op.id);
   const sorted = (xs: string[]): string[] => xs.slice().sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   assert.deepEqual(ids(CLIPBOARD_OPERATIONS), sorted(ids(CLIPBOARD_OPERATIONS)), 'CLIPBOARD_OPERATIONS is sorted by id');
@@ -375,7 +375,7 @@ test('catalogue: OPERATIONS is the clipboard operations then the mutating ones, 
   assert.deepEqual(sorted(ids(OPERATIONS)), sorted(['copy-code-clean', 'copy-section', 'copy-source', 'copy-plain', 'copy-rich', 'copy-table-tsv', 'copy-table-csv', 'copy-table-json', 'copy-command', 'extract-code-blocks', 'extract-tasks', 'extract-links', 'toggle-task', 'align-table-pipes', 'promote-heading', 'demote-heading', 'unwrap-markdown-fence', 'sort-list-items', 'dedupe-lines', 'renumber-list', 'list-to-numbers', 'list-to-bullets', 'bullets-from-glyphs', 'format-json', 'format-yaml', 'move-section-down', 'move-section-up']));
 });
 
-test('catalogue: the transform registry\'s NOT_YET list is sorted by id (F-32)', () => {
+test('catalogue: the transform registry\'s NOT_YET list is sorted by id', () => {
   const ids = Object.keys(NOT_YET);
   assert.deepEqual(ids, ids.slice().sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
 });
@@ -448,8 +448,8 @@ test('copy-section clipboard html keeps inline code text that resembles provenan
   const range = sectionRange(document, heading);
   const text = sliceText(source, range.start, range.end);
   const result = copySection.run({ document, node: heading, range, text });
-  assert.ok(result.clipboard?.html?.includes('a data-marxy-k="9" b'));
-  assert.ok(result.clipboard?.html?.includes('data-marxy-s="0" data-marxy-e="1"'));
+  assert.ok(result.clipboard?.html?.includes('a data-marxy-k=&quot;9&quot; b'));
+  assert.ok(result.clipboard?.html?.includes('data-marxy-s=&quot;0&quot; data-marxy-e=&quot;1&quot;'));
   assert.equal(result.clipboard?.text, text);
 });
 
@@ -472,7 +472,7 @@ test('copy-section keeps a reference link whose definition is outside the sectio
   assert.ok(!(result.clipboard?.html ?? '').includes('More.'));
 });
 
-// 2026-09-26 review (MARXY-246): cases the corpus has none of.
+// 2026-09-26 review: cases the corpus has none of.
 function alignWhole(source: string): { out: string; table: Extract<Block, { type: 'table' }> | undefined } {
   const doc = parse(source);
   const tables: Extract<Block, { type: 'table' }>[] = [];
@@ -533,7 +533,7 @@ test('displayWidth: marks, VS16, presentation emoji and zero-width characters', 
   assert.equal(displayWidth('漢字'), 4);
 });
 
-test('copy-section clipboard text drops trailing blank lines and adds no byte (MARXY-337)', () => {
+test('copy-section clipboard text drops trailing blank lines and adds no byte', () => {
   const cases: readonly (readonly [string, string])[] = [
     ['# A\r\n\r\ntext\r\nmore\r\n', '# A\r\n\r\ntext\r\nmore\r\n'],
     ['# A\r\n\r\ntext\r\n\r\n\r\n', '# A\r\n\r\ntext\r\n'],
@@ -556,7 +556,7 @@ test('copy-section clipboard text drops trailing blank lines and adds no byte (M
   }
 });
 
-// C-02: toggle-task applied to a list item rewrites the three marker bytes and nothing else.
+// toggle-task applied to a list item rewrites the three marker bytes and nothing else.
 function itemsOf(node: Node, out: Extract<Block, { type: 'list' }>['children'][number][] = []): Extract<Block, { type: 'list' }>['children'][number][] {
   if (node.type === 'listItem') out.push(node);
   for (const child of node.children ?? []) itemsOf(child as Node, out);

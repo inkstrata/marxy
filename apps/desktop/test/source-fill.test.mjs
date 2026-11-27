@@ -1,8 +1,8 @@
-// Source fills its pane (F-100, from X-33's measurements and the author's note: "in general we want to fill the window
+// Source fills its pane (from measurements and the author's note: "in general we want to fill the window
 // with our editor"). Folded, unfolded and in Split, the gutter sits at the pane's own edge (the frame's hairline and the
 // pane's inset, at most 16 px), the text runs to the other edge or wraps at it, and the editor is as tall as the pane
 // allows. Rendered keeps its measure. Every case runs under the dev harness (no policy) and under the release style
-// policy (as source-csp.test.mjs does), in Night and Paper; the second is where the editor is only styled since F-98.
+// policy (as source-csp.test.mjs does), in Night and Paper; the second is where the editor is only styled.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -10,17 +10,18 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { injectStyleNonces, loadConfiguredCsp, releaseStyleCsp } from '../../../scripts/check-csp.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { b64, closeHarness, harnessBase, routeSkeleton, shippedSkeleton } from './support/two-pane.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip, timeout: 180_000 }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const desktopRoot = join(repoRoot, 'apps', 'desktop');
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-source-fill-'));
 const NONCE = 'f100nonce';
@@ -105,7 +106,7 @@ async function boot(browser, mode, { files, open, width = 1000, height = 800, pa
 
 /** Cmd+3 (Source), then the first frames and the mono face. */
 async function openSource(page) {
-  await page.keyboard.press('Meta+Digit3');
+  await page.keyboard.press('ControlOrMeta+Digit3');
   await page.waitForSelector('.marxy-source-mount .cm-content .cm-line');
   await page.evaluate(() => document.fonts.ready);
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -300,16 +301,16 @@ for (const mode of MODES) {
     const browser = await launchWebkit();
     try {
       const one = await boot(browser, mode, { files: { '/w/doc.md': SHORT }, open: '/w/doc.md', width: 1000, height: 800 });
-      await one.page.evaluate(() => window.__marxyHandle.workspace().unfold());
+      await one.page.evaluate(() => window.__marxyHandle.frame().unfold());
       await one.page.waitForTimeout(300);
       await openSource(one.page);
       assertFills((await measure(one.page))[0], 'unfolded');
       await one.context.close();
 
       const split = await boot(browser, mode, { files: { '/w/doc.md': SHORT }, open: '/w/doc.md', width: 1500, height: 800 });
-      await split.page.evaluate(() => window.__marxyHandle.workspace().unfold());
+      await split.page.evaluate(() => window.__marxyHandle.frame().unfold());
       await split.page.waitForTimeout(300);
-      await split.page.keyboard.press('Meta+Digit2');
+      await split.page.keyboard.press('ControlOrMeta+Digit2');
       await split.page.waitForSelector('.marxy-source-mount .cm-content .cm-line');
       await split.page.waitForTimeout(700);
       const editors = await measure(split.page);

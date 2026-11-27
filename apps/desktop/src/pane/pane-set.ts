@@ -1,12 +1,12 @@
-// The window's panes (D-01; ADR-0057): an ordered list of at most two columns, left to right, each a
+// The window's panes: an ordered list of at most two columns, left to right, each a
 // `section.marxy-pane` with its own view over a store. With one document there is one pane and the page
 // is what it always was; a second pane exists only while two documents are shown side by side.
 //
 // What a pane shows is the composition root's (`PaneContent`: a view and the open path that reads,
 // stores, shows, watches and titles a document in it); the set only creates, focuses, lays out and
 // closes panes around it. Slot 0 is permanent: it is the window's first pane, and the selection, the
-// reading persistence, the mode on <body> and the window scroller are bound to its view (Phase B left
-// them so, and D-05, D-06 and D-11 move them per pane). Closing the left pane therefore shows the
+// reading persistence, the mode on <body> and the window scroller are bound to its view (by design left
+// them so, and they move per pane). Closing the left pane therefore shows the
 // right pane's document in slot 0, at the right pane's place and through the same store, and removes
 // slot 1: the survivor's article is `#doc` again without any element being renamed.
 
@@ -70,19 +70,19 @@ export interface PaneSet<C extends PaneContent = PaneContent> {
   close(pane: Pane<C>): Promise<boolean>;
   /** Moves `data-marxy-focus` to `pane`'s host alone and focuses it without scrolling. */
   focus(pane: Pane<C>): void;
-  /** The grid's two columns as `ratio fr` and `1 - ratio fr`; callers clamp (D-02's `clampRatio`). */
+  /** The grid's two columns as `ratio fr` and `1 - ratio fr`; callers clamp (`clampRatio`). */
   setRatio(ratio: number): void;
   /**
    * `cb` runs just before a second pane is made, while the first still has the window's size and scroll:
-   * the first pane's place is read there (D-05; `onSplit` runs after the layout has clamped the scroll).
+   * the first pane's place is read there (`onSplit` runs after the layout has clamped the scroll).
    */
   onBeforeSplit(cb: () => void): void;
   /** `cb` runs when a second pane appears (at once if one is open); its cleanup runs when that pane goes. */
   onSplit(cb: (main: HTMLElement) => () => void): void;
   onChange(cb: (e: PaneChange<C>) => void): () => void;
-  /** Asked before a pane's document is replaced or the pane closed (D-08 sets it); unset permits. */
+  /** Asked before a pane's document is replaced or the pane closed; unset permits. */
   beforeReplace?: (pane: Pane<C>) => Promise<boolean>;
-  /** Asked before a second pane is made (D-07 sets it); unset permits. */
+  /** Asked before a second pane is made; unset permits. */
   canSplit?: () => boolean;
   /** Every pane's content goes and the second pane's DOM with it (the app instance going). */
   destroy(): void;
@@ -214,6 +214,8 @@ export function createPaneSet<C extends PaneContent>(deps: PaneSetDeps<C>): Pane
       // keep the left document and drop the right pane, the opposite of what was asked.
       if (pane === left && right.path() === null) return false;
       if (pane.path() !== null && set.beforeReplace && !(await set.beforeReplace(pane))) return false;
+      // The prompt waited on the reader: the other pane may have been closed meanwhile, and [left, right] is stale.
+      if (panes.length < 2 || panes[0] !== left || panes[1] !== right) return false;
       if (pane === left) {
         // The survivor's document into slot 0, at its place, in its mode and through its store (held by
         // both views for this moment), then slot 1 goes. Text typed in the survivor's Source lives only in
@@ -225,11 +227,15 @@ export function createPaneSet<C extends PaneContent>(deps: PaneSetDeps<C>): Pane
         if (right.view.sourceHasUnfoldedEdits()) return false;
         const source = right.view.mode === 'source';
         const position = right.view.position();
-        await left.content.replace(path, { at: position.byteOffset });
+        // A byte is a hex landing to a binary viewer (an image, an archive): a page in Read would turn to hex.
+        const binary = right.view.viewer()?.binary === true;
+        await left.content.replace(path, binary ? {} : { at: position.byteOffset });
         if (left.path() !== path) return false;
         // The open's landing holds the block's top; the fraction within it is put back by `pane/scroll.ts`,
         // which hands this pane's place to slot 0 when the close is reported below.
-        if (source && left.view.mode !== 'source') await left.view.jumpToSource(position.byteOffset);
+        if (source && left.view.mode !== 'source') {
+          await (binary ? left.view.setMode('source') : left.view.jumpToSource(position.byteOffset));
+        }
       }
       unsplit();
       set.focus(left);

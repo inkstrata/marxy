@@ -1,5 +1,5 @@
 // Start the app, then the parts that follow first text: the index feed, the collection, the watches, the menu and the summoned
-// palette (MARXY-87). Moved out of main.ts, which stays a few lines (test/shell-boundary.test.mjs); main.ts re-exports it.
+// palette. Moved out of main.ts, which stays a few lines (test/shell-boundary.test.mjs); main.ts re-exports it.
 import { startApp, type AppHandle, type AppShell } from './app.ts';
 import { startCollection, type CollectionHandle } from './collection/load.ts';
 import { keepFresh, type TreeWatchHandle } from './collection/watch.ts';
@@ -17,7 +17,7 @@ export type BootHandle = AppHandle & { readonly palette: PaletteController | nul
 export const PALETTE_UNAVAILABLE = 'The palette could not be loaded · its keys do nothing until Marxy is reopened. Everything else works.';
 
 export async function bootApplication(appShell: AppShell, opts?: { argv?: readonly string[] }): Promise<BootHandle> {
-  // Heard from launch, so a chord pressed before the palette's code is in is not lost (F-111).
+  // Heard from launch, so a chord pressed before the palette's code is in is not lost.
   const held = holdPaletteChords();
   let handle: AppHandle;
   try {
@@ -26,19 +26,19 @@ export async function bootApplication(appShell: AppShell, opts?: { argv?: readon
     held.release();
     throw e;
   }
-  // The palette is summoned, never at first text: its code is its own chunk, read once the document is up (F-111).
+  // The palette is summoned, never at first text: its code is its own chunk, read once the document is up.
   const loading = import('./palette/view.ts');
   // What the palette searches belongs to the app, not to the palette: the index, the collection and the watches run
-  // whether or not the palette's chunk arrives, and take the palette's session once it has (F-111).
+  // whether or not the palette's chunk arrives, and take the palette's session once it has.
   let live: PaletteController | null = null;
   const session = () => live?.session ?? emptySession('/');
   const feed = createIndexFeed({ currentRoot: () => session().currentRoot, recentRoots: () => session().recentRoots, readAt: () => session().readAt });
-  // Every root the index walks, for the whole session; a watch event patches only its rows (A-04, C-11).
+  // Every root the index walks, for the whole session; a watch event patches only its rows.
   const trees = keepFresh(handle, { feed, setIndexEntries: (entries) => feed.setEntries(entries) });
-  // startApp resolves after first_text: the declared folders and recent roots join the scope now (C-10).
+  // startApp resolves after first_text: the declared folders and recent roots join the scope now.
   const collection = startCollection({ ...handle, feed, recentRoots: () => session().recentRoots });
   // Only the real Tauri shell has a native menu to hear from; a test's stub shell does not.
-  if (appShell === shell) mountNativeMenu(handle, shell);
+  const offMenu = appShell === shell ? mountNativeMenu(handle, shell) : undefined;
   let palette: PaletteController | null = null;
   try {
     const { mountPaletteFromHandle } = await loading;
@@ -52,9 +52,15 @@ export async function bootApplication(appShell: AppShell, opts?: { argv?: readon
     live = palette;
     handle.setPaletteSession(() => palette.session);
     if (typeof window !== 'undefined') (window as Window & { __marxyPalette?: PaletteController }).__marxyPalette = palette;
-    // The chords pressed while the chunk was on its way do what they would have done, unless a dialog or modal has the screen now (W-13.2).
+    // The chords pressed while the chunk was on its way do what they would have done, unless a dialog or modal has the screen now.
     const opening = replayedOpening(pressed, typeof document !== 'undefined' && modalOpenOutsidePalette());
     if (opening) palette.open(opening.query);
   }
+  const destroyApp = handle.destroy;
+  handle.destroy = () => {
+    offMenu?.();
+    palette?.destroy();
+    destroyApp();
+  };
   return Object.assign(handle, { palette, collection, trees });
 }

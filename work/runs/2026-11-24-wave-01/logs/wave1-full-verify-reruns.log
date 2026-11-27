@@ -1,0 +1,6 @@
+run 1 test/source-format.test.mjs: ℹ pass 10 ℹ fail 0 
+run 1 test/source-looks.test.mjs: ℹ pass 12 ℹ fail 0 
+run 2 test/source-format.test.mjs: ℹ pass 10 ℹ fail 0 
+run 2 test/source-looks.test.mjs: ℹ pass 12 ℹ fail 0 
+run 3 test/source-format.test.mjs: ℹ pass 10 ℹ fail 0 
+run 3 test/source-looks.test.mjs: ℹ pass 12 ℹ fail 0 

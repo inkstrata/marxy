@@ -17,8 +17,8 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             bundles: dmg
-          # No Linux row: ADR-0046 makes Linux a release criterion only once Linux hardware exists,
-          # so v0.1.0 is macOS only.
+          # No Linux or Windows row yet: Linux has never been built, and the Windows installer is made and
+          # signed on the Windows machine with `pnpm work installer`.
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
@@ -57,7 +57,7 @@ jobs:
           # Empty on a dispatch, which makes the action build without creating a release.
           tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
           releaseName: ${{ startsWith(github.ref, 'refs/tags/') && format('marxy {0}', github.ref_name) || '' }}
-          releaseBody: 'See CHANGELOG.md. Pre-release; the macOS build is unsigned (see the README Install section).'
+          releaseBody: 'Pre-release. The macOS build is ad-hoc signed, not notarized: open it with right-click, Open the first time.'
           releaseDraft: false
           prerelease: true
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} -- --locked

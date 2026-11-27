@@ -1,4 +1,4 @@
-// Shared wait for a page to stop reflowing (MARXY-332).
+// Shared wait for a page to stop reflowing.
 // Idle-time typesetting and grid passes keep moving blocks after `ready`, so a scroll position or
 // a measurement taken mid-reflow can name a block the settled page no longer has there. The page is
 // settled once document scrollHeight has held still across ten consecutive 100 ms samples.

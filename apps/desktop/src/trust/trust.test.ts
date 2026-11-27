@@ -1,4 +1,4 @@
-// trust.json store: LRU, v0.1.0 files with image hosts, corrupt quarantine (MARXY-44).
+// trust.json store: LRU, v0.1.0 files with image hosts, corrupt quarantine.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -97,7 +97,7 @@ test('serialize round-trips grants', () => {
   }
 });
 
-test('a grant then a revoke started together: a failed grant write leaves only the revoke on disk and in memory (MARXY-337)', async () => {
+test('a grant then a revoke started together: a failed grant write leaves only the revoke on disk and in memory', async () => {
   let n = 0;
   const disk: string[] = [];
   const store = createTrustStore(
@@ -119,7 +119,7 @@ test('a grant then a revoke started together: a failed grant write leaves only t
   assert.doesNotMatch(disk.at(-1) ?? '', /y\.md/);
 });
 
-test('two grants started together that both fail leave memory as it was (MARXY-337)', async () => {
+test('two grants started together that both fail leave memory as it was', async () => {
   const store = createTrustStore(emptyTrustEnvelope(), async () => {
     await new Promise((r) => setTimeout(r, 5));
     throw new Error('nope');
@@ -151,18 +151,29 @@ const TRUST_IO = (readFile: () => Promise<Uint8Array>, writes: Uint8Array[]) => 
   dataDirectory: async () => '/data',
 });
 
-test('a read failure other than not-found rejects, so no writer can replace trust.json (F-09)', async () => {
+test('a read failure other than not-found rejects, so no writer can replace trust.json', async () => {
   const writes: Uint8Array[] = [];
   const io = TRUST_IO(async () => { throw Object.assign(new Error('EIO'), { code: 'io' }); }, writes);
   await assert.rejects(loadTrust(io), /EIO/);
   assert.equal(writes.length, 0);
 });
 
-test('a missing trust.json starts empty and a grant persists (F-09)', async () => {
+test('a missing trust.json starts empty and a grant persists', async () => {
   const writes: Uint8Array[] = [];
   const io = TRUST_IO(async () => { throw Object.assign(new Error('nope'), { code: 'not-found' }); }, writes);
   const store = await loadTrust(io);
   assert.equal(await store.grant('/a.md', { html: true }), true);
   assert.equal(writes.length, 1);
   assert.ok(JSON.parse(new TextDecoder().decode(writes[0])).documents['/a.md']);
+});
+
+test('a grant kept under a backslash path by an earlier build reads under the slashed path; the later grant wins a clash', () => {
+  const loaded = parseTrustFile(
+    new TextEncoder().encode(
+      JSON.stringify({ version: 1, documents: { 'C:\\n\\a.html': { html: true, at: 5 }, 'C:/n/a.html': { html: true, at: 2 }, 'C:\\n\\b.html': { html: true, at: 1 } } }),
+    ),
+  );
+  assert.equal(loaded.kind, 'ok');
+  assert.deepEqual(Object.keys(loaded.envelope.documents).sort(), ['C:/n/a.html', 'C:/n/b.html']);
+  assert.equal(loaded.envelope.documents['C:/n/a.html']!.at, 5);
 });

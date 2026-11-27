@@ -1,4 +1,4 @@
-// The repository walk behind the palette index: find a document's root, list it, read headings (A-04).
+// The repository walk behind the palette index: find a document's root, list it, read headings.
 // Moved out of startup/idle-work.ts unchanged; the index service (./service.ts) decides when it runs.
 import type { IndexEntry } from '@marxy/core';
 import {
@@ -9,22 +9,32 @@ import {
   type DirectoryReader,
   type IgnoreRule,
   type IndexNotice,
+  type ReaderKinds,
   type WalkEntry,
 } from '@marxy/core/src/index-model/index.ts';
 import { invalidateByMtime, type IndexSnapshot } from '@marxy/core/src/index-model/persist.ts';
 import { isDeniedName } from '@marxy/core/src/index-model/deny.ts';
 import { isIgnored } from '@marxy/core/src/index-model/ignore.ts';
+import { noteContent, wantsContent, type ContentSignals } from '@marxy/core/src/kind/registry.ts';
 import { basename, dirname, joinPath, normalizePath, relativePath } from '@marxy/core/src/index-model/paths.ts';
 
-/** Shell surface the index walk needs (ADR-0026 `readDir`, byte reads for headings). */
+/** Shell surface the index walk needs (`readDir`, byte reads for headings). */
 export interface IndexLoadShell {
   readDir(dir: string): Promise<readonly { path: string; size: number; mtimeMs: number; isDir: boolean }[]>;
   readFile(path: string): Promise<Uint8Array>;
+  /** At most the first `maxBytes` of a file: headings need only the head of a markdown file. */
+  readHead(path: string, maxBytes: number): Promise<Uint8Array>;
   /** When set, root detection avoids probing `.git` through `readFile` (memory harness). */
   hasGitMarker?(dir: string): boolean;
+  /** What each file's head says it is; without it the walk classifies by name alone. */
+  detectFiles?(paths: readonly string[]): Promise<(ContentSignals | null)[]>;
 }
 
 const HEADING_SCAN_BYTES = 256 * 1024;
+/** Head reads one walk keeps in flight: a root of thousands of markdown files is read a few at a time. */
+const HEAD_READS_AT_ONCE = 16;
+/** The most heads one walk reads for content detection: a folder of thousands of extension-less files is classified by name past it. */
+const DETECT_CAP = 2_000;
 
 export interface IndexWalk {
   readonly entries: readonly IndexEntry[];
@@ -33,26 +43,30 @@ export interface IndexWalk {
   readonly calls: number;
   /**
    * The root's own ignore rules (its `.gitignore` and `.ignore` files) as this walk read them, so a
-   * watch event can be judged by the same rules without walking again (C-11). Empty on a disabled walk.
+   * watch event can be judged by the same rules without walking again. Empty on a disabled walk.
    */
   readonly ignoreRules: readonly IgnoreRule[];
-  /** The walk stopped at its directory budget (C-10.1): how many folders it listed before it did. */
+  /** The walk stopped at its directory budget: how many folders it listed before it did. */
   readonly stoppedAt?: number;
-  /** The `skip` folders this walk met and left unlisted (C-10.1), for the notice that names them. */
+  /** The `skip` folders this walk met and left unlisted, for the notice that names them. */
   readonly skipped?: readonly string[];
+  /** The folders the root's ignore files and the deny globs left out, outermost only: the tree watch leaves them out too. */
+  readonly ignoredDirs?: readonly string[];
 }
 
-/** What a walk may not do (C-10.1): list more than `budget` directories, or list a folder in `skip`. */
+/** What a walk may not do: list more than `budget` directories, or list a folder in `skip`. */
 export interface WalkLimits {
   readonly budget?: number;
   readonly skip?: readonly string[];
+  /** Aborted when the root is let go or a newer walk replaces this one: the walk rejects with the abort and reads no more. */
+  readonly signal?: AbortSignal;
 }
 
 function indexDisabled(shell: IndexLoadShell): boolean {
   return typeof shell.readDir !== 'function';
 }
 
-/** Walk the repository root of `openedPath` and turn allow-listed files into palette index entries. */
+/** Walk the repository root of `openedPath` and turn every file into a palette index entry. */
 export async function loadIndex(
   shell: IndexLoadShell,
   openedPath: string,
@@ -81,6 +95,7 @@ export async function walkRoot(
   previous?: IndexSnapshot,
   deny: readonly IgnoreRule[] = [],
   limits: WalkLimits = {},
+  kinds: ReaderKinds = {},
 ): Promise<IndexWalk> {
   if (indexDisabled(shell)) {
     return { entries: [], calls: 0, ignoreRules: [] };
@@ -95,17 +110,27 @@ export async function walkRoot(
       calls++;
       return shell.readFile(path);
     },
+    readHead: (path, maxBytes) => {
+      calls++;
+      return shell.readHead(path, maxBytes);
+    },
   };
   const { reader, ignoreTexts, stoppedAt, skipped } = await prefetchDirectoryReader(counted, root, deny, limits);
-  const candidates = collectFiles(root, reader, { extraRules: deny });
+  limits.signal?.throwIfAborted();
+  const ignoredDirs: string[] = [];
+  const candidates = collectFiles(root, reader, { extraRules: deny, ignoredDirs });
+  await detectContent(shell, candidates.map((c) => c.path));
   const reusable = new Map<string, IndexEntry>();
   if (previous && previous.root === root) {
     const { fresh } = invalidateByMtime(previous, candidates);
     for (const entry of fresh) if (entry.kind === 'markdown') reusable.set(entry.path, entry);
   }
   const opened = openedPath === undefined ? undefined : normalizePath(openedPath);
-  const withHeadings = await Promise.all(
-    candidates.map(async (candidate) => {
+  const withHeadings = await inPool(
+    candidates,
+    HEAD_READS_AT_ONCE,
+    async (candidate) => {
+      limits.signal?.throwIfAborted();
       if (classify(candidate.relativePath) !== 'markdown') return candidate;
       if (reusable.has(candidate.path)) return candidate;
       if (openedBytes && candidate.path === opened) {
@@ -118,22 +143,51 @@ export async function walkRoot(
         };
       }
       try {
-        const bytes = await counted.readFile(candidate.path);
-        return {
-          ...candidate,
-          bytes: bytes.byteLength > HEADING_SCAN_BYTES ? bytes.slice(0, HEADING_SCAN_BYTES) : bytes,
-        };
+        return { ...candidate, bytes: await counted.readHead(candidate.path, HEADING_SCAN_BYTES) };
       } catch {
         return candidate;
       }
-    }),
+    },
   );
-  const built = buildIndex(root, withHeadings);
+  limits.signal?.throwIfAborted();
+  const built = buildIndex(root, withHeadings, kinds);
   const entries = built.entries.map((entry) => {
     const kept = reusable.get(entry.path);
     return kept ? { ...entry, title: kept.title, headings: kept.headings } : entry;
   });
-  return { entries, notice: built.notice, calls, ignoreRules: ignoreRulesFrom(root, ignoreTexts), stoppedAt, skipped };
+  return { entries, notice: built.notice, calls, ignoreRules: ignoreRulesFrom(root, ignoreTexts), stoppedAt, skipped, ignoredDirs };
+}
+
+/** `fn` over `items` with at most `limit` running at once; results in the order of `items`. */
+async function inPool<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const worker = async (): Promise<void> => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]!);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+/**
+ * Reads the head of each file whose name is silent or shared between languages (`wantsContent`) and records what it says,
+ * so the entries built next carry the corrected class: an extension-less script is source, a `.h` of C++ is C++,
+ * bytes are binary. A failed read leaves the names to decide.
+ */
+async function detectContent(shell: IndexLoadShell, paths: readonly string[]): Promise<void> {
+  if (!shell.detectFiles) return;
+  const wanted = paths.filter(wantsContent).slice(0, DETECT_CAP);
+  if (wanted.length === 0) return;
+  let found: readonly (ContentSignals | null)[];
+  try {
+    found = await shell.detectFiles(wanted);
+  } catch {
+    return;
+  }
+  wanted.forEach((path, i) => noteContent(path, found[i] ?? null));
 }
 
 /** The repository root that indexes `path`: the nearest ancestor holding `.git`, else its directory. */
@@ -191,6 +245,7 @@ async function prefetchDirectoryReader(
   const skipped: string[] = [];
 
   for (let at = 0; at < queue.length; at++) {
+    limits.signal?.throwIfAborted();
     if (limits.budget !== undefined && dirCache.size >= limits.budget) {
       stoppedAt = dirCache.size;
       break;
@@ -198,6 +253,7 @@ async function prefetchDirectoryReader(
     const key = queue[at]!;
     if (dirCache.has(key)) continue;
     const stats = await shell.readDir(key);
+    limits.signal?.throwIfAborted();
     const entries: WalkEntry[] = [];
     for (const stat of stats) {
       const name = basename(stat.path);

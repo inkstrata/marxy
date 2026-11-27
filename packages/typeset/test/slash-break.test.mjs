@@ -1,4 +1,4 @@
-// Slash-break suite the typeset `test/**/*.test.mjs` glob actually runs (MARXY-239).
+// Slash-break suite the typeset `test/**/*.test.mjs` glob actually runs.
 import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

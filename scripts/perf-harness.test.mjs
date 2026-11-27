@@ -18,7 +18,7 @@ test('generateLarge is deterministic and at least the size asked for', () => {
     assert.equal(sha(a), sha(b), `${size}: two calls, two different documents`);
     assert.ok(a.length >= target, `${size}: ${a.length} bytes, under ${target}`);
   }
-  // The sizes of the audit's generated documents (05-performance-audit.md §9.1).
+  // The sizes of the generated documents.
   assert.equal(generateLarge(parseSize('256k')).length, 264_940);
   assert.equal(generateLarge(parseSize('1m')).length, 1_059_760);
 });
@@ -31,7 +31,7 @@ test('generateLarge repeats the long technical document with one blank line betw
   assert.equal(two, text + text);
 });
 
-test('generateTranscript repeats the agent transcript as numbered turns, deterministically, to at least the size (B-25)', () => {
+test('generateTranscript repeats the agent transcript as numbered turns, deterministically, to at least the size', () => {
   const turn = readFileSync(new URL('../fixtures/corpus/18-agent-transcript.md', import.meta.url), 'utf8');
   for (const size of ['64k', '256k', '1m']) {
     const target = parseSize(size);
@@ -78,8 +78,8 @@ test('median takes the middle of an odd count and the mean of the middle two of 
   assert.ok(Number.isNaN(median([])));
 });
 
-// A-03: the nightly record. One launch's canned shell `mark` calls, as the page hands them back
-// ([name, epoch ms, detail]); the harness turns them into the record the nightly job keeps.
+// the record. One launch's canned shell `mark` calls, as the page hands them back
+// ([name, epoch ms, detail]); the harness turns them into the record it writes.
 const T0 = 1_000_000;
 const LAUNCH = [
   ['script_start', T0 - 30], ['file_read', T0 + 8], ['parsed', T0 + 40], ['rendered', T0 + 60],
@@ -98,7 +98,7 @@ function cannedDocument() {
 const PALETTE = PALETTE_SIZES.map((entries) => ({ entries, samples: 200, prepare_ms: 1, p50_ms: 1, p95_ms: 2, max_ms: 3 }));
 const ALL = { reload: true, openSecond: true, palette: true };
 
-test('a record from a canned mark list holds every measurement the nightly job asks for', () => {
+test('a record from a canned mark list holds every measurement asked for', () => {
   const record = buildRecord({
     meta: { date: '2026-10-02T04:00:00.000Z', commit: 'abc123', runner: 'ubuntu-latest', node: 'v24.0.0', webkit: '26.0', runs: 1 },
     documents: [cannedDocument()],
@@ -106,7 +106,7 @@ test('a record from a canned mark list holds every measurement the nightly job a
     requested: ALL,
   });
   for (const key of ['date', 'commit', 'runner', 'node', 'webkit', 'note', 'documents', 'palette', 'missing']) assert.ok(key in record, `the record has no ${key}`);
-  assert.match(record.note, /ADR-0032/);
+  assert.match(record.note, /never gated/);
   assert.match(record.note, /trend/);
   const [doc] = record.documents;
   assert.deepEqual(doc.stages, {
@@ -179,38 +179,12 @@ test('percentile is nearest-rank', () => {
   assert.ok(Number.isNaN(percentile([], 95)));
 });
 
-// The nightly jobs cannot run on a pull request, so this is what catches the workflow's command and
-// the harness drifting apart: the flags nightly.yml passes must parse, and ask for every measurement.
-const workflow = (name) => readFileSync(new URL(`../.github/workflows/${name}`, import.meta.url), 'utf8');
-const jobBlock = (text, job) => {
-  const at = text.indexOf(`\n  ${job}:\n`);
-  if (at < 0) return undefined;
-  const rest = text.slice(at + 1);
-  const next = rest.slice(1).search(/\n  [A-Za-z0-9_-]+:\n/);
-  return next < 0 ? rest : rest.slice(0, next + 1);
-};
-
-test('nightly.yml runs the harness with flags it accepts, and the start-up measurement', () => {
-  const nightly = workflow('nightly.yml');
-  const perf = jobBlock(nightly, 'perf-harness');
-  assert.ok(perf, 'nightly.yml has no perf-harness job');
-  const run = /run: pnpm perf (.+)$/m.exec(perf)?.[1];
-  assert.ok(run, 'perf-harness does not run pnpm perf');
-  const opts = parseArgs(run.replace(/"\$GITHUB_STEP_SUMMARY"/, 'summary.md').split(/\s+/));
-  assert.deepEqual(opts.files, corpusFiles());
-  assert.deepEqual(opts.large, ['256k', '1m']);
-  assert.deepEqual([opts.reload, opts.openSecond, opts.palette, opts.parse, opts.record], [true, true, true, true, 'results/perf-nightly.json']);
-  const startup = jobBlock(nightly, 'startup-macos');
-  assert.ok(startup, 'nightly.yml has no startup-macos job');
-  assert.match(startup, /run: node scripts\/measure-startup\.mjs\n/);
-});
-
 test('the record names the commit it measured', () => {
   const head = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
   assert.equal(commitOf(), head);
 });
 
-// F-60: the large-document parse figure.
+// the large-document parse figure.
 
 const PARSE_ROWS = PARSE_SHAPES.flatMap((shape) => Object.keys(PARSE_SIZES).map((size) => ({ name: 'parse_large', shape, size, bytes: 1, samples: 3, parse_ms: 5, us_per_byte: 1 })));
 
@@ -239,7 +213,7 @@ test('a requested parse figure with no sample is named in missing; the six rows 
   const requested = { parse: true };
   assert.deepEqual(buildRecord({ parseLarge: PARSE_ROWS, requested }).missing, []);
   const slow = PARSE_ROWS.map((r) => ({ ...r, parse_ms: 9e9 }));
-  assert.deepEqual(buildRecord({ parseLarge: slow, requested }).missing, [], 'a number never fails (ADR-0032)');
+  assert.deepEqual(buildRecord({ parseLarge: slow, requested }).missing, [], 'a number never fails');
   const partial = PARSE_ROWS.filter((r) => !(r.shape === 'dense' && r.size === '2m')).map((r) => (r.shape === 'prose' && r.size === '1m' ? { ...r, parse_ms: NaN } : r));
   assert.deepEqual(buildRecord({ parseLarge: partial, requested }).missing, ['parse_large prose 1m: parse_ms', 'parse_large dense 2m: parse_ms']);
   assert.deepEqual(buildRecord({ parseLarge: [], requested: {} }).missing, [], 'not requested, not missing');

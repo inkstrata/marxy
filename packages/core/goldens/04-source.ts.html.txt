@@ -1,4 +1,4 @@
-<pre class="language-typescript marxy-run" data-marxy-s="0" data-marxy-e="8973"><code class="language-typescript" data-marxy-s="0" data-marxy-e="8973">import { getBridge, type Bridge } from './bridge';
+<pre class="language-typescript marxy-run" data-marxy-lang="typescript" data-marxy-s="0" data-marxy-e="8973"><code class="language-typescript" data-marxy-s="0" data-marxy-e="8973">import { getBridge, type Bridge } from './bridge';
 const scriptStart = Date.now();
 const app = document.getElementById('app')!;
 const raf = () =&gt; new Promise&lt;number&gt;(r =&gt; requestAnimationFrame(r));
@@ -31,7 +31,7 @@ async function docMode(b: Bridge, file: string) {
   const md = new MarkdownIt({ html: false, linkify: false, typographer: true });
   const html = md.render(src);
   await b.mark('parsed', Date.now());
-  app.innerHTML = `&lt;article class="column"&gt;${html}&lt;/article&gt;`;
+  app.innerHTML = `&lt;article class=&quot;column&quot;&gt;${html}&lt;/article&gt;`;
   await frames(1);
   await b.mark('first_paint_frame', Date.now());
   await document.fonts.ready;
@@ -45,22 +45,22 @@ async function specimenMode(b: Bridge, offset: number, size: number) {
   const methods = ['font-weight', 'fvs'];
   const text = size === 17 ? 'Hamburgefonstiv 0123 qu' : 'Hamburgefo 01';
   const lh = size === 17 ? 24 : 44;
-  let html = '&lt;div class="spec"&gt;';
+  let html = '&lt;div class=&quot;spec&quot;&gt;';
   for (const wgt of weights) {
-    html += '&lt;div class="row"&gt;';
+    html += '&lt;div class=&quot;row&quot;&gt;';
     for (const [face, fam] of faces) for (const m of methods) {
       const req = wgt - offset;
       const style = m === 'font-weight' ? `font-weight:${req}` : `font-weight:400;font-variation-settings:'wght' ${req}`;
-      html += `&lt;div class="cell"&gt;&lt;div class="label"&gt;${face} ${m} ${size}px w${wgt}${offset ? ` (req ${req})` : ''}&lt;/div&gt;&lt;div class="sample" data-face="${face}" data-size="${size}" data-weight="${wgt}" data-method="${m}" style="font-family:'${fam}';font-size:${size}px;line-height:${lh}px;height:${lh}px;${style}"&gt;${text}&lt;/div&gt;&lt;/div&gt;`;
+      html += `&lt;div class=&quot;cell&quot;&gt;&lt;div class=&quot;label&quot;&gt;${face} ${m} ${size}px w${wgt}${offset ? ` (req ${req})` : ''}&lt;/div&gt;&lt;div class=&quot;sample&quot; data-face=&quot;${face}&quot; data-size=&quot;${size}&quot; data-weight=&quot;${wgt}&quot; data-method=&quot;${m}&quot; style=&quot;font-family:'${fam}';font-size:${size}px;line-height:${lh}px;height:${lh}px;${style}&quot;&gt;${text}&lt;/div&gt;&lt;/div&gt;`;
     }
     html += '&lt;/div&gt;';
   }
   if (size === 17) {
     const req400 = 400 - offset, req600 = 600 - offset;
-    html += `&lt;div style="padding:12px 10px 0;width:640px"&gt;&lt;div class="label"&gt;reading size: Literata 17/28, requested ${req400} body / ${req600} heading, 68ch&lt;/div&gt;
-    &lt;div style="font-family:'Literata';font-size:21px;line-height:28px;font-weight:${req600};letter-spacing:-0.006em"&gt;The reader is judged on the fourth page&lt;/div&gt;
-    &lt;div style="font-family:'Literata';font-size:17px;line-height:28px;font-weight:${req400};max-width:68ch"&gt;Every vertical space is an integer multiple of the body line box. Headings, code blocks, images, lists, blockquotes and math all land on it. The purpose is not tidiness on the first screen — it is that a long document never accumulates drift. &lt;em&gt;Italic at seventeen pixels&lt;/em&gt; and &lt;strong&gt;bold inline&lt;/strong&gt; and &lt;code style="font-family:'JetBrainsMono';font-size:14px"&gt;inline code&lt;/code&gt; in the run of text.&lt;/div&gt;
-    &lt;div style="font-family:'Quattro';font-size:17px;line-height:28px;font-weight:${req400};max-width:68ch;margin-top:6px"&gt;Quattro at seventeen: every vertical space is an integer multiple of the body line box, and a long document never accumulates drift.&lt;/div&gt;&lt;/div&gt;`;
+    html += `&lt;div style=&quot;padding:12px 10px 0;width:640px&quot;&gt;&lt;div class=&quot;label&quot;&gt;reading size: Literata 17/28, requested ${req400} body / ${req600} heading, 68ch&lt;/div&gt;
+    &lt;div style=&quot;font-family:'Literata';font-size:21px;line-height:28px;font-weight:${req600};letter-spacing:-0.006em&quot;&gt;The reader is judged on the fourth page&lt;/div&gt;
+    &lt;div style=&quot;font-family:'Literata';font-size:17px;line-height:28px;font-weight:${req400};max-width:68ch&quot;&gt;Every vertical space is an integer multiple of the body line box. Headings, code blocks, images, lists, blockquotes and math all land on it. The purpose is not tidiness on the first screen — it is that a long document never accumulates drift. &lt;em&gt;Italic at seventeen pixels&lt;/em&gt; and &lt;strong&gt;bold inline&lt;/strong&gt; and &lt;code style=&quot;font-family:'JetBrainsMono';font-size:14px&quot;&gt;inline code&lt;/code&gt; in the run of text.&lt;/div&gt;
+    &lt;div style=&quot;font-family:'Quattro';font-size:17px;line-height:28px;font-weight:${req400};max-width:68ch;margin-top:6px&quot;&gt;Quattro at seventeen: every vertical space is an integer multiple of the body line box, and a long document never accumulates drift.&lt;/div&gt;&lt;/div&gt;`;
   }
   html += '&lt;/div&gt;';
   app.innerHTML = html;
@@ -79,8 +79,8 @@ async function typesetMode(b: Bridge, file: string) {
   // take the first eight real paragraphs
   const div = document.createElement('div'); div.innerHTML = md.render(src);
   const paras = [...div.querySelectorAll('p')].filter(p =&gt; p.textContent!.length &gt; 220).slice(0, 4).map(p =&gt; p.outerHTML).join('');
-  const box = (cls: string, cap: string) =&gt; `&lt;div class="box ${cls}"&gt;&lt;p class="cap"&gt;${cap}&lt;/p&gt;${paras}&lt;/div&gt;`;
-  app.innerHTML = `&lt;div class="ts"&gt;${box('native', 'native ragged (engine)')}${box('pretty', 'text-wrap: pretty (engine)')}${box('justify', 'native justify (engine)')}${box('justif', 'justif Knuth–Plass justify + hanging')}&lt;/div&gt;`;
+  const box = (cls: string, cap: string) =&gt; `&lt;div class=&quot;box ${cls}&quot;&gt;&lt;p class=&quot;cap&quot;&gt;${cap}&lt;/p&gt;${paras}&lt;/div&gt;`;
+  app.innerHTML = `&lt;div class=&quot;ts&quot;&gt;${box('native', 'native ragged (engine)')}${box('pretty', 'text-wrap: pretty (engine)')}${box('justify', 'native justify (engine)')}${box('justif', 'justif Knuth–Plass justify + hanging')}&lt;/div&gt;`;
   await document.fonts.ready;
   const { justify } = await import('justif');
   const { hyphenateEnUS } = await import('justif/hyphenate/en-us');
@@ -107,7 +107,7 @@ async function cm6Mode(b: Bridge, file: string) {
 }
 
 async function indexMode(b: Bridge, root: string) {
-  app.innerHTML = `&lt;div class="column"&gt;&lt;p&gt;indexing ${root}&lt;/p&gt;&lt;input id="q" style="font:16px monospace;width:100%"&gt;&lt;ol id="res"&gt;&lt;/ol&gt;&lt;/div&gt;`;
+  app.innerHTML = `&lt;div class=&quot;column&quot;&gt;&lt;p&gt;indexing ${root}&lt;/p&gt;&lt;input id=&quot;q&quot; style=&quot;font:16px monospace;width:100%&quot;&gt;&lt;ol id=&quot;res&quot;&gt;&lt;/ol&gt;&lt;/div&gt;`;
   const r = await b.indexBuild(root);
   await b.mark('index_build', Date.now(), JSON.stringify(r));
   const words = ['ma', 'mar', 'marx', 'read', 'readme', 'src', 'src/ind', 'index', 'pack', 'packag', 'package.json', 'config', 'tsx', 'main', 'main.rs', 'lib', 'test', 'spec', 'doc', 'docs/', 'md', 'plan', 'report', 'css', 'theme', 'json', 'cargo', 'toml', 'yaml', 'lock', 'node', 'dist', 'build', 'view', 'mode', 'x', 'xy', 'xyz', 'q', 'qq'];

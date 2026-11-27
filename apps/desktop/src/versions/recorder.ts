@@ -1,38 +1,28 @@
-// The version recorder (V-06, ADR-0072): it follows each open document's store and keeps a version at three moments,
-// and nothing else: when a document is opened (`read`), when Marxy saves over the file (`before save`: what was on disk),
-// and when an outside change replaces it (`before reload`: what was on disk, and `read` of what replaced it, which is now in
-// front of the reader). Never on a keystroke, never on a timer.
+// The version recorder: it follows each open document's store and keeps a version at two moments, and
+// nothing else: before Marxy saves over the file (`before save`: what was on disk) and before an outside change replaces it
+// (`before reload`: what was on disk). Never when a file is opened (the data folder is not a record of what
+// was read), never on a keystroke, never on a timer. Old manifests may still hold `read` versions; they list and restore as
+// any other.
 //
-// It reads nothing of the reader's: every byte it keeps is a store's own snapshot, so the file in front of the reader is
+// It reads nothing of the reader's: every byte it keeps is a store's own snapshot (for a file in another encoding, the file's
+// bytes held for that snapshot's text, so a copy is what another program would open), so the file in front of the reader is
 // the only file involved, and it writes only through the version store, in Marxy's data folder. Its work waits for the
 // launch to be ready and runs one job at a time, after first text, so opening a file never waits on it.
 //
-// "Changed since you read" (ruling 4) compares the bytes on disk with the copy the reader last had of them: at an open, the
-// newest `read` version kept before it when that differs (a file changed while Marxy was closed), else what the open read;
-// after an outside change while open, what the file held just before it; after a save of the reader's own, what they saved.
-// It is held per store, in memory, and the tab shows it only while the bytes on disk differ from it.
+// The copies are listed only when the reader opens Versions; nothing here compares them with the file or says what changed.
 import { dirname, joinPath } from '@marxy/core/src/index-model/paths.ts';
 import { parseCollection } from '@marxy/core/src/index-model/collection.ts';
 import { parseConfig } from '@marxy/theme/src/config.ts';
 import type { DocumentSnapshot, DocumentStore } from '../document/store.ts';
+import { fileBytesOfText } from '../document/encoding.ts';
+import { isArchiveEntry } from '../document/entries.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { notify } from '../notices/index.ts';
 import { inferHomeFromConfig } from '../theme/user-theme.ts';
-import { createVersionStore, notKept, sameBytes, VERSION_LIMITS, type NotKept, type VersionReason, type VersionStore } from './store.ts';
+import { createVersionStore, notKept, sameBytes, VERSION_LIMITS, VERSIONS_PER_FILE, type NotKept, type VersionReason, type VersionStore } from './store.ts';
 
 /** `LARGE_FILE_BYTES` (source/language.ts), restated where the editor's modules are not loaded; recorder.test.ts pins it. */
 export const VERSIONS_LARGE_FILE_BYTES = 2 * 1024 * 1024;
-
-/** The copy the reader last read, for *Changed since you read*. */
-export interface SinceRead {
-  readonly bytes: Uint8Array;
-  /** When that copy was kept (an open's version) or replaced (an outside change). */
-  readonly time: number;
-  /** Where the baseline came from: a read (this open's or an earlier one), the reader's own save, or the change on disk that replaced what they had. */
-  readonly how: 'read' | 'saved' | 'changed on disk';
-  /** The reader saved this file after that read, so a difference includes their own changes. */
-  readonly savedSince: boolean;
-}
 
 /** What a failed keep left, said as it was: a save that went through did overwrite the bytes that were not kept. */
 export function whatHappened(reason: VersionReason): string {
@@ -42,7 +32,7 @@ export function whatHappened(reason: VersionReason): string {
 }
 
 /**
- * How long a save waits for its *before save* copy (V-06.1, ADR-0072 amendment 7). A local data folder answers in milliseconds, and a
+ * How long a save waits for its *before save* copy. A local data folder answers in milliseconds, and a
  * wake from sleep or a spun-down disk in one or two seconds, so three covers a slow but working folder; past it the folder is hung (a
  * stalled network volume) and the reader's file must not wait on it any longer.
  */
@@ -92,11 +82,9 @@ export interface VersionRecorder {
   readonly store: VersionStore;
   /** Why `path` (`size` bytes) gets no versions now, or null when it does. Reads config.toml and collection.toml. */
   status(path: string, size: number): Promise<NotKept | null>;
-  /** The copy the reader last read of `store`'s file, or null. */
-  since(store: DocumentStore): SinceRead | null;
   /** The last keep that failed for `path` in this session, until one succeeds. */
   failure(path: string): VersionFailure | null;
-  /** Clears `path`'s versions, and its *Changed since you read*. */
+  /** Clears `path`'s versions. */
   clear(path: string): ReturnType<VersionStore['clear']>;
   clearAll(): ReturnType<VersionStore['clearAll']>;
   /** Called after each keep, failure and clear. */
@@ -154,6 +142,11 @@ const nextTask = (): Promise<void> => new Promise((resolve) => setTimeout(resolv
 
 interface Tracked {
   last: DocumentSnapshot;
+  /**
+   * The file's bytes for `last.disk`, worked out when it was taken: by the time a reload is heard, what is held for a file in
+   * another encoding is already the new reading, and the bytes it replaced can no longer be had from it.
+   */
+  file: Uint8Array | null;
   off: () => void;
 }
 
@@ -161,11 +154,14 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
   void current?.stop();
   current = null;
   const { shell } = deps;
-  // A shell without a data folder (ADR-0026) keeps no state, and so no versions.
+  // A shell without a data folder keeps no state, and so no versions.
   if (!shell.configPaths) return null;
   const configPaths = shell.configPaths.bind(shell);
   const now = deps.now ?? (() => Date.now());
   const isNotFound = (e: unknown): boolean => (e as { code?: unknown } | null)?.code === 'not-found';
+
+  /** `version_copies` as config.toml said it at the last keep's policy read. */
+  let copies = VERSIONS_PER_FILE;
 
   /** config.toml's `versions` and collection.toml's `[deny]`, read when asked: an edit to either counts at the next keep. */
   async function inputsFor(path: string, size: number): Promise<NotKept | null> {
@@ -179,15 +175,19 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
       }
     };
     const configBytes = config ? await readOptional(config) : null;
-    const enabled = configBytes === null ? true : parseConfig(configBytes).config.versions;
+    const cfg = configBytes === null ? null : parseConfig(configBytes).config;
+    const enabled = cfg?.versions ?? true;
+    copies = cfg?.versionCopies ?? VERSIONS_PER_FILE;
     let denyGlobs: readonly string[] = [];
     if (config) {
       const collectionBytes = await readOptional(joinPath(dirname(config), 'collection.toml'));
       if (collectionBytes !== null) denyGlobs = parseCollection(collectionBytes, { home: inferHomeFromConfig(config) }).collection.denyGlobs;
     }
     let root: string | null = null;
-    if (deps.rootFor && !isUntitled(path)) root = await deps.rootFor(path).catch(() => null);
-    return notKept(path, size, { enabled, denyGlobs, root, dataDir: data, largeFileBytes: VERSIONS_LARGE_FILE_BYTES, untitled: isUntitled(path) });
+    // An archive's entry is in memory only: no copy of it is kept, as none of a scratch document is.
+    const offDisk = isUntitled(path) || isArchiveEntry(path);
+    if (deps.rootFor && !offDisk) root = await deps.rootFor(path).catch(() => null);
+    return notKept(path, size, { enabled, denyGlobs, root, dataDir: data, largeFileBytes: VERSIONS_LARGE_FILE_BYTES, untitled: offDisk });
   }
 
   const store = createVersionStore(
@@ -199,18 +199,14 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
       readDir: (dir) => shell.readDir(dir),
       now,
     },
-    { policy: (path, bytes) => inputsFor(path, bytes.length) },
+    { policy: (path, bytes) => inputsFor(path, bytes.length), perFile: () => copies },
   );
 
   const tracked = new Map<DocumentStore, Tracked>();
-  const sinceOf = new WeakMap<DocumentStore, SinceRead | null>();
-  /** Bumped by each save and reload of a store: an open's job, run later, does not set a baseline those have moved past. */
-  const epochOf = new WeakMap<DocumentStore, number>();
   const failures = new Map<string, VersionFailure>();
   const listeners = new Set<() => void>();
   const unsubscribes: (() => void)[] = [];
   let stopped = false;
-  let swept = false;
   /** A failed keep that is not a save was said, and no keep has worked since. */
   let toldStreak = false;
   let queue: Promise<void> = Promise.resolve();
@@ -277,85 +273,48 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
       failures.delete(path);
       toldStreak = false;
     }
-    if (outcome.result === 'kept' && !swept) {
-      // Once a session: versions over 30 days old (of any file, opened again or not) and the 200 MB total.
-      swept = true;
-      await store.sweep();
-    } else if (outcome.result === 'kept') {
+    if (outcome.result === 'kept') {
       const total = await store.totalBytes().catch(() => 0);
       if (total > VERSION_LIMITS.totalBytes) await store.sweep();
     }
     changed();
   }
 
-  /** The newest `read` version kept before now, its bytes, and whether a save came after it. */
-  async function lastRead(path: string): Promise<SinceRead | null> {
-    const listing = await store.list(path);
-    if (listing.kind !== 'ok') return null;
-    const read = listing.versions.find((v) => v.reason === 'read' && v.bytes === 'ok');
-    if (!read) return null;
-    const held = await store.read(path, read.id);
-    if (held.kind !== 'bytes') return null;
-    const savedSince = listing.saved !== null && listing.saved >= read.time;
-    return { bytes: held.bytes, time: read.time, how: 'read', savedSince };
-  }
-
-  function opened(doc: DocumentStore): void {
-    const snap = doc.snapshot();
-    const path = snap.path;
-    const disk = snap.disk;
-    sinceOf.set(doc, null);
-    if (disk === null || isUntitled(path)) return;
-    const epoch = epochOf.get(doc) ?? 0;
-    enqueue(async () => {
-      if ((await inputsFor(path, disk.length)) !== null) return changed();
-      // The baseline is the read before this one, so a file changed while Marxy was closed shows what changed; else this read.
-      const before = await lastRead(path);
-      if (tracked.has(doc) && (epochOf.get(doc) ?? 0) === epoch) {
-        sinceOf.set(doc, before !== null && !sameBytes(before.bytes, disk) ? before : { bytes: disk, time: now(), how: 'read', savedSince: false });
-      }
-      await keep(path, disk, 'read');
-    });
-  }
-
-  function transition(doc: DocumentStore, snap: DocumentSnapshot, change: { readonly kind: string; readonly renamedFrom?: string }): void {
+  function transition(doc: DocumentStore, snap: DocumentSnapshot, change: { readonly kind: string; readonly renamedFrom?: string; readonly appended?: number }): void {
     const t = tracked.get(doc);
     if (!t) return;
     const prev = t.last;
+    const prevFile = t.file;
     t.last = snap;
+    if (snap.disk !== prev.disk) t.file = snap.disk === null ? null : fileBytesOfText(snap.path, snap.disk);
     if (change.kind === 'close') {
       t.off();
       tracked.delete(doc);
       return;
     }
-    if (change.kind === 'save' || change.kind === 'reload') epochOf.set(doc, (epochOf.get(doc) ?? 0) + 1);
     if (change.kind === 'save') {
-      // The reader's own bytes are on disk now: the baseline is what they wrote.
-      sinceOf.set(doc, snap.disk === null ? null : { bytes: snap.disk, time: now(), how: 'saved', savedSince: false });
       // What the save replaced was kept before it was written (`keepBeforeSave`, awaited by the store): nothing is queued after it.
       return changed();
     }
     if (change.kind === 'reload') {
       const before = prev.disk;
       const after = snap.disk;
-      if (before === null || after === null || before === after || sameBytes(before, after) || isUntitled(snap.path)) return;
+      // A file that only grew still begins with every byte it had: nothing was replaced, so there is nothing to keep.
+      if (change.appended !== undefined || before === null || after === null || before === after || sameBytes(before, after) || isUntitled(snap.path)) return;
       const path = snap.path;
-      sinceOf.set(doc, { bytes: before, time: now(), how: 'changed on disk', savedSince: false });
-      enqueue(async () => {
-        await keep(path, before, 'before reload');
-        // Reloaded in front of the reader: what they read now (ruling 4).
-        await keep(path, after, 'read');
-      });
+      // A version is the file's bytes, never the page's text of a file in another encoding.
+      if (prevFile === null) failed(path, 'before reload', new Error('the bytes it replaced could not be told from their text'));
+      else enqueue(() => keep(path, prevFile, 'before reload'));
       changed();
     }
   }
 
   function track(doc: DocumentStore): void {
     if (tracked.has(doc)) return;
-    const t: Tracked = { last: doc.snapshot(), off: () => {} };
+    const last = doc.snapshot();
+    const t: Tracked = { last, file: last.disk === null ? null : fileBytesOfText(last.path, last.disk), off: () => {} };
     tracked.set(doc, t);
     t.off = doc.subscribe((snap, change) => transition(doc, snap, change));
-    opened(doc);
   }
 
   const follow = (pane: RecorderPane): (() => void) => {
@@ -367,30 +326,38 @@ export function installVersionRecorder(deps: RecorderDeps): VersionRecorder | nu
     look();
     return off;
   };
+  // Once a session, after first text: versions over 30 days old (of any file, opened again or not), the 200 MB total, and the
+  // slots a keep cut short. Nothing is kept on open, so this is not left to wait for the first keep.
+  enqueue(async () => {
+    await store.sweep();
+    changed();
+  });
   if (deps.panes.panes[0]) unsubscribes.push(follow(deps.panes.panes[0]));
   deps.panes.onSplit(() => {
     const second = deps.panes.panes[1];
     if (!second || stopped) return () => {};
     const off = follow(second);
     unsubscribes.push(off);
-    return off;
+    // Out of the list when the pane closes: kept there, it held every closed pane's view and page for the session.
+    return () => {
+      off();
+      const at = unsubscribes.indexOf(off);
+      if (at >= 0) unsubscribes.splice(at, 1);
+    };
   });
 
   const recorder: VersionRecorder = {
     store,
     status: (path, size) => inputsFor(path, size),
-    since: (doc) => sinceOf.get(doc) ?? null,
     failure: (path) => failures.get(path) ?? null,
     async clear(path) {
       const result = await store.clear(path);
-      for (const doc of tracked.keys()) if (doc.snapshot().path === path) sinceOf.set(doc, null);
       failures.delete(path);
       changed();
       return result;
     },
     async clearAll() {
       const result = await store.clearAll();
-      for (const doc of tracked.keys()) sinceOf.set(doc, null);
       failures.clear();
       changed();
       return result;

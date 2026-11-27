@@ -1,0 +1,102 @@
+﻿(node:31380) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ attaching to a long article makes about as many layout reads as to a short one: the viewport is found by bisection (5340.1989ms)
+✔ on a page scrolled to the middle the screen is set first, and the queue runs outward from it by place in the document (2425.5637ms)
+✖ destroy with discard writes nothing and leaves the set page as it is, and nothing queued runs after it (3083.0055ms)
+✔ destroy without an option restores the article exactly (2339.0055ms)
+✖ a visible pass that leaves every height as it was does not announce itself (1051.3299ms)
+✖ a visible pass that changes heights announces itself with the paragraphs it set (926.2871ms)
+✖ the kill switch is read once for a batch that writes markers, and not at all to adopt paragraphs (671.3544ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 2
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18711.0725
+
+✖ failing tests:
+
+test at packages\typeset\test\unused-work.test.mjs:14:28
+✖ attaching to a long article makes about as many layout reads as to a short one: the viewport is found by bisection (5340.1989ms)
+  AssertionError [ERR_ASSERTION]: reads before the first slice: {"200":239,"2000":2039}
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/typeset-waste/packages/typeset/test/unused-work.test.mjs:65:10)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at packages\typeset\test\unused-work.test.mjs:14:28
+✖ destroy with discard writes nothing and leaves the set page as it is, and nothing queued runs after it (3083.0055ms)
+  AssertionError [ERR_ASSERTION]: the set page is as it was
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/typeset-waste/packages/typeset/test/unused-work.test.mjs:126:10)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at packages\typeset\test\unused-work.test.mjs:14:28
+✖ a visible pass that leaves every height as it was does not announce itself (1051.3299ms)
+  AssertionError [ERR_ASSERTION]: no visible pass was announced
+  + actual - expected
+  
+  + [
+  +   {
+  +     kind: 'visible',
+  +     set: null
+  +   }
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/typeset-waste/packages/typeset/test/unused-work.test.mjs:177:10)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ { kind: 'visible', set: null } ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at packages\typeset\test\unused-work.test.mjs:14:28
+✖ a visible pass that changes heights announces itself with the paragraphs it set (926.2871ms)
+  AssertionError [ERR_ASSERTION]: with the paragraphs it set: {"kind":"visible","set":null}
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/typeset-waste/packages/typeset/test/unused-work.test.mjs:187:35)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at packages\typeset\test\unused-work.test.mjs:14:28
+✖ the kill switch is read once for a batch that writes markers, and not at all to adopt paragraphs (671.3544ms)
+  AssertionError [ERR_ASSERTION]: one read of the kill switch for the whole batch
+  
+  2 !== 1
+  
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/typeset-waste/packages/typeset/test/unused-work.test.mjs:243:10)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

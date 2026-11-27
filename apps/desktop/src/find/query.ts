@@ -1,5 +1,5 @@
-// Compiles what a reader types into a regular expression that matches what the page shows (D-03,
-// docs/design/09-app-shell.md, Find). The article sets smart typography; a reader types straight quotes
+// Compiles what a reader types into a regular expression that matches what the page shows.
+// The article sets smart typography; a reader types straight quotes
 // and double hyphens. The folding is applied to the query, never to the text.
 
 const NBSP = '\\u00A0';

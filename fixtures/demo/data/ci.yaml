@@ -1,0 +1,27 @@
+# CI for tidemark: one job per platform, with cargo's cache kept between runs.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request: {}
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo
+          key: cargo-${{ hashFiles('Cargo.lock') }}
+      - name: Test
+        run: |
+          cargo test --all
+          cargo test --release -- --ignored

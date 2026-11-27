@@ -7,14 +7,14 @@
   <img data-marxy-remote="https://img.shields.io/badge/license-MIT-blue" alt="MIT" />
 
 <h2 id="install" data-marxy-s="496" data-marxy-e="506">Install</h2>
-<pre class="language-sh" data-marxy-s="508" data-marxy-e="536"><code class="language-sh" data-marxy-s="514" data-marxy-e="533">pnpm add widgetlib
+<pre class="language-sh" data-marxy-lang="shellscript" data-marxy-s="508" data-marxy-e="536"><code class="language-sh" data-marxy-s="514" data-marxy-e="533">pnpm add widgetlib
 </code></pre>
 <blockquote data-marxy-s="538" data-marxy-e="615">
 <p data-marxy-s="540" data-marxy-e="615"><strong data-marxy-s="540" data-marxy-e="548">Note</strong>
 Node 20 or later is required. Bun works but is not tested in CI.</p>
 </blockquote>
 <h2 id="usage" data-marxy-s="617" data-marxy-e="625">Usage</h2>
-<pre class="language-ts" data-marxy-s="627" data-marxy-e="748"><code class="language-ts" data-marxy-s="633" data-marxy-e="745">import { widget } from 'widgetlib';
+<pre class="language-ts" data-marxy-lang="typescript" data-marxy-s="627" data-marxy-e="748"><code class="language-ts" data-marxy-s="633" data-marxy-e="745">import { widget } from 'widgetlib';
 
 const w = widget({ title: 'Hello', width: 40 });
 w.render(process.stdout);
@@ -33,7 +33,7 @@ w.render(process.stdout);
 <tr data-marxy-s="847" data-marxy-e="903">
 <td data-marxy-s="847" data-marxy-e="857"><code data-marxy-s="849" data-marxy-e="856">title</code></td>
 <td data-marxy-s="857" data-marxy-e="868"><code data-marxy-s="859" data-marxy-e="867">string</code></td>
-<td data-marxy-s="868" data-marxy-e="875"><code data-marxy-s="870" data-marxy-e="874">""</code></td>
+<td data-marxy-s="868" data-marxy-e="875"><code data-marxy-s="870" data-marxy-e="874">&quot;&quot;</code></td>
 <td data-marxy-s="875" data-marxy-e="903">Title shown in the frame</td>
 </tr>
 <tr data-marxy-s="904" data-marxy-e="968">

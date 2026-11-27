@@ -4,7 +4,7 @@
 // which serves the corpus from `GATE_DOCUMENT_DIRECTORY` so a relative reference is a same-origin
 // request rather than a scheme each engine invents for a base-less page.
 //
-// The assumption, for MARXY-45 to reconcile with the real shell:
+// The assumption, to reconcile with the real shell:
 //
 // A value is judged under the *strictest* reading available, a URL with a special scheme (`https:`).
 // Special schemes are the ones where the parser treats `\` as `/` and `/\host` introduces an
@@ -13,7 +13,7 @@
 // on Windows, so it is special on one platform and not on the others. Judging everything as special
 // means this sanitiser refuses a value that would be harmless under `asset:` and never permits one
 // that would be dangerous under `http:` — it is strict on two platforms and exact on the third,
-// which is the safe direction. MARXY-45 owns making the shell's real scheme and CSP agree with this.
+// which is the safe direction. The shell's real scheme and CSP have to be made to agree with this.
 
 /** The origin `scripts/gate-no-network.mjs` serves documents from. */
 export const GATE_DOCUMENT_ORIGIN = 'https://document.marxy.invalid';
@@ -26,7 +26,7 @@ export const GATE_DOCUMENT_ORIGIN = 'https://document.marxy.invalid';
  * `/etc/passwd`, which is inside the root. `render/boundary.test.ts` asserts the path, and the
  * gate's fourth control watches a traversal actually leave.
  *
- * There are two rules here and MARXY-45 has to pick one, because they are not the same rule. The
+ * There are two rules here and one has to be picked, because they are not the same rule. The
  * sanitiser keeps `../sibling/diagram.png` and `/local.png` — both are ordinary in a monorepo
  * README and neither tells anyone anything — while this gate fails any request that leaves the
  * document's directory. Nothing conflicts today only because no corpus document uses either form.

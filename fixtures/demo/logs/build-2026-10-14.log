@@ -1,0 +1,11 @@
+2026-10-14T16:02:11.402Z INFO  build: starting (profile=release, jobs=8)
+2026-10-14T16:02:11.590Z INFO  deps: 214 crates, 0 changed
+2026-10-14T16:02:48.017Z WARN  [33mindexer[0m: unused import `std::time::Instant` (src/indexer.rs:3)
+2026-10-14T16:03:02.733Z INFO  bundle: writing app (arm64)
+2026-10-14T16:03:09.118Z ERROR sign: codesign failed for target/release/bundle/app
+    at sign::run (sign.rs:88)
+    at bundle::finish (bundle.rs:212)
+    caused by: errSecInternalComponent
+2026-10-14T16:03:09.120Z INFO  sign: retrying with --timestamp=none
+2026-10-14T16:03:15.554Z INFO  sign: ok
+2026-10-14T16:03:15.901Z INFO  build: done in 64.5 s

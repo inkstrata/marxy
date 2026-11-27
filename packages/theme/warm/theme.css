@@ -1,6 +1,7 @@
-/* Warm: Dusk (dark) and Sepia (light), the values of mock-v2/shared/tokens.css carried into every contract-2 role (H-05).
-   Dusk is a warm brown-black with an amber accent; Sepia is cream paper with a rust accent. The quiet text roles (faint,
-   marker, comment) are nudged toward the strong text where the gate needed it. Colour only: type and rhythm are the default's. */
+/* Dusk: Warm brown-black with an amber accent. Sepia by day.
+   Written from packages/theme/src/looks/warm.ts by packages/theme/scripts/write-theme-sheets.mjs: change that file
+   and run the script, never this one (theme-sheets.test.ts holds them equal).
+*/
 :root {
   --marxy-weight-body: 380;
   --marxy-weight-heading: 600;

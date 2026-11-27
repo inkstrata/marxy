@@ -1,5 +1,5 @@
 // The pure half of Rendered find: a list of text-node strings becomes one searchable string, with a
-// way back from an offset in it to (piece, offset in that piece). No DOM, no state (D-03).
+// way back from an offset in it to (piece, offset in that piece). No DOM, no state.
 //
 // Pieces concatenate with no separator: a text-node boundary inside a word is not a space. Offsets are
 // UTF-16 code units, as the DOM's are.

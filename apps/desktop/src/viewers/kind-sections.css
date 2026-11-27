@@ -1,0 +1,25 @@
+/* A kind's sections of parts (`mgroup`, `mh`, `mrow`): a font's tables,
+   a recording's tracks, tags and boxes, a picture's chunks. A quiet heading with its count beside it, then rows on hairlines;
+   a row of a file's parts is its name, its offset, its size and what it is. */
+.marxy-ksec { margin: 1.6em 0 0; font-family: var(--marxy-face-chrome); }
+.marxy-ksec-h {
+  margin: 0 0 0.35em; font: 600 calc(10.5 * var(--marxy-c)) / 1.8 var(--marxy-face-chrome); letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--marxy-color-text-faint);
+}
+.marxy-ksec-h span { margin-left: 0.5em; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.marxy-ksec-row {
+  display: grid; grid-template-columns: minmax(7em, 12em) minmax(0, 1fr); column-gap: 1.2em; padding: 3px 8px;
+  border-bottom: 1px solid var(--marxy-frame-hair); font-size: calc(13.5 * var(--marxy-c)); line-height: 1.5;
+}
+.marxy-ksec-row[data-marxy-ksec="parts"] { grid-template-columns: minmax(6em, 11em) 6.5em 6.5em minmax(0, 1fr); }
+.marxy-ksec-k { color: var(--marxy-color-text-secondary); overflow-wrap: anywhere; }
+.marxy-ksec-v { color: var(--marxy-color-text-strong); overflow-wrap: anywhere; }
+.marxy-ksec-o, .marxy-ksec-n { font: calc(12 * var(--marxy-c)) / 1.75 var(--marxy-font-mono); color: var(--marxy-color-text-secondary); }
+.marxy-ksec-n { text-align: right; padding-right: 0.6em; }
+.marxy-ksec-cols { border-bottom-color: var(--marxy-frame-hair-2); }
+.marxy-ksec-cols > span {
+  font: 600 calc(10 * var(--marxy-c)) / 1.8 var(--marxy-face-chrome); letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--marxy-color-text-faint);
+}
+.marxy-ksec-cols > span:nth-child(3) { text-align: right; padding-right: 0.6em; }
+.marxy-imgparts { flex: none; max-height: 34%; overflow: auto; margin: 0; padding: 12px 24px 16px; box-shadow: inset 0 1px 0 var(--marxy-frame-hair); }

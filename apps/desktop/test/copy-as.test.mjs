@@ -1,4 +1,4 @@
-// Copy as (J-04, ADR-0065 item 1): ⇧⌘C opens a menu of the targets at the pointer; a choice writes one pasteboard
+// Copy as: ⇧⌘C opens a menu of the targets at the pointer; a choice writes one pasteboard
 // item through clipboardWriteItem and says one notice. Palette harness (memory shell), WebKit.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
@@ -8,7 +8,7 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { COPY_TARGETS, copyAsFromOperation, copyAsFromText, copyTargets, createBuffer, parseMarkdown, sectionRange, textOf } from '../../../packages/core/src/index.ts';
 import { copyRich } from '../../../packages/core/src/operations/copy-rich.ts';
@@ -107,7 +107,7 @@ async function choose(page, id) {
 test('the eight formats of copy_format are the eight targets of core, in menu order', () => {
   const all = copyTargets({ has: () => true, run: (_id, text) => text });
   assert.deepEqual(COPY_FORMATS, all.map((t) => t.id));
-  // The registry can run all eight since J-03.1; the menu lists them.
+  // The registry can run all eight; the menu lists them.
   assert.deepEqual(COPY_TARGETS.map((t) => t.id), all.map((t) => t.id));
 });
 
@@ -289,9 +289,11 @@ test('in Source, the selected text is copied and not the line; with no selection
   const text = readFileSync(join(corpusDir, file), 'utf8');
   const { page } = await boot(file);
   try {
+    // Code lands in Read; this is about Source, one press away.
+    await page.evaluate(() => window.__marxyOpsBoot.handle.toggleMode());
     await page.waitForSelector('#marxy-source .cm-editor');
     await page.locator('#marxy-source .cm-content').click();
-    await page.keyboard.press(`${await mod(page)}+ArrowUp`);
+    await page.keyboard.press(`${await mod(page)}+Home`);
     for (let i = 0; i < 7; i++) await page.keyboard.press('Shift+ArrowRight');
     const selected = await page.evaluate(() => window.getSelection()?.toString() ?? '');
     await page.mouse.move(400, 300);
@@ -336,6 +338,8 @@ test('⇧⌘C leaves the find field alone, in Rendered and in Source, and works 
   const source = await boot('04-source.rs');
   try {
     const p = source.page;
+    // Code lands in Read; this is about Source, one press away.
+    await p.evaluate(() => window.__marxyOpsBoot.handle.toggleMode());
     await p.waitForSelector('#marxy-source .cm-editor');
     await p.locator('#marxy-source .cm-content').click();
     await p.keyboard.press(`${await mod(p)}+f`);
@@ -360,7 +364,7 @@ test('⇧⌘C leaves the open palette alone, and Copy as… from the palette sti
     await noMenuAfter(page, async () => page.keyboard.press(`${await mod(page)}+Shift+KeyC`));
     assert.equal(await page.evaluate(() => document.getElementById('marxy-palette')?.open), true, 'the palette is still open');
     await page.keyboard.type('>Copy as');
-    await page.waitForFunction(() => /Copy as…\s*⇧⌘C/.test(document.getElementById('marxy-palette').innerText));
+    await page.waitForFunction(() => /Copy as…\s*(⇧⌘C|Ctrl\+Shift\+C)/.test(document.getElementById('marxy-palette').innerText));
     // The rows are ranked; arrow down to the one named Copy as… (the targets sort before it).
     for (let i = 0; i < 12 && !(await page.evaluate(() => /Copy as…/.test(document.querySelector('#marxy-palette [aria-selected="true"]')?.textContent ?? ''))); i++) await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
@@ -370,7 +374,7 @@ test('⇧⌘C leaves the open palette alone, and Copy as… from the palette sti
   }
 });
 
-test('F-60.1: Copy as Jira of the whole document, from Rendered and from Source, reads the store\'s parse (no parse is made) and gives what a from-scratch parse gives', async () => {
+test('Copy as Jira of the whole document, from Rendered and from Source, reads the store\'s parse (no parse is made) and gives what a from-scratch parse gives', async () => {
   const jira = COPY_TARGETS.find((t) => t.id === 'jira');
   const file = '28-llm-answer.md';
   const text = readFileSync(join(corpusDir, file), 'utf8').replace(/^\ufeff/, '');
@@ -395,7 +399,7 @@ test('F-60.1: Copy as Jira of the whole document, from Rendered and from Source,
   }
 });
 
-test('F-73: a selection\'s Copy as is never handed the store\'s parse, in Rendered and in Source; the whole document is', async () => {
+test('a selection\'s Copy as is never handed the store\'s parse, in Rendered and in Source; the whole document is', async () => {
   const file = '28-llm-answer.md';
   /** Counts the asks of `textParse` on the open document's store, so the test sees who is handed the pair. */
   const spy = (page) =>
@@ -426,7 +430,7 @@ test('F-73: a selection\'s Copy as is never handed the store\'s parse, in Render
       const selections = view === 'source'
         ? [async () => {
             await page.locator('#marxy-source .cm-content').click();
-            await page.keyboard.press(`${await mod(page)}+ArrowUp`);
+            await page.keyboard.press(`${await mod(page)}+Home`);
             for (let i = 0; i < 7; i++) await page.keyboard.press('Shift+ArrowRight');
           }]
         : [() => page.locator('#doc h1, #doc h2, #doc h3').first().click(), () => page.locator('#doc p').first().click({ clickCount: 3 })];

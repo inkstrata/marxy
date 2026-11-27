@@ -1,11 +1,12 @@
-// The facts the Source frame's bars show (V-05). Each one is read from the bytes and says only what they say: the
+// The facts the Source frame's bars show. Each one is read from the bytes and says only what they say: the
 // encoding is UTF-8 or it is not, the line endings are the ones in the file, the indentation is what the lines begin
 // with, a code point is the one at the caret. Nothing here interprets, scores or summarises. No DOM and no CodeMirror
-// (not even its types: the status bar imports this file, and the start-up chunk must not reach CodeMirror, MARXY-33), so a node
+// (not even its types: the status bar imports this file, and the start-up chunk must not reach CodeMirror), so a node
 // test holds every rule.
 
 import { type Buffer, sourceTextOf, strayByteOf } from '@marxy/core';
 import { basename, normalizePath } from '@marxy/core/src/index-model/paths.ts';
+import { heldEntry, isArchiveEntry } from '../document/entries.ts';
 import { documentName, isUntitled } from '../document/untitled.ts';
 
 /** 1234567 as "1,234,567": the same in every locale, so a bar reads the same everywhere. */
@@ -26,7 +27,7 @@ export function linesLabel(n: number): string {
 /**
  * The lines of a file as Source shows them: the rows of the editor's text, less the empty row after a final line break
  * (that row is where the caret goes, not a line), and none at all for an empty file. The editor's own line separator
- * decides what a row is, so a lone CR in a Mixed file is a character inside a line, as Source shows it (F-24).
+ * decides what a row is, so a lone CR in a Mixed file is a character inside a line, as Source shows it.
  */
 export function lineCountOf(doc: { readonly lines: number; line(n: number): { readonly length: number } }): number {
   const rows = doc.lines;
@@ -37,6 +38,9 @@ export function lineCountOf(doc: { readonly lines: number; line(n: number): { re
 /** The path as quiet segments: every folder and then the file's own name; a scratch document is only its name. */
 export function pathSegments(path: string): string[] {
   if (isUntitled(path)) return [documentName(path)];
+  // An archive's entry: the archive, then its folders inside it.
+  const entry = isArchiveEntry(path) ? heldEntry(path) : null;
+  if (entry) return [basename(entry.archive), ...entry.name.split('/').filter((part) => part !== '')];
   const parts = normalizePath(path).split('/').filter((part) => part !== '');
   return parts.length > 0 ? parts : [basename(path) || path];
 }
@@ -170,7 +174,7 @@ export function detectIndent(text: string): IndentFact {
   return { kind: 'mixed', width: 0 };
 }
 
-/** The bar's words for an indent, with the tab width the editor draws a tab at (EditorConfig, V-16). */
+/** The bar's words for an indent, with the tab width the editor draws a tab at (EditorConfig). */
 export function indentFact(indent: IndentFact, tabWidth: number): { label: string; title: string } | null {
   switch (indent.kind) {
     case 'tabs':

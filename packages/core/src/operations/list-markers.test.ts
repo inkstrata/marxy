@@ -1,4 +1,4 @@
-// renumber-list, list-to-numbers, list-to-bullets, bullets-from-glyphs (E-08): table rows run in LF, CRLF, CR, no trailing
+// renumber-list, list-to-numbers, list-to-bullets, bullets-from-glyphs: table rows run in LF, CRLF, CR, no trailing
 // newline and BOM; the corpus sweep checks only marker bytes change, idempotence and the inverse.
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -208,7 +208,7 @@ test('corpus: list-to-bullets undoes list-to-numbers for lists of - bullets with
   assert.ok(stats.applied > 0);
 });
 
-// ---- E-08.1: narrowing re-indents, and the list keeps its structure --------------------------------------------------
+// ---- narrowing re-indents, and the list keeps its structure --------------------------------------------------
 
 /** Node types down the tree, and the text of each code block: what a re-indent must leave alone. A list's kind is what the operation changes. */
 function shape(n: Node): unknown {

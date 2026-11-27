@@ -1,5 +1,5 @@
-// The equivalence oracle of D-15 (04-phase-d.md, "Amended 2026-10-11"): the parse in slices and the render in
-// slices are a second road to the bytes a reader sees, beside the sanitiser's one pass (ADR-0023 Amendment 1).
+// The equivalence oracle: the parse in slices and the render in
+// slices are a second road to the bytes a reader sees, beside the sanitiser's one pass.
 // This answers, for one document, whether the two roads agree: the AST node for node and range for range, the
 // html byte for byte, the removals in order and the blocked images; or the slicer declined (the parse as one
 // piece, the render as null) and the caller does it whole, which is the same bytes by construction.

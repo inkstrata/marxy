@@ -1,4 +1,4 @@
-// Detects a file that changed under the reader between open and save (ADR-0004, MARXY-34).
+// Detects a file that changed under the reader between open and save.
 // writeFileAtomic has no precondition, so this comparison is what stops last-writer-wins.
 
 /**

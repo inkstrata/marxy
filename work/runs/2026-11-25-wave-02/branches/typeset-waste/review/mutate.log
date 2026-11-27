@@ -1,0 +1,24 @@
+=== fixed
+  ℹ pass 10
+  ℹ fail 0
+=== out-of-flow blocks ignored
+  ℹ pass 9
+  ℹ fail 1
+=== adopt ignores kill switch
+  ℹ pass 8
+  ℹ fail 2
+=== visible pass always announced
+  ℹ pass 9
+  ℹ fail 1
+=== discard ignored
+  ℹ pass 9
+  ℹ fail 1
+=== verdict not cached in batch
+  ℹ pass 9
+  ℹ fail 1
+=== bisect over paragraphs, not blocks
+  ℹ pass 8
+  ℹ fail 2
+ M docs/themes-and-type.md
+ M packages/typeset/src/index.ts
+ M packages/typeset/test/unused-work.test.mjs

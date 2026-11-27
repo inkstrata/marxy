@@ -11,10 +11,15 @@
     "bundle": "vite build && tauri build -- --locked",
     "build:web": "vite build",
     "build:harness": "vite build --outDir harness/dist",
+    "build:demo": "vite build --mode demo --outDir demo-dist",
+    "preview:demo": "vite preview --mode demo --outDir demo-dist --port 4173 --strictPort",
+    "tour:demo": "node scripts/demo-tour.mjs",
+    "check:tauri": "node scripts/tauri-check.mjs",
+    "shots": "node scripts/shots.mjs",
+    "sign:self-cert": "node scripts/self-signed-cert.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check --formatter-enabled=false .",
-    "test": "node --test --test-concurrency=1 --experimental-strip-types 'src/**/*.test.ts' 'src/source/*.test.mjs' 'src/startup/*.test.mjs' 'src/theme/*.test.mjs' 'src/workspace/*.test.mjs' 'test/**/*.test.mjs' 'scripts/**/*.test.mjs'",
-    "test:lite": "MARXY_LOG_MB=3 MARXY_SESSION_MB=8 node --test --test-concurrency=1 --experimental-strip-types test/island-look.test.mjs test/close-guard.test.mjs test/data-loss.test.mjs test/explicit-save.test.mjs test/live-reload.test.mjs test/operations-edit.test.mjs test/progressive.test.mjs test/long-line.test.mjs test/source-open-stall.test.mjs test/split-runs.test.mjs test/elided-note.test.mjs test/log.test.mjs test/save.test.mjs test/save-close-r5.test.mjs test/save-trust-r4.test.mjs test/trust.test.mjs test/undo-endings.test.mjs test/release-csp.test.mjs test/images.test.mjs test/user-theme.test.mjs test/deep-nesting.test.mjs test/block-edit.test.mjs test/source-structure.test.mjs test/link-beside.test.mjs test/palette-preview.test.mjs src/workspace/inspector.test.mjs test/table-lens.test.mjs test/transcript-lite.test.mjs test/versions-tab.test.mjs",
+    "test": "node --test --test-concurrency=1 --experimental-strip-types \"src/**/*.test.ts\" \"src/source/*.test.mjs\" \"src/startup/*.test.mjs\" \"src/theme/*.test.mjs\" \"src/workspace/*.test.mjs\" \"test/**/*.test.mjs\" \"scripts/**/*.test.mjs\"",
     "test:mutations": "node scripts/mutations.mjs",
     "verify:cli": "MARXY_SMOKE_REQUIRED=1 node scripts/smoke-cli-open.mjs",
     "tauri": "tauri"
@@ -33,7 +38,6 @@
     "@codemirror/lang-rust": "^6.0.2",
     "@codemirror/lang-yaml": "^6.1.3",
     "@codemirror/language": "^6.12.4",
-    "@codemirror/legacy-modes": "^6.5.5",
     "@codemirror/search": "^6.7.2",
     "@codemirror/state": "^6.7.5",
     "@codemirror/view": "^6.43.12",
@@ -42,11 +46,12 @@
     "@marxy/shell-api": "workspace:*",
     "@marxy/theme": "workspace:*",
     "@marxy/typeset": "workspace:*",
-    "@tauri-apps/api": "^2.11.1",
-    "katex": "^0.18.7"
+    "@tauri-apps/api": "^2.12.4",
+    "katex": "^0.18.7",
+    "pdfjs-dist": "6.4.299"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.11.4",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/katex": "^0.16.8",
     "typescript": "^5.9.3",
     "vite": "^7.0.0"

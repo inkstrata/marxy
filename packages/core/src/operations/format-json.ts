@@ -1,4 +1,4 @@
-// Pretty-print JSON (E-10): re-indent the content of a `json` fence two spaces per level, token by token.
+// Pretty-print JSON: re-indent the content of a `json` fence two spaces per level, token by token.
 // Pure string to string. No parse-and-print: strings and numbers are copied byte for byte, so nothing is rounded,
 // re-escaped or reordered; only the whitespace between tokens is rewritten. A trailing comma (which LLM answers
 // leave in) is kept as the token it is. Anything that is not JSON apart from that returns null.

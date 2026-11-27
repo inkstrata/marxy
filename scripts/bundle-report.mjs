@@ -1,4 +1,4 @@
-// What each chunk of the desktop build holds, module by module (F-111). A report, never a gate: it builds
+// What each chunk of the desktop build holds, module by module. A report, never a gate: it builds
 // the shipped entry in memory (nothing is written), reads rollup's own module list for every
 // chunk and prints the entry chunks first, grouped by package or source folder with each group's rendered
 // size before minification. Rendered sizes are rollup's `renderedLength` (after tree-shaking, before the
@@ -20,7 +20,8 @@ export function groupOf(id) {
     const rest = path.slice(nm + 'node_modules/'.length).split('/');
     return rest[0].startsWith('@') ? `${rest[0]}/${rest[1]}` : rest[0];
   }
-  const rel = relative(root, path);
+  // Windows: the relative path comes back with backslashes; the groups are named with forward slashes everywhere.
+  const rel = relative(root, path).replace(/\\/g, '/');
   if (rel.startsWith('..')) return path;
   const parts = rel.split('/');
   if (parts[0] === 'apps' || parts[0] === 'packages') {

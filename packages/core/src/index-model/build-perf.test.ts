@@ -1,7 +1,7 @@
 // A 20k-file tree indexes correctly: every file found, node_modules skipped, no notice. How long
-// that took is printed, not asserted (MARXY-153): the old `elapsed < 2_000` was a wall-clock
+// that took is printed, not asserted: the old `elapsed < 2_000` was a wall-clock
 // ceiling on a shared runner, which fails for a busy machine exactly as it fails for a regression,
-// and ADR-0032 already settled that no speed number fails the build.
+// and it is settled that no speed number fails the build.
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

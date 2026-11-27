@@ -1,0 +1,73 @@
+✔ an edit in Source, a scroll far away and Mod+E: the block under the reading line stays, and the page is typeset (13780.9586ms)
+✔ a file written externally with CRLF while Source shows is not dirty after leaving Source (1127.4506ms)
+✔ opening another .md from Source never shows an empty overlay, and lands at its stored place (6417.9568ms)
+✔ Show source and then an immediate open of another file: the next Mod+E commits nothing into the new store (1977.4344ms)
+✔ Source, Rendered, Source on inventory.py keeps the line on the reading line (3181.316ms)
+✔ Source, Rendered, Source on a hard-wrapped .md keeps the line on the reading line (3301.8786ms)
+✔ an edit in Source shows in Rendered, and every other byte stays: .md with LF (1023.9766ms)
+✔ an edit in Source shows in Rendered, and every other byte stays: .md with CRLF (1045.0018ms)
+✔ an edit in Source shows in Rendered, and every other byte stays: .md with BOM (1036.9359ms)
+✔ an edit in Source shows in Rendered, and every other byte stays: .md with BOM and CRLF (1016.4138ms)
+✔ an edit in Source shows in Rendered, and every other byte stays: .md with stray bytes (1012.2161ms)
+✔ an edit in Source shows in Rendered, and every other byte stays: .py with LF (1022.2958ms)
+✔ an edit in Source shows in Rendered, and every other byte stays: .py with CRLF (1050.0508ms)
+✔ an edit in Source shows in Rendered, and every other byte stays: .py with BOM (1018.9203ms)
+✔ an edit in Source shows in Rendered, and every other byte stays: .py with BOM and CRLF (1030.1033ms)
+✔ an edit in Source shows in Rendered, and every other byte stays: .py with stray bytes (1042.113ms)
+✔ a .rst edited in Source and left at once, before its Markdown parse was ever made, shows the edit in Rendered (1197.4104ms)
+✔ Rendered after an edit is current whichever way Source was left: Read, Mod+1 and Jump to source back (1032.0512ms)
+✖ while Source shows, a reload from disk leaves the hidden page alone, and Rendered is the file as it now is when it comes back (4083.0005ms)
+✔ while Source shows, a theme relayout leaves the hidden page alone, and Rendered is set to the theme when it comes back (4762.5916ms)
+✔ while Source shows, a trust change leaves the hidden page alone, and Rendered shows the new trust when it comes back (3814.1167ms)
+✔ opening b.py from Source on a.py shows the new file's exact text, in Source, and never an empty or doubled editor (4515.8202ms)
+✔ opening b.py from Source on a.md shows the new file's exact text, in Source, and never an empty or doubled editor (4553.1646ms)
+✔ opening b.md from Source on a.py shows the new file's exact text, in Source, and never an empty or doubled editor (4502.8355ms)
+✔ opening b.md from Source on a.md shows the new file's exact text, in Source, and never an empty or doubled editor (4482.9056ms)
+✔ keys typed into Source while b.md opens from a.md are refused, shown nowhere and lost from nothing (4191.2112ms)
+✔ keys typed into Source while b.py opens from a.py are refused, shown nowhere and lost from nothing (4173.8432ms)
+✔ a split narrowed to 800 px leaves one pane, as a split is refused there at open (2155.9866ms)
+✔ the given-back document stays a tab, and widening again restores the split at both places (2129.1238ms)
+✔ the focused pane is the one that stays, left or right (1729.5039ms)
+✔ unsaved edits survive: a dirty surviving pane stays dirty, a dirty given-back pane is asked about first (2585.1631ms)
+✔ a same-document split (Split, Mod+2) narrows to one pane in Read, the document kept (1454.6899ms)
+✔ a dirty surviving pane keeps its edit, and the saved layout still names both columns while one is given back (3008.8275ms)
+✔ opening a document while narrowed ends the promise: widening does not bring the old split back (2116.7694ms)
+✔ a scratch document is never the pane given back: the file goes, the scratch stays, and widening shows no error pane (2135.9967ms)
+✔ Find open in the pane asked about is closed first, so Save and close is reachable (1912.2043ms)
+✔ closing the given-back document's tab while narrowed ends the restore (2694.799ms)
+✔ a restore keeps the surviving pane as the reader left it, in mode and place (2429.9357ms)
+✔ Dismiss on the question, then a save: the cramped split gives a pane back (2694.9966ms)
+✔ the question over unsaved edits is taken down when the window widens again (1772.7764ms)
+✔ two scratch documents stay side by side in a narrow window, and the reader is told why (1595.2659ms)
+✔ a Source pane given back on the right comes back at the place it was left (2611.3569ms)
+✔ a Source pane that survives a narrowing keeps its mode and place when the window widens again (2776.692ms)
+ℹ tests 43
+ℹ suites 0
+ℹ pass 42
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 118148.8013
+
+✖ failing tests:
+
+test at test\mode-swap.test.mjs:13:28
+✖ while Source shows, a reload from disk leaves the hidden page alone, and Rendered is the file as it now is when it comes back (4083.0005ms)
+  AssertionError [ERR_ASSERTION]: Rendered came back showing the page it had before the cause
+  
+  true !== false
+  
+      at file:///C:/Dev/reader/worktrees/wave3/apps/desktop/test/mode-swap.test.mjs:433:12
+      at async withPage (file:///C:/Dev/reader/worktrees/wave3/apps/desktop/test/mode-swap.test.mjs:115:5)
+      at async staleCase (file:///C:/Dev/reader/worktrees/wave3/apps/desktop/test/mode-swap.test.mjs:391:3)
+      at async TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/wave3/apps/desktop/test/mode-swap.test.mjs:448:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

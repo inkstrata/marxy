@@ -1,21 +1,7 @@
-// "Outline": summon the heading list at the right edge (A-15); and the commands that move a section (W-10).
-import { closeOutline, openOutline, outlineIsOpen, type OutlineSource } from '../outline/view.ts';
-import { canMoveSection, focusedOutlineHeading } from '../workspace/outline-move.ts';
-import { appHandle, palette } from './app-handle.ts';
+// The commands that move a section, from the Outline card's focused row or the selected heading.
+import { canMoveSection, focusedOutlineHeading } from '../frame/model/outline-move.ts';
+import { appHandle } from './app-handle.ts';
 import type { AppContext, Command } from './registry.ts';
-
-function sourceFromApp(): OutlineSource | null {
-  const handle = appHandle();
-  if (!handle) return null;
-  return {
-    document() {
-      const open = handle.openDocument();
-      return open ? { path: open.path, ast: open.ast } : null;
-    },
-    position: () => handle.sourceHarness()?.byteOffset ?? 0,
-    land: (path, byte) => handle.open(path, { at: byte }),
-  };
-}
 
 /**
  * The heading a move command is for: the row that has focus in the Outline tab, else the heading of the section the reader
@@ -42,34 +28,13 @@ function moveCommand(direction: 'up' | 'down'): Command {
       const start = targetOf(ctx);
       if (!handle || start === null || !ctx.document) return;
       ctx.closePalette();
-      // The tab's code is read on the first move, not at first text (F-111).
-      const { runOutlineAction } = await import('../workspace/outline-tab.ts');
+      // The tab's code is read on the first move, not at first text.
+      const { runOutlineAction } = await import('../frame/model/outline.ts');
       await runOutlineAction(handle, ctx.document, start, direction === 'up' ? 'move-up' : 'move-down');
     },
   };
 }
 
 export function outlineCommands(): readonly Command[] {
-  return [
-    {
-      id: 'view.outline',
-      title: 'Outline',
-      key: 'Mod+Shift+O',
-      global: true,
-      group: 'view',
-      when: () => appHandle()?.openDocument() != null,
-      run: async () => {
-        if (outlineIsOpen()) {
-          closeOutline();
-          return;
-        }
-        const source = sourceFromApp();
-        if (!source) return;
-        palette()?.close();
-        openOutline(source);
-      },
-    },
-    moveCommand('up'),
-    moveCommand('down'),
-  ];
+  return [moveCommand('up'), moveCommand('down')];
 }

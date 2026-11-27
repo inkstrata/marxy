@@ -1,4 +1,4 @@
-// Undo and line endings never add or rewrite a byte the reader did not edit (F-40, ADR-0069, commitment 3).
+// Undo and line endings never add or rewrite a byte the reader did not edit (commitment 3).
 // The oracle is the bytes: every byte outside the reader's edit is identical across a save, an undo and a block edit,
 // computed here from the file itself and never by the product's own encoder. Booted on the shipped skeleton over the
 // memory shell (test/support/two-pane.mjs), driven through keys and the save, in WebKit.
@@ -26,7 +26,7 @@ const PATH = '/c/p.md';
 const B = (...parts) => Buffer.concat(parts.map((p) => Buffer.from(p)));
 const hex = (b) => [...b].map((x) => x.toString(16).padStart(2, '0')).join(' ');
 
-/** The bytes the Source text names: a lone U+DC80..U+DCFF is that byte, everything else is its UTF-8 (the ADR-0069 rule, written out again). */
+/** The bytes the Source text names: a lone U+DC80..U+DCFF is that byte, everything else is its UTF-8 (the rule, written out again). */
 function named(text) {
   const out = [];
   for (let i = 0; i < text.length; i++) {
@@ -55,7 +55,7 @@ async function withApp(bytes, fn) {
       buf: () => page.evaluate(() => [...window.__marxyHandle.panes().panes[0].content.store().snapshot().buffer.bytes]),
       /** The bytes on disk (the memory shell). */
       disk: () => page.evaluate(async (p) => [...(await window.__marxyHandle.shell.readFile(p))], PATH),
-      // Local versions (V-06) are Marxy's own state under /data, written after a save: not the save itself.
+      // Local versions are Marxy's own state under /data, written after a save: not the save itself.
       writes: () => page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'writeFileAtomic' && !String(c.args[0]).startsWith('/data/versions-')).length),
       /** What the Source editor's text names. */
       doc: async () =>
@@ -286,7 +286,7 @@ test('Block editor: a line break typed in a mixed-ending block follows its first
   });
 });
 
-// 4. A keystroke in the same task as Mod+S (F-42). The save folds the editor's text into the store (async) and then took
+// 4. A keystroke in the same task as Mod+S. The save folds the editor's text into the store (async) and then took
 //    the store's bytes back into the editor, which deleted what had been typed while it waited. Nothing typed is lost:
 //    the keystroke stays in the editor and the store, and the next save writes it.
 for (const [name, orig, prior] of [
@@ -323,7 +323,7 @@ for (const [name, orig, prior] of [
   });
 }
 
-// F-40.1: deleting only a CR inside a mixed-ending block is an edit and is written (it was folded to nothing).
+// deleting only a CR inside a mixed-ending block is an edit and is written (it was folded to nothing).
 for (const [name, file, line, back, cutAt] of [
   ['the CR of a CRLF', B('# T\r\n\r\nline1\r\nline2\nline3\r\nline4\r\n\r\nnext\r\n'), 0, 0, 'line1\r'],
   ['the CR of a CRLF beside a bare LF', B('# T\r\n\r\nline1\nline2\r\nline3\r\n\r\nnext\r\n'), 1, 0, 'line2\r'],
@@ -354,9 +354,9 @@ for (const [name, file, line, back, cutAt] of [
   });
 }
 
-// 5. A keystroke while Mod+E's fold waits (F-42.1). Leaving Source folds the editor's text into the store and then
+// 5. A keystroke while Mod+E's fold waits. Leaving Source folds the editor's text into the store and then
 //    took the store's bytes back into the editor, which deleted whatever had been typed while the fold waited its turn
-//    (the same shape as the save, F-42). Real keys: the fold waits behind a held store queue and the reader types.
+//    (the same shape as the save). Real keys: the fold waits behind a held store queue and the reader types.
 for (const [name, orig, prior, typed] of [
   ['an edit before', B('# T\n\nhello world\n\nbye\n'), 'x', 'QRS'],
   ['no edit before', B('# T\n\nhello world\n\nbye\n'), null, 'QRS'],
@@ -403,7 +403,7 @@ test("Source: a key typed while Mod+E's title refreshes is kept in Rendered too"
   });
 });
 
-// 6. A keystroke while Save refreshes the title (F-42.1). The fold had settled, so the key was not part of it; the save
+// 6. A keystroke while Save refreshes the title. The fold had settled, so the key was not part of it; the save
 //    saw text the store lacked and refused ("Source in the other pane") though nothing was held apart. The save is
 //    written and the key stays in the editor for the next save.
 for (const [name, orig] of [

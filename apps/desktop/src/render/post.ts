@@ -1,6 +1,6 @@
-// The first render post-pass (docs/design/02-render.md §App-side post-passes, ADR-0023): the map from
-// a rendered element back to its AST node, and the ordered blocks reading position is read from
-// (docs/design/08-position-and-watching.md). Both read `data-marxy-s` / `data-marxy-e` and nothing
+// The first render post-pass: the map from
+// a rendered element back to its AST node, and the ordered blocks reading position is read from.
+// Both read `data-marxy-s` / `data-marxy-e` and nothing
 // else, and neither trusts them: a pair with no node of that exact range is ignored.
 
 import { Abandoned, type Document, type Node } from '@marxy/core';
@@ -38,7 +38,7 @@ export function buildNodeMap(ast: Document): NodeMap {
 }
 
 /**
- * `buildNodeMap(ast)`, a few top-level blocks at a time with the event loop given back between them (D-15):
+ * `buildNodeMap(ast)`, a few top-level blocks at a time with the event loop given back between them:
  * the same map with its entries in the same order, for a large document opened beside another pane.
  */
 export async function buildNodeMapInSlices(ast: Document, yieldNow: () => Promise<void>, budgetMs = 3, aborted?: () => boolean): Promise<NodeMap> {
@@ -91,6 +91,8 @@ const BLOCK_DISPLAYS: ReadonlySet<string> = new Set(['block', 'table', 'list-ite
  */
 const BLOCK_CARRIERS = [
   'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'hr',
+  // A fenced part read as data (render/parts.ts) stands where its `pre` was, with the code block's range.
+  'div.marxy-part',
 ]
   .map((tag) => `${tag}[data-marxy-s]`)
   .join(',');
@@ -98,8 +100,36 @@ const BLOCK_CARRIERS = [
 /**
  * The innermost block-level elements that carry provenance, in document order. Innermost, so the
  * list is a sequence of non-overlapping boxes whose tops only increase — a list's paragraphs, not
- * the list around them — which is what the binary search in §08 assumes.
+ * the list around them — which is what the binary search assumes.
  */
+const RANGE_DISPLAYS: ReadonlySet<string> = new Set(['block', 'table-row', 'list-item', 'flow-root']);
+
+/**
+ * The block list of a page set as a reading (a data tree, records, verse): no parse stands behind its elements, so the
+ * innermost elements that carry a byte range and take room on the page are its blocks, in document order.
+ */
+export function buildBlocksByRange(article: HTMLElement): BlockList {
+  const candidates = [...article.querySelectorAll<HTMLElement>('[data-marxy-s]')].filter((el) => {
+    // A sorted table is one block: its rows are in the view's order, not the file's, and the list must run in the file's.
+    const sorted = el.closest('[data-marxy-sorted]');
+    if (sorted) return el === sorted && el.getBoundingClientRect().height > 0;
+    if (!RANGE_DISPLAYS.has(getComputedStyle(el).display)) return false;
+    return el.getBoundingClientRect().height > 0;
+  });
+  const inner = new Set(candidates);
+  for (const el of candidates) {
+    for (let up = el.parentElement; up !== null && up !== article; up = up.parentElement) inner.delete(up);
+  }
+  const origin = article.getBoundingClientRect().top;
+  const blocks: Block[] = [];
+  for (const el of candidates) {
+    if (!inner.has(el)) continue;
+    const rect = el.getBoundingClientRect();
+    blocks.push({ el, start: Number(el.getAttribute('data-marxy-s')), top: rect.top - origin, height: rect.height });
+  }
+  return blocks;
+}
+
 export function buildBlocks(article: HTMLElement, map: NodeMap): BlockList {
   const candidates = [...article.querySelectorAll<HTMLElement>(BLOCK_CARRIERS)].filter(
     (el) => BLOCK_DISPLAYS.has(getComputedStyle(el).display) && nodeFor(map, el) !== undefined,

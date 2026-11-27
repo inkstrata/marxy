@@ -1,4 +1,4 @@
-// The same file twice, adversarially (D-10). Data loss is the bar: no route (save, close, quit, reload,
+// The same file twice, adversarially. Data loss is the bar: no route (save, close, quit, reload,
 // rename, an outside write, opening over it, held apart) may drop either pane's typing silently, and no
 // save may write over another program's change. A scripted interleaving drives both panes of one file
 // with real keystrokes, outside writes, saves, focus moves, mode switches, renames, pane closes, quits and
@@ -137,7 +137,7 @@ async function drive(page, mod, log) {
       log.push(`quit${asked ? ', asked, dismissed' : after > before ? ', closed' : ''}`);
       return { asked, closed: after > before };
     },
-    /** Cmd-click a relative link in pane `slot` (D-09): the target opens in the other pane, which asks over unsaved text. */
+    /** Cmd-click a relative link in pane `slot`: the target opens in the other pane, which asks over unsaved text. */
     async linkBeside(slot) {
       if ((await mode(page, slot)) === 'source') {
         await ops.toggle(slot);

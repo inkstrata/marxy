@@ -1,4 +1,4 @@
-// positions.json: LRU cap, newer version is read-only, corrupt bytes are quarantined (design §11).
+// positions.json: LRU cap, newer version is read-only, corrupt bytes are quarantined.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -81,4 +81,23 @@ test('serialize never mentions scrollTop', () => {
 
 test('quarantine path uses the .bad- prefix', () => {
   assert.match(quarantinePathFor('/data/positions.json', 123), /\.bad-123$/);
+});
+
+test('a Windows key kept with backslashes by an earlier build reads as the slashed path; the later read wins a clash', () => {
+  const loaded = parsePositionsFile(
+    new TextEncoder().encode(
+      JSON.stringify({
+        version: 1,
+        positions: {
+          'C:\\notes\\a.md': { byteOffset: 5, fraction: 0.1, mode: 'rendered', at: 2 },
+          'C:/notes/a.md': { byteOffset: 9, fraction: 0.2, mode: 'rendered', at: 1 },
+          'C:\\notes\\b.md': { byteOffset: 7, fraction: 0.3, mode: 'source', at: 1 },
+        },
+      }),
+    ),
+  );
+  assert.equal(loaded.kind, 'ok');
+  assert.deepEqual(Object.keys(loaded.envelope.positions).sort(), ['C:/notes/a.md', 'C:/notes/b.md']);
+  assert.equal(loaded.envelope.positions['C:/notes/a.md'].byteOffset, 5);
+  assert.equal(loaded.envelope.positions['C:/notes/b.md'].mode, 'source');
 });

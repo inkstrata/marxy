@@ -1,0 +1,39 @@
+/* The Colours tab (tab-colours.ts): four columns of roles across the dock, each a swatch, a name, its hex and what it
+   measures. A held colour says so in the accent. */
+.marxy-studio-colours { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 6px; width: 100%; min-width: 0; }
+.marxy-studio-colours-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+.marxy-studio-colours-title { color: var(--marxy-color-text-strong); font-weight: 620; }
+.marxy-studio-colours-hint { color: var(--marxy-color-text-faint); font-size: calc(11.5 * var(--marxy-c)); }
+.marxy-studio-colours-cols { display: grid; grid-template-columns: repeat(4, minmax(200px, 1fr)); gap: 4px 24px; }
+@media (max-width: 1100px) {
+  .marxy-studio-colours-cols { grid-template-columns: repeat(2, minmax(200px, 1fr)); }
+}
+.marxy-studio-colours-col { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.marxy-studio-colour { display: grid; grid-template-columns: 22px 5.6em 5.4em minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 22px; }
+.marxy-studio-colour-pick {
+  width: 22px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--marxy-color-edge);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+.marxy-studio-colour-pick::-webkit-color-swatch-wrapper { padding: 0; }
+.marxy-studio-colour-pick::-webkit-color-swatch { border: 0; border-radius: 3px; }
+.marxy-studio-colour-k { color: var(--marxy-color-text-secondary); white-space: nowrap; }
+.marxy-studio-colour-hex {
+  width: 100%;
+  min-width: 0;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--marxy-color-text);
+  font: inherit;
+  font-family: var(--marxy-font-mono);
+  font-size: calc(11.5 * var(--marxy-c));
+}
+.marxy-studio-colour-hex:hover, .marxy-studio-colour-hex:focus { border-color: var(--marxy-color-edge); background: var(--marxy-color-bg); outline: none; }
+.marxy-studio-colour-note { color: var(--marxy-color-text-faint); font-size: calc(11 * var(--marxy-c)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.marxy-studio-colour-note[data-marxy-held] { color: var(--marxy-color-accent); }

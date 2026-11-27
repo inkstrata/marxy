@@ -1,4 +1,4 @@
-// Parses the shipped CSP and refuses runtime <style> creation in the release-style paths (MARXY-250).
+// Parses the shipped CSP and refuses runtime <style> creation in the release-style paths.
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, fail, fix } from './lib/repo.mjs';
@@ -6,7 +6,7 @@ import { ROOT, fail, fix } from './lib/repo.mjs';
 const TAURI_CONF = join(ROOT, 'apps/desktop/src-tauri/tauri.conf.json');
 
 /**
- * Every runtime source must inject CSS only through adoptedStyleSheets (docs/plan/tasks/MARXY-250.md).
+ * Every runtime source must inject CSS only through adoptedStyleSheets.
  * Walked, not listed: a hand-kept list missed the frontispiece's <style>, added after the list was written.
  */
 export const RUNTIME_STYLE_ROOTS = ['apps/desktop/src', 'packages/core/src', 'packages/theme/src', 'packages/typeset/src'];
@@ -26,7 +26,7 @@ function walk(dir, out = []) {
 
 const STYLE_TAG_RE = /createElement\s*\(\s*['"]style['"]\s*\)/;
 // CodeMirror creates its own <style> elements (style-mod), which the release policy refuses unless they carry the page's
-// style nonce (F-98): `baseExtensions` installs `EditorView.cspNonce`, so a mount must go through it or install its own.
+// style nonce: `baseExtensions` installs `EditorView.cspNonce`, so a mount must go through it or install its own.
 const EDITOR_MOUNT_RE = /new\s+EditorView\s*\(/;
 const BASE_EXTENSIONS_CALL_RE = /baseExtensions\s*\(/;
 const BASE_EXTENSIONS_DEF_RE = /function\s+baseExtensions\s*\(/;
@@ -37,7 +37,7 @@ function countMatches(re, text) {
 }
 
 /**
- * Per file (F-98.1): every `new EditorView(` must be paired with a nonce source, a `baseExtensions(` call (the definition
+ * Per file: every `new EditorView(` must be paired with a nonce source, a `baseExtensions(` call (the definition
  * is not a call) or an `EditorView.cspNonce` use. A second mount beside one baseExtensions call is refused.
  */
 export function editorMountProblem(text) {
@@ -152,8 +152,8 @@ export function main(argv = process.argv.slice(2)) {
 }
 
 import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
-const invoked =
-  process.argv[1] &&
-  fileURLToPath(import.meta.url) === fileURLToPath(new URL(process.argv[1], `file://${process.cwd()}/`));
+// argv[1] is a path: read as a URL, a Windows drive letter is its scheme and fileURLToPath throws at import.
+const invoked = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
 if (invoked) main();

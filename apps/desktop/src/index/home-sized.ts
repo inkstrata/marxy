@@ -1,4 +1,4 @@
-// A root as large as a home directory (C-10.1): what a walk of it may list, and whether it is walked at all.
+// A root as large as a home directory: what a walk of it may list, and whether it is walked at all.
 // Lexical only (`pathUnder`): nothing here touches the disk, and nothing new is read.
 import { basename, isUnderRoot, joinPath, normalizePath } from '@marxy/core/src/index-model/paths.ts';
 
@@ -33,14 +33,15 @@ export const ORDINARY: WalkPolicy = { skip: [], snapshotOnlyWhenRecent: false };
 
 /**
  * How `root` is walked. `home` is the home directory, or undefined where it cannot be known.
- * Home-sized: a root that is the home directory or holds it, or a volume root (`/Volumes/X`).
+ * Home-sized: a root that is the home directory or holds it, or a volume root (`/Volumes/X`, a Windows drive, a share).
  * A root that is exactly Desktop, Documents or Downloads shares the snapshot-only rule (a loose file
  * opened there makes it a recent root) and the budget, but its own folders are walked: the reader
  * is already in it.
  */
 export function walkPolicy(root: string, home: string | undefined, budget = HOME_WALK_BUDGET): WalkPolicy {
   const r = normalizePath(root);
-  const volume = /^\/Volumes\/[^/]+$/.test(r);
+  // A drive (`E:`) or a share (`//server/share`) is as unbounded as a macOS volume: a file opened from a stick or a share must not walk it whole.
+  const volume = /^\/Volumes\/[^/]+$/.test(r) || /^[A-Za-z]:$/.test(r) || /^\/\/[^/]+\/[^/]+$/.test(r);
   const h = home === undefined ? undefined : normalizePath(home);
   const holdsHome = h !== undefined && isUnderRoot(h, r);
   const looseFolder = h !== undefined && LOOSE_FILE_FOLDERS.some((name) => joinPath(h, name) === r);

@@ -1,4 +1,4 @@
-// F-85 (ADR-0074): `writeFileNew` on the Tauri shell sends the bytes as a raw body and the path in `x-marxy-path`, through the one
+// `writeFileNew` on the Tauri shell sends the bytes as a raw body and the path in `x-marxy-path`, through the one
 // command `write_file_new`, and a name that is taken comes back as a `ShellError` with `code: 'exists'` and nothing written. It has no
 // stale-write precondition (it never replaces), and it leaves the guard's picture of other files alone.
 import { strict as assert } from 'node:assert';

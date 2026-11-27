@@ -1,7 +1,8 @@
-// The library's query language (Q-02, ADR-0062 item 3; grammar: mock-v2/05-collections.md).
+// The library's query language.
 // One left-to-right scan turns the field's text into typed terms, each with its range in the input
-// so the field can draw chips. Nothing here evaluates a query (Q-03), and nothing throws: an unknown
+// so the field can draw chips. Nothing here evaluates a query, and nothing throws: an unknown
 // key or an unfinished value is kept as text and flagged. Pure string work, platform-free.
+import { own } from '../util/text.ts';
 
 export type QueryKey = 'kind' | 'is' | 'has' | 'modified' | 'words' | 'tasks' | 'size' | 'path' | 'in';
 export type CompareOp = '>' | '<' | '>=' | '<=' | '=';
@@ -48,16 +49,14 @@ export interface Query {
   readonly groups: readonly Group[];
 }
 
-/** Keys in the order they are suggested. Authorship keys (`model:`, `tag:` ...) are not keys (ADR-0062). */
+/** The keys the parser knows. Authorship keys (`model:`, `tag:` ...) are not keys. */
 export const QUERY_KEYS: readonly QueryKey[] = ['kind', 'is', 'has', 'modified', 'words', 'tasks', 'size', 'path', 'in'];
 const KEY_SET: ReadonlySet<string> = new Set(QUERY_KEYS);
 
 export const IS_VALUES: readonly string[] = [
   'unread', 'read', 'changed', 'pinned', 'dup', 'broken', 'archived', 'recent', 'error', 'captured',
 ];
-/** `tasks` parses but is not suggested (the mock's rule). */
 export const HAS_VALUES: readonly string[] = ['code', 'paths', 'links', 'tasks'];
-const HAS_SUGGESTED: readonly string[] = ['code', 'paths', 'links'];
 
 const MINUTE = 60_000;
 const AGE_UNITS: Readonly<Record<string, number>> = {
@@ -77,7 +76,7 @@ function compare(value: string, units: Readonly<Record<string, number>>, unitles
   const m = COMPARISON.exec(value);
   if (!m) return null;
   const unit = (m[3] ?? '').toLowerCase();
-  const scale = unit === '' ? unitless : units[unit];
+  const scale = unit === '' ? unitless : own(units, unit);
   if (scale === undefined) return null;
   const amount = Number(m[2]) * scale;
   if (!Number.isFinite(amount)) return null;
@@ -211,70 +210,4 @@ export function parseQuery(input: string): Query {
     group.push(term ?? { kind: 'incomplete', text: input.slice(start, i), key: lower, range });
   }
   return { groups: groups.filter((g) => g.length > 0) };
-}
-
-export interface CompletionItem {
-  readonly label: string;
-  readonly insert: string;
-  readonly detail?: string;
-}
-export interface Completion {
-  /** The part of the input the chosen `insert` replaces. */
-  readonly replace: QueryRange;
-  readonly items: readonly CompletionItem[];
-}
-export interface CompletionContext {
-  /** Collection names and ids, for `in:`. */
-  readonly collections?: readonly string[];
-  /** Content type names, for `kind:`. */
-  readonly kinds?: readonly string[];
-}
-
-const KEY_DETAIL: Readonly<Record<QueryKey, string>> = {
-  kind: 'content type', is: 'status', has: 'contents', modified: 'age', words: 'word count',
-  tasks: 'open tasks', size: 'file size', path: 'path contains', in: 'collection',
-};
-const SUGGESTED_KEYS: readonly QueryKey[] = QUERY_KEYS.filter((k) => k !== 'tasks');
-const MODIFIED_VALUES: readonly string[] = ['today', 'yesterday', '<2h', '<7d', '<4w', '>30d', '<3mo'];
-
-function matching(values: readonly string[], prefix: string): CompletionItem[] {
-  const p = prefix.toLowerCase();
-  return values.filter((v) => v.toLowerCase().startsWith(p) && v.toLowerCase() !== p).map((v) => ({ label: v, insert: v }));
-}
-
-/** Suggest keys at the start of a word and values after a known key, at `caret`. */
-export function completeQuery(input: string, caret: number, context: CompletionContext = {}): Completion {
-  const at = Number.isNaN(caret) ? 0 : Math.max(0, Math.min(Math.trunc(caret), input.length));
-  let start = at;
-  while (start > 0 && !isSpace(input[start - 1]!)) start--;
-  const none: Completion = { replace: [at, at], items: [] };
-  const word = input.slice(start, at);
-  // Inside an open phrase there is nothing to suggest.
-  if (((input.slice(0, at).match(/"/g) ?? []).length & 1) === 1) return none;
-  const from = word.startsWith('-') ? start + 1 : start;
-  const body = input.slice(from, at);
-  const colon = body.indexOf(':');
-  if (colon < 0) {
-    const p = body.toLowerCase();
-    const items = SUGGESTED_KEYS.filter((k) => k.startsWith(p)).map((k) => ({ label: `${k}:`, insert: `${k}:`, detail: KEY_DETAIL[k] }));
-    return { replace: [from, at], items };
-  }
-  const key = body.slice(0, colon).toLowerCase();
-  if (!KEY_SET.has(key)) return none;
-  const comma = body.lastIndexOf(',');
-  const valueStart = from + (comma >= colon ? comma : colon) + 1;
-  const prefix = input.slice(valueStart, at);
-  if (prefix.startsWith('"')) return none;
-  let items: CompletionItem[] = [];
-  switch (key as QueryKey) {
-    case 'is': items = matching(IS_VALUES, prefix); break;
-    case 'has': items = matching(HAS_SUGGESTED, prefix); break;
-    case 'modified': items = comma < 0 ? matching(MODIFIED_VALUES, prefix) : []; break;
-    case 'kind': items = matching(context.kinds ?? [], prefix); break;
-    case 'in':
-      items = matching(context.collections ?? [], prefix).map((i) => (/[\s,"]/.test(i.insert) ? { ...i, insert: `"${i.insert}"` } : i));
-      break;
-    default: break;
-  }
-  return { replace: [valueStart, at], items };
 }

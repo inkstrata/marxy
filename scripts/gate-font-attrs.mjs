@@ -1,6 +1,6 @@
-// Font attribute gate (MARXY-66). Fails if a font binary loses `binary` or gains an `eol` setting,
+// Font attribute gate. Fails if a font binary loses `binary` or gains an `eol` setting,
 // if text under fonts/ is marked binary again, or if any file under fonts/ would be rewritten by a
-// line-ending renormalisation. Run by `pnpm lint`, which CI runs on both runners.
+// line-ending renormalisation. Run by `pnpm check`.
 import { execFileSync } from 'node:child_process';
 
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' });

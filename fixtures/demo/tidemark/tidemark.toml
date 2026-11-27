@@ -1,0 +1,23 @@
+# tidemark.toml: what tidemark indexes, and how.
+
+[index]
+root = "."
+journal = ".tidemark/journal"
+hash = "blake3"
+max_file_bytes = 41943040
+
+[index.ignore]
+patterns = ["target/", "*.log", ".env"]
+dot_folders = false
+
+[watch]
+debounce_ms = 250
+follow_symlinks = false
+
+[[reader]]
+glob = "logs/**"
+read = "log"
+
+[[reader]]
+glob = "sessions/*.txt"
+read = "terminal session"

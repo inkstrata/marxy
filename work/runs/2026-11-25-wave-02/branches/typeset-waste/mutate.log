@@ -1,0 +1,24 @@
+=== fixed
+  ℹ pass 8
+  ℹ fail 0
+=== builder
+  ℹ pass 7
+  ℹ fail 1
+=== master
+  ℹ pass 3
+  ℹ fail 5
+=== visible pass always announced
+  ℹ pass 7
+  ℹ fail 1
+=== discard ignored
+  ℹ pass 7
+  ℹ fail 1
+=== verdict not cached in batch
+  ℹ pass 7
+  ℹ fail 1
+=== adopt reads kill switch
+  ℹ pass 7
+  ℹ fail 1
+ packages/typeset/src/index.ts              | 54 +++++++++++++++++++++++-------
+ packages/typeset/test/unused-work.test.mjs | 28 ++++++++++++++++
+ 2 files changed, 69 insertions(+), 13 deletions(-)

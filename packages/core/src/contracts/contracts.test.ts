@@ -8,7 +8,7 @@ test('contract constants', () => {
   assert.equal(INDEX_LIMITS.entriesPerRoot, 50_000);
 });
 
-test('a DerivedNode is not a Node: no derived tree reaches an operation by the type checker (ADR-0061 items 2 and 6)', () => {
+test('a DerivedNode is not a Node: no derived tree reaches an operation by the type checker', () => {
   // Each line fails to compile if a derived node, or any transcript node, ever becomes assignable to an AST node.
   const separate: [DerivedNode] extends [Node] ? 'leaks' : 'separate' = 'separate';
   const transcript: [TranscriptNode] extends [Node] ? 'leaks' : 'separate' = 'separate';

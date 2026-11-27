@@ -1,4 +1,4 @@
-// Source tab width from `.editorconfig` under the indexed root (MARXY-239).
+// Source tab width from `.editorconfig` under the indexed root.
 import { strict as assert } from 'node:assert';
 import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -6,9 +6,10 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 const require = createRequire(import.meta.url);
 const { clampTab, parseEditorConfig, resolveTabWidth, tabSizeFromSection } = require('../src/source/editorconfig.ts');
 
@@ -33,7 +34,7 @@ const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_T
   : false;
 const test = (name, fn) => nodeTest(name, { skip }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const appRoot = join(repoRoot, 'apps', 'desktop');
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-tab-width-'));
 let server;
@@ -72,7 +73,10 @@ test('Source editor tab-size follows .editorconfig under the indexed root', asyn
       window.__marxyHandle = handle;
       await handle.ready;
     }, { file, ec });
-    await page.waitForFunction(() => document.querySelector('.cm-content') && window.marxySelection);
+    // Code lands in Read; this is about Source, one press away.
+    await page.waitForFunction(() => window.marxySelection);
+    await page.evaluate(() => window.__marxyHandle.toggleMode());
+    await page.waitForFunction(() => document.querySelector('.cm-content'));
     const reads = await page.evaluate(async () => {
       await window.marxyRefreshSourceTab?.();
       return window.__marxyHandle.shell.calls
@@ -105,15 +109,13 @@ async function openV16(page, opened) {
   }, { files: V16_FILES, opened });
 }
 
-test('V-16: a tab-indented .go has one tab width in Rendered and Source, and its wrapped row hangs at that column', async () => {
+test('a tab-indented .go has one tab width in Rendered and Source, and its wrapped row hangs at that column', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage();
     await openV16(page, '/repo/cmd/main.go');
     await page.waitForFunction(() => document.documentElement.style.getPropertyValue('--marxy-tab-size') === '8');
-    // A code block as Rendered sets one (the code-file view itself arrives with V-09): the app reacts to it.
-    // A .go opens in Source with no page made (V-11), so the page is made first, by asking for Rendered.
-    await page.evaluate(() => window.__marxyHandle.panes().focused.view.toggleMode());
+    // A code block as Rendered sets one: the app reacts to it. A .go lands in Read, its page made.
     await page.evaluate(() => {
       const pre = document.createElement('pre');
       pre.id = 'v16-pre';
@@ -154,6 +156,8 @@ test('V-16: a tab-indented .go has one tab width in Rendered and Source, and its
     assert.ok(m.lefts.length >= 2, 'the line wrapped');
     // The wrapped row starts 8ch (the tab's columns) plus the block's 2ch hang in from where row one starts.
     assert.ok(Math.abs(m.lefts[1] - m.lefts[0] - 10 * m.ch) < 1.5, JSON.stringify(m));
+    await page.evaluate(() => window.__marxyHandle.panes().focused.view.toggleMode());
+    await page.waitForFunction(() => document.querySelector('.cm-content'));
     await page.evaluate(() => window.marxyRefreshSourceTab?.());
     await page.waitForFunction(() => getComputedStyle(document.querySelector('.cm-content')).tabSize === '8');
   } finally {
@@ -161,7 +165,7 @@ test('V-16: a tab-indented .go has one tab width in Rendered and Source, and its
   }
 });
 
-test('V-16: a fence inside Markdown keeps tab width 4', async () => {
+test('a fence inside Markdown keeps tab width 4', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage();
@@ -175,7 +179,7 @@ test('V-16: a fence inside Markdown keeps tab width 4', async () => {
   }
 });
 
-nodeTest('V-08: max_line_length is read like the tab keys: the nearer file and the later section win, off and unset are none', async () => {
+nodeTest('max_line_length is read like the tab keys: the nearer file and the later section win, off and unset are none', async () => {
   const { parseEditorConfig, resolveMaxLineLength } = require('../src/source/editorconfig.ts');
   assert.deepEqual(parseEditorConfig('[*]\nmax_line_length = 100\n')[0].maxLineLength, 100);
   assert.equal(parseEditorConfig('[*]\nmax_line_length = off\n')[0].maxLineLength, undefined);

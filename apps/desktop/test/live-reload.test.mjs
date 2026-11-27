@@ -1,18 +1,18 @@
-// Live reload through startApp and the memory shell (MARXY-194).
+// Live reload through startApp and the memory shell.
 import { strict as assert } from 'node:assert';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { launchWebkit as launchWebkitUntracked } from '../../../scripts/playwright-webkit.mjs';
-import { createServer } from 'vite';
+import { createServer } from './support/shared-vite.mjs';
 import { DISK_CHANGED_EDITS_KEPT, FILE_REMOVED_ON_DISK } from '../src/notices/disk.ts';
 import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
-// F-30: CI lost 15-minute jobs to a test of this file that never returned. `page.evaluate` has no timeout of
+// CI lost 15-minute jobs to a test of this file that never returned. `page.evaluate` has no timeout of
 // its own, so a page promise that never settles waits forever. Each test now has a deadline that fails it by
 // name, and the browsers it launched are closed when it ends so a stuck evaluate is cancelled and the
 // process can exit.
@@ -36,7 +36,7 @@ const test = (name, fn) =>
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const mainRs = readFileSync(join(repoRoot, 'apps', 'desktop', 'src-tauri', 'src', 'main.rs'), 'utf8');
 
-nodeTest('main.rs has no watch placeholders (MARXY-194)', () => {
+nodeTest('main.rs has no watch placeholders', () => {
   assert.doesNotMatch(mainRs, /Phase 0 placeholder/);
   assert.doesNotMatch(mainRs, /_root: String/);
 });
@@ -77,7 +77,7 @@ function b64(text) {
 
 /** `lateWatch`: a watch on that folder registers only after a delay, as one on Tauri does (two round trips). */
 async function boot(page, files, argv, opts = {}) {
-  // F-30.1: on Linux CI about one run in twenty stalled here with no error: the page's load or the evaluate
+  // on Linux CI about one run in twenty stalled here with no error: the page's load or the evaluate
   // below never returned, and `page.evaluate` has no timeout of its own. Each attempt gets a deadline that
   // names the stage it was in; a stalled attempt is retried on the same page (a new navigation drops the
   // stuck one), and a second stall fails the test with the stage. The retry is logged, so a recurring stall
@@ -201,12 +201,12 @@ test('modified on disk reloads appended text and keeps byteOffset', async () => 
   }
 });
 
-/** Many short turns, so a write above the reader leaves most of the file's blocks unchanged (B-23). */
+/** Many short turns, so a write above the reader leaves most of the file's blocks unchanged. */
 const T = Array.from({ length: 60 }, (_, i) =>
   `## Turn ${i + 1}\n\n${para(`Turn ${i + 1}`)}\n\n- an item with \`code\`\n  - nested *a* b\n\n\`\`\`js\nconst n = ${i};\n\`\`\`\n\n`,
 ).join('');
 
-test('a write above the reader in a long file reloads to the whole parse of the new bytes, at the same text (B-23)', async () => {
+test('a write above the reader in a long file reloads to the whole parse of the new bytes, at the same text', async () => {
   const { parseMarkdown } = await import('../../../packages/core/src/parse/parse.ts');
   const browser = await launchWebkit();
   try {
@@ -246,7 +246,7 @@ test('a write above the reader in a long file reloads to the whole parse of the 
 });
 
 /**
- * Turns of an agent transcript (B-24): a heading, prose, a task, a list, a fence, an HTML comment (which renders
+ * Turns of an agent transcript: a heading, prose, a task, a list, a fence, an HTML comment (which renders
  * nothing) and a table. `turns(220)` is over 64 KiB, the size from which a reload replaces blocks rather
  * than render the page whole; `turns(2000)` is a megabyte, which a progressive mount takes a while to fill.
  */
@@ -282,7 +282,7 @@ function pageMatchesDocument(page) {
   });
 }
 
-test('a reload replaces only the blocks it changed; the rest stay the same elements, moved, and the reader keeps the place (B-24)', async () => {
+test('a reload replaces only the blocks it changed; the rest stay the same elements, moved, and the reader keeps the place', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -342,7 +342,7 @@ test('a reload replaces only the blocks it changed; the rest stay the same eleme
   }
 });
 
-test('formulas set before a reload are not set again, and a new one is set (B-24)', async () => {
+test('formulas set before a reload are not set again, and a new one is set', async () => {
   const withMath = Array.from({ length: 400 }, (_, i) => `## Turn ${i + 1}\n\n${para(`Turn ${i + 1}`)}\n\nInline $a_{${i}}$ here.\n\n$$\nx_{${i}}^2\n$$\n\n`).join('');
   const browser = await launchWebkit();
   try {
@@ -375,7 +375,7 @@ test('formulas set before a reload are not set again, and a new one is set (B-24
   }
 });
 
-test('a reload while the first mount is still filling does not set a formula twice (B-24)', async () => {
+test('a reload while the first mount is still filling does not set a formula twice', async () => {
   const text = Array.from({ length: 2000 }, (_, i) => `## Section ${i + 1}\n\nInline $a_{${i}}$ here.\n\n`).join('');
   const browser = await launchWebkit();
   try {
@@ -402,7 +402,7 @@ test('a reload while the first mount is still filling does not set a formula twi
   }
 });
 
-test('after Save as the open document still gives its HTML (B-24)', async () => {
+test('after Save as the open document still gives its HTML', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -423,7 +423,7 @@ test('after Save as the open document still gives its HTML (B-24)', async () => 
   }
 });
 
-test('a reload while the mount is still filling replaces blocks in what is pending as well (B-24)', async () => {
+test('a reload while the mount is still filling replaces blocks in what is pending as well', async () => {
   const text = turns(700);
   const browser = await launchWebkit();
   try {
@@ -455,7 +455,7 @@ test('a reload while the mount is still filling replaces blocks in what is pendi
   }
 });
 
-test('a reload that adds a footnote renders the page whole, and the next ordinary one replaces blocks again (B-24)', async () => {
+test('a reload that adds a footnote renders the page whole, and the next ordinary one replaces blocks again', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -468,7 +468,7 @@ test('a reload that adds a footnote renders the page whole, and the next ordinar
     await page.evaluate(() => window.__marxyHandle.contentComplete());
     assert.equal((await pageMatchesDocument(page)).sameRanges, true);
     assert.equal(await page.evaluate(() => document.querySelector('#doc .marxy-footnotes') !== null), true, 'the footnote list is there');
-    // The same file with the note gone is a whole render too (the page held a footnote), and then blocks are kept again.
+    // The same file with the note gone is a whole render too (the notes are numbered differently), and then blocks are kept again.
     seen = await writeFromOutside(page, BIG);
     assert.equal(seen.repaint?.how, 'whole');
     assert.equal(await page.evaluate(() => document.querySelector('#doc .marxy-footnotes') === null), true, 'and the list is gone');
@@ -482,7 +482,102 @@ test('a reload that adds a footnote renders the page whole, and the next ordinar
   }
 });
 
-// The differential check of B-24, run in the page (Playwright serialises this function, so it holds
+test('on the long reference with footnotes, a change on disk replaces a handful of nodes, and a note and its back-link still land where they should', async () => {
+  const LONG = readFileSync(join(repoRoot, 'fixtures', 'corpus', '32-long-reference.md'), 'utf8');
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
+    await boot(page, { '/r/L.md': b64(LONG) }, ['/r/L.md']);
+    // Every top-level element and every item of the list of notes is told apart by its own object; a MutationObserver
+    // counts what a reload takes out of the article and puts in, at the top and in the list.
+    const tag = () =>
+      page.evaluate(async () => {
+        await window.__marxyHandle.contentComplete();
+        const article = document.getElementById('doc');
+        [...article.children, ...article.querySelectorAll('ol.marxy-footnotes > li')].forEach((el) => { el.__before = true; });
+        window.__changed = { removed: 0, added: 0 };
+        window.__watch?.disconnect();
+        window.__watch = new MutationObserver((records) => {
+          for (const r of records) {
+            if (r.target !== article && !r.target.matches?.('ol.marxy-footnotes')) continue;
+            window.__changed.removed += [...r.removedNodes].filter((n) => n.nodeType === 1).length;
+            window.__changed.added += [...r.addedNodes].filter((n) => n.nodeType === 1).length;
+          }
+        });
+        window.__watch.observe(article, { childList: true, subtree: true });
+      });
+    const counts = () =>
+      page.evaluate(() => {
+        const article = document.getElementById('doc');
+        const items = [...article.querySelectorAll('ol.marxy-footnotes > li')];
+        return { ...window.__changed, total: article.children.length, kept: [...article.children].filter((el) => el.__before).length, itemsKept: items.filter((el) => el.__before).length, items: items.length };
+      });
+
+    // One line appended at the end of the file: after the last definition, so a paragraph drawn before the list.
+    await tag();
+    let text = `${LONG}\nOne appended line.\n`;
+    let seen = await writeFromOutside(page, text);
+    assert.equal(seen.repaint?.how, 'replaced', `the page was set again whole: ${JSON.stringify(seen.repaint)}`);
+    let changed = await counts();
+    assert.ok(changed.removed + changed.added < 10, `a handful of nodes changed: ${JSON.stringify(changed)}`);
+    assert.equal(changed.itemsKept, 30, 'every note is the element it was');
+    assert.equal(await page.evaluate(() => document.querySelector('#doc > ol.marxy-footnotes')?.previousElementSibling?.previousElementSibling?.textContent), 'One appended line.', 'the line is drawn after the last block, before the list');
+
+    // A paragraph holding the seventh note's reference rewritten, and the seventh note's text changed: the paragraph and
+    // that one item are new, and the rest are the elements they were, moved. Two writes: one change is one run of
+    // blocks replaced, and these two are far apart.
+    await tag();
+    const ref = text.indexOf('[^7]');
+    const lineStart = text.lastIndexOf('\n', ref) + 1;
+    text = `${text.slice(0, lineStart)}Rewritten from outside, before the reference. ${text.slice(lineStart)}`;
+    seen = await writeFromOutside(page, text);
+    assert.equal(seen.repaint?.how, 'replaced', `the page was set again whole: ${JSON.stringify(seen.repaint)}`);
+    changed = await counts();
+    assert.ok(changed.removed + changed.added < 10, `a handful of nodes changed: ${JSON.stringify(changed)}`);
+    assert.equal(changed.itemsKept, 30, 'every note is the element it was, moved');
+    assert.ok(changed.kept > changed.total - 4, `the body kept its elements: ${JSON.stringify(changed)}`);
+
+    await tag();
+    text = text.replace('[^7]: ', '[^7]: Changed from outside. ');
+    seen = await writeFromOutside(page, text);
+    assert.equal(seen.repaint?.how, 'replaced', `the page was set again whole: ${JSON.stringify(seen.repaint)}`);
+    changed = await counts();
+    assert.ok(changed.removed + changed.added < 10, `a handful of nodes changed: ${JSON.stringify(changed)}`);
+    assert.equal(changed.itemsKept, 29, 'one note was drawn again');
+    assert.equal(changed.kept, changed.total, `the body kept every element: ${JSON.stringify(changed)}`);
+    assert.equal((await pageMatchesDocument(page)).sameRanges, true);
+
+    // The page is the whole render of the bytes, list and all.
+    const same = await page.evaluate(async (core) => {
+      const root = core.replaceAll('\\', '/').replace(/^(?!\/)/, '/');
+      const { renderDocumentSafeHtml } = await import(`/@fs${root}packages/core/src/render/pipeline.ts`);
+      const { DEFAULT_POLICY } = await import(`/@fs${root}packages/core/src/sanitize/policy.ts`);
+      const ast = window.__marxyHandle.document().snapshot().ast;
+      const { parseInert } = await import('/src/render/incremental.ts');
+      const want = parseInert(renderDocumentSafeHtml(ast, DEFAULT_POLICY).html);
+      const got = document.querySelector('#doc ol.marxy-footnotes');
+      const wantList = want.querySelector('ol.marxy-footnotes');
+      const strip = (el) => [...el.querySelectorAll('li')].map((li) => [li.id, li.getAttribute('data-marxy-s'), li.getAttribute('data-marxy-e'), li.textContent]);
+      return JSON.stringify(strip(got)) === JSON.stringify(strip(wantList));
+    }, repoRoot);
+    assert.equal(same, true, 'the list of notes is the one a whole render draws: ids, ranges and text');
+
+    // The reference opens its own note (under its line, or marked in the margin where there is room), and the note's
+    // back-link lands on the reference.
+    await page.locator('sup.marxy-footnote-ref a[href="#marxy-fn-7"]').click();
+    await page.waitForFunction(() => /Changed from outside\./.test(document.querySelector('#doc [data-marxy-note="marxy-fn-7"]')?.textContent ?? ''));
+    await page.locator('#marxy-fn-7 a.marxy-footnote-back').click();
+    await page.waitForFunction(() => {
+      const r = document.getElementById('marxy-fnref-7')?.getBoundingClientRect();
+      return r !== undefined && r.top >= 0 && r.top < window.innerHeight;
+    });
+    assert.match(await page.evaluate(() => document.getElementById('marxy-fnref-7').closest('p').textContent), /^Rewritten from outside, before the reference\./);
+  } finally {
+    await browser.close();
+  }
+});
+
+// The differential check, run in the page (Playwright serialises this function, so it holds
 // everything it uses): random edits over the corpus, each rendered two ways, and the two must agree.
 //
 //   whole        `renderDocumentSafeHtml` over the new parse, as every open and every other repaint does
@@ -496,9 +591,15 @@ test('a reload that adds a footnote renders the page whole, and the next ordinar
 // page meets them: after a replacement the next edit splices into the replaced page, and the page is
 // cut at a random block between what is "in the page" and what a progressive mount still holds.
 //
-// Returns `{ cases, spliced, declined: { reason: count }, kept, replaced, mismatches }`.
-async function differential({ docs, core, seeds, edits = 6 }) {
-  const imp = (p) => import(`/@fs${core}${p}`);
+// With `notes`, the edits are those a document with footnotes meets: definitions written, removed, edited inside and
+// reordered, references added and removed. A case whose footnotes are numbered as before is counted in `sameNumbers`, and
+// `splicedSameNumbers` of them were replaced rather than declined.
+//
+// Returns `{ cases, spliced, declined: { reason: count }, kept, replaced, mismatches, sameNumbers, splicedSameNumbers }`.
+async function differential({ docs, core, seeds, edits = 6, notes = false }) {
+  // Vite's /@fs takes forward slashes after a leading one: `C:\x\` is `/C:/x/`.
+  const root = core.replaceAll('\\', '/').replace(/^(?!\/)/, '/');
+  const imp = (p) => import(`/@fs${root}${p}`);
   const { parseMarkdown } = await imp('packages/core/src/parse/parse.ts');
   const { reparseMarkdown } = await imp('packages/core/src/parse/reparse.ts');
   const { renderDocumentSafeHtml } = await imp('packages/core/src/render/pipeline.ts');
@@ -569,15 +670,60 @@ async function differential({ docs, core, seeds, edits = 6 }) {
     ' ',
   ];
 
+  // Labels as the generated documents write them, folded differently, undefined, duplicated, quoted and new.
+  const NOTE_FRAGMENTS = [
+    '[^a]: a new first note for a',
+    '[^c]: a new note c',
+    '[^C]: c again, in capitals',
+    'see[^a] and[^b] here',
+    'a reference to the new one[^c]',
+    'a reference to[^long   label] folded',
+    'no note[^nowhere] here',
+    '[^b]: b again, a duplicate',
+    '> [^q]: a quoted note',
+    '[^long label]: changed\n\n    and continued',
+    '[^zero]: one nobody calls',
+  ];
+  const fragments = notes ? [...FRAGMENTS, ...NOTE_FRAGMENTS, ...NOTE_FRAGMENTS] : FRAGMENTS;
+  const fold = (label) => label.replace(/[\t\n\r ]+/g, ' ').trim().toLowerCase().toUpperCase();
+  /** The first top-level definition of each label, folded, in order: what numbers the references. */
+  const numbering = (ast) => {
+    const seen = [];
+    for (const child of ast.children) if (child.type === 'footnoteDefinition' && !seen.includes(fold(child.label))) seen.push(fold(child.label));
+    return seen.join('\u0000');
+  };
+
   const pick = (rnd, xs) => xs[Math.floor(rnd() * xs.length)];
   /** One edit of `text`: an insertion, a deletion or a replacement, at a line or inside one. */
   const edit = (rnd, text) => {
     const lines = text.split('\n');
+    const defs = notes ? lines.flatMap((line, i) => (/^\[\^[^\]]+\]:/.test(line) ? [i] : [])) : [];
+    if (defs.length > 0) {
+      const roll = rnd();
+      // Inside a definition: its text after the label.
+      if (roll < 0.2) {
+        const i = pick(rnd, defs);
+        const line = lines[i];
+        const from = line.indexOf(']:') + 3;
+        const cut = Math.min(line.length, from + Math.floor(rnd() * (line.length - from + 1)));
+        const next = [...lines];
+        next[i] = line.slice(0, cut) + pick(rnd, [' more', '[^a]', '**', ' `x`', '', ' <span class="x">s</span>', ' <b>raw</b>', ' <!-- c -->']) + line.slice(cut + Math.floor(rnd() * 3));
+        return next.join('\n');
+      }
+      // Two definitions swapped: the numbers change unless the labels are the same.
+      if (roll < 0.27 && defs.length > 1) {
+        const i = pick(rnd, defs);
+        const j = pick(rnd, defs);
+        const next = [...lines];
+        [next[i], next[j]] = [lines[j], lines[i]];
+        return next.join('\n');
+      }
+    }
     const kind = rnd();
     const at = Math.floor(rnd() * (lines.length + 1));
     const blank = rnd() < 0.7 ? '\n' : '';
     if (kind < 0.45) {
-      const piece = pick(rnd, FRAGMENTS);
+      const piece = pick(rnd, fragments);
       return [...lines.slice(0, at), ...(blank ? [''] : []), piece, ...(blank ? [''] : []), ...lines.slice(at)].join('\n');
     }
     if (kind < 0.7) {
@@ -585,7 +731,7 @@ async function differential({ docs, core, seeds, edits = 6 }) {
       return [...lines.slice(0, at), ...lines.slice(at + n)].join('\n');
     }
     if (kind < 0.85) {
-      return [...lines.slice(0, at), pick(rnd, FRAGMENTS), ...lines.slice(at + 1)].join('\n');
+      return [...lines.slice(0, at), pick(rnd, fragments), ...lines.slice(at + 1)].join('\n');
     }
     // Inside a line.
     const i = Math.min(at, lines.length - 1);
@@ -608,7 +754,7 @@ async function differential({ docs, core, seeds, edits = 6 }) {
   const markup = ({ live, pending }) => live.innerHTML + pending.innerHTML;
   const whole = (html) => parseInert(html).innerHTML;
 
-  const out = { cases: 0, spliced: 0, declined: {}, kept: 0, replaced: 0, mismatches: [] };
+  const out = { cases: 0, spliced: 0, declined: {}, kept: 0, replaced: 0, mismatches: [], sameNumbers: 0, splicedSameNumbers: 0, notesRedrawn: 0 };
   for (const [name, original] of Object.entries(docs)) {
     for (let seed = 1; seed <= seeds; seed++) {
       const rnd = mulberry32(hash(name) * 31 + seed);
@@ -627,10 +773,14 @@ async function differential({ docs, core, seeds, edits = 6 }) {
         const fresh = renderDocumentSafeHtml(next, DEFAULT_POLICY);
         out.cases++;
         const result = spliceRendered(record, next, page, { policy: DEFAULT_POLICY });
+        const sameNumbers = numbering(ast) === numbering(next);
+        if (sameNumbers) out.sameNumbers++;
         if (result.spliced) {
           out.spliced++;
+          if (sameNumbers) out.splicedSameNumbers++;
           out.kept += result.value.kept;
           out.replaced += result.value.replaced.new;
+          out.notesRedrawn += result.value.notes;
           const got = markup(page);
           const want = whole(fresh.html);
           const removedGot = JSON.stringify(result.value.removed);
@@ -664,7 +814,7 @@ async function differential({ docs, core, seeds, edits = 6 }) {
   return out;
 }
 
-test('random edits over the corpus: the blocks a reload replaces give the markup of a whole render, byte for byte (B-24)', async () => {
+test('random edits over the corpus: the blocks a reload replaces give the markup of a whole render, byte for byte', async () => {
   const { generateTranscript } = await import('../../../scripts/measure-reload.mjs');
   const corpus = join(repoRoot, 'fixtures', 'corpus');
   const docs = {};
@@ -690,6 +840,57 @@ test('random edits over the corpus: the blocks a reload replaces give the markup
   } finally {
     await browser.close();
   }
+});
+
+/**
+ * A long document with footnotes, its definitions where `where` says: at the top, at the bottom, in the middle, or
+ * spread through it. Labels referenced several times, once and never; references before their definitions and after;
+ * a label written in another case and spacing; a duplicate definition; one in a block quote; one never defined; a
+ * definition of two paragraphs, and one that refers to another note.
+ */
+function notesDocument(where) {
+  const fill = 'words to fill the line out, with *emphasis* and `code` now and then. ';
+  const refs = ['[^a]', '[^b]', '[^Long  Label]', '[^nowhere]', '[^q]', '[^a]', '[^one]'];
+  const body = Array.from({ length: 240 }, (_, i) => (i % 40 === 0 ? `## Part ${i / 40}\n\n` : '') + `Paragraph ${i}${i % 9 === 0 ? refs[(i / 9) % refs.length] : ''}: ${fill.repeat(2)}`);
+  const defs = [
+    '[^a]: The note a, referenced from many places.',
+    '[^b]: The note b, which refers to a[^a] in turn.',
+    '[^long label]: A note of two paragraphs.\n\n    Its second paragraph, indented under it.',
+    '[^zero]: A note nobody refers to.',
+    '[^A]: A second definition of a, which nothing reaches.',
+    '[^one]: A note referred to once.',
+  ];
+  const quoted = '> [^q]: A definition inside a block quote.';
+  const at = (n) => body.splice(n, 0, ...defs);
+  if (where === 'top') at(0);
+  else if (where === 'middle') at(120);
+  else if (where === 'bottom') at(body.length);
+  else defs.forEach((d, k) => body.splice(20 + k * 40, 0, d));
+  body.splice(60, 0, quoted);
+  return `# Notes ${where}\n\n${body.join('\n\n')}\n`;
+}
+
+nodeTest('random edits over documents with footnotes: the replaced page is the whole render, byte for byte, numbers and links included', { skip, timeout: 240_000 }, async (t) => {
+  t.after(closeLaunched);
+  const docs = { '32-long-reference.md': readFileSync(join(repoRoot, 'fixtures', 'corpus', '32-long-reference.md'), 'utf8') };
+  for (const where of ['top', 'middle', 'bottom', 'spread']) docs[`notes-${where}.md`] = notesDocument(where);
+  const browser = await launchWebkit();
+  const page = await browser.newPage();
+  await page.goto(`${await harnessBase()}app.html`);
+  await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
+  const result = await page.evaluate(differential, { docs, core: repoRoot, seeds: 4, edits: 8, notes: true });
+  t.diagnostic(JSON.stringify({ ...result, mismatches: result.mismatches.length }));
+  assert.deepEqual(result.mismatches, [], `the replaced page differs from the whole render: ${JSON.stringify(result.mismatches).slice(0, 1600)}`);
+  // Not vacuous: where the notes are numbered as before, the page is replaced in place for most edits (the rest are
+  // the raw tags left open that any document declines), and items of the list were drawn again.
+  assert.ok(
+    result.splicedSameNumbers > result.sameNumbers * 0.6,
+    `replaced ${result.splicedSameNumbers} of ${result.sameNumbers} edits that kept the numbers (${result.spliced} of ${result.cases} in all); declined ${JSON.stringify(result.declined)}`,
+  );
+  assert.ok(result.notesRedrawn > 0, 'some edits drew items of the list of notes again');
+  // Every edit that numbers the notes differently is a whole render, and none that keeps the numbers is declined for them.
+  assert.ok(result.sameNumbers < result.cases, 'some edits change the numbers');
+  assert.equal(result.declined['the footnotes are numbered differently'] ?? 0, result.cases - result.sameNumbers);
 });
 
 test('Save as closes the old folder\'s watch and watches the new one', async () => {
@@ -739,7 +940,7 @@ test('a write right after Save as reloads, when the new folder\'s watch register
   }
 });
 
-test('one watch per open and the previous handle is closed', async () => {
+test('one watch per open and the previous handle is kept while its store is warm', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -756,7 +957,8 @@ test('one watch per open and the previous handle is closed', async () => {
       closes: window.__watchCloses.length,
     }));
     assert.equal(watchCount, 2);
-    assert.equal(closes, 1);
+    // The first document was left clean: it stays open and watched, warm, for the way back.
+    assert.equal(closes, 0);
   } finally {
     await browser.close();
   }
@@ -796,10 +998,10 @@ test('dirty Source buffer keeps edits and shows the disk-changed notice', async 
   }
 });
 
-// F-15: the memory shell cannot model a symlink, so this pins the webview half only: once the
+// the memory shell cannot model a symlink, so this pins the webview half only: once the
 // watcher names the link path (the Rust tests pin that it does), an open link reloads and, when
 // the link goes, shows the removal notice.
-test('events on the open link path reload it and show the removal notice (F-15)', async () => {
+test('events on the open link path reload it and show the removal notice', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -836,7 +1038,7 @@ test('deleted event keeps the page and shows file-removed notice', async () => {
   }
 });
 
-// 2026-09-26 review (MARXY-246).
+// 2026-09-26 review.
 test('a rename of the open file follows it and leaves opens working', async () => {
   const browser = await launchWebkit();
   try {
@@ -889,7 +1091,7 @@ test('edits folded in from an earlier Source visit are kept when the file change
   }
 });
 
-test('text written at a held heading\'s first byte leaves the heading on the page (F-19)', async () => {
+test('text written at a held heading\'s first byte leaves the heading on the page', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -928,7 +1130,7 @@ test('text written at a held heading\'s first byte leaves the heading on the pag
   }
 });
 
-test('a reader who has not scrolled stays at the top when text is written above a short opening heading (F-19.1)', async () => {
+test('a reader who has not scrolled stays at the top when text is written above a short opening heading', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -958,9 +1160,11 @@ test('a reader who has not scrolled stays at the top when text is written above 
   }
 });
 
-// A reader in Source who has not scrolled is at byte 0, so text written above leaves them at the top (F-19.2).
+// A reader in Source who has not scrolled is at byte 0, so text written above leaves them at the top.
+// In the frame Source scrolls in the editor's own scroller (or its mount), not the window: all three are read.
+const sourceScrolled = (page) => page.evaluate(() => window.scrollY + (document.querySelector('#marxy-source')?.scrollTop ?? 0) + (document.querySelector('#marxy-source .cm-scroller')?.scrollTop ?? 0));
 const prependedInSource = async (page) => {
-  assert.equal(await page.evaluate(() => window.scrollY), 0);
+  assert.equal(await sourceScrolled(page), 0);
   await page.evaluate(async () => {
     const path = window.__marxyHandle.currentPath();
     const old = await window.__marxyHandle.shell.readFile(path);
@@ -971,18 +1175,17 @@ const prependedInSource = async (page) => {
   });
   await page.waitForFunction(() => document.querySelector('#marxy-source')?.textContent?.includes('Prepended.'));
   await new Promise((r) => setTimeout(r, 400));
-  return page.evaluate(() => {
-    const line = [...document.querySelectorAll('#marxy-source .cm-line')].find((l) => l.textContent.includes('Prepended.'));
-    return { y: window.scrollY, top: line.getBoundingClientRect().top };
-  });
+  const top = await page.evaluate(() => [...document.querySelectorAll('#marxy-source .cm-line')].find((l) => l.textContent.includes('Prepended.')).getBoundingClientRect().top);
+  return { y: await sourceScrolled(page), top };
 };
 
-test('a .ts file opens in Source, unscrolled, and stays at the top when text is written above (F-19.2)', async () => {
+test('a .ts file put in Source, unscrolled, stays at the top when text is written above', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
     const code = Array.from({ length: 400 }, (_, i) => `export const value${i} = ${i};`).join('\n') + '\n';
     await boot(page, { '/r/A.ts': b64(code) }, ['/r/A.ts']);
+    await page.evaluate(() => window.__marxyHandle.toggleMode());
     await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
     const after = await prependedInSource(page);
     assert.equal(after.y, 0);
@@ -992,7 +1195,7 @@ test('a .ts file opens in Source, unscrolled, and stays at the top when text is 
   }
 });
 
-test('a .md file toggled to Source, unscrolled, stays at the top when text is written above (F-19.2)', async () => {
+test('a .md file toggled to Source, unscrolled, stays at the top when text is written above', async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -1010,7 +1213,7 @@ test('a .md file toggled to Source, unscrolled, stays at the top when text is wr
   }
 });
 
-// F-19.3: an outside write to a file open in Source carries the caret and selection through the change.
+// an outside write to a file open in Source carries the caret and selection through the change.
 const SOURCE_LINES = Array.from({ length: 60 }, (_, i) => `export const value${i} = ${i};`);
 const withCaret = async (page, from, to = from) => {
   await page.evaluate(async ({ from, to }) => {
@@ -1028,7 +1231,7 @@ const waitForEditor = async (page, what, predicate, arg) => {
       .evaluate(async () => {
         const { activeSourceEditor } = await import('/src/source/editor.ts');
         const { state } = activeSourceEditor(document.querySelector('#marxy-source')).view;
-        return { head: state.doc.sliceString(0, 80), selection: state.selection.main.toJSON(), scrollY: window.scrollY };
+        return { head: state.doc.sliceString(0, 80), selection: state.selection.main.toJSON(), scrollTop: document.querySelector('#marxy-source .cm-scroller')?.scrollTop ?? null };
       })
       .catch((e) => `unreadable: ${e}`);
     throw new Error(`timed out waiting for ${what}; the editor held ${JSON.stringify(held)}`, { cause });
@@ -1041,7 +1244,7 @@ const writeOutside = async (page, text, marker = '//') => {
     window.__marxyHandle.shell.emit([{ kind: 'modified', path }]);
   }, text);
   // Wait on the editor's own state, not on its rendered text: CodeMirror draws only the lines near the
-  // viewport, so a reload that moved the view could leave the changed line undrawn and this wait unmet (F-30.1).
+  // viewport, so a reload that moved the view could leave the changed line undrawn and this wait unmet.
   await waitForEditor(page, 'the editor to take the outside write', async (marker) => {
     const { activeSourceEditor } = await import('/src/source/editor.ts');
     const ed = activeSourceEditor(document.querySelector('#marxy-source'));
@@ -1059,19 +1262,21 @@ const selectionNow = (page) =>
   });
 const bootSource = async (page, { eol, bom }) => {
   await boot(page, { '/r/A.ts': b64(bom + SOURCE_LINES.join(eol) + eol) }, ['/r/A.ts']);
+  // Code lands in Read; this is about Source, one press away.
+  await page.evaluate(() => window.__marxyHandle.toggleMode());
   await page.waitForFunction(() => window.__marxyHandle.sourceHarness()?.mode === 'source');
   await page.waitForFunction(() => document.querySelector('#marxy-source .cm-line'));
 };
 
-// F-23: CodeMirror counts a line break as one position and leaves the BOM out; the buffer counts both.
+// CodeMirror counts a line break as one position and leaves the BOM out; the buffer counts both.
 const FILE_SHAPES = [
   { label: '', eol: '\n', bom: '' },
-  { label: ' in a CRLF file (F-23)', eol: '\r\n', bom: '' },
-  { label: ' in a file with a BOM (F-23)', eol: '\n', bom: '\uFEFF' },
-  { label: ' in a CRLF file with a BOM (F-23)', eol: '\r\n', bom: '\uFEFF' },
+  { label: ' in a CRLF file', eol: '\r\n', bom: '' },
+  { label: ' in a file with a BOM', eol: '\n', bom: '\uFEFF' },
+  { label: ' in a CRLF file with a BOM', eol: '\r\n', bom: '\uFEFF' },
 ];
 for (const { label, eol, bom } of FILE_SHAPES) {
-test(`a write above the caret leaves the Source caret on the same text (F-19.3)${label}`, async () => {
+test(`a write above the caret leaves the Source caret on the same text${label}`, async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -1088,7 +1293,7 @@ test(`a write above the caret leaves the Source caret on the same text (F-19.3)$
   }
 });
 
-test(`a Source selection follows an insertion above it (F-19.3)${label}`, async () => {
+test(`a Source selection follows an insertion above it${label}`, async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -1103,7 +1308,7 @@ test(`a Source selection follows an insertion above it (F-19.3)${label}`, async 
   }
 });
 
-test(`a Source caret inside deleted text lands at the deletion point (F-19.3)${label}`, async () => {
+test(`a Source caret inside deleted text lands at the deletion point${label}`, async () => {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 760 } });
@@ -1122,3 +1327,22 @@ test(`a Source caret inside deleted text lands at the deletion point (F-19.3)${l
   }
 });
 }
+
+test('a note open under its line shows the note as it is after a change on disk rewrites it in place', async () => {
+  const LONG = readFileSync(join(repoRoot, 'fixtures', 'corpus', '32-long-reference.md'), 'utf8');
+  const browser = await launchWebkit();
+  try {
+    // Narrow: no room in the margin, so a note number opens its note under the line.
+    const page = await browser.newPage({ viewport: { width: 700, height: 760 } });
+    await boot(page, { '/r/L.md': b64(LONG) }, ['/r/L.md']);
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
+    assert.equal(await page.evaluate(() => document.getElementById('doc').hasAttribute('data-marxy-notes-margin')), false);
+    await page.locator('sup.marxy-footnote-ref a[href="#marxy-fn-7"]').first().click();
+    await page.waitForSelector('#doc .marxy-note-here[data-marxy-note="marxy-fn-7"]');
+    const seen = await writeFromOutside(page, LONG.replace('[^7]: ', '[^7]: Changed from outside. '));
+    assert.equal(seen.repaint?.how, 'replaced', `the page was set again whole: ${JSON.stringify(seen.repaint)}`);
+    await page.waitForFunction(() => /^7Changed from outside\./.test(document.querySelector('#doc .marxy-note-here[data-marxy-note="marxy-fn-7"]')?.textContent ?? ''));
+  } finally {
+    await browser.close();
+  }
+});

@@ -1,4 +1,4 @@
-// Live reload of a large document, by stage (B-23). A measurement, not a gate (ADR-0032): it prints
+// Live reload of a large document, by stage. A measurement, not a gate: it prints
 // numbers and fails only when a run produced no sample.
 //
 // It boots the app through `startApp` and the memory shell in Playwright WebKit (the Vite dev server,
@@ -10,7 +10,7 @@
 //   into `read` (the file read), `map` (the parse the watcher maps the place through, and the mapping),
 //   `store` (the store's reload transition: its parse and node map, then the page set synchronously:
 //   render, sanitise, the first screens) and `settle` (the typeset viewport after it);
-// - the view's own `marxy:repaint` measure (B-24): how long the page took to be set again, and whether
+// - the view's own `marxy:repaint` measure: how long the page took to be set again, and whether
 //   only the blocks the reload changed were replaced (`replaced`) or the whole page was rendered
 //   (`whole`, with the reason);
 // - the wall time from the watch event to that mark, and whether the reader is still on the same text;
@@ -23,9 +23,9 @@
 //               been quiet for a second, as a reader who has had the file open a while meets a reload; the
 //               default writes half a second after the first screens, with most of the document still
 //               waiting to be mounted
-//   --shape dense   the denser synthetic document the F-19.1 review measured, instead of the transcript
+//   --shape dense   the denser synthetic document, instead of the transcript
 //   --index-colon   the first turn also holds a Python fence with `if xs[0]:`, text that looks like a
-//                   definition's `]:` and is not one (before the review of #467 it sent every reload
+//                   definition's `]:` and is not one (it once sent every reload
 //                   to the whole parse)
 //   --at top   one line inserted near the top of the file, above the reader (the default, and the worst
 //              case: everything after it moves)
@@ -60,7 +60,7 @@ export function generateTranscript(targetBytes, { indexColon = false } = {}) {
 }
 
 /**
- * The denser document the F-19.1 review measured (about 200,000 nodes a megabyte): short turns of a
+ * The denser document (about 200,000 nodes a megabyte): short turns of a
  * heading, a nested list with inline code, emphasis and a link, a table and a line of prose.
  */
 export function generateDense(targetBytes) {
@@ -226,7 +226,7 @@ async function runOnce(browser, base, bytes, at, settled = false) {
         try {
           reparse = (await imp('packages/core/src/parse/reparse.ts')).reparseMarkdown;
         } catch {
-          // Before B-23 there is no reparse: the store parsed the whole file.
+          // Without a reparse the store parses the whole file.
         }
         const time = (fn) => {
           const t = performance.now();
@@ -333,7 +333,7 @@ async function main(argv) {
   return missing ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2)).then(
     (code) => process.exit(code),
     (e) => {

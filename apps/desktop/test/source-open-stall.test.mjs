@@ -1,6 +1,6 @@
-// Opening a 2 MB Markdown file in Source keeps the page live (F-94, WebKit): once the first line is up, the main thread is
+// Opening a 2 MB Markdown file in Source keeps the page live (WebKit): once the first line is up, the main thread is
 // never held for long, so typing, scrolling and the palette answer while the rest of the file's work goes on. The file is
-// the shape of V-04's, 2 MB of prose, made in Rendered first and then sent to Source with the command, as a reader does.
+// the shape: 2 MB of prose, made in Rendered first and then sent to Source with the command, as a reader does.
 //
 // What held the page for 4 s and then for 7 s was the Rendered page behind Source, not Source: the article stayed in the
 // page (hidden) with the typesetter, the grid passes and the mount going on over it, and a hidden element keeps no computed
@@ -25,7 +25,7 @@ after(() => closeHarness());
 /** The longest the main thread may be held at once after the first line, in milliseconds. */
 const HELD_MS = 500;
 
-test('F-94 a 2 MB Markdown file opened in Source never holds the page for long once its first line is up', async () => {
+test('a 2 MB Markdown file opened in Source never holds the page for long once its first line is up', async () => {
   const para = 'A paragraph of ordinary prose that fills a line of the file with words.\n\n';
   const big = `# Big\n\n${para.repeat(Math.ceil(2_000_000 / para.length))}\n#### Skips\n\n\`\`\`\nnever closed\n`;
   const browser = await launchWebkit();
@@ -62,7 +62,7 @@ test('F-94 a 2 MB Markdown file opened in Source never holds the page for long o
       out.last = performance.now() - t0;
       return out;
     });
-    console.log(`F-94 2 MB file in Source: first line ${Math.round(seen.text)} ms, the page was held at most ${Math.round(seen.longest)} ms at a time after it (at ${Math.round(seen.at)} ms)`);
+    console.log(`2 MB file in Source: first line ${Math.round(seen.text)} ms, the page was held at most ${Math.round(seen.longest)} ms at a time after it (at ${Math.round(seen.at)} ms)`);
     assert.ok(seen.text !== null, 'Source shows its first line');
     assert.ok(seen.longest < HELD_MS, `the page was held ${Math.round(seen.longest)} ms at ${Math.round(seen.at)} ms, after the first line at ${Math.round(seen.text)} ms`);
     // Typing is live: a character typed now is in the text at once.

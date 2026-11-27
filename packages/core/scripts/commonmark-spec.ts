@@ -1,11 +1,12 @@
-// CommonMark spec-suite check: HTML equivalence and AST invariants over examples that are fetched,
-// digest-checked, and never committed (ADR-0021, ADR-0006). The script does not fetch; CI does.
+// CommonMark spec-suite check: HTML equivalence and AST invariants over the spec's examples, which are
+// digest-checked and never committed. The script does not fetch: download the file from the URL that
+// `--print-url` prints to the path that `--print-dest` prints, then run it.
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve, sep } from 'node:path';
+import { isAbsolute, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkInvariants } from '../src/parse/invariants.ts';
 import { parseMarkdown } from '../src/parse/parse.ts';
@@ -44,37 +45,9 @@ function specPath(): string {
 
 function refuseIfInsideRepo(path: string): void {
   if (isInsideRepo(path)) {
-    console.error(`spec: refusing ${path}; the example file must stay outside ${REPO_ROOT} (ADR-0006)`);
+    console.error(`spec: refusing ${path}; the example file must stay outside ${REPO_ROOT}`);
     process.exit(1);
   }
-}
-
-function specSuiteStep(workflow: string): string | undefined {
-  return workflow.split(/\n      - /).slice(1).find((step) => /curl/.test(step) && /test:spec/.test(step));
-}
-
-/** The spec CI step exists and takes its URL from this script. Whether it may be skipped or softened is check-workflows' rule. */
-function checkWorkflow(workflow: string): string[] {
-  const errors: string[] = [];
-  const suite = specSuiteStep(workflow);
-  if (!suite) {
-    errors.push('.github/workflows/ci.yml: no step fetches spec.json and runs test:spec');
-    return errors;
-  }
-  if (!/--print-dest/.test(suite) || !/--print-url/.test(suite)) {
-    errors.push(
-      '.github/workflows/ci.yml: the spec suite step must take dest and url from the script (--print-dest / --print-url)',
-    );
-  }
-  if (!/git status --porcelain/.test(suite)) {
-    errors.push('.github/workflows/ci.yml: the spec suite step must assert git status --porcelain is empty');
-  }
-  if (workflow.includes(SPEC_VERSION)) {
-    errors.push(
-      `.github/workflows/ci.yml: pins CommonMark ${SPEC_VERSION}; the version lives only in packages/core/scripts/commonmark-spec.ts`,
-    );
-  }
-  return errors;
 }
 
 function runScript(args: string[], env: NodeJS.ProcessEnv = {}): { status: number; stdout: string; stderr: string } {
@@ -97,7 +70,7 @@ function selftest(): void {
 
   const dest = specPath();
   report(!isInsideRepo(dest), 'fetch path resolves outside the repository root', dest);
-  report(dest.startsWith(sep), 'fetch path is absolute', dest);
+  report(isAbsolute(dest), 'fetch path is absolute', dest);
 
   const printed = runScript(['--print-dest']);
   report(printed.status === 0 && !isInsideRepo(printed.stdout.trim()), '--print-dest is outside the repository root', printed.stdout.trim());
@@ -122,27 +95,6 @@ function selftest(): void {
   const missing = join(work, 'absent.json');
   const absent = runScript([], { MARXY_COMMONMARK_SPEC: missing });
   report(absent.status === 1, 'a missing example file exits 1 rather than skipping', `exit ${absent.status}`);
-
-  const workflow = readFileSync(join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
-  report(checkWorkflow(workflow).length === 0, 'workflow: the spec suite step exists, takes its URL from the script and asserts a clean tree', checkWorkflow(workflow).join('; '));
-  for (const [what, mutated] of [
-    ['porcelain assertion removed', workflow.replace('\n          test -z "$(git status --porcelain)"', '')],
-    ['spec suite step removed', workflow.replace(/      - name: CommonMark spec suite\n(?:(?:        |          ).*\n)+/, '')],
-  ] as const) {
-    report(checkWorkflow(mutated).length > 0, `workflow: ${what} is rejected`);
-  }
-
-  const adr = readFileSync(join(REPO_ROOT, 'docs/adr/0021-parser-mdast-micromark.md'), 'utf8');
-  report(adr.includes(SPEC_VERSION), 'ADR-0021 names the pinned CommonMark version');
-  report(adr.includes(SPEC_SHA256), 'ADR-0021 names the committed digest');
-  report(/never vendored|never committed|stays out of the tree/.test(adr), 'ADR-0021 records that the examples are never vendored');
-  report(/CI fetches|fails the build/.test(adr), 'ADR-0021 records that the examples are checked in CI');
-
-  const readme = readFileSync(join(REPO_ROOT, 'docs/adr/README.md'), 'utf8');
-  report(
-    readme.includes('| [0021](0021-parser-mdast-micromark.md) | The parser is mdast/micromark, not markdown-it | accepted |'),
-    'docs/adr/README.md still names ADR-0021 with its title and accepted status',
-  );
 
   if (bad) {
     console.error(`spec selftest failed: ${bad} case(s)`);

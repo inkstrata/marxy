@@ -1,4 +1,4 @@
-/** Waits for an engine paint signal rather than a frame count (ADR-0013, MARXY-71). */
+/** Waits for an engine paint signal rather than a frame count. */
 
 export const FRAMES_BEFORE_PAINT: 2;
 export const PAINT_FALLBACK_MS: 2000;
@@ -9,6 +9,8 @@ export function isDocVisible(
   doc: Element,
   compute?: (elt: Element) => { visibility: string; display: string },
 ): boolean;
+
+export function readFcpBefore(perf?: Pick<Performance, 'getEntriesByType'>, after?: number): number | null;
 
 export function readPaintSignal(perf?: Pick<Performance, 'getEntriesByType'>, after?: number): string | null;
 
@@ -22,4 +24,4 @@ export function waitForEnginePaint(deps?: {
   /** Wait this long for a paint entry once frames tick, then resolve `frames-only`. Default PAINT_FALLBACK_MS. */
   fallbackMs?: number;
   timeoutMs?: number;
-}): Promise<{ signal: string }>;
+}): Promise<{ signal: string; frameAt: number; fcpBeforeMs: number | null }>;

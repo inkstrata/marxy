@@ -1,113 +1,46 @@
-// W-17: setting one front-matter scalar changes exactly that value's bytes (the card's table), in YAML and TOML, with quoting,
-// comments, CRLF and a BOM kept, and refuses what it cannot edit safely. The differential fuzz is front-matter-value-fuzz.test.ts.
+// What the Metadata tab lists of a document's front matter: each top-level key and its scalar, how it is written, and why a
+// value is not read as one scalar. Nothing here writes.
+
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { splice, createBuffer } from '../buffer/buffer.ts';
 import { parseMarkdown } from '../parse/parse.ts';
-import { frontMatterValues, setFrontMatterValue, SET_FRONT_MATTER_VALUE_ID } from './front-matter-value.ts';
-import { MUTATING_OPERATIONS, OPERATIONS } from './index.ts';
-import { assertBytesOutsideRangeUnchanged } from './testing/test-kit.ts';
+import { frontMatterValues, type FrontMatterValues } from './front-matter-value.ts';
+import { cpuNow } from '../testing/cpu-clock.ts';
 
 const enc = new TextEncoder();
 const dec = new TextDecoder('utf-8', { ignoreBOM: true });
 
-/** Sets `key` to `value` in `source`; the new text, or the refusal. */
-function set(source: string, key: string, value: string): { text: string; from: number; to: number; replacement: string } | { refused: string } {
+const read = (source: string): FrontMatterValues => {
   const bytes = enc.encode(source);
-  const doc = parseMarkdown(bytes, { file: 'fm.md' });
-  const edit = setFrontMatterValue(doc, bytes, key, value);
-  if (!edit.ok) return { refused: edit.reason };
-  assertBytesOutsideRangeUnchanged(bytes, edit.range, edit.replacement);
-  const next = splice(createBuffer('fm.md', bytes), edit.range, edit.replacement);
-  return { text: dec.decode(next.bytes), from: edit.range.start, to: edit.range.end, replacement: edit.replacement };
-}
-
-const ok = (source: string, key: string, value: string): string => {
-  const r = set(source, key, value);
-  assert.ok('text' in r, `refused: ${'refused' in r ? r.refused : ''}`);
-  return r.text;
+  const shown = frontMatterValues(parseMarkdown(bytes, { file: 'fm.md' }), bytes);
+  assert.ok(shown !== null, 'front matter found');
+  return shown;
 };
-const refused = (source: string, key: string, value = 'X'): string => {
-  const r = set(source, key, value);
-  assert.ok('refused' in r, `expected a refusal, got ${'text' in r ? JSON.stringify(r.text) : ''}`);
-  return r.refused;
+const row = (shown: FrontMatterValues, key: string) => {
+  const v = shown.values.find((x) => x.key === key);
+  assert.ok(v, `${key} is listed`);
+  return v;
 };
 
 const BODY = '\n# Title\n\nBody: text --- with `code` and\n+++\nmore.\n';
 
-test('the operation is not a palette verb: it takes a key and a value, which the Operation contract has no place for', () => {
-  assert.equal(SET_FRONT_MATTER_VALUE_ID, 'set-front-matter-value');
-  assert.ok(!OPERATIONS.some((op) => op.id === SET_FRONT_MATTER_VALUE_ID));
-  assert.ok(!MUTATING_OPERATIONS.some((op) => op.id === SET_FRONT_MATTER_VALUE_ID));
+test('YAML: a plain, a double-quoted and a single-quoted value are read as the file means them', () => {
+  const shown = read(`---\ntitle: Old\ndq: "a\\tb \\"q\\""\nsq: 'It''s here'\n---\n${BODY}`);
+  assert.equal(shown.format, 'yaml');
+  assert.equal(shown.unreadable, null);
+  assert.deepEqual(shown.values.map((v) => [v.key, v.value, v.quoting, v.refusal]), [
+    ['title', 'Old', 'plain', null],
+    ['dq', 'a\tb "q"', 'double', null],
+    ['sq', "It's here", 'single', null],
+  ]);
 });
 
-test('YAML: a plain value changes only its own bytes', () => {
-  const src = `---\ntitle: Old\nauthor: Ada\n---\n${BODY}`;
-  const r = set(src, 'title', 'New');
-  assert.ok('text' in r);
-  assert.equal(r.text, `---\ntitle: New\nauthor: Ada\n---\n${BODY}`);
-  assert.equal(src.slice(r.from, r.to), 'Old');
-  assert.equal(r.replacement, 'New');
+test('YAML: the spacing, a trailing comment and a quoted key do not change what is read', () => {
+  const shown = read('---\ntitle:    Old   # keep me\n"a key":\t"Old" # c\nhash: a#b\n---\n');
+  assert.deepEqual(shown.values.map((v) => [v.key, v.value]), [['title', 'Old'], ['a key', 'Old'], ['hash', 'a#b']]);
 });
 
-test('YAML: a double-quoted value stays double-quoted and escapes a quote and a backslash', () => {
-  const src = '---\ntitle: "Old"\nnext: 1\n---\n';
-  assert.equal(ok(src, 'title', 'Say "hi" \\ bye'), '---\ntitle: "Say \\"hi\\" \\\\ bye"\nnext: 1\n---\n');
-  // What is shown is what the file means: an escape in the old value is read, not shown raw.
-  const shown = frontMatterValues(parseMarkdown(enc.encode('---\ntitle: "a\\tb \\"q\\""\n---\n'), { file: 'f.md' }), enc.encode('---\ntitle: "a\\tb \\"q\\""\n---\n'));
-  assert.equal(shown!.values[0]!.value, 'a\tb "q"');
-});
-
-test('YAML: a single-quoted value stays single-quoted and doubles a quote', () => {
-  assert.equal(ok("---\ntitle: 'Old'\n---\n", 'title', "It's here"), "---\ntitle: 'It''s here'\n---\n");
-});
-
-test('YAML: the spacing, a trailing comment and the key are kept', () => {
-  assert.equal(ok('---\ntitle:    Old   # keep me\n---\n', 'title', 'New'), '---\ntitle:    New   # keep me\n---\n');
-  assert.equal(ok('---\n"a key":\t"Old" # c\n---\n', 'a key', 'N'), '---\n"a key":\t"N" # c\n---\n');
-  assert.equal(ok('---\ntitle: a#b\n---\n', 'title', 'c'), '---\ntitle: c\n---\n');
-});
-
-test('YAML: a plain value that would read back as something else is single-quoted', () => {
-  const src = '---\ntitle: Old\ncount: 3\n---\n';
-  for (const [value, written] of [
-    ['true', "'true'"],
-    ['42', "'42'"],
-    ['null', "'null'"],
-    ['2026-10-13', "'2026-10-13'"],
-    ['a: b', "'a: b'"],
-    ['a #b', "'a #b'"],
-    ['- x', "'- x'"],
-    ['[x]', "'[x]'"],
-    [' padded', "' padded'"],
-    ['', "''"],
-  ] as const) {
-    assert.equal(ok(src, 'title', value), `---\ntitle: ${written}\ncount: 3\n---\n`, JSON.stringify(value));
-  }
-  // A string that has an apostrophe and nothing else odd is double-quoted, so it reads as it was typed.
-  assert.equal(ok('---\ntitle: Old\n---\n', 'title', "- it's"), '---\ntitle: "- it\'s"\n---\n');
-  // A value that was a number stays plain for another number or a word: the reader typed what they meant.
-  assert.equal(ok(src, 'count', '4'), '---\ntitle: Old\ncount: 4\n---\n');
-  assert.equal(ok(src, 'count', 'many'), '---\ntitle: Old\ncount: many\n---\n');
-  assert.equal(ok('---\ndraft: true\n---\n', 'draft', 'false'), '---\ndraft: false\n---\n');
-});
-
-test('CRLF, lone CR and a BOM are kept, and so are the bytes of the body', () => {
-  assert.equal(ok('---\r\ntitle: Old\r\nb: 1\r\n---\r\n\r\nBody\r\n', 'title', 'New'), '---\r\ntitle: New\r\nb: 1\r\n---\r\n\r\nBody\r\n');
-  assert.equal(ok('---\rtitle: Old\r---\rBody\r', 'title', 'New'), '---\rtitle: New\r---\rBody\r');
-  const withBom = '﻿---\ntitle: Old\n---\nBody';
-  const r = set(withBom, 'title', 'Né');
-  assert.ok('text' in r);
-  assert.equal(r.text, '﻿---\ntitle: Né\n---\nBody');
-  // Byte offsets are bytes: the BOM is three, an accented letter before the value is two.
-  const accented = '---\nnamé: Old\n---\n';
-  const a = set(accented, 'namé', 'Nova');
-  assert.ok('text' in a);
-  assert.equal(enc.encode(accented).subarray(a.from, a.to).length, 3);
-  assert.equal(a.text, '---\nnamé: Nova\n---\n');
-});
-
-test('YAML: what it cannot edit safely is refused with the reason', () => {
+test('YAML: what is not one scalar is listed with the reason', () => {
   const doc = [
     '---',
     'block: |',
@@ -156,62 +89,65 @@ test('YAML: what it cannot edit safely is refused with the reason', () => {
     twice: /more than once/,
     colon: /colon/,
   };
-  const shown = frontMatterValues(parseMarkdown(enc.encode(doc), { file: 'f.md' }), enc.encode(doc))!;
+  const shown = read(doc);
   assert.equal(shown.unreadable, null);
   for (const [key, why] of Object.entries(reasons)) {
-    assert.match(refused(doc, key), why, key);
-    const row = shown.values.find((v) => v.key === key);
-    assert.ok(row && row.refusal !== null, `${key} is listed as not editable`);
+    const r = row(shown, key);
+    assert.ok(r.refusal !== null, `${key} is listed as not one scalar`);
+    assert.match(r.refusal, why, key);
+    assert.equal(r.quoting, null, key);
   }
-  // The one that can be edited is edited, and a refusal anywhere else changed nothing.
-  assert.equal(ok(doc, 'ok', 'new'), doc.replace('ok: fine', 'ok: new'));
-  assert.equal(shown.values.find((v) => v.key === 'block')!.value, '|\n  one\n  two');
-  assert.equal(shown.values.find((v) => v.key === 'nested')!.value, 'a: 1');
-  assert.equal(shown.values.find((v) => v.key === 'list')!.value, '- x\n- y');
+  assert.equal(row(shown, 'ok').refusal, null);
+  assert.equal(row(shown, 'block').value, '|\n  one\n  two');
+  assert.equal(row(shown, 'nested').value, 'a: 1');
+  assert.equal(row(shown, 'list').value, '- x\n- y');
 });
 
 test('YAML: a key inside a multi-line value is not an entry', () => {
-  const doc = '---\nq: "start\nfake: yes"\nflow: [a,\nfake2: b]\nreal: v\n---\n';
-  const shown = frontMatterValues(parseMarkdown(enc.encode(doc), { file: 'f.md' }), enc.encode(doc))!;
+  const shown = read('---\nq: "start\nfake: yes"\nflow: [a,\nfake2: b]\nreal: v\n---\n');
   assert.deepEqual(shown.values.map((v) => v.key), ['q', 'flow', 'real']);
-  assert.equal(ok(doc, 'real', 'x'), doc.replace('real: v', 'real: x'));
-  assert.match(refused(doc, 'fake'), /no key/);
 });
 
-test('YAML: a line that is not a key makes the whole front matter read-only', () => {
+test('YAML: a line that is not a key makes the whole front matter unreadable', () => {
   for (const doc of ['---\n- a\n- b\n---\n', '---\njust words\n---\n', '---\n&a key: v\n---\n', '---\n  indented: 1\n---\n']) {
-    const shown = frontMatterValues(parseMarkdown(enc.encode(doc), { file: 'f.md' }), enc.encode(doc))!;
+    const shown = read(doc);
     assert.ok(shown.unreadable !== null, doc);
-    assert.match(refused(doc, 'a'), /read-only|no key/);
+    assert.deepEqual(shown.values, [], doc);
   }
 });
 
-test('a new value that is not one clean line is refused; the same value is a no-op', () => {
-  const src = '---\ntitle: Old\nq: "a\\"b"\n---\n';
-  assert.match(refused(src, 'title', 'two\nlines'), /one line/);
-  assert.match(refused(src, 'title', 'cr\rhere'), /one line/);
-  assert.match(refused(src, 'title', 'bell\u0007'), /control/);
-  assert.match(refused(src, 'title', 'lone\ud800'), /control/);
-  assert.match(refused(src, 'nope'), /no key/);
-  const same = set(src, 'q', 'a"b');
-  assert.ok('text' in same);
-  assert.equal(same.text, src, 'an equal value is not rewritten, whatever its escapes were');
-  assert.match(refused('# no front matter\n', 'a'), /no front matter/);
+test('YAML: whole-line comments, blank lines and a block scalar with a rule inside it do not add or end entries', () => {
+  const head = '# a leading comment\ntitle: Old # trailing\n\n# between\nnote: |\n  keep: me\n  ---\n  as is\nlast: x\n';
+  const src = `---\n${head}---\n${BODY}`;
+  const expected = [['title', 'Old'], ['note', '|\n  keep: me\n  ---\n  as is'], ['last', 'x']];
+  assert.deepEqual(read(src).values.map((v) => [v.key, v.value]), expected);
+  assert.deepEqual(read(src.replace(/\n/g, '\r\n')).values.map((v) => [v.key, v.value]), expected);
 });
 
-test('TOML: a basic, a literal and a bare value change only their own bytes', () => {
-  const src = '+++\ntitle = "Old" # note\nname = \'lit\'\ncount = 3\ndraft = true\nwhen = 2026-10-13\n+++\nBody\n';
-  assert.equal(ok(src, 'title', 'Say "hi"'), src.replace('"Old"', '"Say \\"hi\\""'));
-  assert.equal(ok(src, 'name', 'plain'), src.replace("'lit'", "'plain'"));
-  assert.equal(ok(src, 'name', "it's"), src.replace("'lit'", '"it\'s"'), 'a literal string cannot hold a quote, so a basic one is written');
-  assert.equal(ok(src, 'count', '4'), src.replace('= 3', '= 4'));
-  assert.equal(ok(src, 'count', 'many'), src.replace('= 3', '= "many"'), 'not a bare literal: a string');
-  assert.equal(ok(src, 'draft', 'false'), src.replace('true', 'false'));
-  assert.equal(ok(src, 'when', '2027-01-02'), src.replace('2026-10-13', '2027-01-02'));
-  assert.equal(ok('+++\r\ntitle = "Old"\r\n+++\r\nBody', 'title', 'N'), '+++\r\ntitle = "N"\r\n+++\r\nBody');
+test('CRLF, lone CR and a BOM are read, and byte offsets are bytes', () => {
+  assert.deepEqual(read('---\r\ntitle: Old\r\nb: 1\r\n---\r\n\r\nBody\r\n').values.map((v) => [v.key, v.value]), [['title', 'Old'], ['b', '1']]);
+  assert.deepEqual(read('---\rtitle: Old\r---\rBody\r').values.map((v) => [v.key, v.value]), [['title', 'Old']]);
+  assert.deepEqual(read('﻿---\ntitle: Né\n---\nBody').values.map((v) => [v.key, v.value]), [['title', 'Né']]);
+  const accented = '---\nnamé: Old\nnext: 1\n---\n';
+  const bytes = enc.encode(accented);
+  const v = row(read(accented), 'next');
+  assert.equal(dec.decode(bytes.subarray(v.lineStart, v.lineStart + 5)), 'next:', 'the accented letter before it is two bytes');
 });
 
-test('TOML: arrays, inline tables, multi-line strings, keys under a table and a second key are refused', () => {
+test('TOML: a basic, a literal and a bare value are read', () => {
+  const shown = read('+++\ntitle = "Old" # note\nname = \'lit\'\ncount = 3\ndraft = true\nwhen = 2026-10-13\n+++\nBody\n');
+  assert.equal(shown.format, 'toml');
+  assert.deepEqual(shown.values.map((v) => [v.key, v.value, v.quoting]), [
+    ['title', 'Old', 'double'],
+    ['name', 'lit', 'single'],
+    ['count', '3', 'plain'],
+    ['draft', 'true', 'plain'],
+    ['when', '2026-10-13', 'plain'],
+  ]);
+  assert.deepEqual(read('+++\r\ntitle = "Old"\r\n+++\r\nBody').values.map((v) => v.value), ['Old']);
+});
+
+test('TOML: arrays, inline tables, multi-line strings, keys under a table and a second key are not read as scalars', () => {
   const doc = [
     '+++',
     'arr = [1, 2]',
@@ -231,44 +167,26 @@ test('TOML: arrays, inline tables, multi-line strings, keys under a table and a 
     '+++',
     'Body',
   ].join('\n');
-  const shown = frontMatterValues(parseMarkdown(enc.encode(doc), { file: 'f.md' }), enc.encode(doc))!;
+  const shown = read(doc);
   assert.deepEqual(shown.values.map((v) => v.key), ['arr', 'multi', 'inline', 'long', 'ok.dotted', 'twice', 'twice']);
-  assert.match(refused(doc, 'arr'), /array/);
-  assert.match(refused(doc, 'multi'), /array/);
-  assert.match(refused(doc, 'inline'), /inline table/);
-  assert.match(refused(doc, 'long'), /several lines/);
-  assert.match(refused(doc, 'twice'), /more than once/);
-  assert.match(refused(doc, 'inside'), /no key/);
-  assert.equal(ok(doc, 'ok.dotted', 'y'), doc.replace('"x"', '"y"'));
+  assert.match(row(shown, 'arr').refusal!, /array/);
+  assert.match(row(shown, 'multi').refusal!, /array/);
+  assert.match(row(shown, 'inline').refusal!, /inline table/);
+  assert.match(row(shown, 'long').refusal!, /several lines/);
+  assert.match(row(shown, 'twice').refusal!, /more than once/);
+  assert.equal(row(shown, 'ok.dotted').refusal, null);
 });
 
-test('an edit is one splice: the range is the value token and the rest of the file is not read for writing', () => {
-  const src = '---\ntitle: "Old" # c\nz: 1\n---\n' + BODY;
-  const r = set(src, 'title', 'N');
-  assert.ok('text' in r);
-  assert.equal(src.slice(r.from, r.to), '"Old"');
-  assert.equal(r.replacement, '"N"');
+test('a front matter that never closes is not front matter, and a duplicate key is refused on both of its rows', () => {
+  const open = enc.encode('---\ntitle: Old\n\nBody with no closing rule\n');
+  assert.equal(frontMatterValues(parseMarkdown(open, { file: 'f.md' }), open), null);
+  const dup = read('---\ntitle: One\ntitle: Two\nother: z\n---\n');
+  assert.deepEqual(dup.values.map((v) => v.refusal !== null), [true, true, false]);
 });
 
-test('YAML: whole-line comments, blank lines, a block scalar beside the edit and a closing rule in the body are all left alone', () => {
-  const head = '# a leading comment\ntitle: Old # trailing\n\n# between\nnote: |\n  keep: me\n  ---\n  as is\nlast: x\n';
-  const src = `---\n${head}---\n${BODY}`;
-  assert.equal(ok(src, 'title', 'New'), src.replace('title: Old', 'title: New'));
-  assert.equal(ok(src, 'last', 'zed'), src.replace('last: x', 'last: zed'));
-  // The key that is inside the block scalar is text, not an entry.
-  assert.match(refused(src, 'keep'), /no key/);
-  // A document with the same shape in CRLF changes the same one value.
-  const crlf = src.replace(/\n/g, '\r\n');
-  assert.equal(ok(crlf, 'title', 'New'), crlf.replace('title: Old', 'title: New'));
-});
-
-test('a front matter that never closes is not edited, and a duplicate key refuses on both of its rows', () => {
-  const open = '---\ntitle: Old\n\nBody with no closing rule\n';
-  const r = set(open, 'title', 'New');
-  assert.ok('refused' in r, 'an unclosed head is not front matter');
-  const dup = '---\ntitle: One\ntitle: Two\nother: z\n---\n';
-  assert.match(refused(dup, 'title', 'New'), /more than once/);
-  assert.equal(ok(dup, 'other', 'w'), dup.replace('other: z', 'other: w'));
+test('no front matter is null', () => {
+  const bytes = enc.encode('# plain\n');
+  assert.equal(frontMatterValues(parseMarkdown(bytes, { file: 'f.md' }), bytes), null);
 });
 
 test('a 30,000-key head is read in linear time, and each key keeps its own byte offset', () => {
@@ -278,9 +196,9 @@ test('a 30,000-key head is read in linear time, and each key keeps its own byte 
   const doc = `---\n${lines.join('\n')}\n---\n${BODY}`;
   const bytes = enc.encode(doc);
   const parsed = parseMarkdown(bytes, { file: 'big.md' });
-  const t0 = performance.now();
+  const t0 = cpuNow();
   const shown = frontMatterValues(parsed, bytes)!;
-  const ms = performance.now() - t0;
+  const ms = cpuNow() - t0;
   assert.equal(shown.values.length, n);
   // The quadratic took 23 s here; a linear pass is well under a second. 4 s leaves room for a loaded machine and still cannot hide it.
   assert.ok(ms < 4000, `frontMatterValues took ${Math.round(ms)} ms for ${n} keys`);
@@ -289,27 +207,4 @@ test('a 30,000-key head is read in linear time, and each key keeps its own byte 
     assert.equal(v.key, `k${i}`);
     assert.equal(dec.decode(bytes.subarray(v.lineStart, v.lineStart + `k${i}:`.length)), `k${i}:`, `line ${i} starts at its own byte`);
   }
-  // One edit of the last key is still one splice of that value.
-  const r = set(doc, 'k29999', 'changed');
-  assert.ok('text' in r);
-  assert.equal(r.text, doc.replace('k29999: v29999', 'k29999: changed'));
-});
-
-test('YAML: a typed value says what it is written as, and a word kept as text says it was quoted', () => {
-  const typed = (source: string, key: string, value: string): string | null => {
-    const bytes = enc.encode(source);
-    const edit = setFrontMatterValue(parseMarkdown(bytes, { file: 'f.md' }), bytes, key, value);
-    assert.ok(edit.ok);
-    return edit.typed;
-  };
-  const src = '---\ncount: 1\ntitle: Old\nquoted: "Old"\nwhen: 2026-10-13\n---\n';
-  assert.equal(typed(src, 'count', '2'), 'Still a number.');
-  assert.equal(typed(src, 'count', 'true'), 'Now a true-or-false value, not a number.');
-  assert.equal(typed(src, 'count', 'many'), 'Now text, not a number.');
-  assert.equal(typed(src, 'count', ''), 'Kept as text: the quotes stop it being read as an empty value.', 'an empty string is written as \'\', not as nothing');
-  assert.equal(typed(src, 'when', '2026-11-01'), 'Still a date.');
-  assert.equal(typed(src, 'title', 'true'), 'Kept as text: the quotes stop it being read as a true-or-false value.');
-  assert.equal(typed(src, 'quoted', '42'), 'Kept as text: the quotes stop it being read as a number.');
-  assert.equal(typed(src, 'title', 'New'), null, 'text stays text without a word');
-  assert.equal(ok(src, 'count', 'true'), src.replace('count: 1', 'count: true'), 'the written bytes are the typed word');
 });

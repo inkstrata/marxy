@@ -1,4 +1,4 @@
-// The pure mean behind --marxy-avg-char (H-06).
+// The pure mean behind --marxy-avg-char.
 
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';

@@ -41,3 +41,37 @@ test('a backslash is not a separator: a folder named a\\node_modules is not node
   assert.equal(isDeniedPath('a\\node_modules/x.md'), false);
   assert.equal(isDeniedPath('a/node_modules/x.md'), true);
 });
+
+// the list names folders. A file called build or out is a file, and the name matches in any case, as the
+// desktop shell's copies (commands/fs.rs and the rest) match it.
+test('only a folder is denied by its name, in any case', async () => {
+  const { isDeniedName, buildIndex } = await import('./index.ts');
+  const { isIgnored } = await import('./ignore.ts');
+  assert.equal(isIgnored('out', false, []), false);
+  assert.equal(isIgnored('out', true, []), true);
+  assert.equal(isIgnored('scripts/build', false, []), false);
+  assert.equal(isIgnored('scripts/build/x.md', false, []), true);
+  assert.equal(isIgnored('docs/Build/x.md', false, []), true);
+  assert.equal(isDeniedName('Build'), true);
+  assert.equal(isDeniedName('NODE_MODULES'), true);
+  assert.equal(isDeniedPath('scripts/build'), false);
+  assert.equal(isDeniedPath('scripts/build', true), true);
+  assert.equal(isDeniedPath('Dist/bundle.js'), true);
+  const built = buildIndex('/r', [{ path: '/r/notes/out.md', relativePath: 'notes/out.md', mtimeMs: 0, size: 1 }]);
+  assert.equal(built.entries.length, 1);
+});
+
+test('a walk lists a file named like a denied folder, and skips the folder', () => {
+  const root = mkdtempSync(join(tmpdir(), 'marxy-index-deny-file-'));
+  try {
+    mkdirSync(join(root, 'scripts'));
+    mkdirSync(join(root, 'Build'));
+    writeFileSync(join(root, 'scripts', 'build'), '#!/bin/sh\n');
+    writeFileSync(join(root, 'out'), 'notes\n');
+    writeFileSync(join(root, 'Build', 'x.md'), '# never\n');
+    const found = collectFiles(root, nodeReader()).map((file) => file.relativePath).sort();
+    assert.deepEqual(found, ['out', 'scripts/build']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

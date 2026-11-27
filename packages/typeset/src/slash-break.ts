@@ -1,4 +1,4 @@
-// Third-pass break opportunities after `/` inside inline code (reader-artifacts handbook §04).
+// Third-pass break opportunities after `/` inside inline code.
 
 import type { DashBreak, Piece, Token } from './runs.ts';
 

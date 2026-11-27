@@ -1,4 +1,4 @@
-// The log's two strip tools (K-08): *Filter by level* and *Jump to first error*. Both are views: they hide and move, and
+// The log's two strip tools: *Filter by level* and *Jump to first error*. Both are views: they hide and move, and
 // write nothing, and the filter is never remembered (it is gone with the page it was set on). The strip shows each only
 // while a log is in Read, because a tool is drawn only for a registered command (workspace/strip.ts) and enabled only
 // while `when` holds.
@@ -9,6 +9,7 @@ import { dismiss, notify } from '../notices/index.ts';
 import { openVerbMenu, type MenuAnchor, type VerbMenuRow } from '../selection/verb-menu.ts';
 import { countHidden, type HiddenCount, firstErrorOffset, hasLevelWords, LEVELS, levelOf, NO_LEVEL_WORDS, type Level } from '../kinds/log-filter.ts';
 import { appHandle } from './app-handle.ts';
+import { linesViewIn, type LinesView } from '../view/reading-lines.ts';
 import type { AppContext, Command } from './registry.ts';
 
 const yieldNow = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -18,19 +19,23 @@ const afterPaint = (): Promise<void> => new Promise((resolve) => requestAnimatio
 
 /**
  * The page half and the line splitter are loaded when a log tool is first used: the splitter is `render/highlight.ts`,
- * which reaches the highlighter, and nothing on the way to first text may import that statically (MARXY-33, `gate:bundle`).
+ * which reaches the highlighter, and nothing on the way to first text may import that statically (`gate:bundle`).
  */
 type PageHalf = typeof import('../kinds/log-view.ts');
 let loaded: PageHalf | null = null;
 const pageHalf = async (): Promise<PageHalf> => (loaded ??= await import('../kinds/log-view.ts'));
 const splitter = () => import('../render/highlight.ts');
 
-/** The focused pane when it is a log in Read, with pieces on the page to filter. */
-function focusedLog(): { readonly pane: Pane<AppPane> } | null {
+/** The focused pane when it is a log in Read, with pieces on the page to filter, or read as lines (a big log). */
+function focusedLog(): { readonly pane: Pane<AppPane>; readonly lines: LinesView | null } | null {
   const pane = appHandle()?.panes().focused;
   if (!pane || pane.kind() !== 'log' || pane.view.mode !== 'rendered') return null;
-  return pane.article.querySelector('pre.language-log.marxy-run') === null ? null : { pane };
+  const lines = linesViewIn(pane.article);
+  if (lines?.lines.log) return { pane, lines };
+  return pane.article.querySelector('pre.language-log.marxy-run') === null ? null : { pane, lines: null };
 }
+
+const levelNow = (lines: LinesView): Level => LEVELS.find((level) => level.min === lines.level()) ?? levelOf('all');
 
 const isLogOpen = (): boolean => focusedLog() !== null;
 
@@ -84,7 +89,11 @@ async function setLevel(level: Level): Promise<void> {
   const store = pane.view.store();
   if (store === null) return;
   if (!hasLevels(pane)) {
-    notify({ kind: 'info', fades: true, text: `${NO_LEVEL_WORDS} · nothing is hidden · its lines do not open with a timestamp and a level word` });
+    notify({ kind: 'info', fades: true, text: `${NO_LEVEL_WORDS} · nothing is hidden · its lines do not open with a level` });
+    return;
+  }
+  if (found.lines) {
+    await setLinesLevel(found.lines, level);
     return;
   }
   const buffer = store.snapshot().buffer;
@@ -119,7 +128,7 @@ async function setLevel(level: Level): Promise<void> {
   };
   document.addEventListener('keydown', onEscape, true);
   // The click is answered first: the menu has closed and the pill is up, and the frame that shows them is drawn before the
-  // first slice of the count or of the page's work runs (K-08.1). A later choice, or the document going, ends this one.
+  // first slice of the count or of the page's work runs. A later choice, or the document going, ends this one.
   // The one thing the click does to the page: a piece not yet filtered is not drawn (a neutral "Filtering…" stands for it), so
   // no frame between the click and the work shows a line the level hides. A class on the article; no piece is read or touched.
   if (level.min !== 0) article.classList.add(FILTERING);
@@ -177,6 +186,51 @@ async function setLevel(level: Level): Promise<void> {
   begun();
 }
 
+/**
+ * Shows `level` and above in a log read as lines: the view keeps the lines the level keeps, read from every line of the
+ * file a slice at a time, so a pill says how far it has got while it reads, and a notice says what was hidden.
+ */
+async function setLinesLevel(view: LinesView, level: Level): Promise<void> {
+  const mine = ++latest;
+  if (level.min === 0) {
+    // Show all, or Esc, while a level is still reading the file's ranks: that change stops, and the page keeps every line.
+    view.cancel();
+    if (view.level() === 0) {
+      notify({ kind: 'done', text: 'All lines shown · the file is unchanged' });
+      return;
+    }
+  }
+  const words = (fraction: number): string =>
+    `${level.min === 0 ? 'Showing all lines' : `Filtering to ${level.label}`} · ${Math.round(fraction * 100)}% · the file is unchanged · Esc stops`;
+  const pill = notify({ kind: 'info', text: words(0), actions: level.min === 0 ? [] : [{ label: 'Show all', onClick: () => void setLevel(levelOf('all')) }] });
+  const onEscape = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape' || level.min === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void setLevel(levelOf('all'));
+  };
+  document.addEventListener('keydown', onEscape, true);
+  let got: { readonly hidden: number; readonly total: number } | null;
+  try {
+    got = await view.setLevel(level.min, (fraction) => {
+      const el = document.querySelector(`[data-notice-id="${pill}"] .marxy-notice-text`);
+      if (el) el.textContent = words(fraction);
+    }, true);
+  } finally {
+    document.removeEventListener('keydown', onEscape, true);
+    dismiss(pill);
+  }
+  if (got === null || mine !== latest) return;
+  if (level.min === 0) notify({ kind: 'done', text: 'All lines shown · the file is unchanged' });
+  else if (got.hidden === 0) notify({ kind: 'info', fades: true, text: `Nothing in this log is below ${level.label} · every line is shown · the file is unchanged` });
+  else
+    notify({
+      kind: 'done',
+      text: `${level.label} and above · ${lines(got.hidden)} of ${got.total.toLocaleString('en-US')} hidden · the file is unchanged`,
+      actions: [{ label: 'Show all', onClick: () => void setLevel(levelOf('all')) }],
+    });
+}
+
 /** The line holding the first ERROR or worse, brought to the middle of the pane. */
 async function jumpToFirstError(ctx: AppContext): Promise<void> {
   const found = focusedLog();
@@ -186,7 +240,7 @@ async function jumpToFirstError(ctx: AppContext): Promise<void> {
   if (store === null) return;
   const buffer = store.snapshot().buffer;
   if (!hasLevels(pane)) {
-    ctx.showNotice(`${NO_LEVEL_WORDS} · nothing moved · its lines do not open with a timestamp and a level word`, { kind: 'info', fades: true });
+    ctx.showNotice(`${NO_LEVEL_WORDS} · nothing moved · its lines do not open with a level`, { kind: 'info', fades: true });
     return;
   }
   const at = firstErrorOffset(buffer.text);
@@ -195,6 +249,10 @@ async function jumpToFirstError(ctx: AppContext): Promise<void> {
     return;
   }
   const byte = utf16ToByte(buffer, at);
+  if (found.lines) {
+    found.lines.showByte(byte);
+    return;
+  }
   pane.view.mountThrough(byte);
   const { filterOf, linesOf, piecesOf } = await pageHalf();
   const piece = piecesOf(pane.article).find((code) => Number(code.dataset.marxyS) <= byte && byte < Number(code.dataset.marxyE));
@@ -227,6 +285,19 @@ async function jumpToFirstError(ctx: AppContext): Promise<void> {
   line.focus({ preventScroll: true });
 }
 
+/** Shows level and above in the focused log, as the level menu does (the Outline and Metadata panels). */
+export const setLogLevel = (level: Level): Promise<void> => setLevel(level);
+/** The Line's `=` on a log: the levels it can keep, the one on now, and the way to choose one. */
+export async function logFilterChoices(): Promise<{ readonly levels: readonly { readonly id: string; readonly title: string; readonly now: boolean; choose(): Promise<void> }[] } | null> {
+  const found = focusedLog();
+  const store = found?.pane.view.store();
+  if (!found || !store) return null;
+  if (!hasLevels(found.pane)) return { levels: [] };
+  const { filterOf } = await pageHalf();
+  const now = found.lines ? levelNow(found.lines) : (filterOf(found.pane.article, store)?.level ?? levelOf('all'));
+  return { levels: LEVELS.map((level) => ({ id: level.id, title: MENU_TITLES[level.id]!, now: level.id === now.id, choose: () => setLevel(level) })) };
+}
+
 export function logCommands(): readonly Command[] {
   return [
     {
@@ -239,7 +310,7 @@ export function logCommands(): readonly Command[] {
         const found = focusedLog();
         const store = found?.pane.view.store();
         const { filterOf } = await pageHalf();
-        const now = found && store ? (filterOf(found.pane.article, store)?.level ?? levelOf('all')) : levelOf('all');
+        const now = found?.lines ? levelNow(found.lines) : found && store ? (filterOf(found.pane.article, store)?.level ?? levelOf('all')) : levelOf('all');
         const rows: VerbMenuRow[] = LEVELS.map((level) => ({
           command: null,
           key: `log.level.${level.id}`,

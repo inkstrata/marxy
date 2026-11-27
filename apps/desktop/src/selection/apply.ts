@@ -1,4 +1,4 @@
-// Applies a core operation: clipboard, optional splice, notice (§03, MARXY-42, C-06).
+// Applies a core operation: clipboard, optional splice, notice.
 import type { Operation, OperationInput } from '@marxy/core';
 import { writeCopy } from '../commands/copy-write.ts';
 import type { AppContext, Command } from '../commands/registry.ts';
@@ -42,7 +42,7 @@ export async function apply(
 }
 
 /**
- * Mod+C: the selection's default copy verb (`COPY_DEFAULT`, ADR-0054), else native copy. Never a splice:
+ * Mod+C: the selection's default copy verb (`COPY_DEFAULT`), else native copy. Never a splice:
  * every default is clipboard-only, and `verbs.test.ts` holds that over the corpus.
  */
 export async function runCopyShortcut(ctx: AppContext, registered: readonly Command[]): Promise<void> {

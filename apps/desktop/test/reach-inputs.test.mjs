@@ -1,4 +1,4 @@
-// E-02: the inputs a selection reaches (task item, cell) and what the operations do with them on
+// the inputs a selection reaches (task item, cell) and what the operations do with them on
 // CRLF, CR-only, BOM and mixed-ending files. Pure: no browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

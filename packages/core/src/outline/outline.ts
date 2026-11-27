@@ -1,6 +1,7 @@
-// Heading list from one AST walk. Entries keep the heading node's byte range (ADR-0003, ADR-0020).
+// Heading list from one AST walk. Entries keep the heading node's byte range.
 
 import type { Document, Frontmatter, Heading, Inline, Node, Source } from '../contracts/ast.ts';
+import { budget } from '../util/budget.ts';
 
 export interface OutlineEntry {
   readonly level: 1 | 2 | 3 | 4 | 5 | 6;
@@ -8,26 +9,61 @@ export interface OutlineEntry {
   readonly src: Source;
 }
 
+/**
+ * The most headings the Outline panel draws; past it its rows are the first ones and the panel says so. Only where rows
+ * are drawn: the address and the Line read every heading, which the parse has already bounded.
+ */
+export const OUTLINE_MAX = 20_000;
+
+export interface Outline {
+  readonly entries: OutlineEntry[];
+  /** More headings than the limit asked for: the entries are the first ones. */
+  readonly capped: boolean;
+}
+
+/** Every heading of the document, in document order. */
 export function outlineFrom(doc: Document): OutlineEntry[] {
-  const headings = headingsOf(doc);
+  return outlineOf(doc).entries;
+}
+
+/** The document's first `limit` headings (all of them by default), in document order, and whether there were more. */
+export function outlineOf(doc: Document, limit = Number.POSITIVE_INFINITY): Outline {
+  const { headings, capped, hasH1 } = headingsOf(doc, limit);
   const entries = headings.map((heading) => ({
     level: heading.level,
     text: visibleText(heading.children),
     src: heading.src,
   }));
-  const title = frontmatterTitle(doc, headings);
+  const title = hasH1 ? undefined : frontmatterTitle(doc);
   if (title) entries.unshift(title);
-  return entries;
+  return { entries, capped };
 }
 
-function headingsOf(node: Node): Heading[] {
-  const found: Heading[] = node.type === 'heading' ? [node] : [];
-  for (const child of node.children ?? []) found.push(...headingsOf(child));
-  return found;
+/**
+ * The document's first `limit` headings in document order, whether any heading is an h1, and where the first one left
+ * out starts. A walk of its own rather than the stack's: a quote of 200,000 headings, spread into its parent's list,
+ * threw a RangeError.
+ */
+export function headingsOf(doc: Document, limit = Number.POSITIVE_INFINITY): { headings: Heading[]; capped: boolean; hasH1: boolean; firstLeftOut: number | null } {
+  const kept = budget(limit);
+  const headings: Heading[] = [];
+  let hasH1 = false;
+  let firstLeftOut: number | null = null;
+  const todo: Node[] = [doc];
+  while (todo.length > 0) {
+    const node = todo.pop()!;
+    if (node.type === 'heading') {
+      if (node.level === 1) hasH1 = true;
+      if (kept.take()) headings.push(node);
+      else firstLeftOut ??= node.src.start;
+    }
+    const children = node.children ?? [];
+    for (let i = children.length - 1; i >= 0; i--) todo.push(children[i]!);
+  }
+  return { headings, capped: kept.hit, hasH1, firstLeftOut };
 }
 
-function frontmatterTitle(doc: Document, headings: readonly Heading[]): OutlineEntry | undefined {
-  if (headings.some((heading) => heading.level === 1)) return undefined;
+function frontmatterTitle(doc: Document): OutlineEntry | undefined {
   const matter = doc.children.find((child): child is Frontmatter => child.type === 'frontmatter');
   if (!matter) return undefined;
   // [ \t]*, not \s*: an empty `title:` must not read the next key's line as the title. A YAML block

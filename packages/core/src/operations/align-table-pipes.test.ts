@@ -1,4 +1,4 @@
-// align-table-pipes: byte fidelity outside the aligned cells (AGENTS.md: never touch an unasked byte).
+// align-table-pipes: byte fidelity outside the aligned cells (never touch an unasked byte).
 
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -46,4 +46,12 @@ test('a lone pipe row is left as it is and the result is stable', () => {
   const once = alignRange('|');
   assert.equal(once, '|');
   assert.equal(alignRange(once), once);
+});
+
+test('a table of 130,000 rows aligns, not a RangeError', () => {
+  const text = `| a | b |\n|---|---|\n${'| 1 | 2 |\n'.repeat(130_000)}`;
+  // The rows are the operation's text; the document is not walked for a bare table node, so a small one serves.
+  const node = { type: 'table', children: [] } as unknown as Node;
+  const result = alignTablePipes.run({ document: parseMarkdown('x'), node, range: { file: 't.md', start: 0, end: text.length }, text });
+  assert.ok(result.replacement.startsWith('| a   | b   |'));
 });

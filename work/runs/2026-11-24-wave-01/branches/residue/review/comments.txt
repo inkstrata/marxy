@@ -1,0 +1,749 @@
++++ b/apps/desktop/scripts/demo-tour.mjs
++++ b/apps/desktop/scripts/mutations.mjs
+-// was 1 (`( MARXY_86_MUTATION=… ; test $? -eq 1 )`). Status 1 is also what a syntax error, a crashed
++// was 1 (`( SWITCH=… ; test $? -eq 1 )`). Status 1 is also what a syntax error, a crashed
++++ b/apps/desktop/scripts/smoke-cli-open.mjs
+-// and checks the acceptance criteria that need a real window: the document renders, `MARK first_text
++// and checks what needs a real window: the document renders, `MARK first_text
+-// MARXY_SMOKE_REQUIRED=1 (verify:cli, which CI runs as `CLI smoke check on the built binary`)
++// MARXY_SMOKE_REQUIRED=1 (set by verify:cli, run by hand after a build)
+-// WebKitGTK needs a display; CI runners have xvfb and no DISPLAY. On a virtual display it also needs
++// WebKitGTK needs a display; a headless Linux machine has xvfb and no DISPLAY. On a virtual display it also needs
+-// NO_AT_BRIDGE stops WebKitGTK waiting on an accessibility bus that a headless runner does not have
++// NO_AT_BRIDGE stops WebKitGTK waiting on an accessibility bus that a headless machine does not have
+-// Long enough for the 30 s WebKitGTK-under-Xvfb warm-up on a CI runner, which happens before the app
++// Long enough for the 30 s WebKitGTK-under-Xvfb warm-up on a headless machine, which happens before the app
+-// instead of pretending either way: strict where the answer is required (CI verify:cli, MARXY_SMOKE_REQUIRED=1),
++// instead of pretending either way: strict where the answer is required (verify:cli, MARXY_SMOKE_REQUIRED=1),
++++ b/apps/desktop/scripts/smoke-verdict.mjs
+-// In CI the smoke is required: the `CLI smoke check on the built binary` step runs `verify:cli`
+-// (`MARXY_SMOKE_REQUIRED=1`) in ci.yml's `rust` job and in nightly.yml's macOS and Linux builds.
++// `verify:cli` runs it by hand with `MARXY_SMOKE_REQUIRED=1`, which makes a machine that cannot paint a failure.
+- * `MARXY_SMOKE_REQUIRED=1` is required mode: `verify:cli` sets it, and so does CI's
+- * `CLI smoke check on the built binary` step. Local `pnpm build` does not.
++ * `MARXY_SMOKE_REQUIRED=1` is required mode: `verify:cli` sets it. A plain
++ * `pnpm build` does not.
+- * never `ok`: skipped where the smoke is optional, a failure where it is required (a CI runner that cannot
++ * never `ok`: skipped where the smoke is optional, a failure where it is required (a machine that cannot
+- * that runner then logs `fuse init failed` and starts from a dirtier machine (CI run 37040073668).
++ * that runner then logs `fuse init failed` and starts from a dirtier machine.
++++ b/apps/desktop/scripts/tauri-check.mjs
+-  // without the file being read whole (A3, for E9). The frames are encoded here in the page, VP9 by WebCodecs.
++  // without the file being read whole. The frames are encoded here in the page, VP9 by WebCodecs.
++++ b/apps/desktop/src-tauri/Cargo.toml
+-# Reads `external_editor` from config.toml; 0.9 is already in Cargo.lock.
++# Reads `external_editor` from config.toml.
+-# Magic bytes for content detection (B2, src/detect.rs). MIT; already in Cargo.lock through tauri-utils.
++# Magic bytes for content detection (src/detect.rs). MIT; already in Cargo.lock through tauri-utils.
+-# Decoders for the formats the webview cannot show (C2, src/decode): TIFF, TGA, OpenEXR, Radiance HDR, QOI, PNM, farbfeld
++# Decoders for the formats the webview cannot show (src/decode): TIFF, TGA, OpenEXR, Radiance HDR, QOI, PNM, farbfeld
+-# Archive listing and one-entry reads (E3, src/archive): deflate for zip, gzip for tar.gz and lone .gz. MIT OR Apache-2.0;
++# Archive listing and one-entry reads (src/archive): deflate for zip, gzip for tar.gz and lone .gz. MIT OR Apache-2.0;
+-# SQLite databases read in place, read-only (E5, src/tables): SQLite itself compiled in, `serialize` for a copy held
++# SQLite databases read in place, read-only (src/tables): SQLite itself compiled in, `serialize` for a copy held
+-# Spreadsheets as saved (E6, src/tables): xlsx, xlsm, xls (BIFF in a compound file) and ods; cached values, formulas as
++# Spreadsheets as saved (src/tables): xlsx, xlsm, xls (BIFF in a compound file) and ods; cached values, formulas as
+-# Text that is not UTF-8 (B3, src/encoding): encoding_rs decodes and encodes the WHATWG encodings, chardetng guesses one
++# Text that is not UTF-8 (src/encoding): encoding_rs decodes and encodes the WHATWG encodings, chardetng guesses one
+-# CI builds: thin LTO and more codegen units so a CI build pays seconds, not minutes, for the
+-# link; the shipped binary still uses [profile.release] (tags and `pnpm bundle`). Startup baselines
+-# in fixtures/perf-budgets.json under "ci" are measured on this profile.
++# A quicker-linking profile for builds that are not shipped (`cargo build --profile ci`): thin LTO and more codegen
++# units. The shipped binary uses [profile.release] (`pnpm bundle`).
++++ b/apps/desktop/src-tauri/src/archive/mod.rs
+-//! Archives: list one and read one entry into memory (E3; `src/commands/archive.rs`). Nothing here writes to disk or
++//! Archives: list one and read one entry into memory (`src/commands/archive.rs`). Nothing here writes to disk or
+-    // ---- the shared table, heads and the index (archive page A1) ---------------------------------------------------
++    // ---- the shared table, heads and the index ---------------------------------------------------
+-    /// Acceptance A1: the heads of ten entries of a tar.gz come from one walk of its stream, counted.
++    /// The heads of ten entries of a tar.gz come from one walk of its stream, counted.
+-    /// Acceptance A1: heads stop at the budget in all; the wants past it are left out, not refused.
++    /// Heads stop at the budget in all; the wants past it are left out, not refused.
++++ b/apps/desktop/src-tauri/src/archive/zip.rs
+-    /// Acceptance A1: a read by offset lands on a local header and checks it names the entry listed there.
++    /// A read by offset lands on a local header and checks it names the entry listed there.
+-    /// Acceptance A1: a head of an encrypted entry is the refusal, never its bytes.
++    /// A head of an encrypted entry is the refusal, never its bytes.
++++ b/apps/desktop/src-tauri/src/commands/font.rs
+-//! `font_facts` and `font_glyph`: what a font file is and what one of its glyphs is, for the font page (E7; `src/font`).
++//! `font_facts` and `font_glyph`: what a font file is and what one of its glyphs is, for the font page (`src/font`).
++++ b/apps/desktop/src-tauri/src/commands/held.rs
+-//! An archive's entry read by a reader that needs it whole (archive page A6): a database, a workbook, a font or a
++//! An archive's entry read by a reader that needs it whole: a database, a workbook, a font or a
++++ b/apps/desktop/src-tauri/src/commands/media.rs
+-//! waveform, for the media page (E9; `src/facts/media.rs`). Like `image_facts` they read only what the page opened.
++//! waveform, for the media page (`src/facts/media.rs`). Like `image_facts` they read only what the page opened.
++++ b/apps/desktop/src-tauri/src/commands/os.rs
+-//! Open in external editor (D-A31).
++//! Open in external editor.
+-/// `std::process::Command` and never to a shell (D-A31). A template is split on ASCII whitespace
++/// `std::process::Command` and never to a shell. A template is split on ASCII whitespace
++++ b/apps/desktop/src-tauri/src/commands/tables.rs
+-//! `tables_open`, `tables_rows` and `tables_blob`: a database or a workbook for the table page (E5, E6; `src/tables`).
++//! `tables_open`, `tables_rows` and `tables_blob`: a database or a workbook for the table page (`src/tables`).
++++ b/apps/desktop/src-tauri/src/detect.rs
+-/// A head that opens like a mail message (E8, core `mail/mime.ts`'s `looksLikeMessage`): header lines up to the first
++/// A head that opens like a mail message (core `mail/mime.ts`'s `looksLikeMessage`): header lines up to the first
++++ b/apps/desktop/src-tauri/src/remote.rs
+-//! One image from the network, fetched by the shell only after the reader asked (E8, a message's "Load them for this
++//! One image from the network, fetched by the shell only after the reader asked (a message's "Load them for this
++++ b/apps/desktop/src-tauri/src/tables/mod.rs
+-//! Tables: a SQLite database and a spreadsheet, read for the table page (E5, E6; `src/commands/tables.rs`). Nothing
++//! Tables: a SQLite database and a spreadsheet, read for the table page (`src/commands/tables.rs`). Nothing
+-/// Where a workbook's bytes are: a file on disk, or an archive's entry held in memory (archive page A6), which has no
++/// Where a workbook's bytes are: a file on disk, or an archive's entry held in memory, which has no
++++ b/apps/desktop/src-tauri/src/tables/sqlite.rs
+-/// Opens an archive's entry held in memory (archive page A6): `bytes` copied into SQLite's own memory, read-only, as a
++/// Opens an archive's entry held in memory: `bytes` copied into SQLite's own memory, read-only, as a
++++ b/apps/desktop/src-tauri/src/watch/mod.rs
+-    /// H3 (seams pass): a document opened through a symlink lives in the link's
++    /// a document opened through a symlink lives in the link's
++++ b/apps/desktop/src/app-types.ts
+-  /** A font file's facts (E7, src-tauri/src/font): null when it is not a font. The browser build answers for the demo's own. */
++  /** A font file's facts (src-tauri/src/font): null when it is not a font. The browser build answers for the demo's own. */
+-   * Text that is not UTF-8 (B3, src-tauri/src/encoding): `bytes` already read, as UTF-8 text with the byte map back to them,
++   * Text that is not UTF-8 (src-tauri/src/encoding): `bytes` already read, as UTF-8 text with the byte map back to them,
++++ b/apps/desktop/src/changes/state.ts
+-// The unsaved state of every open document, for whoever draws it: the window slice's unsaved chip
++// The unsaved state of every open document, for whoever draws it: the window's unsaved chip
++++ b/apps/desktop/src/commands/editor.ts
+-          // Only the path and the line leave the webview; the program is Rust's to choose (D-A31).
++          // Only the path and the line leave the webview; the program is Rust's to choose.
++++ b/apps/desktop/src/document/entries.ts
+-  /** The archive's own path: on disk, or the `archive-entry:` path of the entry it was read from (archive page A7). */
++  /** The archive's own path: on disk, or the `archive-entry:` path of the entry it was read from. */
+-   * archive's entry is read by the shell's readers from where it lies (archive page A6).
++   * archive's entry is read by the shell's readers from where it lies.
+-  /** 1 for an entry of an archive on disk, 2 for an entry of that entry, and so on (archive page A7). */
++  /** 1 for an entry of an archive on disk, 2 for an entry of that entry, and so on. */
+-// Entries held for an archive page's preview (archive page A3): a pool of their own, so following the cursor through an
++// Entries held for an archive page's preview: a pool of their own, so following the cursor through an
+-// Entries held for an archive's sheet (archive page A5): a pool of their own, apart from the tabs' and the previews', so
++// Entries held for an archive's sheet: a pool of their own, apart from the tabs' and the previews', so
+- * An archive's entry named as the cursor addresses it, every level joined: `survey.zip!/backups/notes.tar.gz!/notes/a.md`
+- * (archive page A7). Null for any other path, an attachment and a cell included.
++ * An archive's entry named as the cursor addresses it, every level joined: `survey.zip!/backups/notes.tar.gz!/notes/a.md` Null for any other path, an attachment and a cell included.
++++ b/apps/desktop/src/document/open.ts
+-      // (B5: a 2 GB file opens at once), and open as a page of the app's own. A certificate is PEM text or DER bytes: its head says which.
++      // (a 2 GB file opens at once), and open as a page of the app's own. A certificate is PEM text or DER bytes: its head says which.
++++ b/apps/desktop/src/document/store.test.ts
+-  // An alignment: the table grows. The seams pass lost 196 bytes after it when undo used a stale length.
++  // An alignment: the table grows. An earlier version lost 196 bytes after it when undo used a stale length.
++++ b/apps/desktop/src/document/store.ts
+-// The document store: the one owner of an open document's bytes (Amendment 1).
++// The document store: the one owner of an open document's bytes.
++++ b/apps/desktop/src/frame/dom.ts
+-/** An overlay gone: focus back where it was when the overlay came, else to `fallback` (a pane), never to <body> (H15). */
++/** An overlay gone: focus back where it was when the overlay came, else to `fallback` (a pane), never to <body>. */
++++ b/apps/desktop/src/frame/model/guess.test.ts
+-// The guess mark (H8): the head names the guessed part, is quiet when nothing was guessed, and
++// The guess mark: the head names the guessed part, is quiet when nothing was guessed, and
++++ b/apps/desktop/src/frame/model/metadata.test.ts
++++ b/apps/desktop/src/harness/gate-entry.ts
+- * performance budget (speed is measured in the nightly perf job), so a slow runner does not fail the gate;
++ * performance budget (speed is measured by `pnpm perf`), so a slow runner does not fail the gate;
++++ b/apps/desktop/src/index/every-file.test.ts
+-// B4: the index lists every file. A `.png` and an extension-less README are entries the palette finds and the Library's
++// The index lists every file. A `.png` and an extension-less README are entries the palette finds and the Library's
++++ b/apps/desktop/src/left/panels/metadata.ts
+-    // A Markdown page is read as Markdown whatever kind its text suggests, so the kind is said plainly, not as a guess (H8).
++    // A Markdown page is read as Markdown whatever kind its text suggests, so the kind is said plainly, not as a guess.
++++ b/apps/desktop/src/look/theme-look.ts
+-// The look that stands for the theme config.toml names (the theme pass, 2026-11-17): every bundled theme is a look too,
++// The look that stands for the theme config.toml names: every bundled theme is a look too,
++++ b/apps/desktop/src/palette/commands.ts
+-    // Asked for by name but not offered now (H14): listed dimmed with why, so it does not vanish unexplained.
++    // Asked for by name but not offered now: listed dimmed with why, so it does not vanish unexplained.
++++ b/apps/desktop/src/palette/search-perf.test.ts
+-// the nightly perf-harness job keeps the numbers.
++// the harness prints the numbers.
++++ b/apps/desktop/src/palette/view.ts
+-  // An empty list says so, and where else to look (H14).
++  // An empty list says so, and where else to look.
++++ b/apps/desktop/src/render/embed-page.ts
+-// A text entry's page inside another page (archive page A3, `viewers/embed.ts`): what the pane draws for those bytes, by
++// A text entry's page inside another page (`viewers/embed.ts`): what the pane draws for those bytes, by
++++ b/apps/desktop/src/render/working.ts
+-// A large open says what it is doing while it works: "Reading 2.0 MB…" in the pane's head, in the grey of a tier
+-// (decision 2), from the moment its bytes are in until its page is. The open path writes it on the pane;
++// A large open says what it is doing while it works: "Reading 2.0 MB…" in the pane's head, in the grey of a tier,
++// from the moment its bytes are in until its page is. The open path writes it on the pane;
++++ b/apps/desktop/src/shell/build-gate.mjs
++++ b/apps/desktop/src/shell/memory-archive-heads.test.ts
+-// `readArchiveHeads` on the memory shell (archive page A1): the twin's heads over the page's own inflate, which stops at
++// `readArchiveHeads` on the memory shell: the twin's heads over the page's own inflate, which stops at
++++ b/apps/desktop/src/shell/memory.ts
+- * What the Rust shell's reader says of an archive's entry (archive page A6): the same file, read from memory as a copy
++ * What the Rust shell's reader says of an archive's entry: the same file, read from memory as a copy
+-   * The bytes a reader reads: the file's, or (archive page A6) entry `inArchive` of the archive at `path`, read by the twin
++   * The bytes a reader reads: the file's, or entry `inArchive` of the archive at `path`, read by the twin
++++ b/apps/desktop/src/shell/tauri.ts
+-  /** What each file's head says it is (B2, src/detect.rs); null for a path that is not a readable regular file. */
++  /** What each file's head says it is (src/detect.rs); null for a path that is not a readable regular file. */
+-  /** Rust reads `external_editor` and runs it without a shell; only the path and line cross (D-A31). */
++  /** Rust reads `external_editor` and runs it without a shell; only the path and line cross. */
++++ b/apps/desktop/src/source/colour.test.mjs
+-// D1: how Source lays the worker's runs: each piece replaces the marks over its span and no others, the marks follow an
++// How Source lays the worker's runs: each piece replaces the marks over its span and no others, the marks follow an
++++ b/apps/desktop/src/source/colour.ts
+-// Source's colour from Read's tokenizer (Q-H a): Shiki's runs, read in the highlight worker, applied as CodeMirror
++// Source's colour from Read's tokenizer: Shiki's runs, read in the highlight worker, applied as CodeMirror
+-/** The lines on screen, then the editor's viewport around them (D3: read first, in that order), 0-based. */
++/** The lines on screen, then the editor's viewport around them (read first, in that order), 0-based. */
++++ b/apps/desktop/src/source/editor.ts
+-    // The island wraps as it always has; Source wraps Markdown with a hang and scrolls code (K-R3 (a)).
++    // The island wraps as it always has; Source wraps Markdown with a hang and scrolls code.
++++ b/apps/desktop/src/source/fence-lang.test.ts
+-// D4 for Source: a fence's lines carry the registry's id for its word, and a braced fence (Quarto's ```{r}) the id
++// A fence's lines carry the registry's id for its word, and a braced fence (Quarto's ```{r}) the id
++++ b/apps/desktop/src/source/grammars.test.mjs
++++ b/apps/desktop/src/source/harness-entry.ts
+-  // The second review of #584: a forged item whose readable text is one U+FFFD and whose type holds a lone surrogate
++  // A forged item whose readable text is one U+FFFD and whose type holds a lone surrogate
+- * Two stray bytes made neighbours by deleting the line break between them (C3, A9: they spell é), then Q typed at the
++ * Two stray bytes made neighbours by deleting the line break between them (they spell é), then Q typed at the
+- * D1: Source's colour for `path`, as drawn: each character of the editor's lines and its role, read from the DOM once the
++ * Source's colour for `path`, as drawn: each character of the editor's lines and its role, read from the DOM once the
+- * D1: Read's colour for `text` in `lang`, as Read draws a fence: a `<pre><code class="language-…">` coloured by the same
++ * Read's colour for `text` in `lang`, as Read draws a fence: a `<pre><code class="language-…">` coloured by the same
++++ b/apps/desktop/src/source/role-parity.test.mjs
++++ b/apps/desktop/src/source/source-browser.test.mjs
+-// D1: Source is coloured from Read's tokenizer. Each file is drawn in Source, and its text drawn as a Read fence in the
++// Source is coloured from Read's tokenizer. Each file is drawn in Source, and its text drawn as a Read fence in the
++++ b/apps/desktop/src/source/stray-bytes.test.mjs
+-// The second review of #576 (3a08c006): each of these wrote another stray's value in a stray's place.
++// Each of these wrote another stray's value in a stray's place.
+-// The second review of #584: the private pasteboard type may name stray bytes and nothing else. A lone high surrogate
++// The private pasteboard type may name stray bytes and nothing else. A lone high surrogate
++++ b/apps/desktop/src/source/stray-bytes.ts
+- * pasted before a stray `\udcff` encodes as F0 90 83 BF, not FF (the review of #584).
++ * pasted before a stray `\udcff` encodes as F0 90 83 BF, not FF.
++++ b/apps/desktop/src/startup/measure.ts
+-// scripts/measure-startup.mjs and the nightly read them by name.
++// scripts/measure-startup.mjs read them by name.
+-      // Two fields exactly: the acceptance criterion names this line, and the startup harness parses it.
++      // Two fields exactly: the startup check names this line, and the startup harness parses it.
++++ b/apps/desktop/src/studio/compare.ts
+-// Compare (STUDIO-BRIEF "Compare"): the canvas split down a seam that can be dragged. Left of it
++// Compare: the canvas split down a seam that can be dragged. Left of it
++++ b/apps/desktop/src/studio/fit.ts
+-// Fit (STUDIO-BRIEF "Fit: an eye test for your own reading"): two settings of the reader's own
++// Fit: two settings of the reader's own
++++ b/apps/desktop/src/studio/galley.ts
+-// The specimen (the theme pass, 2026-11-17; it replaces the contact sheet): one long proof, read top to bottom, in
++// The specimen: one long proof, read top to bottom, in
++++ b/apps/desktop/src/studio/shelf.ts
+-// The Studio's shelf of themes (the theme pass, 2026-11-17, second round): every look as a row of two lines, its name and
++// The Studio's shelf of themes: every look as a row of two lines, its name and
++++ b/apps/desktop/src/studio/studio.ts
+-// through the store. The theme pass (2026-11-17): every theme is a look, so Ink, Polar and the bundled themes are on the
++// through the store. Every theme is a look, so Ink, Polar and the bundled themes are on the
++++ b/apps/desktop/src/studio/tab-adapts.ts
+-// The Studio's Adapts tab (STUDIO-BRIEF "The dock" 5): every rule as its sentence with its
++// The Studio's Adapts tab: every rule as its sentence with its
++++ b/apps/desktop/src/studio/tab-code.ts
+-// The Studio's Code tab (STUDIO-BRIEF "The dock" 4, lab P-look 09): how much colour code gets,
++// The Studio's Code tab: how much colour code gets,
++++ b/apps/desktop/src/studio/tab-colours.ts
+-// The Studio's Colours tab (the theme pass, 2026-11-17): where a theme is made colour by colour. Every role the look paints
++// The Studio's Colours tab: where a theme is made colour by colour. Every role the look paints
++++ b/apps/desktop/src/studio/tab-file.ts
+-// The Studio's File tab (STUDIO-BRIEF "The dock" 6, lab P-look 10): the look being edited as
++// The Studio's File tab: the look being edited as
++++ b/apps/desktop/src/studio/tab-page.ts
+-// The Studio's Page tab (STUDIO-BRIEF "The dock" 3): the measure (its rule shown on the canvas
++// The Studio's Page tab: the measure (its rule shown on the canvas
++++ b/apps/desktop/src/studio/tab-tone.ts
+-// The Studio's Tone tab (STUDIO-BRIEF "The dock" 1): the tone pad, the page's ink and the
++// The Studio's Tone tab: the tone pad, the page's ink and the
++++ b/apps/desktop/src/studio/tab-type.ts
+-// The Studio's Type tab (STUDIO-BRIEF "The dock" 2): the face, shown as its own name set in
++// The Studio's Type tab: the face, shown as its own name set in
++++ b/apps/desktop/src/versions/recorder.test.ts
+-// save (`before save`: what was on disk) and at an outside change (`before reload`: what it replaced); never at an open (Ian,
+-// 2026-11-02: the data folder is not a record of what was read), and never for a keystroke, an undo or a fold of Source.
++// save (`before save`: what was on disk) and at an outside change (`before reload`: what it replaced); never at an open (the data
++// folder is not a record of what was read), and never for a keystroke, an undo or a fold of Source.
++++ b/apps/desktop/src/versions/recorder.ts
+-// (`before reload`: what was on disk). Never when a file is opened (Ian, 2026-11-02: the data folder is not a record of what
++// (`before reload`: what was on disk). Never when a file is opened (the data folder is not a record of what
++++ b/apps/desktop/src/view/rendered-view.ts
+-   * for it (K-R4): a reload sets that text again and does not render the file as Markdown in its place.
++   * for it: a reload sets that text again and does not render the file as Markdown in its place.
+-   * shown there as plain text (K-R4).
++   * shown there as plain text.
+-    // The file is on screen as plain text because Source would not mount (K-R4): its new bytes, as plain text.
++    // The file is on screen as plain text because Source would not mount: its new bytes, as plain text.
++++ b/apps/desktop/src/viewers/archive-bytes.ts
+-// memory as an entry of another (archive page A7) in either shell. Light: no stand-ins, nothing of the demo.
++// memory as an entry of another in either shell. Light: no stand-ins, nothing of the demo.
++++ b/apps/desktop/src/viewers/archive-entries.ts
+-// The shell as the viewers see an archive's entry held in memory (E3, `document/entries.ts`): the image page, the file
++// The shell as the viewers see an archive's entry held in memory (`document/entries.ts`): the image page, the file
+-// the entry's index and name (archive page A6). An entry that is itself an archive is listed and read from the held bytes
+-// by core's reader (A7, `archive-nested.ts`), never by the shell. Any other path goes to the shell itself.
++// the entry's index and name. An entry that is itself an archive is listed and read from the held bytes
++// by core's reader (`archive-nested.ts`), never by the shell. Any other path goes to the shell itself.
++++ b/apps/desktop/src/viewers/archive-reveal.ts
+-// Reveal and x-ray on an archive's page (archive page A4). Reveal (`Shift X`) puts
++// Reveal and x-ray on an archive's page. Reveal (`Shift X`) puts
++++ b/apps/desktop/src/viewers/archive-sheet.ts
+-// The sheet (archive page A5, "The sheet"): the entries as tiles, each the entry's own page drawn small
++// The sheet: the entries as tiles, each the entry's own page drawn small
++++ b/apps/desktop/src/viewers/archive.ts
+-// An archive's page (archive page A2): one sentence that says what it is, the
++// An archive's page: one sentence that says what it is, the
+-// folder, h out, z folds) and o opens one into memory in a tab of its own. Source is the hex view (decision 1).
++// folder, h out, z folds) and o opens one into memory in a tab of its own. Source is the hex view.
+-  // ---- the filter (A8, the Line's `=`): matching files and the folders that hold them; kept in the view only ----------
++  // ---- the filter (the Line's `=`): matching files and the folders that hold them; kept in the view only ----------
+-  // ---- Reveal and x-ray (A4, viewers/archive-reveal.ts) -------------------------------------------------------------
++  // ---- Reveal and x-ray (viewers/archive-reveal.ts) -------------------------------------------------------------
+-  // The preview's parts spliced under its entry's unit (decision 4, as a fenced part of a Markdown page is gone into):
++  // The preview's parts spliced under its entry's unit, as a fenced part of a Markdown page is gone into:
++++ b/apps/desktop/src/viewers/card.ts
+-// The floor (B5, Q-E as drawn): a file with no reading opens as a card of what is known about it, with every byte beside
++// The floor: a file with no reading opens as a card of what is known about it, with every byte beside
++++ b/apps/desktop/src/viewers/embed.ts
+-// A small reading of some bytes inside another page (archive page A3, decision 2): an archive's preview, and later a
++// A small reading of some bytes inside another page: an archive's preview, and later a
++++ b/apps/desktop/src/viewers/index.ts
+-  // Q-C as drawn: an image this system cannot decode (HEIC on Linux, or on a Windows without the codec) is the file card, which says why. It is still one of
++  // An image this system cannot decode (HEIC on Linux, or on a Windows without the codec) is the file card, which says why. It is still one of
++++ b/apps/desktop/src/viewers/pdf.css
++++ b/apps/desktop/src/viewers/pdf.ts
+-// Fit width and Fit page in the bar; the paper as authored, white in Night too (decision 11). The panel's fourth card is
++// Fit width and Fit page in the bar; the paper as authored, white in Night too. The panel's fourth card is
+-// fields. Source is the bytes, the hex view, as for any file that is not text (decision 1). The bytes come a range at a
++// fields. Source is the bytes, the hex view, as for any file that is not text. The bytes come a range at a
++++ b/apps/desktop/test/app-harness.test.mjs
+- * A job without Playwright's WebKit (CI's `fast` job) skips the browser cases and says why, unless
++ * A run without Playwright's WebKit skips the browser cases and says why, unless
++++ b/apps/desktop/test/archive-filter.test.mjs
+-// The archive page's filter (archive page A8, the keys table: `=` filters by name, size or reading): typed into
++// The archive page's filter: typed into
++++ b/apps/desktop/test/archive-held-kinds.test.mjs
+-// A database, a workbook, a font and a recording inside an archive (archive page A6): `o` on each opens a tab that is
++// A database, a workbook, a font and a recording inside an archive: `o` on each opens a tab that is
++++ b/apps/desktop/test/archive-page.test.mjs
+-// The archive page (archive page A2): the lede, the plan to scale with pictures as
++// The archive page: the lede, the plan to scale with pictures as
++++ b/apps/desktop/test/archive-preview.test.mjs
+-// The archive page's preview (archive page A3): the entry under the cursor
++// The archive page's preview: the entry under the cursor
++++ b/apps/desktop/test/archive-reveal.test.mjs
+-// Reveal and x-ray on an archive (archive page A4): Shift X
++// Reveal and x-ray on an archive: Shift X
++++ b/apps/desktop/test/archive-sheet.test.mjs
+-// The archive page's sheet (archive page A5): every entry a tile that
++// The archive page's sheet: every entry a tile that
++++ b/apps/desktop/test/changes.test.mjs
+-// kept beside the file, and Y lays the notes out as a reply. Ports the prototype's checks (lab 25 test/check.mjs) 09, 10a,
+-// 10b, 10c, 18, 20, 22 and 23 by their numbers.
++// kept beside the file, and Y lays the notes out as a reply.
++++ b/apps/desktop/test/cursor.test.mjs
+-// on it. The keys are the page's only: inert in a field, in Source, and with `verbs = false`. Ports the prototype's
+-// cursor checks (lab 25 test/check.mjs 04, 05, the ] [ walk and the copy checks).
++// on it. The keys are the page's only: inert in a field, in Source, and with `verbs = false`.
++++ b/apps/desktop/test/depths.test.mjs
+-// the rest back. Ports the prototype's checks 11a, 11b, 12, 14a, 14b and 15 (lab 25 test/check.mjs) by name, and adds
++// the rest back. It also covers
++++ b/apps/desktop/test/fonts.test.mjs
+- * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
++ * A run without Playwright's WebKit skips these tests and says why, unless
++++ b/apps/desktop/test/frame-archives.test.mjs
+-    // Source is the bytes (decision 1): the hex view, starting PK.
++    // Source is the bytes : the hex view, starting PK.
++++ b/apps/desktop/test/frame-chrome.test.mjs
+-// Batch 5's chrome: the guess mark names the guessed part and agrees with the Reading card (H8);
++// The window chrome: the guess mark names the guessed part and agrees with the Reading card;
+-// worked from the keys (H4, H5); focus rings on the page's stops (H6); what is pressed or a field in forced colours (H11); and Escape and Tab between the left section's panel and the page (H15). Playwright WebKit.
++// worked from the keys; focus rings on the page's stops; what is pressed or a field in forced colours; and Escape and Tab between the left section's panel and the page. Playwright WebKit.
++++ b/apps/desktop/test/frame-panel.test.mjs
+-    // The plan's kind is guessed from its text, but a Markdown page is read as Markdown: no guess to say (H8).
++    // The plan's kind is guessed from its text, but a Markdown page is read as Markdown: no guess to say.
++++ b/apps/desktop/test/frontispiece-boot.test.mjs
+- * A job without Playwright's WebKit (CI's `fast` job) skips the browser cases and says why, unless
++ * A run without Playwright's WebKit skips the browser cases and says why, unless
++++ b/apps/desktop/test/images.test.mjs
+-// C3: a local SVG shows through <img>, sized from its root, and its script never runs.
++// A local SVG shows through <img>, sized from its root, and its script never runs.
++++ b/apps/desktop/test/joins.test.mjs
+-// Save from the menu and from Source reading the patch first when review_changes is on. Ports the head-chip half of the
+-// prototype's check 18 and check 12 by their numbers.
++// Save from the menu and from Source reading the patch first when review_changes is on.
++++ b/apps/desktop/test/kind-profiles.test.mjs
+-// 66-character measure (theme.css, commit 0605aec); `notes` reads as the default prose; every other kind reads as it did. The
++// 66-character measure (theme.css); `notes` reads as the default prose; every other kind reads as it did. The
++++ b/apps/desktop/test/kinds-cursor.test.mjs
+-// is only read. Ports the prototype's K-frame, K-trees and K-pack checks where they apply (lab 25, test/kinds-*.mjs).
++// is only read.
++++ b/apps/desktop/test/kinds-media2.test.mjs
+-// refuse. Ports the prototype's K-media checks where they apply (lab 25, test/kinds-media.mjs).
++// refuse.
++++ b/apps/desktop/test/kinds-pack-media.test.mjs
+-// attachment read-only in a tab of its own, `\` goes to Source at the part, and the change verbs refuse. Ports the
+-// prototype's K-pack 10 to 12 and 16 and K-media 02, 03 and 07 where they apply (lab 25, test/kinds-pack.mjs and
+-// test/kinds-media.mjs); the segments and chunks are not parts here: core keeps no list of them.
++// attachment read-only in a tab of its own, `\` goes to Source at the part, and the change verbs refuse. The segments and chunks are not parts here: core keeps no list of them.
++++ b/apps/desktop/test/kinds-tables.test.mjs
+-// change verbs refusing. Ports the prototype's K-tables checks where they apply (lab 25, test/kinds-tables.mjs).
++// change verbs refusing.
++++ b/apps/desktop/test/lang-scope.test.mjs
+-// D4: every code block in Read and the Source editor carry `data-marxy-lang`, the registry's id, so a theme's
++// Every code block in Read and the Source editor carry `data-marxy-lang`, the registry's id, so a theme's
++++ b/apps/desktop/test/layout-shift-window.test.mjs
+-/** Main-branch gate literals; criterion 4 forbids moving them. */
++/** Main-branch gate literals; they must not move. */
++++ b/apps/desktop/test/left-doc.test.mjs
+-// (to files here, nowhere, within, outside, pointing here; o, p and the page following the cursor). Ports the L-doc
+-// checks (lab 25 test/left-doc.mjs) by name where they apply to the app. Playwright WebKit.
++// (to files here, nowhere, within, outside, pointing here; o, p and the page following the cursor). Playwright WebKit.
++++ b/apps/desktop/test/left-frame.test.mjs
+-// page and the panel, the narrow window, and Places' filter, count line, view menu, rows and verbs. Ports the
+-// L-frame checks (lab 25 test/left-frame.mjs) by name where they apply to the app.
++// page and the panel, the narrow window, and Places' filter, count line, view menu, rows and verbs.
++++ b/apps/desktop/test/left-work.test.mjs
+-// staging, the page marks, the invisible characters asked about. Ports the L-work checks (from
+-// test/left-work.mjs) by name where they apply to the app; the Line's check is not ported yet.
++// staging, the page marks, the invisible characters asked about.
++++ b/apps/desktop/test/link-beside.test.mjs
+-// The width follows the theme's metrics (split-screen-criterion proves the number by splitting at it).
++// The width follows the theme's metrics (split-readme-beside-plan proves the number by splitting at it).
++++ b/apps/desktop/test/log.test.mjs
+-    // (`longest main-thread block`, printed above) is a record for the nightly run to read, never a bound.
++    // (`longest main-thread block`, printed above) is a record for a person to read, never a bound.
++++ b/apps/desktop/test/look.test.mjs
+-// file in reading/ in Book, code fixed width), and `a`, `+`, `N` and `B` act on it and are written back. Ports the
+-// prototype's checks 36a, 36b, 37 and P-look 01 and 03 (lab 25 test/check.mjs, test/kinds-palettes.mjs).
++// file in reading/ in Book, code fixed width), and `a`, `+`, `N` and `B` act on it and are written back.
++++ b/apps/desktop/test/paint-signal.test.mjs
++++ b/apps/desktop/test/paste-and-tidy-flow.test.mjs
+-// The screen criterion, end to end. An assistant's answer sits on the pasteboard, wrapped in one
++// The paste-and-tidy flow, end to end. An assistant's answer sits on the pasteboard, wrapped in one
+- * The four changes the criterion makes, found in `doc` (ASCII, so a UTF-16 offset is a byte offset), and the
++ * The four changes the flow makes, found in `doc` (ASCII, so a UTF-16 offset is a byte offset), and the
+- * The criterion, once, on `doc` (the fixture with the file's line endings). `neutralise` serves the slice fold
++ * The flow, once, on `doc` (the fixture with the file's line endings). `neutralise` serves the slice fold
++++ b/apps/desktop/test/post-passes.test.mjs
+- * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
++ * A run without Playwright's WebKit skips these tests and says why, unless
++++ b/apps/desktop/test/save-trust.test.mjs
+-// ---- B9: an edit made while a save is in flight ------------------------------------------------
++// ---- an edit made while a save is in flight ------------------------------------------------
+-// ---- B10: save failure wording, and saving a file that was deleted ------------------------------
++// ---- save failure wording, and saving a file that was deleted ------------------------------
+-// ---- B11: "Show source" lands on the byte, not the UTF-16 index --------------------------------
++// ---- "Show source" lands on the byte, not the UTF-16 index --------------------------------
+-// ---- B13 / B14 / B15: trust grants -------------------------------------------------------------
++// ---- trust grants -------------------------------------------------------------
+-// ---- B14 / B15 without a browser ---------------------------------------------------------------
++// ---- trust grants without a browser ---------------------------------------------------------------
++++ b/apps/desktop/test/source-notices-grid.test.mjs
+-// Round-three desktop defects, each in a real WebKit page over the real app modules:
++// Desktop defects, each in a real WebKit page over the real app modules:
++++ b/apps/desktop/test/split-cost.test.mjs
+-// printed and never judged: timing goes in the nightly record, and the report-back thresholds of
++// printed and never judged: timing goes in the perf record, and the thresholds of
++++ b/apps/desktop/test/split-readme-beside-plan.test.mjs
+-// The phase's screen criterion, end to end: a README
++// A README, a plan and a source file side by side, end to end: a README
++++ b/apps/desktop/test/store-walk.test.mjs
+-//   MARXY_WALK_SEEDS=<n>  runs seeds 1..n (default 40; the nightly run sets 2000)
++//   MARXY_WALK_SEEDS=<n>  runs seeds 1..n (default 40; a long hunt sets 2000)
++++ b/apps/desktop/test/studio-code-adapts-file.test.mjs
+-// The Studio's Code, Adapts and File tabs in WebKit. Ports the prototype's P-look 09 (the Code
+-// tab: a language puts its file on the canvas and its colours in the list), the File half of P-look 10 (the look's file
+-// says which and how much), and STUDIO-BRIEF acceptance 4 for these tabs (each tab's controls change the canvas and the
+-// look in the store).
++// The Studio's Code, Adapts and File tabs in WebKit. The Code tab: a language puts its file on the
++// canvas and its colours in the list; the File tab shows the look's file and says which and how much; each tab's
++// controls change the canvas and the look in the store.
++++ b/apps/desktop/test/studio-compare-sheet-fit.test.mjs
+-// The Studio's Compare, specimen and Fit in WebKit. Ports STUDIO-BRIEF acceptance 6, 7 and 8 and
+-// the sheet half of P-look 10 (lab 25 build/STUDIO-BRIEF.md, test/kinds-palettes.mjs). The theme pass (2026-11-17) made the
+-// specimen one long proof in place of the contact sheet's grid.
++// The Studio's Compare, specimen and Fit in WebKit. The specimen is one long proof, not a grid.
++++ b/apps/desktop/test/studio-themes.test.mjs
+-// The Studio as a theme creator (the theme pass, 2026-11-17) in WebKit: the shelf is a list of themes, each row drawn in
++// The Studio as a theme creator in WebKit: the shelf is a list of themes, each row drawn in
++++ b/apps/desktop/test/studio-tone-type-page.test.mjs
+-// The Studio's Tone, Type and Page tabs in WebKit. Ports STUDIO-BRIEF acceptance 3 (dragging
+-// the tone puck changes the page and the room, and the puck cannot rest in the dead band) and 4 (each tab's dials change
+-// the canvas and the look as the store merges it), and that a double-click returns a dial to the look's own value.
++// The Studio's Tone, Type and Page tabs in WebKit. Dragging
++// the tone puck changes the page and the room, and the puck cannot rest in the dead band; each tab's dials change
++// the canvas and the look as the store merges it; and that a double-click returns a dial to the look's own value.
++++ b/apps/desktop/test/transcript-lite.test.mjs
+-// switching modes write nothing. transcript-jsonl.test.mjs holds the rest, nightly. WebKit, over the shipped skeleton and
++// switching modes write nothing. transcript-jsonl.test.mjs holds the rest. WebKit, over the shipped skeleton and
++++ b/apps/desktop/test/typeset-defaults.test.mjs
+- * A job without Playwright's WebKit (CI's `fast` job) skips the browser cases and says why, unless
++ * A run without Playwright's WebKit skips the browser cases and says why, unless
++++ b/apps/desktop/test/window.test.mjs
+-// pane head as an address (crumbs with sibling menus, the heading chain under the reading line), and the spine. Ports
+-// the prototype's checks that cover it (lab 25 test/check.mjs 01, 34, 35c and 39) and adds the slice's own.
++// pane head as an address (crumbs with sibling menus, the heading chain under the reading line), and the spine.
++++ b/fixtures/corpus/check-prose-volume.mjs
+-// Asserts the MARXY-64 prose fixture has the volume and shape the story asked for,
++// Asserts the prose fixture has the volume and shape it was written for,
++++ b/fixtures/demo/archives/make-archives.mjs
+-// Builds the archive page's two sample archives (archive page A2, the board's samples) from files the demo already holds:
++// Builds the archive page's two sample archives from files the demo already holds:
+-/* A gzip of one file (A3): the page reads it as that file. Node writes no name and a zero time into its header, so the bytes
++/* A gzip of one file: the page reads it as that file. Node writes no name and a zero time into its header, so the bytes
++++ b/fixtures/demo/archives/make-held-kinds.mjs
+-// the readers that take an archive's entry from memory (archive page A6). Built by hand, as make-shared.mjs builds its
++// the readers that take an archive's entry from memory. Built by hand, as make-shared.mjs builds its
++++ b/fixtures/themes/quiet/theme.css
+-  /* Secondary must clear selection/find tints inherited from the default dark block (MARXY-241). */
++  /* Secondary must clear selection/find tints inherited from the default dark block. */
++++ b/packages/core/scripts/gate-assertions.test.ts
++++ b/packages/core/scripts/gate-tree-depth.mjs
++++ b/packages/core/scripts/gate-tree-depth.test.ts
++++ b/packages/core/scripts/unobservable-classes.test.ts
++++ b/packages/core/src/buffer/fold-text.property.test.ts
+-/** `foldText` as it was on main at 3566489e, unchanged: the reference for a file that is valid UTF-8. */
++/** `foldText` in its earlier form, kept as written: the reference for a file that is valid UTF-8. */
++++ b/packages/core/src/highlight/grammar.ts
+- * state after the last line, so a text tokenised a piece at a time comes out as it would whole (D1: Source's runs).
++ * state after the last line, so a text tokenised a piece at a time comes out as it would whole (Source's runs).
++++ b/packages/core/src/highlight/highlight.test.ts
++++ b/packages/core/src/highlight/runs.test.ts
+-// D1: the run mapping (token lines to runs), and a text read a piece at a time giving the runs it gives whole.
++// The run mapping (token lines to runs), and a text read a piece at a time giving the runs it gives whole.
++++ b/packages/core/src/highlight/session-view.test.ts
+-// D3: what is in view is read first, the rest after it, and the end is the whole text's runs; past the plain-text tier,
++// What is in view is read first, the rest after it, and the end is the whole text's runs; past the plain-text tier,
++++ b/packages/core/src/kind/content.test.ts
+-// B2: content corrects the name. fixtures/detect/expected.json is shared with src-tauri/src/detect.rs, whose test checks
++// Content corrects the name. fixtures/detect/expected.json is shared with src-tauri/src/detect.rs, whose test checks
++++ b/packages/core/src/kind/registry.test.ts
+-// B1: one registry, every surface. Each row's sample paths resolve to the row, and open (detectFileKind), the index
++// One registry, every surface. Each row's sample paths resolve to the row, and open (detectFileKind), the index
+-    // MATLAB and Prolog have no name of their own: only content reaches them (B2, content.test.ts).
++    // MATLAB and Prolog have no name of their own: only content reaches them (content.test.ts).
+-// B5 and C1: a file that is not a text buffer has a viewer of the app's own. Source is always the bytes.
++// A file that is not a text buffer has a viewer of the app's own. Source is always the bytes.
++++ b/packages/core/src/kind/registry.ts
+- * what is not a text buffer (`apps/desktop/src/viewers`): the file card with the bytes beside it (B5, the floor for any
++ * what is not a text buffer (`apps/desktop/src/viewers`): the file card with the bytes beside it (the floor for any
++++ b/packages/core/src/operations/registry.test.ts
+-// first in a menu. The menu's own order (`MENU_ORDER`) is desktop code, checked in `apps/desktop/test/phase-e-flow.test.mjs`.
++// first in a menu. The menu's own order (`MENU_ORDER`) is desktop code, checked in `apps/desktop/test/paste-and-tidy-flow.test.mjs`.
++++ b/packages/core/src/parse/conformance.test.ts
+-// 91 of the 527 inputs, counted once with GFM off and once with GFM on). Measured on bd3e0eb.
++// 91 of the 527 inputs, counted once with GFM off and once with GFM on).
++++ b/packages/core/src/parse/parse.test.ts
+-// test used to carry is gone). The nightly perf harness now records parse in the app as
++// test used to carry is gone). The perf harness records parse in the app as
++++ b/packages/core/src/parse/reparse.test.ts
+- * The structured generator (from the review of #467): documents built from block constructs that reach
++ * The structured generator: documents built from block constructs that reach
++++ b/packages/core/src/position/blocks.ts
+- * reading the top of the file, not whichever block crosses the reading line, so that is byte 0
+- * (ruling, 2026-10-08); text written above it then leaves them at the top (`restore.ts`).
++ * reading the top of the file, not whichever block crosses the reading line, so that is byte 0;
++ * text written above it then leaves them at the top (`restore.ts`).
++++ b/packages/core/src/position/restore.ts
+- * not the first heading, so text prepended to the file stays above the held offset in view (ruling,
+- * 2026-10-08). The same ambiguity decides a duplicate: if the whole tail from the held offset is
++ * not the first heading, so text prepended to the file stays above the held offset in view. The same ambiguity decides a duplicate: if the whole tail from the held offset is
++++ b/packages/core/src/reading/notebook-html.ts
+-// A notebook's HTML output, cleaned before it is shown (decision 10). It goes through the same sanitiser as
++// A notebook's HTML output, cleaned before it is shown. It goes through the same sanitiser as
++++ b/packages/core/src/reading/notebook.test.ts
+-  // 3702c7f: 7 s and 25 MB of html for this file; warm, about 0.45 s now. The bound is a slow machine's; the clock is CPU time, so a busy one does not count.
++  // This file once took 7 s and 25 MB of html; warm, about 0.45 s now. The bound is a slow machine's; the clock is CPU time, so a busy one does not count.
++++ b/packages/core/src/reading/notebook.ts
+-// A Jupyter notebook as Read sets it ("A Jupyter notebook" and decision 10): its cells in order, Markdown
++// A Jupyter notebook as Read sets it ("A Jupyter notebook"): its cells in order, Markdown
++++ b/packages/core/src/reading/part-choices.ts
+-// databases the reader chose to read without their write-ahead log (E5, "Read the file alone"), the same way; `pages` the
++// databases the reader chose to read without their write-ahead log ("Read the file alone"), the same way; `pages` the
+-// encoding the reader chose to read it in (B3, Read with encoding...), likewise.
++// encoding the reader chose to read it in (Read with encoding...), likewise.
++++ b/packages/core/src/render/boundary.test.ts
+-  // cannot reach outside its own directory passes vacuously — the round-1 finding, in a new shape.
++  // cannot reach outside its own directory passes vacuously.
+-  // anything is the round-1 vacuity finding one level up, so the assertions are named here too.
++  // anything is the same vacuity one level up, so the assertions are named here too.
++++ b/packages/core/src/render/images.test.ts
++++ b/packages/core/src/render/lang-attr.test.ts
+-// D4: a code block's `<pre>` carries `data-marxy-lang`, the registry's id, so a theme's language scope meets a fence
++// A code block's `<pre>` carries `data-marxy-lang`, the registry's id, so a theme's language scope meets a fence
++++ b/packages/core/src/render/math.acceptance.test.ts
++++ b/packages/core/src/render/render-html.ts
+-/** Last prose text run that may receive paragraph-end smartening (D-A13 widont). */
++/** Last prose text run that may receive paragraph-end smartening (widont). */
++++ b/packages/core/src/render/typography.test.ts
+-// The D-A13 rule table, idempotence, and the acceptance criterion: 09-gfm-everything.md is set with
++// The rule table, idempotence, and the fidelity fixture: 09-gfm-everything.md is set with
+-  // The criterion is a render pass. If this file were rewritten, the fidelity gate would be
++  // The rule is a render pass. If this file were rewritten, the fidelity gate would be
++++ b/packages/core/src/render/typography.ts
+-// Smart typography as a render-time text-run transform. The file's bytes are never touched (D-A13).
++// Smart typography as a render-time text-run transform. The file's bytes are never touched.
+- * Applies the D-A13 rule table to one text run. Idempotent: a second pass returns the same string.
++ * Applies the rule table to one text run. Idempotent: a second pass returns the same string.
+- * (`code`, `kbd`, `samp`, `pre`) opened earlier in the same sibling list (handbook P06).
++ * (`code`, `kbd`, `samp`, `pre`) opened earlier in the same sibling list.
++++ b/packages/core/src/sanitize/budget.test.ts
+-// every gate stayed green. The nightly start-up record times the packaged app, not this function.
++// every gate stayed green. The start-up measurement times the packaged app, not this function.
++++ b/packages/core/src/sanitize/policy.ts
+- * `id` and `name` values that would shadow a `window` or `document` property by named access (P02).
++ * `id` and `name` values that would shadow a `window` or `document` property by named access.
++++ b/packages/core/src/sanitize/testing/vectors.ts
+- * The vectors. The first six are the acceptance criterion in its own words; the rest are the
+- * ones the criterion does not name and an attacker would reach for first.
++ * The vectors. The first six are the required rule in its own words; the rest are the
++ * ones it does not name and an attacker would reach for first.
++++ b/packages/core/src/sanitize/vectors.test.ts
+-// The acceptance criterion and its falsifiability. Two halves that only mean
++// The sanitiser's required behaviour and its falsifiability. Two halves that only mean
++++ b/packages/core/src/util/hostile-input.test.ts
++++ b/packages/core/src/viewer/archive-care.test.ts
+-// Readings and care (archive page A2): what each entry of the two samples reads as, and every warning, from the
++// Readings and care: what each entry of the two samples reads as, and every warning, from the
++++ b/packages/core/src/viewer/archive-care.ts
+-// What in an archive needs a careful look (archive page A2), found from the listing and the entries' first bytes before
++// What in an archive needs a careful look, found from the listing and the entries' first bytes before
++++ b/packages/core/src/viewer/archive-filter.ts
+-// The archive page's filter (archive page A8, `=`): `= reading:picture size>1mb`. Bare words and `name:` match
++// The archive page's filter (`=`): `= reading:picture size>1mb`. Bare words and `name:` match
++++ b/packages/core/src/viewer/archive-plan.test.ts
+-// The plan (archive page A2): a squarified treemap of an archive's contents, folders as frames, small things gathered.
++// The plan: a squarified treemap of an archive's contents, folders as frames, small things gathered.
++++ b/packages/core/src/viewer/archive-plan.ts
+-// The plan of an archive (archive page A2): its contents to scale, a squarified treemap. Every file
++// The plan of an archive: its contents to scale, a squarified treemap. Every file
++++ b/packages/core/src/viewer/archive-read.test.ts
+-// ---- archive page A1: the shared table, heads ----------------------------------------------------------------------
++// ---- the shared table, heads ----------------------------------------------------------------------
++++ b/packages/core/src/viewer/archive-reading.ts
+-// What an archive's entry reads as (archive page A2): the reading the app would give that file on disk, found the same way
++// What an archive's entry reads as: the reading the app would give that file on disk, found the same way
++++ b/packages/core/src/viewer/archive-strip.test.ts
+-// The file as stored (archive page A4): the strip covers every byte of a zip, a plain tar, a tar.gz, a lone gzip and a
++// The file as stored: the strip covers every byte of a zip, a plain tar, a tar.gz, a lone gzip and a
++++ b/packages/core/src/viewer/archive-strip.ts
+-// The file as stored (archive page A4): an archive drawn from its first byte to its
++// The file as stored: an archive drawn from its first byte to its
++++ b/packages/core/src/viewer/media.ts
+-/** Compressed audio is decoded by the webview for its waveform only up to this size and this length (decision 7). */
++/** Compressed audio is decoded by the webview for its waveform only up to this size and this length. */
++++ b/packages/shell-api/src/index.ts
+- * What an image is, read from its own bytes by the shell (C1, C2; the `image_facts` command). `width` and `height` are as
++ * What an image is, read from its own bytes by the shell (the `image_facts` command). `width` and `height` are as
+- * One entry of the archive at a reader's `path` (archive page A6): its ordinal and the name the listing gave it. A reader
++ * One entry of the archive at a reader's `path`: its ordinal and the name the listing gave it. A reader
+-   * The first bytes of many entries in one call (archive page A1), in the order of `wants`: at most `maxEach` (clamped
++   * The first bytes of many entries in one call, in the order of `wants`: at most `maxEach` (clamped
++++ b/packages/theme/src/base.css
+-/* Every other stop on the page shows where focus is the same way (H6): a fold, a column that sorts, the table view. */
++/* Every other stop on the page shows where focus is the same way: a fold, a column that sorts, the table view. */
++++ b/packages/theme/src/frame.css
+-/* An archive's page (archive page A2): the lede, the plan to scale, the entries
++/* An archive's page: the lede, the plan to scale, the entries
+-/* Reveal on an archive (A4, viewers/archive-reveal.ts): the file as stored as a strip, three more columns, the record. */
++/* Reveal on an archive (viewers/archive-reveal.ts): the file as stored as a strip, three more columns, the record. */
+-/* ---- Forced colours (H11): shadows and fills are dropped, so what is pressed, shown or a field says so in the
++/* ---- Forced colours: shadows and fills are dropped, so what is pressed, shown or a field says so in the
+-/* The page's column ends left of the spine (the prototype's check 39). The room is every pane's from its first layout, spine or
++/* The page's column ends left of the spine. The room is every pane's from its first layout, spine or
++++ b/packages/theme/src/look.ts
+-  // left secondary and faint text no room below 10 : 1, and the ladder flat (the theme pass, 2026-11-17).
++  // left secondary and faint text no room below 10 : 1, and the ladder flat.
++++ b/packages/theme/src/looks/catppuccin.ts
+-// The pins are the palette held to the floors by the theme pass (each colour walked in OKLCH lightness only as far as its
++// The pins are the palette held to the floors (each colour walked in OKLCH lightness only as far as its
++++ b/packages/theme/src/looks/gruvbox.ts
+-// The pins are the palette held to the floors by the theme pass (each colour walked in OKLCH lightness only as far as its
++// The pins are the palette held to the floors (each colour walked in OKLCH lightness only as far as its
++++ b/packages/theme/src/looks/ink.ts
+-// Ink 2 (the theme pass of 2026-11-17), against the reader typography handbook ch. 9 and Galley's audited themes:
++// Ink 2, against the reader typography handbook ch. 9 and Galley's audited themes:
++++ b/packages/theme/src/looks/rose-pine.ts
+-// The pins are the palette held to the floors by the theme pass (each colour walked in OKLCH lightness only as far as its
++// The pins are the palette held to the floors (each colour walked in OKLCH lightness only as far as its
++++ b/packages/theme/src/looks/solarized.ts
+-// The pins are the palette held to the floors by the theme pass (each colour walked in OKLCH lightness only as far as its
++// The pins are the palette held to the floors (each colour walked in OKLCH lightness only as far as its
++++ b/packages/theme/src/themes.test.ts
+-// Themes as looks (the theme pass, 2026-11-17): pins drawn as written and held to their floors, dials that carry a
++// Themes as looks: pins drawn as written and held to their floors, dials that carry a
++++ b/packages/theme/test/grid.test.mjs
+- * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
++ * A run without Playwright's WebKit skips these tests and says why, unless
++++ b/packages/theme/test/theme-sheets.test.mjs
+-// A bundled theme is one definition (the theme pass, 2026-11-17): each sheet under packages/theme/<theme>/ is what
++// A bundled theme is one definition: each sheet under packages/theme/<theme>/ is what
++++ b/packages/typeset/src/hang.ts
+-// Left-edge hanging and optical alignment (D-A6): the first grapheme of each set line is pulled
++// Left-edge hanging and optical alignment: the first grapheme of each set line is pulled
++++ b/packages/typeset/test/grid-sizes.test.mjs
+- * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
++ * A run without Playwright's WebKit skips these tests and says why, unless
++++ b/packages/typeset/test/typeset.test.mjs
+- * A job without Playwright's WebKit (CI's `fast` job) skips these tests and says why, unless
++ * A run without Playwright's WebKit skips these tests and says why, unless
++++ b/scripts/gate-aesthetics.mjs
+-// rag comparisons, runs nightly (aesthetics-determinism in nightly.yml).
++// rag comparisons, is the default run.
+-// every file × combo and fails on it. Three more full passes cost 266s of the browser job's 356s,
+-// which is the pull-request critical path, so nothing implies --repeat any more. The nightly
+-// workflow runs `--repeat 3` and keeps the signal off the path we iterate on.
++// every file × combo and fails on it. Three more full passes cost 266s of a 356s run,
++// so nothing implies --repeat; `--repeat 3` is run by hand to look for flakes.
+-// ---- the geometry of the page (the six rules of the screen criterion) ----
++// ---- the geometry of the page (six rules) ----
+- * wide, and body text keeps its 7:1. `--mechanical` runs these; the nightly full gate adds screenshots.
++ * wide, and body text keeps its 7:1. `--mechanical` runs these; the full gate adds screenshots.
++++ b/scripts/gate-bundle.test.mjs
++++ b/scripts/gate-fidelity.mjs
+-// The gate is this file, and packages/core does not reach into the shell (criterion 1).
++// The gate is this file, and packages/core does not reach into the shell.
+-// Linux xattr skip cannot become the silent default (criterion 3).
++// Linux xattr skip cannot become the silent default.
++++ b/scripts/measure-reload.mjs
+-//                   definition's `]:` and is not one (before the review of #467 it sent every reload
++//                   definition's `]:` and is not one (it once sent every reload
++++ b/scripts/measure-startup.mjs
+-// gate: the nightly `startup-macos` job runs it and keeps the file.
+-// CI: `cold_start_first_text_ms` is launch 1 only, `warm_start_first_text_ms`
+-// is the median of launches 2..N. Reference (Amendment 2): a round is k ≥ 5 certified cold launches,
++// gate: a person runs it by hand against a built binary.
++// `cold_start_first_text_ms` is launch 1 only, `warm_start_first_text_ms`
++// is the median of launches 2..N. A round is k ≥ 5 certified cold launches,
+-// launch 1, so on CI the webview framework is warm before the "cold" launch starts. When that
++// launch 1, so after a build the webview framework is warm before the "cold" launch starts. When that
+-// Reference-tier labels (Amendment 2). Stated no more strongly than the step earned: a password-less
++// Reference-tier labels. Stated no more strongly than the step earned: a password-less
+-  // MARXY_BIN names the binary explicitly (CI builds with `--profile ci`); the
++  // MARXY_BIN names the binary explicitly (a build made with `--profile ci`); the
++++ b/scripts/perf-harness.mjs
+-// The nightly workflow runs it as `pnpm perf` and keeps the one JSON record `--record` writes:
++// A person runs it by hand as `pnpm perf`; `--record` writes one JSON record:
+-// transcript (`--transcript`); the nightly does not record one yet.
++// transcript (`--transcript`); the record does not hold one yet.
+-//   --summary <path> append a Markdown table of the record to <path> (the nightly job's step summary)
++//   --summary <path> append a Markdown table of the record to <path>
+-/** A short Markdown table of a record, for a CI job summary. */
++/** A short Markdown table of a record, for a summary file. */
++++ b/scripts/perf-harness.test.mjs
+-// the nightly record. One launch's canned shell `mark` calls, as the page hands them back
+-// ([name, epoch ms, detail]); the harness turns them into the record the nightly job keeps.
++// the record. One launch's canned shell `mark` calls, as the page hands them back
++// ([name, epoch ms, detail]); the harness turns them into the record it writes.
++++ b/scripts/probe-layout.mjs
+-// verdicts. probe.json is read to decide which of H1-H7 hold.
++// verdicts. probe.json is read to decide which layout hypotheses hold.
+-// it; the gate, the baselines, base.css and every src/ file are untouched. Not part of CI.
++// it; the gate, the baselines, base.css and every src/ file are untouched. Run by hand.
+-/** Top-level blocks whose text is held to the column's left edge (the screen criterion's "Edges"). */
++/** Top-level blocks whose text is held to the column's left edge (the "Edges" rule). */
+- * Judge one measured cell against rules 1 to 4 of the screen criterion. Returns `{ check, sub, detail }`
++ * Judge one measured cell against the first four geometry rules. Returns `{ check, sub, detail }`
++++ b/scripts/verify.test.mjs
++++ b/scripts/work.test.mjs

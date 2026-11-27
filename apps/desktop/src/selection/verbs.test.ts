@@ -1,4 +1,4 @@
-// Default verbs by selection kind, and the widening rule (ADR-0054, design 03 §Default verbs, C-06).
+// Default verbs by selection kind, and the widening rule.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -148,7 +148,7 @@ test('the defaults: Mod+C by kind, from the table, not by id prefix', () => {
   assert.equal(pick({ kind: 'document' }), 'op.copy-section');
   assert.equal(pick(nodeSel(find(doc, (n) => n.type === 'paragraph'))), 'op.copy-rich');
   assert.equal(pickMd(nodeSel(find(doc, (n) => n.type === 'paragraph'))), 'op.copy-source');
-  // C-07's copy-source refuses an inline node; the kind keeps the candidate and Mod+C stays native.
+  // The copy-source refuses an inline node; the kind keeps the candidate and Mod+C stays native.
   const gfm = load('09-gfm-everything.md');
   const link = nodeSel(find(gfm.doc, (n) => n.type === 'link'));
   assert.equal(copyDefault(ctxFor(link, gfm.doc, gfm.buffer), all), null);

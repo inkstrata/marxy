@@ -1,5 +1,5 @@
 // A scratch document has no file: text the app was handed (the clipboard, a diff) that renders and
-// behaves like a document and writes nothing until the reader chooses Save As (E-13). Its path is not a
+// behaves like a document and writes nothing until the reader chooses Save As. Its path is not a
 // path on disk, only a name that keeps two scratch documents apart: `untitled`, `untitled:2`,
 // `untitled:3`... Nothing may treat it as a location: it has no folder, no neighbours and nothing to watch.
 import { basename } from '@marxy/core/src/index-model/paths.ts';
@@ -14,7 +14,7 @@ export function isUntitled(path: string | null | undefined): boolean {
 /**
  * Hands out scratch paths in order, never one twice: a scratch document closed and another opened must not
  * share an undo history, a position record or a stale selection. One namer per app instance (a closure, not
- * module state: ADR-0037).
+ * module state).
  */
 export interface UntitledNamer {
   next(): string;

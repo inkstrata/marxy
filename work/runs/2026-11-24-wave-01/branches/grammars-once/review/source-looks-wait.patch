@@ -1,0 +1,22 @@
+commit afde17085ddb5bdec1d02a97ed8c53d9ef5b6b32
+Author: Ian Dempsey <ian.dempsey@flexdental.co>
+Date:   Tue Nov 24 17:29:14 2026 -0800
+
+    test(source): wait for Markdown's marks before reading their colours
+
+diff --git a/apps/desktop/test/source-looks.test.mjs b/apps/desktop/test/source-looks.test.mjs
+index 23091240..6aa4b543 100644
+--- a/apps/desktop/test/source-looks.test.mjs
++++ b/apps/desktop/test/source-looks.test.mjs
+@@ -120,6 +120,11 @@ test('Source tokens carry the --marxy-tok-* colours (TypeScript and Markdown, bo
+     }, { files: { '/doc/a.md': Buffer.from(MD).toString('base64'), '/config': Buffer.from(NIGHT_PAPER).toString('base64') }, argv: ['/doc/a.md'] });
+     await page2.keyboard.press('ControlOrMeta+E');
+     await page2.waitForSelector('#marxy-source .cm-editor .cm-line');
++    // Markdown's marks come from its Lezer language, loaded by a dynamic import after the lines are drawn.
++    await page2.waitForFunction(() => {
++      const texts = new Set([...document.querySelectorAll('#marxy-source .cm-line span')].map((s) => s.textContent));
++      return texts.has('inline') && texts.has('link');
++    }, null, { timeout: 15_000 });
+     await expectToken(page2, 'inline', '--marxy-tok-string');
+     await expectToken(page2, 'link', '--marxy-tok-link');
+   } finally {

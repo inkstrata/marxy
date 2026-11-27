@@ -1,11 +1,11 @@
-// U-02.1: each notice of the collection and kind commands, the layout restore and the disk-conflict choice has the kind it
-// truly is, and the words of one that did not work say what is unchanged (X-21 rulings 2, 5 and 10).
+// each notice of the collection and kind commands, the layout restore and the disk-conflict choice has the kind it
+// truly is, and the words of one that did not work say what is unchanged.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { COLLECTION_SAYS, CONFLICT_COPY_FAILED, CONFLICT_DISCARDED, conflictCopySaved, KIND_SAYS, layoutLeftOut, said, SMART_SAYS } from './config-copy.ts';
+import { COLLECTION_SAYS, CONFLICT_COPY_FAILED, CONFLICT_COPY_NOT_IN_ENCODING, CONFLICT_DISCARDED, conflictCopySaved, KIND_SAYS, layoutLeftOut, said, SMART_SAYS } from './config-copy.ts';
 import { NO_FOLDER_YET } from '../document/untitled.ts';
 import { CONCEALED_REFUSAL, NOTHING_TO_PASTE } from '../paste/read-clipboard.ts';
-import { DISK_CHANGED_CHOOSE, DISK_CHANGED_EDITS_KEPT, FILE_REMOVED_ON_DISK, fileRefusedText } from './disk.ts';
+import { DISK_CHANGED_CHOOSE, DISK_CHANGED_EDITS_KEPT, FILE_REMOVED_ON_DISK, fileRefusedText, fileUnreadableText } from './disk.ts';
 import { KIND_WORDS } from './glyphs.ts';
 import type { NoticeKind } from './index.ts';
 
@@ -53,6 +53,7 @@ const table: ReadonlyArray<readonly [string, { kind: NoticeKind; text: string },
   ['conflict: copy saved', conflictCopySaved('a (copy).md', false), 'done'],
   ['conflict: discarded', CONFLICT_DISCARDED, 'done'],
   ['conflict: copy failed', CONFLICT_COPY_FAILED('disk full.'), 'error'],
+  ['conflict: copy not in the encoding', CONFLICT_COPY_NOT_IN_ENCODING('Windows-1252', 'no bytes for ✓.'), 'error'],
 ];
 
 for (const [name, got, want] of table) {
@@ -96,6 +97,7 @@ test('no notice text starts with its own kind word: the pill already says "Not d
     DISK_CHANGED_EDITS_KEPT,
     FILE_REMOVED_ON_DISK,
     fileRefusedText('A.md', 'is no longer a regular file'),
+    fileUnreadableText('A.md'),
     layoutLeftOut('B.md', true),
   ];
   for (const text of texts) {

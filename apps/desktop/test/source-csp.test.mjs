@@ -1,4 +1,4 @@
-// Source and the block editor are styled in the release build (F-98, found by X-33). CodeMirror styles itself with runtime
+// Source and the block editor are styled in the release build. CodeMirror styles itself with runtime
 // <style> elements (style-mod); the shipped policy has `style-src 'self'` and Tauri adds a per-load nonce, so a <style>
 // without that nonce is refused, no CodeMirror rule applies, `.cm-scroller` is `display: block` and the fold gutter, the
 // numbers and the text stack one under another. The dev harness has no CSP, so source-gutter.test.mjs never saw it.
@@ -10,17 +10,18 @@ import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { injectStyleNonces, loadConfiguredCsp, releaseStyleCsp } from '../../../scripts/check-csp.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { shippedSkeleton } from './support/two-pane.mjs';
+import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
   : false;
 const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
 
-const repoRoot = new URL('../../../', import.meta.url).pathname;
+const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const desktopRoot = join(repoRoot, 'apps', 'desktop');
 const outDir = mkdtempSync(join(tmpdir(), 'marxy-source-csp-'));
 const NONCE = 'f98nonce';
@@ -90,10 +91,10 @@ async function boot(browser, files, argv, viewport = { width: 1000, height: 800 
 /**
  * Cmd+3 (Source), then the editor's first frames and the mono face. No screenshot: Playwright injects a <style> of its own
  * for one, which the release policy refuses and a test counting refusals would blame on the app (the two "unattributed"
- * refusals X-33 saw were its two screenshots).
+ * refusals seen were its two screenshots).
  */
 async function openSource(page) {
-  await page.keyboard.press('Meta+Digit3');
+  await page.keyboard.press('ControlOrMeta+Digit3');
   await page.waitForSelector('.marxy-source-mount .cm-content .cm-line');
   await page.evaluate(() => document.fonts.ready);
   await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -180,7 +181,8 @@ test('an Untitled document in Source with line numbers (the author\'s case) is a
   const browser = await launchWebkit();
   try {
     for (const width of [800, 1400]) {
-      const { page, refusals } = await boot(browser, { '/w/other.md': '# Other\n' }, ['/w/other.md'], { width, height: 800 });
+      // The author has line numbers on (config.toml): an Untitled document has no gutter by default (source/line-numbers.ts).
+      const { page, refusals } = await boot(browser, { '/config': 'line_numbers = true\n', '/w/other.md': '# Other\n' }, ['/w/other.md'], { width, height: 800 });
       await page.evaluate((t) => window.__marxyHandle.openScratch(t), DOC);
       await page.waitForTimeout(300);
       await openSource(page);
@@ -201,7 +203,7 @@ test('the find panel and the block editor in Rendered are styled under the relea
     await page.waitForFunction(() => document.querySelector('#doc [data-marxy-s]') !== null);
     const start = await page.evaluate(() => Number(document.querySelector('#doc p[data-marxy-s]').dataset.marxyS.split(',')[0]));
     await page.evaluate((b) => window.__marxyHandle.selection.selectBlockAtByte(b), start);
-    await page.keyboard.press('Meta+Enter');
+    await page.keyboard.press('ControlOrMeta+Enter');
     await page.waitForSelector('.marxy-block-editor .cm-content');
     await page.waitForTimeout(300);
     const block = await page.evaluate(() => {
@@ -216,7 +218,7 @@ test('the find panel and the block editor in Rendered are styled under the relea
     // The find panel, in Source.
     await openSource(page);
     await page.click('.marxy-source-mount .cm-content');
-    await page.keyboard.press('Meta+f');
+    await page.keyboard.press('ControlOrMeta+f');
     await page.waitForSelector('.marxy-source-mount .cm-panels .cm-search, .cm-panels .cm-search');
     const panel = await page.evaluate(() => {
       const p = document.querySelector('.cm-panels');
@@ -235,7 +237,7 @@ test('walking Rendered, Source, Split and the find and replace sheets logs no CS
     const { page, refusals } = await boot(browser, { '/config': 'line_numbers = true\n', '/w/doc.md': `# Title\n\n${DOC}\n\n\`\`\`rs\nfn main() {}\n\`\`\`\n` }, ['/w/doc.md'], { width: 1500, height: 800 });
     await page.waitForFunction(() => document.querySelector('#doc [data-marxy-s]') !== null);
     assert.deepEqual(await refusals(), [], 'Rendered');
-    await page.keyboard.press('Meta+Digit2');
+    await page.keyboard.press('ControlOrMeta+Digit2');
     await page.waitForSelector('.cm-content .cm-line');
     await page.waitForTimeout(500);
     assert.deepEqual(await refusals(), [], 'Split');
@@ -243,10 +245,10 @@ test('walking Rendered, Source, Split and the find and replace sheets logs no CS
     assert.equal(split, 'flex', 'the Source half of Split is styled');
     await openSource(page);
     await page.click('.marxy-source-mount .cm-content');
-    await page.keyboard.press('Meta+f');
+    await page.keyboard.press('ControlOrMeta+f');
     await page.waitForSelector('.cm-panels .cm-search');
     await page.keyboard.press('Escape');
-    await page.keyboard.press('Meta+Digit1');
+    await page.keyboard.press('ControlOrMeta+Digit1');
     await page.waitForTimeout(300);
     assert.deepEqual(await refusals(), [], 'Source, find, back to Rendered');
   } finally {

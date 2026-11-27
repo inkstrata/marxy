@@ -1,15 +1,15 @@
-// `kind.chip` (K-07): the door the kind chip in the toolbar presses. It opens a menu that says why the focused pane's file
+// `kind.chip`: the door the kind chip in the toolbar presses. It opens a menu that says why the focused pane's file
 // is the kind it is (the `Reason`s `detectFileKind` returned at open, the decisive one first; nothing is recomputed), then
-// the reader's choices: *Show as* each kind, *Show as detected* and *Always open this folder as…* (a second list). A
-// choice runs K-04's command (kind.ts), which writes `kinds.json` or `config.toml` only and then reopens the file so the
-// kind takes effect now. The menu is the verb menu's (J-04's `rows`), so it has W-04's chrome and its keys.
+// the reader's choices: *Read as* each kind, *Read as Marxy would* and *Always open this folder as…* (a second list). A
+// choice runs the kind command (kind.ts), which writes `kinds.json` or `config.toml` only and then reopens the file so the
+// kind takes effect now. The menu is the verb menu's (its `rows`), so it has that menu's chrome and its keys.
 import { KINDS } from '@marxy/core/src/contracts/kinds.ts';
 import type { Reason } from '@marxy/core/src/kind/detect.ts';
 import { openVerbMenu, type MenuAnchor, type VerbMenuRow } from '../selection/verb-menu.ts';
 import { appHandle } from './app-handle.ts';
 import type { AppContext, Command } from './registry.ts';
 
-/** The tiers of ADR-0060 item 3, as the menu names them. */
+/** The tiers, as the menu names them. */
 const TIER_NAMES: Readonly<Record<number, string>> = {
   1: 'your choice',
   2: 'file name',
@@ -36,7 +36,7 @@ function registry(): ReadonlyMap<string, Command> {
   return new Map(((appHandle()?.commands() ?? []) as readonly Command[]).map((c) => [c.id, c] as const));
 }
 
-/** The folder choices: one row per kind, each K-04's command. */
+/** The folder choices: one row per kind, each the kind command. */
 function folderRows(): VerbMenuRow[] {
   const commands = registry();
   return KINDS.flatMap((kind) => {
@@ -60,7 +60,7 @@ export function kindChipCommands(): readonly Command[] {
   return [
     {
       id: 'kind.chip',
-      title: 'How this file is read',
+      title: 'Read as: why, and the other ways',
       group: 'document',
       when: hasKind,
       async run(ctx: AppContext) {
@@ -72,10 +72,10 @@ export function kindChipCommands(): readonly Command[] {
         const rows: VerbMenuRow[] = reasonRows(detected.reasons);
         for (const kind of KINDS) {
           const command = commands.get(`kind.show-as.${kind}`);
-          if (command) rows.push({ command, title: `Show as ${kind}` });
+          if (command) rows.push({ command, title: `Read as ${kind}` });
         }
         const detectedCommand = commands.get('kind.show-as.detected');
-        if (detectedCommand) rows.push({ command: detectedCommand, title: 'Show as detected' });
+        if (detectedCommand) rows.push({ command: detectedCommand, title: 'Read as Marxy would' });
         if (folderRows().length > 0) {
           rows.push({
             command: null,
@@ -84,7 +84,7 @@ export function kindChipCommands(): readonly Command[] {
             run: () => void openVerbMenu(at, ctx, { registered: [], allActions: () => {}, rows: folderRows(), label: 'Always open this folder as' }),
           });
         }
-        openVerbMenu(at, ctx, { registered: [], allActions: () => {}, rows, label: `Kind: ${detected.kind}` });
+        openVerbMenu(at, ctx, { registered: [], allActions: () => {}, rows, label: `Read as ${detected.kind}` });
       },
     },
   ];

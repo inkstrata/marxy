@@ -1,4 +1,4 @@
-// One chrome for every summoned surface and every menu (W-04): the palette, the verb menu, find and the outline
+// One chrome for every summoned surface and every menu: the palette, the verb menu and find
 // share one spec, read from the tokens and scaled by the chrome size. Computed style in real WebKit on the palette harness;
 // the static half (no literal shadow colour, radius or face in those rules) is packages/theme/src/chrome-spec.test.ts.
 import { strict as assert } from 'node:assert';
@@ -9,7 +9,7 @@ import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { build } from 'vite';
+import { build } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 
 const desktopRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -78,17 +78,13 @@ async function surfaces(page) {
     return {
       expected,
       boxShadow: got.boxShadow, fontFamily: got.fontFamily, fontSize: got.fontSize, backgroundColor: got.backgroundColor,
-      radius: got.borderTopLeftRadius, radiusEnd: got.borderBottomLeftRadius, borderColor: got.borderTopColor, borderWidth: got.borderTopWidth,
+      radius: got.borderTopLeftRadius, borderColor: got.borderTopColor, borderWidth: got.borderTopWidth,
     };
   }, selector);
   const key = await mod(page);
   await page.keyboard.press(`${key}+KeyP`);
   await page.waitForSelector('#marxy-palette[open]');
   out.palette = await read('#marxy-palette');
-  await page.keyboard.press('Escape');
-  await page.keyboard.press(`${key}+Shift+KeyO`);
-  await page.waitForSelector('#marxy-outline[open]');
-  out.outline = await read('#marxy-outline');
   await page.keyboard.press('Escape');
   await page.locator('#doc pre[data-marxy-s]').first().click({ button: 'right' });
   await page.waitForSelector('.marxy-verb-menu');
@@ -103,11 +99,11 @@ async function surfaces(page) {
 }
 
 for (const variant of ['dark', 'light']) {
-  test(`${variant}: each raised surface computes the surface shadow, the chrome face and a radius of 6, 9 or 13 px at 13 px chrome`, async () => {
+  test(`${variant}: each raised surface computes the surface shadow, the chrome face and a radius of 6 or 9 px at 13 px chrome`, async () => {
     const page = await boot(variant, 13);
     try {
       const got = await surfaces(page);
-      const radii = { palette: 9, outline: 13, verbMenu: 6, find: 6 };
+      const radii = { palette: 9, verbMenu: 6, find: 6 };
       for (const [name, s] of Object.entries(got)) {
         assert.equal(s.fontFamily, s.expected.fontFamily, `${name}: the chrome face`);
         assert.equal(s.fontSize, s.expected.fontSize, `${name}: the chrome size`);
@@ -115,7 +111,6 @@ for (const variant of ['dark', 'light']) {
         assert.equal(s.boxShadow, s.expected.boxShadow, `${name}: box-shadow is the resolved --marxy-shadow-surface`);
         assert.equal(s.backgroundColor, s.expected.backgroundColor, `${name}: the surface ground`);
       }
-      assert.equal(got.outline.radiusEnd, '13px', 'the outline rounds the corners that face the page');
       assert.notEqual(got.palette.boxShadow, 'none', `${variant} has a shadow to read`);
     } finally {
       await page.close();
@@ -141,7 +136,7 @@ async function rows(page, which) {
 }
 
 for (const chrome of [13, 16, 26]) {
-  test(`menu rows are round(28 x ${chrome} / 13) high and the palette's round(46 x ${chrome} / 13), padded 5 by 10 scaled, and every shortcut ends at one x`, async () => {
+  test(`menu rows are round(28 x ${chrome} / 13) high and the palette's round(30 x ${chrome} / 13), padded 5 by 10 scaled, and every shortcut ends at one x`, async () => {
     const page = await boot('dark', chrome);
     try {
       const want = Math.round((28 * chrome) / 13);
@@ -167,8 +162,8 @@ for (const chrome of [13, 16, 26]) {
       await page.waitForSelector('#marxy-palette[open] .marxy-palette-row');
       const palette = (await rows(page, 'palette')).slice(0, 12);
       assert.ok(palette.length >= 4, 'rows');
-      // Two lines in the palette alone (U-04, Q16): 46 at 13, scaled with the chrome size; menus keep 28.
-      const wantPalette = Math.round((46 * chrome) / 13);
+      // One line a row in the Line: 30 at 13, scaled; menus keep 28.
+      const wantPalette = Math.round((30 * chrome) / 13);
       for (const r of palette) {
         assert.equal(r.height, wantPalette, `palette row height at ${chrome}`);
         assert.ok(near(r.pad[0], padY) && near(r.pad[1], padX), `palette padding ${r.pad} at ${chrome}`);

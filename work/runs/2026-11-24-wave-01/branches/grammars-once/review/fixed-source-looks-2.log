@@ -1,0 +1,20 @@
+﻿✔ Source tokens carry the --marxy-tok-* colours (TypeScript and Markdown, both variants) (16168.1618ms)
+✔ Source: a Python file uses at least nine token colours and leaves no keyword, decorator, class name or escape in the text colour (1997.1055ms)
+✔ Source: Markdown headings, link, URL, code, list and quote marks take token colours, and every row stays one line box (1044.7932ms)
+✔ Source sets its own type: 14 on 21 at the default, scaling with the reader's text size (2743.1593ms)
+✔ the gutter takes its padding from the line box, not CodeMirror's 3px and 5px; the numbers are tabular and secondary (2534.8857ms)
+✔ Source takes the article's weight: the body weight token plus the platform offset, not 400 (2542.1164ms)
+✔ nothing at rest: no tinted line without the caret, and a fold chevron only over the gutter (2450.7217ms)
+✔ active line is a colour-mix of theme tokens; the fold gutter shows only with line numbers (2186.4005ms)
+✔ changing variant or size re-themes the same editor, keeping selection and undo (2457.0401ms)
+✔ the search panel is painted from tokens (2314.2242ms)
+✔ a search match carries the edge; the current match is outlined (2226.1099ms)
+✔ a theme that is dark under the light variant gives Source the dark base theme, and the head is not watched in a loop (3390.745ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 42934.5681

@@ -1,6 +1,6 @@
 // Search over a 20k index runs and finds what it should. The time it takes is recorded, never
-// asserted (ADR-0032): `pnpm perf --palette` measures p50 and p95 at 5k, 20k and 50k entries, and
-// the nightly perf-harness job keeps the numbers (A-03).
+// asserted: `pnpm perf --palette` measures p50 and p95 at 5k, 20k and 50k entries, and
+// the harness prints the numbers.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -66,7 +66,7 @@ function quantile(sorted: number[], q: number): number {
   return sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))]!;
 }
 
-// Printed, never asserted (ADR-0032). The proxy that is asserted is rows scored, in
+// Printed, never asserted. The proxy that is asserted is rows scored, in
 // search-incremental.test.ts.
 test('search on a 50,000-entry index: fresh-query and typed-ahead timings are printed', { timeout: 120_000 }, () => {
   const entries = Array.from({ length: LARGE }, (_, i) => makeEntry(i));

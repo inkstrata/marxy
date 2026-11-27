@@ -9,7 +9,8 @@ const bad = [];
 for (const [name, css] of [['theme', theme], ['base', base]]) {
   // A rule whose selector names a heading: the selector is everything since the last `}` or `;`.
   for (const [, selector, body] of css.matchAll(/(?:^|[};])\s*([^{};]*\bh[1-6]\b[^{};]*)\{([^}]*)\}/g)) {
-    if (/(?<![-\w])color\s*:(?!\s*inherit\b)/.test(body)) bad.push(`${name}: ${selector.trim()} — headings must not set colour`);
+    // The strong ink is the text's own neutral, not a hue: headings are set in it.
+    if (/(?<![-\w])color\s*:(?!\s*(?:inherit\b|var\(--marxy-color-text-strong\)))/.test(body)) bad.push(`${name}: ${selector.trim()} — headings must not set colour`);
     if (/(?<![-\w])border(?:-[a-z-]+)?\s*:(?!\s*0\s*(?:;|$))/.test(body)) bad.push(`${name}: ${selector.trim()} — headings must not use borders as decoration`);
   }
 }

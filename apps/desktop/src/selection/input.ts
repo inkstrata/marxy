@@ -1,4 +1,4 @@
-// Maps a Rendered selection to operation input (docs/design/03-selection-and-operations.md, MARXY-42, C-06).
+// Maps a Rendered selection to operation input.
 import { sectionRange, textOf, type Buffer, type Document } from '@marxy/core';
 import type { Heading, Node } from '@marxy/core';
 import type { OperationInput } from '@marxy/core';
@@ -28,7 +28,7 @@ export function operationInputFor(
       };
     }
     case 'blocks': {
-      // A run is a raw span: one contiguous range with block-aligned ends and no node (E-05).
+      // A run is a raw span: one contiguous range with block-aligned ends and no node.
       const range = sel.range;
       return { document, range, text: textOf(buffer, range) };
     }
@@ -46,14 +46,14 @@ export function operationInputFor(
 }
 
 /**
- * The inputs a selection offers, in the order operations try them (design 03 §Widening, C-06): a table
+ * The inputs a selection offers, in the order operations try them: a table
  * cell or row offers its enclosing table, and a task item's paragraph offers the item, so a click on a
  * cell offers the table's verbs and a click on a task's text offers "Toggle task". The palette and the
  * keyboard both read this list; each operation runs on the first input its `canApply` accepts.
  *
  * A paragraph comes before its task item (its own copy is the paragraph's). A cell or row comes after its
  * table: the selection's kind is `table`, so Copy as markdown and Copy as rich text copy the table, in
- * the palette as on Cmd+C and Cmd+Shift+C, never a fragment of one row (the C-06 review).
+ * the palette as on Cmd+C and Cmd+Shift+C, never a fragment of one row.
  */
 export function operationInputsFor(
   sel: Selection,

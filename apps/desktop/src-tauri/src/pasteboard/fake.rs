@@ -2,9 +2,10 @@
 //! exactly which representations were read and that a concealed item was not read at all.
 
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::rc::Rc;
 
-use super::{Pasteboard, PasteboardError, Snapshot};
+use super::{Pasteboard, PasteboardError, Snapshot, Taken};
 
 type Items = Vec<Vec<(String, Vec<u8>)>>;
 
@@ -16,6 +17,8 @@ pub struct FakePasteboard {
     pub clears: usize,
     /// Make `write_item` fail after clearing, as `writeObjects` can.
     pub fail_write: bool,
+    /// Sizes a platform reports before copying, by type; such a type over the cap is never read.
+    pub sizes: HashMap<String, usize>,
     /// A copy that lands the instant after the next snapshot is taken.
     pub lands_after_snapshot: RefCell<Option<Items>>,
     landed: RefCell<Option<Items>>,
@@ -25,6 +28,7 @@ pub struct FakePasteboard {
 
 struct FakeSnapshot {
     items: Items,
+    sizes: HashMap<String, usize>,
     reads: Rc<RefCell<Vec<String>>>,
 }
 
@@ -43,6 +47,13 @@ impl Snapshot for FakeSnapshot {
             .iter()
             .find(|(t, _)| t == ty)
             .map(|(_, b)| b.clone())
+    }
+
+    fn read_capped(&self, ty: &str, cap: usize) -> Option<Taken> {
+        match self.sizes.get(ty) {
+            Some(&size) if size > cap => Some(Taken::Over(size)),
+            _ => self.read(ty).map(Taken::Bytes),
+        }
     }
 }
 
@@ -82,6 +93,7 @@ impl Pasteboard for FakePasteboard {
         self.snapshots.set(self.snapshots.get() + 1);
         let snap = FakeSnapshot {
             items: self.items.clone(),
+            sizes: self.sizes.clone(),
             reads: Rc::clone(&self.reads),
         };
         if let Some(next) = self.lands_after_snapshot.borrow_mut().take() {

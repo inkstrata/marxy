@@ -1,0 +1,68 @@
+/* The office page (office.ts): a Word document or a deck as the Markdown page draws text, in the pane's reading look.
+   Only what Markdown has no form for is styled here: asides for comments and speaker notes, a slide's number hung in
+   the margin, pictures and the line that stands for one not drawn. */
+.marxy-office { height: 100%; overflow: auto; outline: none; background: var(--marxy-color-bg); }
+.marxy-office > .marxy-article { padding-top: calc(var(--marxy-line-box) * 0.75); }
+
+/* A comment or a slide's speaker notes: set apart under the text it belongs to, as a note under a part is, in the
+   chrome face. A bar in the rule colour, not the accent: the accent bar is the reader's own note. */
+.marxy-office-aside {
+  margin: calc(var(--lb) / -4) 0 var(--lb);
+  padding: 0 0 0 calc(var(--lb) / 2);
+  border-inline-start: 2px solid var(--marxy-color-rule-strong);
+  font: 400 calc(var(--marxy-size-caption) * 0.93) / 1.5 var(--marxy-face-chrome);
+  color: var(--marxy-color-text-secondary);
+  text-align: start;
+  hyphens: manual;
+}
+.marxy-office-aside > :is(p, ul, ol, blockquote, pre, table) { margin: 0 0 0.35em; font: inherit; line-height: inherit; text-indent: 0; }
+.marxy-office-aside > :last-child { margin-bottom: 0; }
+.marxy-office-aside :is(ul, ol) { padding-inline-start: 1.2em; }
+.marxy-office-who { margin: 0 0 0.15em; }
+.marxy-office-who-name { color: var(--marxy-color-text-strong); font-weight: 600; }
+.marxy-office-who-when { color: var(--marxy-color-text-faint); }
+
+/* A slide: its number hung in the margin beside its heading, in figures that line up down the page. */
+.marxy-office-slide { position: relative; }
+.marxy-office-no {
+  position: absolute;
+  right: 100%;
+  margin-inline-end: 0.75em;
+  font-family: var(--marxy-face-chrome);
+  font-size: var(--marxy-size-caption);
+  font-weight: 400;
+  font-variation-settings: normal;
+  font-variant-numeric: tabular-nums;
+  color: var(--marxy-color-text-faint);
+  font-style: normal;
+  text-transform: none;
+}
+.marxy-office-no-hidden { text-decoration: line-through; }
+.marxy-office-untitled { color: var(--marxy-color-text-faint); }
+.marxy-office-untitled > .marxy-office-no { color: var(--marxy-color-text-faint); }
+/* No margin to hang in: the number sits before the title. */
+@container (max-width: 34em) {
+  .marxy-office-no { position: static; margin-inline-end: 0.5em; }
+}
+
+/* Pictures at their own size, never wider than the column; one alone in its paragraph is a block of its own. */
+.marxy-office-pic { max-width: 100%; height: auto; vertical-align: middle; }
+/* A book's part folded on the page (the Outline's z): its first block stays, marked as holding more. */
+.marxy-book-shut::after { content: ' …'; color: var(--marxy-color-text-faint); }
+.marxy-office-figure > .marxy-office-pic { display: block; }
+/* A picture not drawn: what it is and its alt text, in a quiet dashed box where it would be. */
+.marxy-office-stand {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.1em 0.55em;
+  border: 1px dashed var(--marxy-color-rule-strong);
+  border-radius: 4px;
+  font: 400 calc(var(--marxy-size-caption) * 0.93) / 1.5 var(--marxy-face-chrome);
+  color: var(--marxy-color-text-secondary);
+  text-indent: 0;
+}
+.marxy-office-figure > .marxy-office-stand { display: block; padding: 0.45em 0.75em; }
+.marxy-office-stand-what { color: var(--marxy-color-text-strong); font-weight: 600; }
+.marxy-office-stand-none { color: var(--marxy-color-text-faint); font-style: italic; }
+/* Where reading stopped at a cap: said once above the text, in the caption face. */
+.marxy-office-cut { font: 400 var(--marxy-size-caption) / 1.5 var(--marxy-face-chrome); color: var(--marxy-color-text-secondary); text-indent: 0; }

@@ -40,8 +40,8 @@ test('@marxy/desktop test script does not reference smoke-cli-open', () => {
   assert.match(pkg.scripts['verify:cli'], /smoke-cli-open/);
 });
 
-// Only the files this story may edit. `apps/desktop/test/images.test.mjs` (MARXY-138)
-// and `scripts/gate-no-network.mjs` still call webkit.launch() directly.
+// Files that launch WebKit through the helper. `apps/desktop/test/images.test.mjs` and
+// `scripts/gate-no-network.mjs` still call webkit.launch() directly.
 const LISTED_LAUNCH_PATHS = [
   'apps/desktop/test/typeset-defaults.test.mjs',
   'apps/desktop/test/layout-shift-window.test.mjs',
@@ -50,10 +50,8 @@ const LISTED_LAUNCH_PATHS = [
   'apps/desktop/test/fonts.test.mjs',
   'packages/typeset/test/harness.mjs',
   'packages/theme/test/grid.test.mjs',
-  'packages/theme/test/taste.test.mjs',
-  'packages/theme/test/pair-a-tune.test.mjs',
-  'packages/theme/test/render-taste.mjs',
-  'packages/theme/test/render-taste129.mjs',
+  'packages/theme/test/base-rules.test.mjs',
+  'packages/theme/test/headings-and-lists.test.mjs',
   'scripts/gate-aesthetics.mjs',
 ];
 

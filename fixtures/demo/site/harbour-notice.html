@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harbour Notice 41/2026 - Entrance channel restrictions</title>
+<link rel="stylesheet" href="https://cdn.harbour.example/site.css">
+<style>
+  body { font: 16px/1.55 Georgia, serif; color: #1c2a33; margin: 0; background: #f6f3ec; }
+  .banner { background: #0f4c5c; color: #fff; padding: 1.2rem 2rem; letter-spacing: .04em; }
+  main { max-width: 42rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+  h1 { font-size: 1.7rem; margin: 0 0 .6rem; }
+  table.tides { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  table.tides th, table.tides td { border-bottom: 1px solid #c9c2b2; padding: .35rem .6rem; text-align: left; }
+  table.tides th { background: #e8e2d2; }
+  img { max-width: 100%; height: auto; }
+  .note { font-size: .9rem; color: #52606a; }
+</style>
+<script src="https://cdn.harbour.example/analytics.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    var stamp = document.getElementById('stamp');
+    stamp.textContent = 'Page opened ' + new Date().toISOString().slice(0, 10);
+    document.querySelectorAll('table.tides tr:nth-child(even)').forEach(function (r) {
+      r.style.background = '#faf8f2';
+    });
+  });
+</script>
+</head>
+<body>
+<div class="banner"><strong>Harbour Notice 41/2026</strong> &middot; issued by the Harbour Office</div>
+<main>
+  <h1>Entrance channel restrictions, 12 to 16 October</h1>
+  <p>Dredging in the approach channel will narrow the navigable width to 40 metres.
+     Vessels over 60 metres overall must arrange a pilot and enter on the flood only.</p>
+  <p>Expected tide times at the Ferry Steps for the period are listed below. Heights are
+     above chart datum and may vary by 0.3 m with the weather.</p>
+  <table class="tides">
+    <tr><th>Date</th><th>High water</th><th>Height</th><th>Low water</th></tr>
+    <tr><td>12 Oct</td><td>06:12</td><td>4.9 m</td><td>12:31</td></tr>
+    <tr><td>13 Oct</td><td>06:58</td><td>5.1 m</td><td>13:15</td></tr>
+    <tr><td>14 Oct</td><td>07:41</td><td>5.2 m</td><td>13:57</td></tr>
+    <tr><td>15 Oct</td><td>08:22</td><td>5.0 m</td><td>14:38</td></tr>
+  </table>
+  <img src="https://cdn.harbour.example/img/mouth.jpg" alt="The harbour mouth at low water" width="600">
+  <p>Chart of the works <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQBAMAAADt3eJSAAAAMFBMVEXMsbjMsZi6qKqon7ion5iQk7iQk5h+iqpyhKpge7hge5hOcqpCbKowY7gwY5geWqoWs2cjAAAAVElEQVR42nXNsQmAMBQG4fs1tST7b+Aw4gTyJkjSCGl8sVBBC9vjg1NWBNyUQZPBABwrEHCDoqj5NoFefsyYjNbavnyMGxA26JWr9AooPdP0mroBJ6vlJ55HW6CZAAAAAElFTkSuQmCC" alt="channel marker" width="16" height="16"> is available at the office.</p>
+  <iframe src="https://maps.harbour.example/embed" title="Works area map" width="100%" height="180"></iframe>
+  <form action="https://harbour.example/subscribe" method="post">
+    <label>Email for notices <input type="email" name="email" placeholder="you@example.test"></label>
+    <button type="button" onclick="alert('Thanks, you are on the list')">Subscribe</button>
+  </form>
+  <p>See the full <a href="https://harbour.example/tides">tide tables</a>, the
+     <a href="notices/2026.html">2026 notice archive</a>, or write to
+     <a href="mailto:office@harbour.example">the Harbour Office</a>.</p>
+  <p class="note" id="stamp"></p>
+</main>
+</body>
+</html>

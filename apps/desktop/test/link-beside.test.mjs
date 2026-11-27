@@ -1,4 +1,4 @@
-// Follow a link into the neighbour pane (D-09): Cmd-click (Ctrl-click off a Mac) on a relative link opens
+// Follow a link into the neighbour pane: Cmd-click (Ctrl-click off a Mac) on a relative link opens
 // the target in the other pane, made when there is one pane and two columns fit, while the pane clicked
 // in keeps its document, its place and its focus. A source file opens beside in Source; a plain click
 // still replaces the document in its own pane, and Back walks the history of the pane it is pressed in.
@@ -22,15 +22,17 @@ const para = (word) =>
 const files = {
   '/r/plan.md':
     `# Plan\n\n${para('Plan').repeat(3)}\n\n` +
-    '[the result](./result.md) and [the source](./src/lib.rs) and [the logo](./logo.png) and ' +
+    '[the result](./result.md) and [the source](./src/lib.rs) and [the logo](./logo.png) and [garbled](./src/garbled.rs) and ' +
     '[later](#later) and [the site](https://example.com/x) and [section](./result.md#deep).\n\n' +
     `${para('Plan').repeat(14)}\n\n## Later\n\n${para('Later').repeat(10)}\n`,
   '/r/readme.md': `# Readme\n\n${para('Readme').repeat(4)}\n\n- [ ] readme task\n\n[a link](#end)\n\n${para('Readme').repeat(14)}\n\n## End\n\n${para('End').repeat(10)}\n`,
   '/r/result.md': `# Result\n\n${para('Result').repeat(4)}\n\n${para('Result').repeat(14)}\n\n## Deep\n\n${para('Deep').repeat(10)}\n`,
   '/r/src/lib.rs': 'pub fn answer() -> u32 {\n    42\n}\n',
   '/r/logo.png': '\u0089PNG\r\n\u001a\n\u0000\u0000\u0000\rIHDR',
+  '/r/src/garbled.rs': '\u0089PNG\r\n\u001a\n\u0000\u0000\u0000\rIHDR',
 };
-const FIT = 'Marxy needs a window at least 929 px wide to show two documents side by side.';
+// The width follows the theme's metrics (split-readme-beside-plan proves the number by splitting at it).
+const FIT = '^Marxy needs a window at least \\d+ px wide to show two documents side by side\\.$';
 
 async function withPage(width, fn) {
   const browser = await launchWebkit();
@@ -128,11 +130,11 @@ test('one pane, 1,470 px: Cmd-click makes the second pane with the target; the f
   });
 });
 
-test('one pane, 900 px: Cmd-click shows the fit notice naming 929 px and opens nothing', async () => {
+test('one pane, 900 px: Cmd-click shows the fit notice naming the width it needs and opens nothing', async () => {
   await withPage(900, async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/plan.md'] });
     await cmdClick(page, 0, './result.md');
-    await page.waitForFunction((t) => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent === t), FIT);
+    await page.waitForFunction((t) => [...document.querySelectorAll('.marxy-notice-text')].some((n) => new RegExp(t).test(n.textContent)), FIT);
     assert.deepEqual(await paths(page), ['/r/plan.md']);
     assert.equal(await page.evaluate(() => document.getElementById('marxy-main').hasAttribute('data-marxy-split')), false);
   });
@@ -178,18 +180,31 @@ test('Back is per pane: a link followed in the right pane is not undone by Mod+[
   });
 });
 
-test('Cmd-click on a source file opens it beside in Source; a binary file says it is not text and opens nothing', async () => {
+test('Cmd-click on a source file opens it beside, landing in Read as its code as any open does; one whose bytes are not text says so and opens nothing', async () => {
   await withPage(1470, async (page) => {
     await bootTwoPanes(page, { files, open: ['/r/plan.md', '/r/readme.md'] });
     await cmdClick(page, 0, './src/lib.rs');
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].path() === '/r/src/lib.rs');
-    await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].view.mode === 'source');
-    assert.deepEqual(await modes(page), ['rendered', 'source']);
-    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].host.getAttribute('data-marxy-mode')), 'source');
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].host.querySelector('pre code'));
+    assert.deepEqual(await modes(page), ['rendered', 'rendered']);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.panes().panes[1].host.getAttribute('data-marxy-mode')), 'rendered');
     assert.equal(await focusedSlot(page), 0);
-    await cmdClick(page, 0, './logo.png');
+    await cmdClick(page, 0, './src/garbled.rs');
     await page.waitForFunction(() => [...document.querySelectorAll('.marxy-notice-text')].some((n) => n.textContent === 'That file is not text · nothing was opened.'));
     assert.deepEqual(await paths(page), ['/r/plan.md', '/r/src/lib.rs'], 'the neighbour keeps what it had');
+  });
+});
+
+// Images have a page of their own, so a .png is not taken for a source file and read for text: the
+// link's own refusal answers first. Either way nothing opens beside.
+test('Cmd-click on an image link is refused and opens nothing beside', async () => {
+  await withPage(1470, async (page) => {
+    await bootTwoPanes(page, { files, open: ['/r/plan.md', '/r/readme.md'] });
+    await cmdClick(page, 0, './logo.png');
+    await page.waitForFunction(() => document.querySelector('.marxy-notice[data-notice-kind="refused"] .marxy-notice-text') !== null);
+    await page.waitForTimeout(300);
+    assert.deepEqual(await paths(page), ['/r/plan.md', '/r/readme.md'], 'the neighbour keeps what it had');
+    assert.equal(await page.evaluate(() => window.__marxyHandle.shell.calls.some((c) => /^(readFile|peekFile)$/.test(c.method) && c.args[0] === '/r/logo.png')), false, 'the image was not read');
   });
 });
 
@@ -248,9 +263,9 @@ test('Cmd-click beside a neighbour with unsaved edits asks first: nothing is rep
   });
 });
 
-// K-05a: an extension-less README family file is a Rendered document now; a link to one still opens beside.
+// an extension-less README family file is a Rendered document now; a link to one still opens beside.
 const family = ['README', 'CONTRIBUTING', 'CHANGELOG', 'CHANGES', 'HISTORY'];
-test('Cmd-click on a link to an extension-less README, CONTRIBUTING, CHANGELOG, CHANGES or HISTORY opens it beside, Rendered (K-05a)', async () => {
+test('Cmd-click on a link to an extension-less README, CONTRIBUTING, CHANGELOG, CHANGES or HISTORY opens it beside, Rendered', async () => {
   const plan = `# Plan\n\n${para('Plan').repeat(2)}\n\n${family.map((n) => `[${n}](./${n})`).join(' and ')}\n`;
   const set = { '/r/plan.md': plan, '/r/readme.md': files['/r/readme.md'], ...Object.fromEntries(family.map((n) => [`/r/${n}`, `# ${n}\n\nText of ${n}.\n`])) };
   await withPage(1470, async (page) => {

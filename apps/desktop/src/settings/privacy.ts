@@ -1,4 +1,4 @@
-// The Settings page's Privacy lists, computed from the code and not written as a promise (W-12, ADR-0075; commitment 2 of AGENTS.md:
+// The Settings page's Privacy lists, computed from the code and not written as a promise (the rule:
 // "every privacy promise names what that action sends and to whom").
 //
 // Two lists. *Stored on this Mac*: every file Marxy keeps, with its path, its size and what it holds, read from the folders themselves
@@ -31,7 +31,7 @@ export interface LeaveRow {
 
 /**
  * Each reader action that can send something off this Mac. A row is a reader action: Marxy opens no connection of its own, and the
- * webview has no network (ADR-0027, `scripts/gate-no-network.mjs`).
+ * webview has no network (`scripts/gate-no-network.mjs`).
  */
 export const LEAVES_THIS_MAC: readonly LeaveRow[] = [
   {
@@ -44,11 +44,11 @@ export const LEAVES_THIS_MAC: readonly LeaveRow[] = [
   },
   {
     id: 'remote-image',
-    action: 'Allowing a remote image',
+    action: 'Loading a message’s images from the network',
     calls: ['fetchRemoteImage'],
-    built: false,
-    sends: 'Nothing today: remote images stay blocked (ADR-0044). When you can allow one, it will be a request for the image\u2019s address over https, with no cookies, no Referer and no document text, made only after you allow that image in that document.',
-    to: 'The server that hosts the image, which would see your IP address and the address asked for.',
+    built: true,
+    sends: 'A request for each image’s address over https, with no cookies, no Referer and nothing of the message, made by the app only after you press Load them for this message, for that message until its tab closes. Nothing is remembered.',
+    to: 'The servers that host the images, which see your IP address and the addresses asked for, and so that the message was opened, and when.',
   },
   {
     id: 'clipboard',
@@ -66,9 +66,9 @@ export const LEAVES_THIS_MAC: readonly LeaveRow[] = [
  * `revealInExternalEditor` runs the program you named as `external_editor` on a file path: what that program does is its own.
  */
 export const LOCAL_ONLY_CALLS: readonly string[] = [
-  'readFile', 'writeFileAtomic', 'writeFileNew', 'stat', 'readHead', 'watch', 'listRoot', 'fuzzy', 'repositoryRoot', 'openDialog',
+  'readFile', 'writeFileAtomic', 'writeFileNew', 'stat', 'readHead', 'readRange', 'imageFacts', 'listArchive', 'readArchiveEntry', 'readArchiveHeads', 'tablesOpen', 'tablesRows', 'tablesBlob', 'watch', 'openDialog',
   'revealInExternalEditor', 'clipboardTypes', 'clipboardRead', 'assetUrl', 'onOpenFiles', 'platform', 'startupMarks', 'args', 'mark',
-  'quit', 'readDir', 'realPath', 'setTitle', 'setWindowControls', 'imageSize', 'webkitVersion', 'configPaths', 'allowAssetScope',
+  'quit', 'readDir', 'realPath', 'setTitle', 'setFullscreen', 'isFullscreen', 'imageSize', 'configPaths', 'allowAssetScope',
   'saveDialog', 'onCloseRequested', 'confirmClose', 'searchContent',
 ];
 
@@ -95,6 +95,13 @@ export const STORED_FILES: readonly FileKind[] = [
   { id: 'layout', name: 'layout.json', folder: 'data', holds: 'The split you left: the files in it, the ratio and which side had focus.', matches: (n) => n === 'layout.json' },
   { id: 'kinds', name: 'kinds.json', folder: 'data', holds: 'How you chose to show a file (Show as), by path.', matches: (n) => n === 'kinds.json' },
   {
+    id: 'readings',
+    name: 'readings.json',
+    folder: 'data',
+    holds: 'How you chose to read parts of your files (Read this part another way): each by the file’s path and the part’s first line. Up to 5,000 files.',
+    matches: (n) => n === 'readings.json',
+  },
+  {
     id: 'index',
     name: 'index-<id>.json',
     folder: 'data',
@@ -106,7 +113,7 @@ export const STORED_FILES: readonly FileKind[] = [
     id: 'versions',
     name: 'versions-<id>.json and its slots',
     folder: 'data',
-    holds: 'Byte-exact copies of files you read and save: up to 20 per file, for 30 days, 200 MB in all, oldest first. Never sent anywhere.',
+    holds: 'Byte-exact copies of a file from before Marxy saved over it or another program replaced it, never of a file only opened: up to 20 per file, for 30 days, 200 MB in all, oldest first. Never sent anywhere.',
     matches: (n) => /^versions-[0-9a-f]+(\.json|-\d\d)$/.test(n),
     // One manifest per file that has versions; its slots hold the copies.
     family: { item: (n) => n.endsWith('.json'), say: (n) => `of ${n} ${n === 1 ? 'file' : 'files'}` },

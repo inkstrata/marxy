@@ -6,10 +6,10 @@ license = "MIT"
 description = "A markdown reader. Free, open, quiet, and set like a book."
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "2.7", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["protocol-asset"] }
+tauri = { version = "2.12", features = [] }
 tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -17,14 +17,85 @@ imagesize = "0.13"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
 notify = "8"
-# Reads `external_editor` from config.toml (docs/design/09-app-shell.md); 0.9 is already in Cargo.lock.
+# Reads `external_editor` from config.toml.
 toml = "0.9"
+# Canonical paths without Windows' verbatim prefix: the page spells paths with `/`, and `//?/C:/...` names no
+# file, so a canonical `\\?\C:\...` sent to it could never be read back. Already in Cargo.lock through tauri.
+dunce = "1"
+unicode_names2 = "4.0.0"
+# Magic bytes for content detection (src/detect.rs). MIT; already in Cargo.lock through tauri-utils.
+infer = "0.22"
+# Decoders for the formats the webview cannot show (src/decode): TIFF, TGA, OpenEXR, Radiance HDR, QOI, PNM, farbfeld
+# and DDS (BC1 to BC3), JPEG to
+# read a RAW file's preview, PNG to write the answer. MIT OR Apache-2.0; no rayon, so a decode holds one thread.
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "tiff", "tga", "exr", "hdr", "qoi", "pnm", "ff", "dds"] }
+# JPEG XL in pure Rust (MIT OR Apache-2.0), through `image`'s decoder trait; no rayon, no CMS.
+jxl-oxide = { version = "0.12.6", default-features = false, features = ["image"] }
+# A PNG's header chunks for image_facts (src/facts): size, depth, iCCP, eXIf, acTL. Already in Cargo.lock through image.
+png = "0.18.1"
+
+# Archive listing and one-entry reads (src/archive): deflate for zip, gzip for tar.gz and lone .gz. MIT OR Apache-2.0;
+# already in Cargo.lock through image.
+flate2 = "1"
+# The zip entry CRC-32 check; MIT OR Apache-2.0, already in Cargo.lock through flate2.
+crc32fast = "1"
+# Tar headers, walked by seek or stream and never unpacked (no xattr). MIT OR Apache-2.0.
+tar = { version = "0.4.46", default-features = false }
+# Pure-Rust bzip2 decoder for .tar.bz2, lone .bz2 and bzip2 zip entries. MIT OR Apache-2.0.
+bzip2-rs = "0.1.2"
+# Pure-Rust xz decoder for .tar.xz and lone .xz, with a memory limit, and raw LZMA and xz zip entries. Apache-2.0.
+lzma-rust2 = { version = "0.25", default-features = false, features = ["std", "xz"] }
+# Deflate64 zip entries (method 9, which Windows Explorer writes for large files): a fixed 128 KB window, no unsafe
+# code, no dependencies. MIT.
+deflate64 = "0.1.12"
+# Zstandard zip entries (method 93), pure Rust with a window limit checked before it allocates; without its xxhash
+# check, since the entry's CRC-32 is checked instead, so nothing else enters Cargo.lock. MIT.
+ruzstd = { version = "0.9.1", default-features = false, features = ["std"] }
+# 7z headers and blocks, decoded through lzma-rust2: copy, LZMA, LZMA2, BCJ, BCJ2 and delta. Apache-2.0. No features, so
+# no AES, PPMd, bzip2, deflate or zstd, and nothing new beyond it in Cargo.lock.
+sevenz-rust2 = { version = "0.25", default-features = false }
+# SQLite databases read in place, read-only (src/tables): SQLite itself compiled in, `serialize` for a copy held
+# in memory when the file is locked, `hooks` for the time cap, `blob` to read a BLOB's head. MIT; SQLite is public domain.
+rusqlite = { version = "0.41", features = ["bundled", "serialize", "hooks", "blob", "limits", "column_decltype"] }
+# Spreadsheets as saved (src/tables): xlsx, xlsm, xls (BIFF in a compound file) and ods; cached values, formulas as
+# written, styles' number formats. Pure Rust, MIT.
+calamine = "0.38"
+# A workbook's parts listed and an ods's spans read beside calamine; the versions calamine already pulls in.
+zip = { version = "9", default-features = false, features = ["deflate"] }
+quick-xml = "0.42"
+# An xls's compound-file directory for the Workbook card (MIT); 0.14 is already in Cargo.lock.
+cfb = "0.14"
+# One image from the network, fetched only after the reader asked: https only, through the system's
+# own TLS and trust store (SChannel, Security.framework, OpenSSL), since rustls' webpki-roots fails the licence gate as
+# expected. MIT OR Apache-2.0.
+ureq = { version = "3.5", default-features = false, features = ["native-tls-no-default"] }
+skrifa = { version = "0.49", default-features = false, features = ["std"] }
+wuff = "0.2.9"
+# Text that is not UTF-8 (src/encoding): encoding_rs decodes and encodes the WHATWG encodings, chardetng guesses one
+# for bytes with no BOM. MIT OR Apache-2.0 (encoding_rs adds BSD-3 for its index data); pure Rust.
+chardetng = "0.1"
+encoding_rs = "0.8"
+
+# The tests write their 7z archives (LZMA, LZMA2, solid, with folders) with the same crate's encoder; test builds only.
+[dev-dependencies]
+sevenz-rust2 = { version = "0.25", default-features = false, features = ["compress"] }
+
+# A file dropped from Explorer (src/drop_windows.rs): WebView2's message carrying `ICoreWebView2File`s, since
+# dragDropEnabled is off on Windows. MIT; the versions wry already pulls in, so nothing new enters Cargo.lock.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows-core = "0.62"
+# The clipboard (src/pasteboard/win32.rs): formats listed and read, one copy written with every
+# representation; the Recent list (src/commands/recent.rs), and the app's AppUserModelID; HEIC through the system's own
+# Windows Imaging Component decoder (src/decode/wic.rs), so no HEVC decoder is carried. MIT OR Apache-2.0; the version wry
+# already pulls in.
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Imaging", "Win32_System_Com", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_UI_Shell"] }
 
 # O_NOFOLLOW and O_NONBLOCK for `read_head`'s open (MIT OR Apache-2.0); already in Cargo.lock through other crates.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
-# The native pasteboard (J-01, src/pasteboard/macos.rs): NSPasteboard for type listing, HTML and RTF
+# The native pasteboard (src/pasteboard/macos.rs): NSPasteboard for type listing, HTML and RTF
 # reads and one multi-representation item. MIT; the versions tauri's macOS stack already pulls in.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6.4"
@@ -37,9 +108,8 @@ lto = true
 opt-level = 3
 strip = true
 
-# CI builds: thin LTO and more codegen units so a pull request pays seconds, not minutes, for the
-# link; the shipped binary still uses [profile.release] (tags and `pnpm bundle`). Startup baselines
-# in fixtures/perf-budgets.json under "ci" are measured on this profile (docs/hygiene.md §CI).
+# A quicker-linking profile for builds that are not shipped (`cargo build --profile ci`): thin LTO and more codegen
+# units. The shipped binary uses [profile.release] (`pnpm bundle`).
 [profile.ci]
 inherits = "release"
 lto = "thin"

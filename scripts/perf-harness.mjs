@@ -1,18 +1,17 @@
-// The large-document harness (A-01): the committed form of the October 2026 performance audit's
-// appendix scripts (docs/research/audit-2026-10/05-performance-audit.md §13.3 and the §9.2 layout
-// loop), so anyone can reproduce its §9.1 table on their own machine.
+// The large-document harness: open, render, live reload, palette search and the layout loop, timed over
+// generated documents, so anyone can reproduce the numbers on their own machine.
 //
 // It boots the built web app (apps/desktop/harness/dist/app.html, the harness entry
-// apps/desktop/src/harness/app-harness.ts, built by `build:harness` and never into the shipped dist/,
-// B-16.1) in Playwright WebKit against an in-memory shell, opens
+// apps/desktop/src/harness/app-harness.ts, built by `build:harness` and never into the shipped dist/)
+// in Playwright WebKit against an in-memory shell, opens
 // one document, and reads back every mark the app made. A measurement, not a gate: nothing here
-// fails on a number (ADR-0032). It exits non-zero only when a measurement it was asked for produced
+// fails on a number. It exits non-zero only when a measurement it was asked for produced
 // no sample at all.
 //
-// The nightly workflow runs it as `pnpm perf` (A-03) and keeps the one JSON record `--record` writes:
+// A person runs it by hand as `pnpm perf`; `--record` writes one JSON record:
 // first text and its stages for the corpus and the large files, the typeset viewport, live reload,
 // opening a second document, and palette search at 5k, 20k and 50k entries. It can also open an agent
-// transcript (`--transcript`, B-25); the nightly does not record one yet.
+// transcript (`--transcript`); the record does not hold one yet.
 //
 // usage: node scripts/perf-harness.mjs [--build] [--runs N] [--files a.md,b.md|corpus] [--large 256k,1m,5m]
 //                                      [--transcript 64k,256k,1m] [--reload] [--open-second] [--palette] [--parse] [--grid-only]
@@ -20,18 +19,18 @@
 //        node scripts/perf-harness.mjs --write <dir> --large 1m      writes big-1m.md and exits
 //        node scripts/perf-harness.mjs --write <dir> --transcript 1m writes transcript-1m.md and exits
 //
-//   --transcript     an agent transcript of each size (generateTranscript, B-25), named transcript-<size>
+//   --transcript     an agent transcript of each size (generateTranscript), named transcript-<size>
 //   --files corpus   every numbered .md of fixtures/corpus except 11-empty.md, which has no text to show
 //   --reload         after first text, append bytes through the memory shell, emit a watch event, and
-//                    record the `ms=` of the `live_reload` mark (05 §8.1)
+//                    record the `ms=` of the `live_reload` mark
 //   --open-second    boot on the corpus README, then open the document as a second one and record the
-//                    time from the call to its `render` mark (05 §8.2)
+//                    time from the call to its `render` mark
 //   --palette        in Node, no browser: prepareIndex, then searchPrepared 200 times at 5k, 20k and
-//                    50k synthetic entries; p50 and p95 (05 §7.1)
+//                    50k synthetic entries; p50 and p95
 //   --parse          in Node, no browser: `parseMarkdown` over a generated prose document and a block-dense one
-//                    at 256 KB, 1 MB and 2 MB, the median of three; the `parse_large` rows (F-60)
+//                    at 256 KB, 1 MB and 2 MB, the median of three; the `parse_large` rows
 //   --record <path>  one JSON record: date, commit, runner, Node and WebKit versions, and the numbers
-//   --summary <path> append a Markdown table of the record to <path> (the nightly job's step summary)
+//   --summary <path> append a Markdown table of the record to <path>
 
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -56,7 +55,7 @@ export function parseSize(name) {
 
 /**
  * `fixtures/corpus/01-long-technical.md`, each copy followed by one blank line, repeated until the
- * size is reached: the generated documents of 05 §9.1 (256k → 264,940 bytes, 1m → 1,059,760).
+ * size is reached: the generated documents (256k → 264,940 bytes, 1m → 1,059,760).
  * Deterministic, and never shorter than `targetBytes`.
  */
 export function generateLarge(targetBytes) {
@@ -68,11 +67,11 @@ export function generateLarge(targetBytes) {
 }
 
 /**
- * The product's primary large document (B-25): `fixtures/corpus/18-agent-transcript.md` repeated
+ * The product's primary large document: `fixtures/corpus/18-agent-transcript.md` repeated
  * until the size is reached, each copy a turn of its own (`## Turn n` above it), so headings, fences,
  * tool output and lists recur as a long agent session's do. The prose of `generateLarge` hid a cost
- * that grew with the number of fences; this shape shows it. The same generator as B-23's
- * `measure-reload.mjs`. Deterministic, and never shorter than `targetBytes`.
+ * that grew with the number of fences; this shape shows it. The same generator as `measure-reload.mjs` uses.
+ * Deterministic, and never shorter than `targetBytes`.
  */
 export function generateTranscript(targetBytes) {
   const turn = readFileSync(new URL('18-agent-transcript.md', CORPUS), 'utf8');
@@ -101,9 +100,9 @@ export function detailMs(detail) {
 }
 
 /**
- * The columns of 05 §9.1 from one launch's marks (ms since the harness called start) and the marks'
+ * The columns from one launch's marks (ms since the harness called start) and the marks'
  * detail strings: parse, render, layout and fonts, grid, paint wait, first text, and the `ms=` of
- * `typeset_viewport`. A-02's two marks join them: `first_screen` (the first screens are in the
+ * `typeset_viewport`. Two more marks join them: `first_screen` (the first screens are in the
  * article) and `content_complete` (the last idle chunk is in; only a document large enough to be
  * mounted in chunks makes it), both as ms since start like `first_text`. A stage whose marks are
  * missing is left out.
@@ -148,7 +147,7 @@ export function liveReloadMs(calls, since) {
 
 /**
  * From a call to `handle.open` at `since` (epoch ms) to the next `render` mark: open → render of
- * 05 §8.2. Undefined when the open never reached a render.
+ * a document. Undefined when the open never reached a render.
  */
 export function openRenderMs(calls, since) {
   const hit = calls.find(([name, t]) => name === 'render' && t >= since);
@@ -170,11 +169,11 @@ export function corpusFiles(dir = fileURLToPath(CORPUS)) {
   return readdirSync(dir).filter((n) => /^\d+-.*\.md$/.test(n) && n !== '11-empty.md').sort();
 }
 
-/** The palette sizes `--palette` measures (05 §7.1; 50k is the index's per-root cap). */
+/** The palette sizes `--palette` measures (50k is the index's per-root cap). */
 export const PALETTE_SIZES = [5_000, 20_000, 50_000];
 export const PALETTE_SAMPLES = 200;
 
-/** The sizes and shapes `--parse` measures (F-60): the cost the open document's parse is reused to avoid. */
+/** The sizes and shapes `--parse` measures: the cost the open document's parse is reused to avoid. */
 export const PARSE_SIZES = { '256k': 256 * 1024, '1m': 1024 * 1024, '2m': 2 * 1024 * 1024 };
 export const PARSE_SHAPES = ['prose', 'dense'];
 export const PARSE_SAMPLES = 3;
@@ -222,7 +221,7 @@ export async function generateDense(targetBytes) {
 }
 
 /**
- * `parseMarkdown` over each shape at each size in Node, no browser (F-60): one warm-up parse of the 256 KB prose
+ * `parseMarkdown` over each shape at each size in Node, no browser: one warm-up parse of the 256 KB prose
  * document, then the median of `samples` timed parses per row. `parse` is injected so a test can time a stand-in.
  */
 export async function parseLarge({ sizes = PARSE_SIZES, shapes = PARSE_SHAPES, samples = PARSE_SAMPLES, parse } = {}) {
@@ -254,7 +253,7 @@ export function requiredStages({ reload = false, openSecond = false } = {}) {
 /**
  * The one record a run writes (`--record`). `documents` carry median stages per file; `palette` one
  * row per size. `missing` names every requested measurement that produced no sample, and is the only
- * thing that makes a run exit non-zero (ADR-0032: a number never does).
+ * thing that makes a run exit non-zero (a number never does).
  */
 export function buildRecord({ meta = {}, documents = [], palette = [], parseLarge: parseRows = [], requested = {} }) {
   const need = requiredStages(requested);
@@ -280,7 +279,7 @@ export function buildRecord({ meta = {}, documents = [], palette = [], parseLarg
     schema: 1,
     ...meta,
     note:
-      "Recorded, never gated (ADR-0032). The nightly run is Playwright WebKit on a GitHub-hosted Linux runner: a different engine build and a slower machine than the audit's Mac, so read these numbers as a trend from night to night, not as a comparison with docs/research/audit-2026-10/05-performance-audit.md.",
+      "Recorded, never gated. Numbers depend on the engine build and the machine: read them as a trend across runs on the same machine.",
     requested: { reload: !!requested.reload, open_second: !!requested.openSecond, palette: !!requested.palette, parse: !!requested.parse },
     documents,
     palette,
@@ -291,7 +290,7 @@ export function buildRecord({ meta = {}, documents = [], palette = [], parseLarg
 
 const SUMMARY_STAGES = ['first_screen', 'first_text', 'typeset_viewport', 'content_complete', 'live_reload', 'open_render'];
 
-/** A short Markdown table of a record, for a CI job summary. */
+/** A short Markdown table of a record, for a summary file. */
 export function summaryTable(record) {
   const cell = (v) => (typeof v === 'number' && Number.isFinite(v) ? String(v) : '—');
   const lines = [
@@ -310,7 +309,7 @@ export function summaryTable(record) {
     for (const r of record.parse_large) lines.push(`| ${r.shape} ${r.size} | ${r.bytes} | ${cell(r.parse_ms)} | ${cell(r.us_per_byte)} |`);
   }
   const tail = record.missing.length ? `**No sample:** ${record.missing.join('; ')}.` : 'Every requested measurement produced a sample.';
-  lines.push('', `Milliseconds; medians of ${record.runs ?? '?'} runs per document. open_render is the open call to the first \`render\` mark, not to content_complete, which for a large document comes later (05 §8.2). ${tail}`, '');
+  lines.push('', `Milliseconds; medians of ${record.runs ?? '?'} runs per document. open_render is the open call to the first \`render\` mark, not to content_complete, which for a large document comes later. ${tail}`, '');
   return lines.join('\n');
 }
 
@@ -365,7 +364,7 @@ function documents(opts) {
 
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.json': 'application/json', '.wasm': 'application/wasm', '.txt': 'text/plain' };
 
-/** The harness build: its own directory, since the shipped dist/ holds only index.html (B-16.1). */
+/** The harness build: its own directory, since the shipped dist/ holds only index.html. */
 const HARNESS_DIST = fileURLToPath(new URL('apps/desktop/harness/dist/', ROOT));
 
 /** Builds the harness into HARNESS_DIST. */
@@ -400,7 +399,7 @@ async function bootedPage(browser, base) {
 
 /**
  * One launch of the app on `bytes`, held until the whole document is in the article. With `reload`,
- * the file then grows by one paragraph on disk and the app is told it changed (05 §8.1). Returns the
+ * the file then grows by one paragraph on disk and the app is told it changed. Returns the
  * epoch at start, ready, the epoch of the watch event, and every `mark` call as [name, epochMs, detail].
  */
 async function launchOnce(browser, base, bytes, { reload = false } = {}) {
@@ -437,7 +436,7 @@ async function launchOnce(browser, base, bytes, { reload = false } = {}) {
   }
 }
 
-/** The document a second open starts from (05 §8.2 opened a README first). */
+/** The document a second open starts from (a README, opened first). */
 const FIRST_FOR_OPEN = '02-readme-real-world.md';
 
 /**
@@ -484,7 +483,7 @@ export function paletteEntry(i) {
 export const PALETTE_QUERIES = ['title 1', 'file-300', 'heading 12', 'detail', 'document 99', 'section', 'xyz-no-such', 't', 'md', 'd3/file'];
 
 /**
- * Palette search in Node, no browser (05 §7.1): for each size, `prepareIndex` once, three warm-up
+ * Palette search in Node, no browser: for each size, `prepareIndex` once, three warm-up
  * rounds of the queries, then `searchPrepared` `samples` times over them in turn; p50, p95 and max.
  */
 export async function palettePerf(sizes = PALETTE_SIZES, samples = PALETTE_SAMPLES) {
@@ -521,7 +520,7 @@ export function commitOf() {
 }
 
 /**
- * Times `snapToGrid` alone (05 §9.2): the rendered HTML in a themed `#doc`, one forced layout, then
+ * Times `snapToGrid` alone: the rendered HTML in a themed `#doc`, one forced layout, then
  * the grid pass from source with its types stripped, the way packages/theme/test/grid.test.mjs
  * loads it. The bundled faces are inlined as data URLs and loaded before the pass, as in the app.
  */
@@ -575,7 +574,7 @@ async function main(argv) {
     return 0;
   }
   // With no harness build yet (a fresh checkout, or a job that ran only build:web), build one rather
-  // than fail: the shipped dist/ no longer holds app.html (B-16.1).
+  // than fail: the shipped dist/ no longer holds app.html.
   const docs = documents(opts);
   // A run of Node-only measurements (--palette, --parse) opens no page, so it needs no build.
   if (docs.length && (opts.build || !existsSync(join(HARNESS_DIST, 'app.html')))) buildHarness();

@@ -1,0 +1,154 @@
+/* Ember: Red-black, ember-red links, red keywords. Blush by day.
+   Written from packages/theme/src/looks/ember.ts by packages/theme/scripts/write-theme-sheets.mjs: change that file
+   and run the script, never this one (theme-sheets.test.ts holds them equal).
+*/
+:root {
+  --marxy-weight-body: 380;
+  --marxy-weight-heading: 560;
+  --marxy-weight-strong: 680;
+
+  --marxy-color-bg: #170f0e;
+  --marxy-color-text: #ecdfda;
+  --marxy-color-text-strong: #faf0ec;
+  --marxy-color-text-secondary: #bfaba5;
+  --marxy-color-text-faint: #a7948e;
+  --marxy-color-accent: #ff7b6e;
+  --marxy-color-accent-strong: #ffaba1;
+  --marxy-color-accent-fg: #170f0e;
+  --marxy-color-accent-wash: rgba(255, 123, 110, 0.12);
+  --marxy-color-link: var(--marxy-color-accent);
+  --marxy-color-rule: #301f1c;
+  --marxy-color-rule-strong: #43302c;
+  --marxy-color-edge: #8e7a75;
+  --marxy-color-divider: var(--marxy-color-rule);
+  --marxy-color-divider-focus: var(--marxy-color-accent);
+  --marxy-color-quote-rule: #e5675c;
+  --marxy-color-surface: #241816;
+  --marxy-color-surface-glass: rgba(36, 24, 22, 0.84);
+  --marxy-color-notice: var(--marxy-color-surface);
+  --marxy-shadow-surface: 0 1px 2px rgba(0, 0, 0, 0.45), 0 12px 32px rgba(0, 0, 0, 0.55);
+  --marxy-color-code-bg: #1f1412;
+  --marxy-color-code-text: #e6d9d4;
+  --marxy-color-selection: #3b1d1b;
+  --marxy-color-find: #33270f;
+  --marxy-color-find-current: #3d2f0c;
+  --marxy-color-find-edge: #d9a441;
+  --marxy-color-status-ok: #9fd1a3;
+  --marxy-color-status-warn: #e8b86c;
+  --marxy-color-status-err: #ff9a8f;
+  --marxy-color-status-info: var(--marxy-color-accent);
+  --marxy-color-status-ok-wash: rgba(159, 209, 163, 0.1);
+  --marxy-color-status-warn-wash: rgba(232, 184, 108, 0.1);
+  --marxy-color-status-err-wash: rgba(255, 154, 143, 0.1);
+  --marxy-color-diff-add: #1c2a1f;
+  --marxy-color-diff-del: #3a1c1a;
+  --marxy-color-diff-add-word: #253a29;
+  --marxy-color-diff-del-word: #52241f;
+  --marxy-tok-keyword: #ff8578;
+  --marxy-tok-string: #e9c891;
+  --marxy-tok-comment: #b09b94;
+  --marxy-tok-number: #f4a3c0;
+  --marxy-tok-function: #9cc0e0;
+  --marxy-tok-type: var(--marxy-color-code-text);
+  --marxy-tok-variable: var(--marxy-color-code-text);
+  --marxy-tok-operator: #c9b9b3;
+  --marxy-tok-punctuation: var(--marxy-color-code-text);
+  --marxy-tok-constant: var(--marxy-tok-number);
+  --marxy-tok-tag: var(--marxy-tok-keyword);
+  --marxy-tok-attribute: var(--marxy-tok-string);
+  --marxy-tok-marker: #ac9993;
+  --marxy-tok-heading: #faf0ec;
+  --marxy-tok-builtin: var(--marxy-tok-function);
+  --marxy-tok-property: var(--marxy-color-code-text);
+  --marxy-tok-decorator: var(--marxy-tok-keyword);
+  --marxy-tok-self: var(--marxy-tok-keyword);
+  --marxy-tok-escape: var(--marxy-tok-string);
+  --marxy-tok-mark: var(--marxy-tok-marker);
+  --marxy-tok-link: var(--marxy-color-link);
+}
+:root[data-marxy-variant="light"] {
+  --marxy-weight-body: 400;
+  --marxy-weight-heading: 580;
+  --marxy-weight-strong: 700;
+
+  --marxy-color-bg: #fcf7f5;
+  --marxy-color-text: #251917;
+  --marxy-color-text-strong: #120b0a;
+  --marxy-color-text-secondary: #5d4b47;
+  --marxy-color-text-faint: #705e5a;
+  --marxy-color-accent: #b02a1f;
+  --marxy-color-accent-strong: #87190f;
+  --marxy-color-accent-fg: #fcf7f5;
+  --marxy-color-accent-wash: rgba(176, 42, 31, 0.08);
+  --marxy-color-link: var(--marxy-color-accent);
+  --marxy-color-rule: #e8dcd7;
+  --marxy-color-rule-strong: #d8c8c2;
+  --marxy-color-edge: #80706b;
+  --marxy-color-divider: var(--marxy-color-rule);
+  --marxy-color-divider-focus: var(--marxy-color-accent);
+  --marxy-color-quote-rule: #b4271c;
+  --marxy-color-surface: #f4ece8;
+  --marxy-color-surface-glass: rgba(244, 236, 232, 0.84);
+  --marxy-color-notice: var(--marxy-color-surface);
+  --marxy-shadow-surface: 0 1px 2px rgba(40, 10, 8, 0.06), 0 8px 28px rgba(40, 10, 8, 0.14);
+  --marxy-color-code-bg: #f3eae6;
+  --marxy-color-code-text: #251917;
+  --marxy-color-selection: #f5d9d4;
+  --marxy-color-find: #fbecc0;
+  --marxy-color-find-current: #f6dc8c;
+  --marxy-color-find-edge: #8a6000;
+  --marxy-color-status-ok: #1f6b3a;
+  --marxy-color-status-warn: #7d4c00;
+  --marxy-color-status-err: #b02a1f;
+  --marxy-color-status-info: var(--marxy-color-accent);
+  --marxy-color-status-ok-wash: rgba(31, 107, 58, 0.09);
+  --marxy-color-status-warn-wash: rgba(125, 76, 0, 0.09);
+  --marxy-color-status-err-wash: rgba(176, 42, 31, 0.08);
+  --marxy-color-diff-add: #d8ead7;
+  --marxy-color-diff-del: #f8dcd7;
+  --marxy-color-diff-add-word: #c4dfc3;
+  --marxy-color-diff-del-word: #f1c9c2;
+  --marxy-tok-keyword: #ad261c;
+  --marxy-tok-string: #6f4e00;
+  --marxy-tok-comment: #685651;
+  --marxy-tok-number: #9c1c5c;
+  --marxy-tok-function: #2b5a86;
+  --marxy-tok-type: var(--marxy-color-code-text);
+  --marxy-tok-variable: var(--marxy-color-code-text);
+  --marxy-tok-operator: #5d4b47;
+  --marxy-tok-punctuation: var(--marxy-color-code-text);
+  --marxy-tok-constant: var(--marxy-tok-number);
+  --marxy-tok-tag: var(--marxy-tok-keyword);
+  --marxy-tok-attribute: var(--marxy-tok-string);
+  --marxy-tok-marker: #685752;
+  --marxy-tok-heading: #120b0a;
+  --marxy-tok-builtin: var(--marxy-tok-function);
+  --marxy-tok-property: var(--marxy-color-code-text);
+  --marxy-tok-decorator: var(--marxy-tok-keyword);
+  --marxy-tok-self: var(--marxy-tok-keyword);
+  --marxy-tok-escape: var(--marxy-tok-string);
+  --marxy-tok-mark: var(--marxy-tok-marker);
+  --marxy-tok-link: #ad261c;
+}
+[data-marxy-lang] {
+  --marxy-tok-keyword: #ff8578;
+  --marxy-tok-type: #e6d9d4;
+  --marxy-tok-string: #e9c891;
+  --marxy-tok-number: #f4a3c0;
+  --marxy-tok-decorator: #ff8578;
+  --marxy-tok-self: #ff8578;
+  --marxy-tok-builtin: #9cc0e0;
+  --marxy-tok-escape: #e9c891;
+  --marxy-tok-constant: #f4a3c0;
+}
+:root[data-marxy-variant="light"] [data-marxy-lang] {
+  --marxy-tok-keyword: #ad261c;
+  --marxy-tok-type: #251917;
+  --marxy-tok-string: #6f4e00;
+  --marxy-tok-number: #9c1c5c;
+  --marxy-tok-decorator: #ad261c;
+  --marxy-tok-self: #ad261c;
+  --marxy-tok-builtin: #2b5a86;
+  --marxy-tok-escape: #6f4e00;
+  --marxy-tok-constant: #9c1c5c;
+}

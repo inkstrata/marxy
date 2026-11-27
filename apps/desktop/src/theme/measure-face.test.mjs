@@ -1,4 +1,4 @@
-// H-06: the in-app measurement of a face's average character advance. Real WebKit, real font files from
+// the in-app measurement of a face's average character advance. Real WebKit, real font files from
 // fonts/: the canvas path must agree with the build-time `hmtx` mean (packages/typeset/scripts/font-metrics.mjs)
 // within 1 %, a ratio must not depend on size, and measuring must not run before first paint.
 import { strict as assert } from 'node:assert';
@@ -104,7 +104,9 @@ test('two sizes of one face give the same em value within 0.5 %', async () => {
   });
 });
 
-test('an optical-size face is narrower as it grows, so its number is measured at the size it is set at', async () => {
+// Playwright's Windows WebKit build does not apply `font-optical-sizing: auto`: both sizes measure the same there.
+const opszSkip = skip || (process.platform === 'win32' ? "Playwright's Windows WebKit does not size the optical axis" : false);
+nodeTest('an optical-size face is narrower as it grows, so its number is measured at the size it is set at', { skip: opszSkip }, async () => {
   await withPage(async (page) => {
     const small = await measure(page, 'Source Serif 4', 16);
     const large = await measure(page, 'Source Serif 4', 28);
@@ -164,7 +166,7 @@ test('afterFirstPaint runs the callback after a frame has painted, never inline'
   });
 });
 
-nodeTest('user-theme reaches the measurement only from inside afterFirstPaint (H-06: first text never waits)', () => {
+nodeTest('user-theme reaches the measurement only from inside afterFirstPaint (first text never waits)', () => {
   const src = readFileSync(join(repo, 'apps/desktop/src/theme/user-theme.ts'), 'utf8');
   const body = /function checkAvgCharAfterPaint[\s\S]*?\n}\n/.exec(src)[0];
   assert.match(body, /afterFirstPaint\(\(\) => \{/);

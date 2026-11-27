@@ -1,5 +1,5 @@
-// The Source frame (V-05, WebKit): the bars say only what the bytes say, the ruler sits on the text's character grid, the bars
-// never cover text and do not move when it scrolls, the editor fills the frame (F-100), the marks sit at
+// The Source frame (WebKit): the bars say only what the bytes say, the ruler sits on the text's character grid, the bars
+// never cover text and do not move when it scrolls, the editor fills the frame, the marks sit at
 // exact bytes, and none of it is a focus stop or a live region. The real app over the memory shell, with the shipped
 // skeleton's own CSS (index.html), so the frame is laid out by the rules the app ships.
 import { strict as assert } from 'node:assert';
@@ -18,7 +18,7 @@ after(() => closeHarness());
 const enc = new TextEncoder();
 const bytes = (...parts) => Uint8Array.from(parts.flatMap((p) => (typeof p === 'string' ? [...enc.encode(p)] : p)));
 
-/** Boots the app on `open` (a path in `files`), in Source: a code file opens there; Markdown is sent there with Mod+E. */
+/** Boots the app on `open` (a path in `files`), in Source: a file that lands in Read (Markdown, code) is sent there with Mod+E. */
 async function boot(page, files, open, { source = true } = {}) {
   const base = await harnessBase();
   const { style, body } = shippedSkeleton();
@@ -44,8 +44,9 @@ async function boot(page, files, open, { source = true } = {}) {
     window.__h = handle;
     window.__shell = shell;
   }, { encoded, open });
-  if (source && /\.md$/.test(open)) await page.keyboard.press('Meta+E');
-  await page.waitForSelector('#marxy-source .cm-line');
+  if (source && (await page.evaluate(() => document.body.dataset.marxyMode)) !== 'source') await page.keyboard.press('ControlOrMeta+E');
+  // A file's first boot on a slow CI runner has taken over 30 s (Playwright's default) to reach its first line.
+  await page.waitForSelector('#marxy-source .cm-line', { timeout: 90_000 });
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -73,7 +74,7 @@ const select = (page, anchor, head = anchor) =>
   }, { anchor, head });
 const readout = (page) => text(page, '.marxy-source-readout');
 
-test('V-05 the top bar says what the bytes are: line endings, BOM, bytes that are not UTF-8, indentation, size and lines', async () => {
+test('the top bar says what the bytes are: line endings, BOM, bytes that are not UTF-8, indentation, size and lines', async () => {
   const cases = [
     { name: 'a CRLF file says CRLF', file: bytes('x = 1\r\ny = 2\r\n'), want: { endings: 'CRLF', encoding: 'UTF-8', size: '14 bytes', lines: '2 lines' } },
     { name: 'a mixed file says Mixed', file: bytes('a = 1\r\nb = 2\nc = 3\r\n'), want: { endings: 'Mixed', size: '20 bytes', lines: '3 lines' } },
@@ -96,7 +97,7 @@ test('V-05 the top bar says what the bytes are: line endings, BOM, bytes that ar
   }
 });
 
-test('V-05 the path is quiet segments and the file is named last', async () => {
+test('the path is quiet segments and the file is named last', async () => {
   await withPage(async (page) => {
     await boot(page, { '/Users/reader/Work/a.py': bytes('x = 1\n') }, '/Users/reader/Work/a.py');
     const segs = await page.evaluate(() => [...document.querySelectorAll('.marxy-source-seg')].map((s) => s.textContent));
@@ -105,7 +106,7 @@ test('V-05 the path is quiet segments and the file is named last', async () => {
   });
 });
 
-test('V-05 the bottom bar says line, column and byte offset, and the code point after the caret (U+200B by name)', async () => {
+test('the bottom bar says line, column and byte offset, and the code point after the caret (U+200B by name)', async () => {
   await withPage(async (page) => {
     // Line 1 is 9 bytes with its break (é is two); line 2 holds a zero width space after the b.
     await boot(page, { '/p/a.py': bytes('a = "é"\nb\u200b = 1\nc\n') }, '/p/a.py');
@@ -132,7 +133,7 @@ test('V-05 the bottom bar says line, column and byte offset, and the code point 
   });
 });
 
-test('V-05 the bottom bar says CRLF at the end of a line in a CRLF file, and the byte offset counts both bytes', async () => {
+test('the bottom bar says CRLF at the end of a line in a CRLF file, and the byte offset counts both bytes', async () => {
   await withPage(async (page) => {
     await boot(page, { '/p/a.py': bytes('ab\r\ncd\r\n') }, '/p/a.py');
     await select(page, 2);
@@ -142,7 +143,7 @@ test('V-05 the bottom bar says CRLF at the end of a line in a CRLF file, and the
   });
 });
 
-test('V-05 the byte count follows the reader\'s edits exactly (multi-byte text, breaks, a deletion and its undo)', async () => {
+test('the byte count follows the reader\'s edits exactly (multi-byte text, breaks, a deletion and its undo)', async () => {
   for (const [name, file] of [['LF', bytes('one\ntwo\n')], ['CRLF', bytes('one\r\ntwo\r\n')], ['a BOM', bytes([0xef, 0xbb, 0xbf], 'one\ntwo\n')]]) {
     await withPage(async (page) => {
       await boot(page, { '/p/a.py': file }, '/p/a.py');
@@ -158,21 +159,21 @@ test('V-05 the byte count follows the reader\'s edits exactly (multi-byte text, 
       };
       await agrees('opened');
       await page.click('#marxy-source .cm-content');
-      await page.keyboard.press('Meta+ArrowUp');
+      await page.keyboard.press('ControlOrMeta+Home');
       await page.keyboard.insertText('é€😀');
       await page.keyboard.press('Enter');
       await agrees('after typing é€😀 and a break');
-      await page.keyboard.press('Meta+a');
+      await page.keyboard.press('ControlOrMeta+a');
       await page.keyboard.press('Backspace');
       await agrees('after deleting everything');
       assert.equal((await sizeNow()).shown, name === 'a BOM' ? '3 bytes' : '0 bytes');
-      await page.keyboard.press('Meta+z');
+      await page.keyboard.press('ControlOrMeta+z');
       await agrees('after the undo');
     });
   }
 });
 
-test('V-05 the ruler\'s tick for column N is within half a pixel of character N\'s centre, at 14 and 18 px, scrolled or not', async () => {
+test('the ruler\'s tick for column N is within half a pixel of character N\'s centre, at 14 and 18 px, scrolled or not', async () => {
   const line = `${'0123456789'.repeat(21)}`;
   const file = bytes('x = 1\n', `y = "${line}"\n`, 'z = 2\n');
   await withPage(async (page) => {
@@ -228,7 +229,7 @@ test('V-05 the ruler\'s tick for column N is within half a pixel of character N\
   });
 });
 
-test('V-05 the ruler marks the caret column and a selection on one line, and the numbers are every tenth', async () => {
+test('the ruler marks the caret column and a selection on one line, and the numbers are every tenth', async () => {
   await withPage(async (page) => {
     await boot(page, { '/p/a.py': bytes('abcdefghijklmnopqrstuvwxyz\n') }, '/p/a.py');
     await page.waitForSelector('.marxy-source-ruler-num');
@@ -256,7 +257,7 @@ test('V-05 the ruler marks the caret column and a selection on one line, and the
   });
 });
 
-test('V-05 the ruler is hidden with soft wrap (Markdown) and below 520 px', async () => {
+test('the ruler is hidden with soft wrap (Markdown) and below 520 px', async () => {
   await withPage(async (page) => {
     await boot(page, { '/p/a.md': bytes('# A\n\ntext\n') }, '/p/a.md');
     assert.equal(await page.evaluate(() => document.querySelector('.marxy-source-ruler')), null, 'Markdown wraps, so there is no ruler to build');
@@ -273,7 +274,7 @@ test('V-05 the ruler is hidden with soft wrap (Markdown) and below 520 px', asyn
   }, { width: 480, height: 700 });
 });
 
-test('V-05 the bars never cover text and scrolling does not move them', async () => {
+test('the bars never cover text and scrolling does not move them', async () => {
   const lines = Array.from({ length: 300 }, (_, i) => `value_${i} = ${i}`).join('\n');
   await withPage(async (page) => {
     await boot(page, { '/p/a.py': bytes(`${lines}\n`) }, '/p/a.py');
@@ -285,11 +286,19 @@ test('V-05 the bars never cover text and scrolling does not move them', async ()
     assert.ok(before.top[1] <= before.ruler[0] + 0.01 && before.ruler[1] <= before.scroller[0] + 0.01, 'the top bar and the ruler end where the text begins');
     assert.ok(before.scroller[1] <= before.bottom[0] + 0.01, 'the text ends where the bottom bar begins');
     assert.ok(before.frame[0] <= before.top[0] && before.bottom[1] <= before.frame[1] + 0.01, 'everything is inside the frame');
-    await page.evaluate(() => { document.querySelector('#marxy-source .cm-scroller').scrollTop = 1500; });
-    await page.waitForTimeout(300);
+    // On a slow machine (CI's macOS runner) a late layout pass just after open can put the scroller back, even a few
+    // hundred ms after a scroll took, so scroll until it holds for 300 ms: what is under test is the bars during a
+    // scroll, not the place kept at open.
+    let held = false;
+    for (const until = Date.now() + 10_000; !held && Date.now() < until; ) {
+      await page.evaluate(() => { document.querySelector('#marxy-source .cm-scroller').scrollTop = 1500; });
+      await page.waitForTimeout(300);
+      held = await page.evaluate(() => document.querySelector('#marxy-source .cm-scroller').scrollTop > 1000);
+    }
     const after = await geometry();
     assert.deepEqual(after, before, 'the bars and the frame did not move with the scroll');
-    assert.ok(await page.evaluate(() => document.querySelector('#marxy-source .cm-scroller').scrollTop > 1000), 'the text did scroll');
+    const scroll = await page.evaluate(() => { const s = document.querySelector('#marxy-source .cm-scroller'); return { top: s.scrollTop, height: s.scrollHeight, client: s.clientHeight }; });
+    assert.ok(held && scroll.top > 1000, `the text did scroll (${JSON.stringify(scroll)})`);
     // No visible row is under a bar: the point at each row's centre is the editor's, never a bar's.
     const covered = await page.evaluate(() => {
       const bad = [];
@@ -307,30 +316,31 @@ test('V-05 the bars never cover text and scrolling does not move them', async ()
   }, { width: 1200, height: 700 });
 });
 
-test('V-05 the frame fills the pane, folded and unfolded, and the editor fills the frame (F-100)', async () => {
+test('the frame fills the pane, folded and unfolded, and the editor fills the frame', async () => {
   await withPage(async (page) => {
     await boot(page, { '/p/a.md': bytes('# A\n\nSome text that is a line.\n') }, '/p/a.md');
-    const foldedMount = await rect(page, '.marxy-source-mount');
-    const frame = await rect(page, '.marxy-source-frame');
-    // Folded the frame was 960 px and centred (ruling Q13); the author asked for the window to be filled (F-100): 14 px inset, no cap.
-    assert.ok(Math.abs(frame.left - foldedMount.left - 14) < 1 && Math.abs(foldedMount.right - frame.right - 14) < 1, `folded the frame is inset 14 px from its pane (${frame.left - foldedMount.left}, ${foldedMount.right - frame.right})`);
-    assert.ok(frame.width > 960, `folded the frame is wider than the old 960 px cap (${frame.width})`);
     const inner = await page.evaluate(() => {
       const f = document.querySelector('.marxy-source-frame').getBoundingClientRect();
       const e = document.querySelector('#marxy-source .cm-editor').getBoundingClientRect();
       return { left: e.left - f.left, right: f.right - e.right };
     });
     assert.ok(inner.left <= 1.5 && inner.right <= 1.5, `the editor fills the frame (${inner.left}, ${inner.right})`);
-    await page.evaluate(() => window.__h.workspace().unfold());
-    await page.waitForTimeout(500);
-    const mount = await rect(page, '.marxy-source-mount');
-    const inset = await rect(page, '.marxy-source-frame');
-    assert.ok(Math.abs(inset.left - mount.left - 12) < 1 && Math.abs(mount.right - inset.right - 12) < 1, `unfolded the frame is inset 12 px from its pane (${inset.left - mount.left}, ${mount.right - inset.right})`);
-    assert.ok(Math.abs(inset.width - (mount.width - 24)) < 1, `unfolded it fills its pane (${inset.width} in ${mount.width})`);
+    // The frame insets the Source frame 12 px folded or not (frame.css), with no 960 px cap.
+    for (const state of ['unfolded', 'folded']) {
+      if (state === 'folded') {
+        await page.evaluate(() => window.__h.frame().fold());
+        await page.waitForTimeout(500);
+      }
+      const mount = await rect(page, '.marxy-source-mount');
+      const inset = await rect(page, '.marxy-source-frame');
+      assert.ok(Math.abs(inset.left - mount.left - 12) < 1 && Math.abs(mount.right - inset.right - 12) < 1, `${state} the frame is inset 12 px from its pane (${inset.left - mount.left}, ${mount.right - inset.right})`);
+      assert.ok(Math.abs(inset.width - (mount.width - 24)) < 1, `${state} it fills its pane (${inset.width} in ${mount.width})`);
+      assert.ok(inset.width > 960, `${state} the frame is wider than the old 960 px cap (${inset.width})`);
+    }
   });
 });
 
-test('V-05 invisible characters and find matches have marks at the height of their bytes; a click selects them', async () => {
+test('invisible characters and find matches have marks at the height of their bytes; a click selects them', async () => {
   const lines = Array.from({ length: 200 }, (_, i) => (i === 49 ? `needle\u200b = ${i}` : `value_${i} = ${i}`)).join('\n');
   await withPage(async (page) => {
     await boot(page, { '/p/a.py': bytes(`${lines}\n`) }, '/p/a.py');
@@ -348,11 +358,11 @@ test('V-05 invisible characters and find matches have marks at the height of the
     assert.equal(await text(page, '.marxy-source-character'), 'U+200B ZERO WIDTH SPACE');
     // Find: the matches of the query while the panel is open, and none once it is shut.
     assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-source-mark-find').length), 0);
-    await page.keyboard.press('Meta+f');
+    await page.keyboard.press('ControlOrMeta+f');
     await page.waitForSelector('.cm-search input[name=search]');
     // The panel commits a query on a key press or a change, not on the input event `fill` sends.
     await page.locator('.cm-search input[name=search]').click();
-    await page.keyboard.press('Meta+a');
+    await page.keyboard.press('ControlOrMeta+a');
     await page.keyboard.type('value_1');
     await page.waitForFunction(() => document.querySelectorAll('.marxy-source-mark-find').length > 3);
     const first = await page.evaluate(() => document.querySelector('.marxy-source-mark-find').title);
@@ -362,11 +372,11 @@ test('V-05 invisible characters and find matches have marks at the height of the
   }, { width: 1200, height: 700 });
 });
 
-test('V-05 find in Source still opens its panel inside the frame and finds the text', async () => {
+test('find in Source still opens its panel inside the frame and finds the text', async () => {
   await withPage(async (page) => {
     await boot(page, { '/p/a.py': bytes('alpha = 1\nbeta = 2\nalpha = 3\n') }, '/p/a.py');
     await page.click('#marxy-source .cm-content');
-    await page.keyboard.press('Meta+f');
+    await page.keyboard.press('ControlOrMeta+f');
     await page.waitForSelector('.marxy-source-frame .cm-search input[name=search]');
     await page.fill('.cm-search input[name=search]', 'alpha');
     await page.keyboard.press('Enter');
@@ -382,7 +392,7 @@ test('V-05 find in Source still opens its panel inside the frame and finds the t
   });
 });
 
-test('V-05 the bars are not focus stops or live regions, and the strip and ruler are hidden from a screen reader', async () => {
+test('the bars are not focus stops or live regions, and the strip and ruler are hidden from a screen reader', async () => {
   await withPage(async (page) => {
     await boot(page, { '/p/a.py': bytes('x = 1\n') }, '/p/a.py');
     const found = await page.evaluate(() => {
@@ -406,7 +416,7 @@ test('V-05 the bars are not focus stops or live regions, and the strip and ruler
   });
 });
 
-test('V-05 first text never waits for the frame: the bars are in the page, filled, when the first line is', async () => {
+test('first text never waits for the frame: the bars are in the page, filled, when the first line is', async () => {
   await withPage(async (page) => {
     await page.addInitScript(() => {
       const observer = new MutationObserver(() => {
@@ -427,7 +437,7 @@ test('V-05 first text never waits for the frame: the bars are in the page, fille
   });
 });
 
-test('V-05 a change on disk updates what the bars say (a reload: another line ending, size and lines)', async () => {
+test('a change on disk updates what the bars say (a reload: another line ending, size and lines)', async () => {
   await withPage(async (page) => {
     await boot(page, { '/p/a.py': bytes('a = 1\nb = 2\n') }, '/p/a.py');
     assert.equal(await fact(page, 'endings'), 'LF');
@@ -444,7 +454,7 @@ test('V-05 a change on disk updates what the bars say (a reload: another line en
   });
 });
 
-test('V-05 opening another file from Source, slowly, keeps the old text on screen as the whole frame, at its place (V-15)', async () => {
+test('opening another file from Source, slowly, keeps the old text on screen as the whole frame, at its place', async () => {
   const long = Array.from({ length: 4000 }, (_, i) => `value_${i} = ${i}`).join('\n') + '\n';
   await withPage(async (page) => {
     await boot(page, { '/p/a.py': bytes(long), '/p/b.py': bytes('other = 1\n') }, '/p/a.py');
@@ -486,11 +496,11 @@ test('V-05 opening another file from Source, slowly, keeps the old text on scree
   }, { width: 1200, height: 700 });
 });
 
-test('V-05 the caret byte counts the BOM after an edit, a character outside the BMP is one column, a stray byte is named', async () => {
+test('the caret byte counts the BOM after an edit, a character outside the BMP is one column, a stray byte is named', async () => {
   await withPage(async (page) => {
     await boot(page, { '/p/a.py': bytes([0xef, 0xbb, 0xbf], 'one\ntwo\n') }, '/p/a.py');
     await page.click('#marxy-source .cm-content');
-    await page.keyboard.press('Meta+ArrowUp');
+    await page.keyboard.press('ControlOrMeta+Home');
     await page.keyboard.insertText('é');
     // The edited text: the caret is after é, 3 bytes of BOM and 2 of é in.
     await page.waitForFunction(() => document.querySelector('.marxy-source-readout')?.textContent === 'Ln 1, Col 2 · byte 5');
@@ -508,7 +518,7 @@ test('V-05 the caret byte counts the BOM after an edit, a character outside the 
     await page.waitForFunction(() => document.querySelector('.marxy-source-character')?.textContent === 'U+1F600 😀');
     // Edited, the same column and byte.
     await page.click('#marxy-source .cm-content');
-    await page.keyboard.press('Meta+ArrowUp');
+    await page.keyboard.press('ControlOrMeta+Home');
     await page.keyboard.insertText('a');
     await select(page, 4);
     await page.waitForFunction(() => document.querySelector('.marxy-source-readout')?.textContent === 'Ln 1, Col 4 · byte 6');

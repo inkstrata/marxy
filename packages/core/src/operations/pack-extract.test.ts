@@ -1,4 +1,4 @@
-// C-09: copy-command and the three extract verbs.
+// copy-command and the three extract verbs.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { CodeBlock, Document, Heading, Node } from '../contracts/ast.ts';
@@ -8,10 +8,10 @@ import { parseMarkdown } from '../parse/parse.ts';
 import { sectionRange } from '../sourcemap/section.ts';
 import { copyCommand } from './copy-command.ts';
 import { extractCodeBlocks, extractLinks, extractTasks } from './extract.ts';
-import { EXTRACT_PACK } from './pack-extract.ts';
 import { corpusDocuments } from './testing/corpus.ts';
 
 const enc = new TextEncoder();
+const EXTRACT_OPS: readonly Operation[] = [copyCommand, extractCodeBlocks, extractTasks, extractLinks];
 const parse = (source: string): Document => parseMarkdown(enc.encode(source), { file: 'c09.md' });
 
 function fence(lang: string, body: string) {
@@ -29,9 +29,9 @@ function command(lang: string, body: string): string | undefined {
   return r.clipboard?.text;
 }
 
-test('EXTRACT_PACK lists copy-command and the three extract verbs', () => {
-  assert.deepEqual(EXTRACT_PACK.map((o) => o.id), ['copy-command', 'extract-code-blocks', 'extract-tasks', 'extract-links']);
-  assert.deepEqual(EXTRACT_PACK.map((o) => o.title), ['Copy command', 'Copy all code blocks', 'Copy unchecked tasks', 'Copy all links']);
+test('copy-command and the three extract verbs keep their ids and titles', () => {
+  assert.deepEqual(EXTRACT_OPS.map((o) => o.id), ['copy-command', 'extract-code-blocks', 'extract-tasks', 'extract-links']);
+  assert.deepEqual(EXTRACT_OPS.map((o) => o.title), ['Copy command', 'Copy all code blocks', 'Copy unchecked tasks', 'Copy all links']);
 });
 
 test('copy-command: console block keeps commands, drops output, strips $ and # prompts', () => {
@@ -71,7 +71,14 @@ test('copy-command: here-string and quoted << open no here-document', () => {
 
 test('copy-command: PowerShell prompt', () => {
   assert.equal(command('console', 'PS C:\\Users\\a> Get-Date\nMonday\nPS C:\\> dir'), 'Get-Date\ndir');
-  assert.equal(command('', '$ ls'), 'ls');
+});
+
+test('copy-command: only a shell or console block is offered; plain text with prompt lines is not', () => {
+  for (const lang of ['', 'text', 'txt', 'plaintext', 'markdown']) assert.equal(copyCommand.canApply(fence(lang, '$ ls\nout')), false, JSON.stringify(lang));
+  // A plain-text file is one code block with no language.
+  const { node, ...rest } = fence('', '$ ls');
+  assert.equal(copyCommand.canApply({ ...rest, node: { ...node, lang: undefined } as CodeBlock }), false);
+  for (const lang of ['sh', 'bash', 'shellscript', 'console', 'shellsession']) assert.equal(command(lang, '$ ls'), 'ls', lang);
 });
 
 test('copy-command: not offered without a prompt line, or for other languages', () => {
@@ -271,10 +278,10 @@ test('extract verbs: canApply is true at the first item, however long the rest o
   assert.equal(extractTasks.canApply({ document: doc, range: doc.src }), false);
 });
 
-test('fidelity: every pack-extract operation leaves its input bytes alone over the corpus', () => {
+test('fidelity: every extract operation leaves its input bytes alone over the corpus', () => {
   for (const { file, document, bytes } of corpusDocuments()) {
     const text = new TextDecoder().decode(bytes);
-    for (const op of EXTRACT_PACK) {
+    for (const op of EXTRACT_OPS) {
       const input = { document, range: document.src, text };
       if (op.canApply(input)) assert.equal(op.run(input).replacement, text, `${op.id} on ${file}`);
     }
@@ -304,4 +311,10 @@ test('extract-links: a label that is a URL with another host is kept as written'
   const doc = parse('[https://good.test](https://evil.test/x)\n');
   const r = extractLinks.run({ document: doc, range: doc.src, text: '' });
   assert.equal(r.clipboard?.text, '- [https://good.test](https://evil.test/x)');
+});
+
+test('extract-code-blocks: a block of 200,000 backtick runs is fenced, not a RangeError', () => {
+  const doc = parse(`    ${'a`'.repeat(200_000)}\n`);
+  const r = extractCodeBlocks.run({ document: doc, range: doc.src, text: '' });
+  assert.equal(r.summary, 'Copied 1 code block');
 });

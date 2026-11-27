@@ -1,4 +1,4 @@
-// The reader's place when a paragraph above reflows (B-02.5). At 1 MB, scrolled deep, a paragraph far
+// The reader's place when a paragraph above reflows. At 1 MB, scrolled deep, a paragraph far
 // above the screen grows (invisible-character markers, a line more of text, a re-set from idle,
 // chunks adopted late) and the block at the top of the screen must not move by more than a pixel.
 // While the reader's own input drives the scroll nothing is compensated. WebKit, through startApp and
@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { createServer } from 'vite';
+import { createServer } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { generateLarge } from '../../../scripts/perf-harness.mjs';
 
@@ -114,7 +114,7 @@ async function deepAt1Mb(page, fraction) {
   await boot(page, { '/docs/big.md': b64(BIG) }, ['/docs/big.md']);
   await page.evaluate(() => window.__h.contentComplete());
   // The typesetter's idle pass over the whole document is done. The paragraphs far above are set only when it is, and `settle`
-  // cannot tell: under K-05b's profiles setting a paragraph no longer changes the page's height (the line boxes are the grid's
+  // cannot tell: under the profiles setting a paragraph no longer changes the page's height (the line boxes are the grid's
   // already), so the height holds still for a second while the pass is still working.
   await page.evaluate(async () => {
     const t = performance.now();

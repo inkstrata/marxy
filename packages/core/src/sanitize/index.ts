@@ -1,4 +1,4 @@
-// The sanitiser's public surface (ADR-0009). `packages/core/src/index.ts` is not this story's to
+// The sanitiser's public surface. `packages/core/src/index.ts` is not this file's to
 // edit, so callers import this file directly until the package index names it.
 
 export { sanitizeHtml } from './sanitize-html.ts';

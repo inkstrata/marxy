@@ -1,4 +1,4 @@
-// F-29: the two-pane harness finds the real <body>, not the text "<body>" in a comment or <style>.
+// the two-pane harness finds the real <body>, not the text "<body>" in a comment or <style>.
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { shippedSkeleton, skeletonOf } from './support/two-pane.mjs';

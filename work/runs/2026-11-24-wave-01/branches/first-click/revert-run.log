@@ -1,0 +1,29 @@
+﻿
+✔ a margin note goes below the code or table that runs into the margin beside it, and the notes keep their order 
+(4742.5901ms)
+✔ Metadata’s Footnotes row says where the notes are as a resize moves them in and out of the margin (3430.6695ms)
+✔ a note opened under its line and then moved into the margin leaves its number no longer marked open (2955.2896ms)
+✖ the first click on a long page with notes shows the bar and leaves the margin notes where they are (3371.0991ms)
+✔ margin notes follow their lines when the page above them changes height (3774.7314ms)
+✔ a reading has one line of meta: its caption is the key, keyboard reachable, and opens the account beneath it 
+(2226.9458ms)
+✔ a viewer puts its key at the end of its toolbar row, and the account opens under the row (2505.9826ms)
+✔ a fenced block inside a Markdown page carries no caption and no key (2576.9876ms)
+✔ a gzip page draws the fold once (3123.7188ms)
+✔ a gzipped image draws one key and one account, the archive page's (2945.7116ms)
+✔ a gzipped PDF draws one key and one account, the archive page's (3967.7057ms)
+✔ the page keeps a foot as tall as the verb bar: no line is under the bar, and the last line clears it (2573.5762ms)
+✔ without the verb bar there is no foot; with it, a part brought into view stops above the bar (3490.5265ms)
+✔ opening an archive's entry says one notice, not two (2840.404ms)
+✔ a find field stays with its document: another document puts it away, and it comes back with its own (2753.4667ms)
+✔ a find put away does not come back over a find the reader has open on another document (3622.9382ms)
+✔ a find put away is let go when its document's tab closes, and when the reader closes a find (5773.1016ms)
+✔ the same document opened in the other pane leaves the find where it is (3294.6805ms)
+✖ the verb bar coming up changes no attribute of the root and the root's scroll padding is a plain length (2676.959ms)
+ℹ pass 17
+ℹ fail 2
+✖ failing tests:
+✖ the first click on a long page with notes shows the bar and leaves the margin notes where they are (3371.0991ms)
+✖ the verb bar coming up changes no attribute of the root and the root's scroll padding is a plain length (2676.959ms)
+
+

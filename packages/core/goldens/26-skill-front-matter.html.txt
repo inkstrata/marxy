@@ -1,4 +1,5 @@
-<dl data-marxy-s="0" data-marxy-e="1299">
+<h1 id="skill-title" data-marxy-s="1301" data-marxy-e="1314">Skill title</h1>
+<dl data-marxy-fm-part="head" data-marxy-s="0" data-marxy-e="1299">
 <dt data-marxy-fm-key="name">name</dt>
 <dd data-marxy-fm-key="name">corpus-skill</dd>
 <dt data-marxy-fm-key="description">description</dt>
@@ -10,7 +11,7 @@
 <dt data-marxy-fm-key="metadata">metadata</dt>
 <dd data-marxy-fm-key="metadata">  author: marxy</dd>
 <dt data-marxy-fm-key="globs">globs</dt>
-<dd data-marxy-fm-key="globs">"**/*.md"</dd>
+<dd data-marxy-fm-key="globs">&quot;**/*.md&quot;</dd>
 <dt data-marxy-fm-key="version">version</dt>
 <dd data-marxy-fm-key="version">1</dd>
 <dt data-marxy-fm-key="tags">tags</dt>
@@ -26,5 +27,4 @@
 <dt>…</dt>
 <dd>3 more</dd>
 </dl>
-<h1 id="skill-title" data-marxy-s="1301" data-marxy-e="1314">Skill title</h1>
 <p data-marxy-s="1316" data-marxy-e="1321">Body.</p>
