@@ -1,0 +1,1475 @@
+{
+  "http": {
+    "headers": {
+      "Content-Security-Policy": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy",
+          "spec_url": "https://w3c.github.io/webappsec-csp/#csp-header",
+          "tags": [
+            "web-features:csp"
+          ],
+          "support": {
+            "chrome": [
+              {
+                "version_added": "25"
+              },
+              {
+                "alternative_name": "X-Webkit-CSP",
+                "version_added": "14"
+              }
+            ],
+            "chrome_android": "mirror",
+            "edge": {
+              "version_added": "14"
+            },
+            "firefox": [
+              {
+                "version_added": "23"
+              },
+              {
+                "alternative_name": "X-Content-Security-Policy",
+                "version_added": "4"
+              }
+            ],
+            "firefox_android": {
+              "version_added": "23"
+            },
+            "ie": {
+              "alternative_name": "X-Content-Security-Policy",
+              "version_added": "10",
+              "notes": "Only supporting 'sandbox' directive."
+            },
+            "oculus": "mirror",
+            "opera": {
+              "version_added": "15"
+            },
+            "opera_android": "mirror",
+            "safari": [
+              {
+                "version_added": "7"
+              },
+              {
+                "alternative_name": "X-Webkit-CSP",
+                "version_added": "6"
+              }
+            ],
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        },
+        "worker_support": {
+          "__compat": {
+            "description": "Worker support",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-worker-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "56"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "50"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "10"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "base-uri": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/base-uri",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-base-uri",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "40"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "35"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "10"
+              },
+              "safari_ios": {
+                "version_added": "9.3"
+              },
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "block-all-mixed-content": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/block-all-mixed-content",
+            "spec_url": "https://www.w3.org/TR/mixed-content/#strict-checking",
+            "support": {
+              "chrome": {
+                "version_added": "44",
+                "notes": "Will be removed, see [bug 40260100](https://crbug.com/40260100)."
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "48",
+                "version_removed": "122"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "10"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": true
+            }
+          }
+        },
+        "child-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/child-src",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-child-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "40"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "15"
+              },
+              "firefox": {
+                "version_added": "45"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "10"
+              },
+              "safari_ios": {
+                "version_added": "9.3"
+              },
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "connect-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/connect-src",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-connect-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "25"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "14"
+              },
+              "firefox": [
+                {
+                  "version_added": "50"
+                },
+                {
+                  "version_added": "23",
+                  "version_removed": "50",
+                  "partial_implementation": true,
+                  "notes": "Before Firefox 50, ping attributes of &lt;a&gt; elements weren't covered by connect-src."
+                }
+              ],
+              "firefox_android": {
+                "version_added": "23"
+              },
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "7"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "default-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/default-src",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-default-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "25"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "14"
+              },
+              "firefox": {
+                "version_added": "23"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "7"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "fenced-frame-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/fenced-frame-src",
+            "spec_url": "https://wicg.github.io/fenced-frame/#new-csp-directive",
+            "tags": [
+              "web-features:fencedframe"
+            ],
+            "support": {
+              "chrome": [
+                {
+                  "version_added": "156",
+                  "partial_implementation": true,
+                  "notes": "The `Fence` class exists, but attempts to construct it always throw. See [Intent to Ship: Remove FencedFrame element and window.fence APIs](https://groups.google.com/a/chromium.org/g/blink-dev/c/c9w5uH3eSuo) and [Status entry](https://chromestatus.com/feature/6366274495053824?gate=5364408546099200)."
+                },
+                {
+                  "version_added": "126",
+                  "version_removed": "156"
+                }
+              ],
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": false
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": false
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": true,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "font-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/font-src",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-font-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "25"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "14"
+              },
+              "firefox": {
+                "version_added": "23"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "7"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "form-action": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/form-action",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-form-action",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "40"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "15"
+              },
+              "firefox": {
+                "version_added": "36"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "10"
+              },
+              "safari_ios": {
+                "version_added": "9.3"
+              },
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          },
+          "blocks_redirects": {
+            "__compat": {
+              "description": "Redirects are blocked after a form submission",
+              "support": {
+                "chrome": {
+                  "version_added": "≤63"
+                },
+                "chrome_android": "mirror",
+                "edge": "mirror",
+                "firefox": {
+                  "version_added": false
+                },
+                "firefox_android": "mirror",
+                "oculus": "mirror",
+                "opera": "mirror",
+                "opera_android": "mirror",
+                "safari": {
+                  "version_added": "≤11.1"
+                },
+                "safari_ios": "mirror",
+                "samsunginternet_android": "mirror",
+                "webview_android": "mirror",
+                "webview_ios": "mirror"
+              },
+              "status": {
+                "experimental": false,
+                "standard_track": false,
+                "deprecated": false
+              }
+            }
+          }
+        },
+        "frame-ancestors": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/frame-ancestors",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-frame-ancestors",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "40"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "15"
+              },
+              "firefox": [
+                {
+                  "version_added": "58"
+                },
+                {
+                  "version_added": "33",
+                  "version_removed": "58",
+                  "partial_implementation": true,
+                  "notes": "Before Firefox 58, `frame-ancestors` is ignored in `Content-Security-Policy-Report-Only`."
+                }
+              ],
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": {
+                "version_added": "26"
+              },
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "10"
+              },
+              "safari_ios": {
+                "version_added": "9.3"
+              },
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "frame-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/frame-src",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-frame-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "25"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "14"
+              },
+              "firefox": {
+                "version_added": "23"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "7"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "img-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/img-src",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-img-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "25"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "14"
+              },
+              "firefox": {
+                "version_added": "23"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "7"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "manifest-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/manifest-src",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-manifest-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "40"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "41"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "11"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "media-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/media-src",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-media-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "25"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "14"
+              },
+              "firefox": {
+                "version_added": "23"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "7"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "meta-element-support": {
+          "__compat": {
+            "description": "`<meta>` element support",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#meta-element",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "25"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "≤18"
+              },
+              "firefox": {
+                "version_added": "45"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "7"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "object-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/object-src",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-object-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "25"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "14"
+              },
+              "firefox": {
+                "version_added": "23"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "7"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "prefetch-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/prefetch-src",
+            "support": {
+              "chrome": {
+                "version_added": false,
+                "impl_url": "https://crbug.com/40090173"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": false,
+                "impl_url": "https://bugzil.la/1457204"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "16.3",
+                "impl_url": "https://webkit.org/b/185070"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": false,
+              "deprecated": true
+            }
+          }
+        },
+        "report-sample": {
+          "__compat": {
+            "description": "`report-sample` source value",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#grammardef-report-sample",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "59"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "63"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "15.4"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "report-to": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/report-to",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-report-to",
+            "tags": [
+              "web-features:reporting-csp-violations"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "70"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "149"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "16.4"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "report-uri": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/report-uri",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-report-uri",
+            "support": {
+              "chrome": {
+                "version_added": "25"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "14"
+              },
+              "firefox": {
+                "version_added": "23"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "7"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": true
+            }
+          }
+        },
+        "require-trusted-types-for": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/require-trusted-types-for",
+            "spec_url": "https://w3c.github.io/trusted-types/dist/spec/#require-trusted-types-for-csp-directive",
+            "tags": [
+              "web-features:trusted-types"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "83"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "148"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "26"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "sandbox": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/sandbox",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-sandbox",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "25"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "14"
+              },
+              "firefox": {
+                "version_added": "50"
+              },
+              "firefox_android": "mirror",
+              "ie": {
+                "version_added": "10"
+              },
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "7"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "script-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-script-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "25"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "14"
+              },
+              "firefox": {
+                "version_added": "23"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "7"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          },
+          "external_scripts": {
+            "__compat": {
+              "description": "External scripts with hash",
+              "spec_url": "https://w3c.github.io/webappsec-csp/#external-hash",
+              "tags": [
+                "web-features:csp"
+              ],
+              "support": {
+                "chrome": {
+                  "version_added": "59"
+                },
+                "chrome_android": "mirror",
+                "edge": "mirror",
+                "firefox": {
+                  "version_added": "116"
+                },
+                "firefox_android": "mirror",
+                "oculus": "mirror",
+                "opera": "mirror",
+                "opera_android": "mirror",
+                "safari": {
+                  "version_added": "15.6"
+                },
+                "safari_ios": "mirror",
+                "samsunginternet_android": "mirror",
+                "webview_android": "mirror",
+                "webview_ios": "mirror"
+              },
+              "status": {
+                "experimental": false,
+                "standard_track": true,
+                "deprecated": false
+              }
+            }
+          },
+          "inline-speculation-rules": {
+            "__compat": {
+              "description": "`inline-speculation-rules` source expression",
+              "tags": [
+                "web-features:speculation-rules"
+              ],
+              "support": {
+                "chrome": {
+                  "version_added": "110"
+                },
+                "chrome_android": "mirror",
+                "edge": "mirror",
+                "firefox": {
+                  "version_added": false
+                },
+                "firefox_android": "mirror",
+                "oculus": "mirror",
+                "opera": "mirror",
+                "opera_android": "mirror",
+                "safari": {
+                  "version_added": "27.3"
+                },
+                "safari_ios": "mirror",
+                "samsunginternet_android": "mirror",
+                "webview_android": "mirror",
+                "webview_ios": "mirror"
+              },
+              "status": {
+                "experimental": false,
+                "standard_track": false,
+                "deprecated": false
+              }
+            }
+          },
+          "trusted-types-eval": {
+            "__compat": {
+              "description": "`trusted-types-eval` source expression",
+              "spec_url": "https://w3c.github.io/webappsec-csp/#grammardef-trusted-types-eval",
+              "tags": [
+                "web-features:csp",
+                "web-features:trusted-types"
+              ],
+              "support": {
+                "chrome": {
+                  "version_added": "145"
+                },
+                "chrome_android": "mirror",
+                "edge": "mirror",
+                "firefox": {
+                  "version_added": "148"
+                },
+                "firefox_android": "mirror",
+                "oculus": "mirror",
+                "opera": "mirror",
+                "opera_android": "mirror",
+                "safari": {
+                  "version_added": "26"
+                },
+                "safari_ios": "mirror",
+                "samsunginternet_android": "mirror",
+                "webview_android": "mirror",
+                "webview_ios": "mirror"
+              },
+              "status": {
+                "experimental": false,
+                "standard_track": true,
+                "deprecated": false
+              }
+            }
+          },
+          "wasm-unsafe-eval": {
+            "__compat": {
+              "description": "Source expression allowing WebAssembly execution",
+              "spec_url": "https://w3c.github.io/webappsec-csp/#grammardef-wasm-unsafe-eval",
+              "tags": [
+                "web-features:csp"
+              ],
+              "support": {
+                "chrome": {
+                  "version_added": "97"
+                },
+                "chrome_android": "mirror",
+                "edge": "mirror",
+                "firefox": {
+                  "version_added": "102"
+                },
+                "firefox_android": "mirror",
+                "oculus": "mirror",
+                "opera": "mirror",
+                "opera_android": "mirror",
+                "safari": {
+                  "version_added": "16"
+                },
+                "safari_ios": "mirror",
+                "samsunginternet_android": "mirror",
+                "webview_android": "mirror",
+                "webview_ios": "mirror"
+              },
+              "status": {
+                "experimental": false,
+                "standard_track": true,
+                "deprecated": false
+              }
+            }
+          }
+        },
+        "script-src-attr": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src-attr",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-script-src-attr",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "75"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "108"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "15.4"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "script-src-elem": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/script-src-elem",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-script-src-elem",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "75"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "108"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "15.4"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "strict-dynamic": {
+          "__compat": {
+            "description": "`strict-dynamic` source value",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#grammardef-strict-dynamic",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "52"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "52"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "15.4"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "style-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/style-src",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-style-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "25"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "14"
+              },
+              "firefox": {
+                "version_added": "23"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "7"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "style-src-attr": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/style-src-attr",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-style-src-attr",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "75"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "108"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "15.4"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "style-src-elem": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/style-src-elem",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-style-src-elem",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "75"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "108"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": [
+                {
+                  "version_added": "26.2"
+                },
+                {
+                  "version_added": "15.4",
+                  "version_removed": "26.2",
+                  "partial_implementation": true,
+                  "notes": "The `style-src-elem` directive was parsed, but had no effect. See [bug 276931](https://webkit.org/b/276931)."
+                }
+              ],
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "trusted-types": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/trusted-types",
+            "spec_url": "https://w3c.github.io/trusted-types/dist/spec/#trusted-types-csp-directive",
+            "tags": [
+              "web-features:trusted-types"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "83"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "148"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "26"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "unsafe-hashes": {
+          "__compat": {
+            "description": "`unsafe-hashes` source value",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#grammardef-unsafe-hashes",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "69"
+              },
+              "chrome_android": "mirror",
+              "edge": "mirror",
+              "firefox": {
+                "version_added": "109"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "15.4"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "upgrade-insecure-requests": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/upgrade-insecure-requests",
+            "spec_url": "https://w3c.github.io/webappsec-upgrade-insecure-requests/#delivery",
+            "tags": [
+              "web-features:upgrade-insecure-requests"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "43"
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "17"
+              },
+              "firefox": {
+                "version_added": "42"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "10.1"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": "mirror",
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        },
+        "worker-src": {
+          "__compat": {
+            "mdn_url": "https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/worker-src",
+            "spec_url": "https://w3c.github.io/webappsec-csp/#directive-worker-src",
+            "tags": [
+              "web-features:csp"
+            ],
+            "support": {
+              "chrome": {
+                "version_added": "59",
+                "notes": "Chrome 59 and higher skips the deprecated `child-src` directive."
+              },
+              "chrome_android": "mirror",
+              "edge": {
+                "version_added": "79"
+              },
+              "firefox": {
+                "version_added": "58"
+              },
+              "firefox_android": "mirror",
+              "oculus": "mirror",
+              "opera": "mirror",
+              "opera_android": "mirror",
+              "safari": {
+                "version_added": "15.5"
+              },
+              "safari_ios": "mirror",
+              "samsunginternet_android": {
+                "version_added": "7.0"
+              },
+              "webview_android": "mirror",
+              "webview_ios": "mirror"
+            },
+            "status": {
+              "experimental": false,
+              "standard_track": true,
+              "deprecated": false
+            }
+          }
+        }
+      }
+    }
+  }
+}

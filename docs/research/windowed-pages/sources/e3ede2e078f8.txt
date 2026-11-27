@@ -1,0 +1,211 @@
+skip to main content
+
+Main Navigation
+
+Services
+
+Articles
+
+Resources
+
+Projects
+
+Community
+
+Search:
+
+Introduction to Web Accessibility
+
+WebAIM Training
+
+Google Announces Seismic Change to Docs
+
+You are here: Home > Blog > Google Announces Seismic Change to Docs
+
+A May 11 announcement on Google Workspace Updates appears to abandon the current model of support for assistive technologies:
+
+Over the course of the next several months, we’ll be migrating the underlying technical implementation of Docs from the current HTML-based rendering approach to a canvas-based approach to improve performance and improve consistency in how content appears across different platforms.
+
+Google Docs and the other tools in the Google Workspace (formerly G Suite) are used by more than 2 billion active users each month. And while there is certainly room for improvement, the current accessibility support for Docs editors is notable. After enabling the Accessibility settings, Docs supports screen readers (ChromeVox, NVDA, JAWS, and VoiceOver), braille displays, and screen magnifiers.
+
+Goodbye DOM?
+
+In his article Google Docs Switches to Canvas Rendering, Sidelining the DOM, Richard MacManus summarizes the current model for accessibility in Docs, and how it would change:
+
+Up till now, Google Docs had evolved over the past fifteen years in the familiar pattern of most web applications: its interactivity largely achieved by heavy use of JavaScript code to manipulate the DOM…. The appeal of Canvas is that it enables the developers of Google Docs to bypass all of that persnickety DOM wrangling and just ‘paint’ the document onto the page.
+
+In the future this approach may offer some advantages over the current model, such as faster document loading and cross-browser and cross-device compatibility. But today, Google Doc’s tens of millions of assistive technologies users rely on the semantic underlay that the Document Object Model (DOM) provides. Although the path forward is not addressed in the announcement, there have been discussions of leveraging a “side” or “hidden” DOM through the Accessibility Object Model (AOM).
+
+Accessibility Community Feedback
+
+As one might imagine, word of this initiative spread quickly among the members of Google’s Accessibility Group, as seen by some of the comments* in the post “Please Consider What it Means Switching to Google Docs to Use Canvas” (group subscription required):
+
+I think if we are expected to use a separate but not equal interface, blind people will stop using Docs…
+
+Please realize that individuals read, write, and interact differently with content——regardless of a shared label——and require support based on individual needs and preferences…. That I must use your stuff before I can get in the door is not being accessible.
+
+Google influences the wider community of developers very strongly. Since the text editor tool underlying Google Docs is not open-source, other developers will start attempting to copy the Google Docs experience and forget screen reader accessibility….
+
+In addition to these concerns, some commenters experienced poor results when trying to access a Google Doc example demonstrating canvas-based rendering:
+
+Is this in another language? I could not make heads or tails out of it, although the headings were in English.
+
+At this point accessibility should be working even in alpha testing. It should be part of the bedrock of a design–especially at companies like Google. It shouldn’t be done after the fact.
+
+There were also AT users that saw the change as part of a series of evolutions in web accessibility:
+
+When the Windows (small w windows that is) style of UI came out, it was initially more challenging than a DOS/Terminal environment for blind users. It took some work to develop proper accessibility for us. Its second nature now for most blind users to be able to navigate within a windows style of UI.
+
+When touch-screen devices were introduced, it was impossible for totally blind users to use them effectively. Some ingenious people came up with an idea and we now have smartphones and tablets perfectly accessible to us as blind users. The learning curve was steeper for some compared to others, but these devices are, for the most part, comfortable to use for blind users.
+
+*Some user comments have been lightly edited to increase their readability.
+
+On May 25th, the Google Disability Team posted this response:
+
+Thanks for sharing your concerns and feedback with us. The Google Docs accessibility and product teams are working to ensure continued assistive technology support, and this update will build a foundation upon which the Docs team can introduce additional accessibility improvements.
+
+Compatibility with supported assistive technologies, including screen readers, braille devices, and screen magnification, will not change with canvas-based Docs….
+
+Take Two
+
+On May 26 Google posted an update to the announcement:
+
+We’ve updated the “Additional details” section of this post with more information on Google Docs accessibility features and support. Please see below for more information.
+
+The added section reads:
+
+Compatibility for supported assistive technologies such as screen readers, braille devices, and screen magnification features, will not be impacted by the canvas-based rendering change. We will continue to ensure assistive technology is supported, and work on additional accessibility improvements enabled by canvas-based rendering.
+
+One might be tempted to summarize the subtext of this update as “Hey assistive technology users, sorry we failed to anticipate and address the concerns that you may have had from this announcement. In response to these concerns we want to let you know: ‘We’ve got this.'”
+
+Some time after May 11, the original canvas-based example document was replaced with an updated version. Our testing revealed only rudimentary assistive technology support, and led us to conclude that significant improvements will need to be made to Docs before support for assistive technologies “…will not be impacted by the canvas-based rendering change”.
+
+Google Pumps the Brakes
+
+Google’s stated timeline of “over the next several months” for the “underlying technical implementation” appears to have been a significant factor in many of the concerns that have been expressed by Google Docs assistive technology users and developers. As of August 18, a search through the listings in both the What’s new in Google Workspace (recent releases) and Upcoming Google Workspace releases pages did not return any information on canvas rendering in Google Docs. At this time, we have not been able to locate any subsequent updates to the timeline for implementation.
+
+Support for Docs Accessibility is Critical
+
+The Google Disability Awareness team has an ongoing responsibility to assistive technology users and developers that transcends writing compatible code. When a major technological shift threatens to limit, and possibly eliminate, access for these users and developers, the scope of this responsibility is even greater. We hope moving forward that Google will include clear, detailed, and consistent communication as part of its commitment to maintain the same level of assistive technology support present in the HTML-rendered version of Docs.
+
+Comments
+
+Chris LaChance
+
+August 24, 2021
+
+Doesn’t this also expose the opportunity for Google to profile a user’s ability as well? Seems like it would…
+
+August 19, 2021
+
+George Joeckel
+
+1 Comment
+
+Search the blog
+
+Search for:
+
+Blog Archives
+
+October 2026
+
+August 2026
+
+May 2026
+
+April 2026
+
+March 2026
+
+2026
+
+2025
+
+2024
+
+2023
+
+2022
+
+2021
+
+2020
+
+2019
+
+2018
+
+2017
+
+2016
+
+2015
+
+2014
+
+2013
+
+2012
+
+2011
+
+2010
+
+2009
+
+2008
+
+2007
+
+2006
+
+RSS Feeds
+
+©2026 WebAIM
+
+Utah State University
+
+6807 Old Main Hill
+
+Logan, UT 84322-6807
+
+435.797.7024
+
+Check Your Accessibility
+
+Web site address:
+
+From the Blog
+
+Captioned Doesn't Always Mean Accessible
+
+If you have to ask, is it accessible?
+
+An Extension is Not an Excuse
+
+Tolerating Inaccessibility
+
+Popular Resources
+
+WebAIM Training
+
+WCAG 2 Checklist
+
+Ask AIMee Chatbot
+
+Color Contrast Checker
+
+Web Accessibility for Designers
+
+WAVE Web Accessibility Evaluation Tool
+
+Contact
+
+About
+
+RSS Feeds
+
+LinkedIn
+
+Copyright & Terms of Use

@@ -1,0 +1,188 @@
+{
+ "meta": {
+  "browser": "webkit",
+  "version": "26.6",
+  "kind": "md-prose",
+  "mb": 2,
+  "mode": "bytes",
+  "load": [
+   3.15,
+   3.13,
+   3.95
+  ],
+  "cpus": 10,
+  "date": "2026-11-27T22:32:20.468Z",
+  "loadEnd": [
+   3.29,
+   3.15,
+   3.93
+  ]
+ },
+ "runs": [
+  {
+   "mode": "bytes",
+   "open": {
+    "firstTextMs": 877,
+    "readyMs": 1093,
+    "contentCompleteMs": 1329,
+    "workAtContent": 215,
+    "blocks": 6204,
+    "bytes": 2007597
+   },
+   "settle": {
+    "typesetDoneMs": 3536,
+    "work": 1798,
+    "estMs": 2,
+    "set": 14,
+    "paragraphs": 5726,
+    "marks": {
+     "bundled_theme": 6,
+     "script_start": 13,
+     "weight_offset": 13,
+     "args": 13,
+     "file_read": 748,
+     "parsed": 753,
+     "rendered": 877,
+     "first_screen": 877,
+     "fonts_ready": 879,
+     "render": 880,
+     "painted": 902,
+     "first_text": 902,
+     "typeset_viewport": 1000,
+     "position_restored": 1056,
+     "index_loaded": 1073,
+     "content_complete": 1296,
+     "highlight_ms": 1438,
+     "typeset_done": 3536
+    },
+    "events": {
+     "skipped": 6199,
+     "shown": 5
+    },
+    "scrollHeight": 1095210,
+    "done": true,
+    "waitedS": 3
+   },
+   "residualIdle": 1798,
+   "setTrace": {
+    "atDone": 14,
+    "afterScrolls": 14,
+    "final": 14,
+    "sample": [
+     {
+      "i": 0,
+      "set": true,
+      "cls": "marxy-set",
+      "h": 90,
+      "html": 314
+     },
+     {
+      "i": 100,
+      "set": false,
+      "cls": "",
+      "h": 120,
+      "html": 256
+     },
+     {
+      "i": 400,
+      "set": false,
+      "cls": "",
+      "h": 120,
+      "html": 258
+     },
+     {
+      "i": 700,
+      "set": false,
+      "cls": "",
+      "h": 120,
+      "html": 258
+     }
+    ]
+   },
+   "scrollMid": {
+    "medianWallMs": 52,
+    "minWallMs": 50,
+    "medianScriptMs": 21,
+    "medianCdpTaskMs": null,
+    "medianLayouts": null,
+    "n": 3
+   },
+   "scrollEnd": {
+    "medianWallMs": 67,
+    "minWallMs": 67,
+    "medianScriptMs": 6,
+    "medianCdpTaskMs": null,
+    "medianLayouts": null,
+    "n": 3
+   },
+   "scrollHeightAfter": 1095511,
+   "key": {
+    "medianWallMs": 27,
+    "minWallMs": 17,
+    "medianScriptMs": 8,
+    "medianCdpTaskMs": null,
+    "medianLayouts": null,
+    "n": 5
+   },
+   "relayoutMs": {
+    "median": 11,
+    "min": 9
+   },
+   "find": {
+    "count": "21014 of 41984",
+    "wallMs": 1536,
+    "scriptMs": 184,
+    "cdpTaskMs": null,
+    "layouts": null
+   },
+   "findStep": {
+    "text": "21015 of 41984",
+    "scriptMs": 1,
+    "cdpTaskMs": null
+   },
+   "geometry": {
+    "blocks": 6204,
+    "checkVisibilitySupported": true,
+    "skippedNow": 0,
+    "zeroHeightRects": 0,
+    "offGridTops": 0,
+    "nearBlocks": 8,
+    "offGridNear": 0,
+    "cv": "auto",
+    "cis": "auto 210px",
+    "total": 987870,
+    "setCount": 14
+   },
+   "skippedProbe": {
+    "before": {
+     "visible": true,
+     "h": 120,
+     "offsetH": 120,
+     "rects": 0,
+     "w": 0,
+     "clientRects": 1
+    },
+    "afterRangeRead": {
+     "visible": true,
+     "h": 120,
+     "rects": 1,
+     "w": 35,
+     "forcedMs": 0
+    },
+    "inView": {
+     "visible": true,
+     "h": 120,
+     "rects": 1,
+     "w": 35,
+     "set": false,
+     "scrollTop": 76246
+    }
+   },
+   "events": {
+    "skipped": 6248,
+    "shown": 54
+   },
+   "version": "26.6"
+  }
+ ]
+}

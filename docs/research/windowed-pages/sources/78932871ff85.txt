@@ -1,0 +1,353 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+MicrosoftEdge
+
+WebView2Announcements
+
+Repository navigation
+
+Code
+
+Issues64 ( 64 )
+
+Pull requests
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+[Announcement] WebView2 Runtime and SDK release cadence updates (starting v152) #137
+
+New issue
+Copy link
+
+New issue
+Copy link
+
+Open
+
+Open
+
+[Announcement] WebView2 Runtime and SDK release cadence updates (starting v152)#137
+
+Copy link
+
+Labels
+
+Breaking ChangeNotable change in behavior that may require updating your appRuntime ReleaseA new Runtime version is releasedSDK ReleaseA new SDK has been released
+
+Description
+
+Juhi Shah ( Ju-MsGit )
+
+opened on Jul 1, 2026
+
+Issue body actions
+
+WebView2 Runtime and SDK release cadence updates (starting v152)
+
+Chromium is moving to a 2-week release cadence starting with Chrome 153 (Stable Sep 8, 2026; see the official announcement). Microsoft Edge is aligning to this rhythm — per the Edge release schedule, the change takes effect from Edge version 152 — and the WebView2 Runtime moves with Edge. The WebView2 Runtime will align to Edge's 2-week release cadence starting with Edge / WV2 v152. This is a release-timing change only — there are no changes to the WebView2 API.
+
+WebView2 SDK releases are also moving away from a fixed monthly cadence and will be published on an as-needed basis. SDK releases are no longer expected to accompany every Runtime release.
+
+Please review the impact on your app and plan accordingly.
+
+Release timeline (tentative)
+
+Aug 3, 2026 — Last 4-week major version: Edge 151 / WV2 151.
+
+Aug 24, 2026 — Edge / WV2 152 — first release on the new 2-week cadence.
+
+Sep 7, 2026 onward — every 2 weeks, in lockstep with Edge.
+
+WebView2 SDK release cadence
+
+WebView2 SDK releases will be published on an as-needed basis when new APIs, bug fixes, security fixes, or other SDK changes warrant a release.
+
+A new SDK release is not expected for every Runtime release.
+
+When published, SDK versions will continue to align with the corresponding Runtime version.
+
+Why we're aligning
+
+Security velocity — critical Chromium patches reach users up to 2 weeks sooner.
+
+Lower drift risk — WebView2 ships on the same schedule as the Edge runtime it's built on, so you get one consistent, predictable release train to plan around.
+
+Smaller, simpler updates — more frequent releases mean each update carries a smaller set of changes, making validation more manageable.
+
+What this means for your app
+
+Evergreen Runtime (default): no action required — the Runtime keeps updating automatically on your users' machines, now delivering security and platform fixes about twice as often.
+
+Fixed Version Runtime: you stay in control of when you update, but new major versions arrive about twice as often — plan to validate and pick them up more frequently so you don't fall behind on security fixes.
+
+WebView2 SDK consumers: SDK releases are now published as needed rather than on a fixed monthly schedule. Applications using WebView2 do not need to expect a new SDK package with every Runtime release.
+
+How to prepare
+
+The Beta validation window is now ~21 days (down from 28+). To stay ahead, we recommend:
+
+Test with Beta and prerelease — validate your core workflows against the WebView2 preview channels, ideally with automated testing.
+
+Report regressions early — file issues in the WebView2Feedback repo so we can address them before they reach Stable.
+
+What WebView2 provides to help you prepare
+
+Preview channels — test your app against the WebView2 Beta and prerelease (Dev/Canary) channels before changes reach Stable. See Prerelease testing. (You can also test on preview Windows builds via the Windows Insider Program.)
+
+Up-to-date release information — current cadence documentation, the Edge / WebView2 release schedule, release notes, and breaking-change announcements (the Breaking Change–labeled posts in this repo) so you can plan ahead.
+
+Release notes will continue to be published for Runtime releases. SDK release notes will be published when a new SDK is released.
+
+Share feedback
+
+Have a question or run into a regression? Tell us in the WebView2Feedback repo.
+
+🎉React with 🎉1Reacted by Giorgi Chakhidze
+
+Activity
+
+Juhi Shah ( Ju-MsGit )
+added
+Breaking ChangeNotable change in behavior that may require updating your app
+on Jul 1, 2026
+
+Ojasvi Das ( ojasvi1450 )
+pinned this issue on Jul 20, 2026
+
+Ojasvi Das ( ojasvi1450 )
+unpinned this issue on Jul 20, 2026
+
+Ojasvi Das ( ojasvi1450 )
+pinned this issue on Jul 20, 2026
+
+Ojasvi Das ( ojasvi1450 )
+changed the title [-][Announcement] WebView2 Runtime moves to a 2-week release cadence (starting v152)[/-] [+][Announcement] WebView2 Runtime and SDK release cadence updates (starting v152)[/+] on Aug 13, 2026
+
+Ojasvi Das ( ojasvi1450 )
+added
+SDK ReleaseA new SDK has been released
+
+Runtime ReleaseA new Runtime version is released
+on Aug 17, 2026
+
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+
+Metadata
+
+Metadata
+
+Assignees
+
+No one assigned
+
+Labels
+
+Breaking ChangeNotable change in behavior that may require updating your appRuntime ReleaseA new Runtime version is releasedSDK ReleaseA new SDK has been released
+
+Type
+
+No type
+
+Projects
+
+No projects
+
+Milestone
+
+No milestone
+
+Relationships
+
+None yet
+
+Development
+
+No branches or pull requests
+
+Issue actions
+
+Open in GitHub Copilot app
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

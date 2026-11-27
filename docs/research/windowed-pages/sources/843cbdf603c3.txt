@@ -1,0 +1,227 @@
+Search...Search plugins and themes...
+⌘K
+
+Sign in
+
+Get started
+
+Download
+
+Pricing
+
+Enterprise
+
+Account
+
+Obsidian
+
+Overview
+
+Sync
+
+Publish
+
+Canvas
+
+Mobile
+
+Web Clipper
+
+CLI
+
+Learn
+
+Help
+
+Developers
+
+Changelog
+
+About
+
+Roadmap
+
+Blog
+
+Resources
+
+System status
+
+License overview
+
+Terms of service
+
+Privacy policy
+
+Security
+
+Community
+
+Plugins
+
+Themes
+
+Discord
+
+Forum / 中文论坛
+
+Merch store
+
+Brand guidelines
+
+Follow us
+
+DiscordTwitterBlueskyThreadsMastodonYouTubeGitHub
+
+© 2026 Obsidian
+
+Reading View Full Range
+
+Trose 93 downloads
+
+Keep the active note's native Reading View fully rendered to preserve layouts while scrolling.
+
+Add to Obsidian
+
+Overview
+
+Scorecard
+
+Updates1
+
+Keep the active note's native Reading View fully rendered while scrolling. This can help layouts such as floated elements that depend on earlier sections remaining in the document.
+
+Enable the plugin and open a Markdown note in Reading View. There are no settings or commands. Only the active Markdown view is affected: switching to another pane, entering Editing View, or disabling the plugin restores the previous renderer's range. Inactive split panes keep normal virtualization.
+
+Long notes can use more RAM and take longer to render. The impact depends on the note, its content, and other plugins. Native folding and asynchronous rendering still apply; this does not force folded content open or guarantee that embedded widgets finish immediately.
+
+Compatibility
+
+Requires Obsidian 1.13.7 or newer. Confirmed working on Obsidian 1.14.4.
+
+The plugin uses internal Reading View behavior outside the public API, so Obsidian updates may require a compatibility fix. If an incompatibility notice appears, disable the plugin and check for an update.
+
+Manual installation
+
+Download main.js and manifest.json from the GitHub release.
+
+Put both files in <vault>/.obsidian/plugins/reading-view-full-range/ (use your vault's configuration folder if customized).
+
+Reload Obsidian and enable Reading View Full Range under Settings → Community plugins.
+
+Development
+
+main.js is both the readable source and the distributable plugin. No build step, npm installation, or runtime dependencies are needed. Obsidian provides the obsidian module at runtime.
+
+The plugin sets renderExtraMinPx = Infinity on the active renderer instance and calls its native updateVirtualDisplay() and queueRender() methods. It observes the view's internal data-mode attribute to track mode changes. Runtime structure checks cannot guarantee compatibility with future changes to these internals.
+
+With Node.js 20 or newer, run npm run check, npm test, and npm run release-check. Tests use a simulated Obsidian API; verify renderer behavior in Obsidian before releasing.
+
+The plugin makes no network requests, collects no telemetry, and does not write note files.
+
+License
+
+MIT; see LICENSE.
+
+Show more
+
+HealthExcellent
+
+ReviewPassed
+
+About
+Keep the active note's native Reading View fully rendered while scrolling to preserve layout-dependent elements like floated content. Apply only to the active Markdown view and revert when switching panes or entering edit mode; long notes may use more RAM and take longer to render.
+
+Interface Markdown
+
+Details
+
+Current version
+
+1.0.0
+
+Last updated
+
+2 months ago
+
+Created
+
+2 months ago
+
+Updates
+
+1 release
+
+Downloads
+
+93
+
+Compatible with
+
+Obsidian 1.13.7 +
+
+Platforms
+
+Desktop only
+
+License
+
+MIT
+
+Report bugRequest featureReport plugin
+
+Author
+
+Trosetrosses
+
+trosses
+
+Community
+
+Plugins
+
+Interface
+
+Reading View Full Range
+
+Related plugins
+
+Typewriter Mode
+
+Typewriter scroll, writing focus, current line highlight, paragraph dimming, and more!
+
+Markdown Tabs
+
+Create tabs in your notes.
+
+Hider
+
+Hide interface elements such as tooltips, status bar, titlebar, and more.
+
+Linter
+
+Format and style your notes. Linter can be used to format YAML tags, aliases, arrays, and metadata; footnotes; headings; spacing; math blocks; regular Markdown contents like list, italics, and bold styles; and more with the use of custom rule options.
+
+Meta Bind
+
+Make your notes interactive with inline input fields, metadata displays, and buttons.
+
+Custom Frames
+
+Turn web apps into panes using iframes with custom styling. Also comes with presets for Google Keep, Todoist and more.
+
+Note Toolbar
+
+Add customizable toolbars to your notes.
+
+Agent Client
+
+Chat with Claude Code, Codex, Gemini CLI, and more via the Agent Client Protocol — right from your vault.
+
+Editing Toolbar
+
+The Editing Toolbar is modified from cMenu, which provides more powerful customization settings and has many built-in editing commands to be a MS Word-like toolbar editing experience.
+
+Consistent Attachments and Links
+
+Move note attachments and update links automatically.

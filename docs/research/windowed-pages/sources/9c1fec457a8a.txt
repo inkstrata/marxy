@@ -1,0 +1,85 @@
+discuss.ProseMirror
+
+How do I check if a node existed before a set of transactions?
+
+Uncategorized
+
+brandoncc
+
+February 2, 2021, 10:12pm
+
+1
+
+Is it possible to ask ProseMirror if a node at a position existed in old state? I am not wanting to know if just something existed at the position, I want to know if the exact same node existed before (versus a new node being inserted by hitting enter while in the middle of content…I would expect that to be false).
+
+If I need to do this with steps (which I think I do), I would greatly appreciate example code or links to example code. The reference docs are great but they are incredibly dense without code examples, so I have a hard time connecting dots.
+
+I’m thinking something like this:
+
+new Plugin({
+appendTransaction(transactions, oldState, newState) {
+const positionInQuestion = newState.selection.head;
+const nodeAtPosition = newState.doc.nodeAt(positionInQuestion);
+
+// pseudocode
+if oldState.didNodeExist?(nodeAtPosition)
+// node existed
+else
+// node didn't exist
+}
+})
+
+Thanks!
+
+marijn
+
+February 3, 2021, 8:26am
+
+2
+
+Positions shift when content is inserted or deleted before them. Maybe this is better formulated as whether a given node was deleted or replaced by a set of steps? And even there the question is if you’re interested in any changes inside the node, or just whether its opening token (the node’s type and attributes) was touched.
+
+In any case, what you could do is iterate over the steps in the transaction, from last to first, and for each, check if your position is inside the step’s range and map the position back so that you can meaningfully compare it with the next step (if any). Something like…
+
+let pos = ...
+let replaced = false
+for (let i = transaction.mapping.maps.length - 1; i >= 0; i--) {
+let map = transaction.mapping.maps[i]
+map.forEach((_s, _e, start, end) => {
+if (pos >= start && pos <= end) replaced = true
+})
+pos = map.invert().map(pos)
+}
+
+Or check against a range of positions if that’s what you’re interested in.
+
+1 Like
+
+brandoncc
+
+February 4, 2021, 12:27am
+
+3
+
+This is very helpful, thanks once again @marijn
+
+philippkuehn
+
+May 11, 2021, 7:27pm
+
+4
+
+I think this should be also possible with this, right?
+
+const pos = ...
+const mapResult = transaction.mapping.invert().mapResult(pos)
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Powered by Discourse, best viewed with JavaScript enabled

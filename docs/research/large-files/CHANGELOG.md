@@ -3,6 +3,9 @@
 Append-only. Newest first. Findings are never deleted or renumbered: a superseded finding keeps its
 text, gains a `[superseded]` tag and a `*Superseded by XXX-NN (date): why.*` line, and is logged here.
 
+## 2026-11-27 (windowed-pages delta)
+- SYNTHESIS.md: D-01 (tier 1 then tier 2) and D-04 (the typesetting queue) are superseded by the windowed-pages corpus; listed under "Superseded". No chapter finding is overturned.
+
 ## 2026-11-27 (lead, after the second and third passes)
 - 03: PRS-03 corrected again: remark #1010 was closed by commit cdab8fa, a documentation change ("Add paragraph on security"), not a fix; the maintainer's closing comment added. Checked by the lead through the GitHub API; the first-pass correction that called it fixed was wrong.
 - 04: DOM-02 and DOM-05 now cite MDN browser-compat-data's own records (sources 22 and 23); DOM-05 retagged [confirmed] (Safari 26.2 partial, webkit.org/b/304174).

@@ -1,0 +1,1060 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+bvaughn
+
+react-window
+
+Repository navigation
+
+Code
+
+Issues
+
+Pull requests1 ( 1 )
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+react-window
+Public
+
+NotificationsYou must be signed in to change notification settings
+
+Fork815 (815)
+
+Star17.2k (17.2k)You must be signed in to star a repository
+
+About
+
+React components for efficiently rendering large lists and tabular data
+
+react-window.vercel.app/
+
+Resources
+
+Readme
+
+MIT license
+
+Contributing
+
+Contributing
+
+Activity
+
+Stars
+
+17.2k stars
+
+Watchers
+
+60 watching
+
+Forks
+
+815 forks
+
+Report repository
+
+main
+
+Branches Tags
+
+Go to file
+
+Code
+Open more actions menu
+
+Latest commit
+
+History
+620 Commits
+
+620 Commits
+
+Folders and files
+
+Name Name
+Last commit message
+
+Last commit date
+
+.github/workflows
+
+.github/workflows
+
+.husky
+
+.husky
+
+integrations
+
+integrations
+
+lib
+
+lib
+
+public
+
+public
+
+scripts
+
+scripts
+
+src
+
+src
+
+.gitignore
+
+.gitignore
+
+.prettierignore
+
+.prettierignore
+
+CHANGELOG.md
+
+CHANGELOG.md
+
+CONTRIBUTING.md
+
+CONTRIBUTING.md
+
+LICENSE.md
+
+LICENSE.md
+
+README.md
+
+README.md
+
+eslint.config.js
+
+eslint.config.js
+
+index.css
+
+index.css
+
+index.html
+
+index.html
+
+index.tsx
+
+index.tsx
+
+package.json
+
+package.json
+
+pnpm-lock.yaml
+
+pnpm-lock.yaml
+
+pnpm-workspace.yaml
+
+pnpm-workspace.yaml
+
+postcss.config.js
+
+postcss.config.js
+
+prettier.config.js
+
+prettier.config.js
+
+tsconfig.json
+
+tsconfig.json
+
+vercel.json
+
+vercel.json
+
+vite.config.ts
+
+vite.config.ts
+
+vitest.config.ts
+
+vitest.config.ts
+
+vitest.setup.js
+
+vitest.setup.js
+
+View all files
+
+Repository files navigation
+
+README
+
+Contributing
+
+MIT license
+
+More items
+
+react-window is a component library that helps render large lists of data quickly and without the performance problems that often go along with rendering a lot of data. It's used in a lot of places, from React DevTools to the Replay browser.
+
+Support
+
+If you like this project there are several ways to support it:
+
+Become a GitHub sponsor
+
+Become an Open Collective sponsor
+
+or buy me a coffee
+
+The following wonderful companies and individuals have sponsored react-window:
+
+Installation
+
+Begin by installing the library from NPM:
+
+npm install react-window
+
+TypeScript types
+
+TypeScript definitions are included within the published dist folder
+
+FAQs
+
+Frequently asked questions can be found here.
+
+Documentation
+
+Documentation for this project is available at react-window.vercel.app.
+
+Components
+
+Grid
+
+Renders data with many rows and columns.
+
+ℹ️ Unlike List rows, Grid cell sizes must be known ahead of time.
+Either static sizes or something that can be derived (from the data in CellProps) without rendering.
+
+Required props
+
+Name
+Description
+
+cellComponent
+
+React component responsible for rendering a cell.
+
+This component will receive columnIndex, rowIndex, and style props by default.
+Additionally it will receive prop values passed to cellProps.
+
+ℹ️ The prop types for this component are exported as CellComponentProps
+
+cellProps
+
+Additional props to be passed to the cell-rendering component.
+Grid will automatically re-render cells when values in this object change.
+
+⚠️ This object must not contain ariaAttributes, columnIndex, rowIndex, or style props.
+
+columnCount
+
+Number of columns to be rendered in the grid.
+
+columnWidth
+
+Column width; the following formats are supported:
+
+number of pixels (number)
+
+percentage of the grid's current width (string)
+
+function that returns the column width (in pixels) given an index and cellProps
+
+ℹ️ Percentage widths can't be resolved during server rendering unless a defaultWidth (or a pixel width via the style prop) is specified.
+
+rowCount
+
+Number of rows to be rendered in the grid.
+
+rowHeight
+
+Row height; the following formats are supported:
+
+number of pixels (number)
+
+percentage of the grid's current height (string)
+
+function that returns the row height (in pixels) given an index and cellProps
+
+ℹ️ Percentage heights can't be resolved during server rendering unless a defaultHeight (or a pixel height via the style prop) is specified.
+
+Optional props
+
+Name
+Description
+
+className
+
+CSS class name.
+
+dir
+
+Indicates the directionality of grid cells.
+
+ℹ️ The directionality of an ancestor element can't be detected during server rendering;
+specify this prop explicitly for server-rendered right-to-left grids.
+
+ℹ️ See HTML dir global attribute for more information.
+
+style
+
+Optional CSS properties.
+The grid of cells will fill the height and width defined by this style.
+
+children
+
+Additional content to be rendered within the grid (above cells).
+This property can be used to render things like overlays or tooltips.
+
+columnKey
+
+Grids use the column index as a key by default.
+This prop can be used along with the rowKey prop to provide a custom key value.
+
+ℹ️ Custom keys can ensure better UX for sortable or filterable grids,
+particularly if your cell components are stateful.
+Refer to the React documentation for more info.
+
+⚠️ This prop cannot be auto-memoized because it is called during render.
+It is important to always useCallback for this prop; do not use an inline function.
+
+defaultHeight
+
+Default height of grid (in pixels) for initial render, before its actual height has been measured.
+
+ℹ️ Grids can't be measured during server rendering, so this value determines how many rows are server rendered.
+It's recommended to set this to the expected height of the grid (or to specify a pixel height via the style prop).
+
+defaultScrollLeft
+
+Initial horizontal scroll offset (in pixels) of the grid.
+This value is only applied once, when the grid first mounts with at least one column.
+
+ℹ️ Server-rendered HTML can't be pre-scrolled, so server rendering always starts at the first column;
+the default scroll offset is applied once the grid hydrates.
+
+⚠️ If the grid can't be scrolled that far when the offset is applied (e.g. it is hidden with display: none,
+or uses percentage column widths before its width has been measured), the offset is clamped or ignored and not retried.
+Specify a defaultWidth (or a pixel width via the style prop) when using percentage column widths.
+
+defaultScrollTop
+
+Initial vertical scroll offset (in pixels) of the grid.
+This value is only applied once, when the grid first mounts with at least one row.
+
+ℹ️ Server-rendered HTML can't be pre-scrolled, so server rendering always starts at the first row;
+the default scroll offset is applied once the grid hydrates.
+
+⚠️ If the grid can't be scrolled that far when the offset is applied (e.g. it is hidden with display: none,
+or uses percentage row heights before its height has been measured), the offset is clamped or ignored and not retried.
+Specify a defaultHeight (or a pixel height via the style prop) when using percentage row heights.
+
+defaultWidth
+
+Default width of grid (in pixels) for initial render, before its actual width has been measured.
+
+ℹ️ Grids can't be measured during server rendering, so this value determines how many columns are server rendered.
+It's recommended to set this to the expected width of the grid (or to specify a pixel width via the style prop).
+
+gridRef
+
+Imperative Grid API.
+
+ℹ️ The useGridRef and useGridCallbackRef hooks are exported for convenience in TypeScript projects.
+
+onCellsRendered
+
+Callback notified when the range of rendered cells changes.
+
+onResize
+
+Callback notified when the Grid's outermost HTMLElement resizes.
+This may be used to (re)scroll a cell into view.
+
+overscanCount
+
+How many additional rows/columns to render outside of the visible area.
+This can reduce visual flickering near the edges of a grid when scrolling.
+
+rowKey
+
+Grids use the row index as a key by default.
+This prop can be used along with the columnKey prop to provide a custom key value.
+
+ℹ️ Custom keys can ensure better UX for sortable or filterable grids,
+particularly if your cell components are stateful.
+Refer to the React documentation for more info.
+
+⚠️ This prop cannot be auto-memoized because it is called during render.
+It is important to always useCallback for this prop; do not use an inline function.
+
+scrollElement
+
+Element that scrolls the grid, for grids that scroll along with other content (e.g. the page):
+
+"window" to scroll with the page
+
+an ancestor element that scrolls (e.g. stored with a useState ref callback); null until it has mounted
+
+The grid renders at its full height and only renders the rows (and columns) visible within the scroll element's viewport.
+Its position within the scroll element is measured whenever it renders, scrolls, or resizes,
+and whenever content before it is resized, inserted, or removed (e.g. an image loading above the grid).
+
+columns scroll with the scroll element too if the grid is as wide as its content (e.g. style={{ width: "max-content" }});
+otherwise the grid fills the width of its parent and its columns scroll within it
+
+scrollToCell, scrollToColumn and scrollToRow scroll whichever element scrolls each axis
+
+defaultHeight and defaultWidth are used as the viewport size until the scroll element has been measured (e.g. during server rendering)
+
+percentage row heights and column widths are relative to the scroll element's viewport
+
+defaultScrollLeft and defaultScrollTop are ignored
+
+ℹ️ While the scroll element is null, the grid renders the first rows (as it does during server rendering).
+
+⚠️ The grid's onScroll handler is only called when the grid scrolls its own columns;
+listen to the scroll element's "scroll" events instead (or use the useIsScrolling hook).
+
+tagName
+
+Can be used to override the root HTML element rendered by the Grid component.
+The default value is "div", meaning that Grid renders an HTMLDivElement as its root.
+
+⚠️ In most use cases the default ARIA roles are sufficient and this prop is not needed.
+
+List
+
+Renders data with many rows.
+
+Required props
+
+Name
+Description
+
+rowComponent
+
+React component responsible for rendering a row.
+
+This component will receive an index and style prop by default.
+Additionally it will receive prop values passed to rowProps.
+
+ℹ️ Spread ariaAttributes onto the row element; they identify it as a row (e.g. so that dynamic row heights are measured reliably)
+
+ℹ️ The prop types for this component are exported as RowComponentProps
+
+rowCount
+
+Number of items to be rendered in the list.
+
+rowHeight
+
+Row height; the following formats are supported:
+
+number of pixels (number)
+
+percentage of the list's current height (string)
+
+function that returns the row height (in pixels) given an index and rowProps
+
+dynamic row height cache returned by the useDynamicRowHeight hook
+
+ℹ️ Percentage heights can't be resolved during server rendering unless a defaultHeight (or a pixel height via the style prop) is specified.
+
+⚠️ Dynamic row heights are not as efficient as predetermined sizes.
+It's recommended to provide your own height values if they can be determined ahead of time.
+
+rowProps
+
+Additional props to be passed to the row-rendering component.
+List will automatically re-render rows when values in this object change.
+
+⚠️ This object must not contain ariaAttributes, index, or style props.
+
+Optional props
+
+Name
+Description
+
+className
+
+CSS class name.
+
+style
+
+Optional CSS properties.
+The list of rows will fill the height defined by this style.
+
+children
+
+Additional content to be rendered within the list (above rows).
+This property can be used to render things like overlays or tooltips.
+
+defaultHeight
+
+Default height of list (in pixels) for initial render, before its actual height has been measured.
+
+ℹ️ Lists can't be measured during server rendering, so this value determines how many rows are server rendered.
+It's recommended to set this to the expected height of the list (or to specify a pixel height via the style prop).
+
+defaultScrollOffset
+
+Initial scroll offset (in pixels) of the list.
+This value is only applied once, when the list first mounts with at least one row.
+
+ℹ️ Server-rendered HTML can't be pre-scrolled, so server rendering always starts at the first row;
+the default scroll offset is applied once the list hydrates.
+
+⚠️ If the list can't be scrolled that far when the offset is applied (e.g. it is hidden with display: none,
+or uses percentage row heights before its height has been measured), the offset is clamped or ignored and not retried.
+Specify a defaultHeight (or a pixel height via the style prop) when using percentage row heights.
+
+listRef
+
+Ref used to interact with this component's imperative API.
+
+This API has imperative methods for scrolling and a getter for the outermost DOM element.
+
+ℹ️ The useListRef and useListCallbackRef hooks are exported for convenience in TypeScript projects.
+
+onResize
+
+Callback notified when the List's outermost HTMLElement resizes.
+This may be used to (re)scroll a row into view.
+
+onRowsRendered
+
+Callback notified when the range of visible rows changes.
+
+overscanCount
+
+How many additional rows to render outside of the visible area.
+This can reduce visual flickering near the edges of a list when scrolling.
+
+rowKey
+
+Lists use the row index as a key by default.
+This prop can provide a custom key value.
+
+ℹ️ Custom keys can ensure better UX for sortable or filterable lists,
+particularly if your row components are stateful.
+Refer to the React documentation for more info.
+
+⚠️ This prop cannot be auto-memoized because it is called during render.
+It is important to always useCallback for this prop; do not use an inline function.
+
+scrollElement
+
+Element that scrolls the list, for lists that scroll along with other content (e.g. the page):
+
+"window" to scroll with the page
+
+an ancestor element that scrolls (e.g. stored with a useState ref callback); null until it has mounted
+
+The list renders at its full height and only renders the rows visible within the scroll element's viewport.
+Its position within the scroll element is measured whenever it renders, scrolls, or resizes,
+and whenever content before it is resized, inserted, or removed (e.g. an image loading above the list).
+
+scrollToRow scrolls the scroll element
+
+defaultHeight is used as the viewport height until the scroll element has been measured (e.g. during server rendering)
+
+percentage row heights are relative to the scroll element's viewport height
+
+defaultScrollOffset is ignored
+
+ℹ️ While the scroll element is null, the list renders the first rows (as it does during server rendering).
+
+⚠️ The list itself doesn't scroll, so its onScroll handler isn't called;
+listen to the scroll element's "scroll" events instead (or use the useIsScrolling hook).
+
+tagName
+
+Can be used to override the root HTML element rendered by the List component.
+The default value is "div", meaning that List renders an HTMLDivElement as its root.
+
+⚠️ In most use cases the default ARIA roles are sufficient and this prop is not needed.
+
+Hooks
+
+useDynamicRowHeight
+
+Creates a cache of measured row heights for lists whose rows can't be sized ahead of time.
+Pass the returned value as the rowHeight prop of List (or the itemSize option of useVirtualizer);
+rendered rows are then measured with a ResizeObserver and the list updates as their sizes change.
+
+Rows that have not yet been measured use the defaultRowHeight (or initialRowHeights, if provided).
+
+ℹ️ Dynamic row heights are more expensive than fixed sizes; prefer a number or function when row heights are known.
+
+Parameters
+
+Name
+Description
+
+defaultRowHeight
+
+Estimated height (in pixels) of rows that have not yet been measured.
+
+initialRowHeights?
+
+Row heights (in pixels) that are known or can be estimated ahead of time, e.g. estimated from each row's content.
+This can be either an array (where each item is the height of the row at that index) or a Map of row index to height.
+
+These values are used in place of defaultRowHeight until rows are rendered and measured,
+so providing them can make server-rendered lists and initial scroll positions more accurate.
+
+ℹ️ This value is only read when the hook first mounts and when the key changes.
+
+key?
+
+Changing this value clears all measured row heights,
+e.g. when the list renders a different set of data.
+
+useGridCallbackRef
+
+Convenience hook to return a properly typed ref callback for the Grid component.
+
+Use this hook when you need to share the ref with another component or hook.
+
+useGridRef
+
+Convenience hook to return a properly typed ref for the Grid component.
+
+useIsScrolling
+
+Tracks whether an element (or the window) is currently scrolling,
+e.g. to render simplified content in place of rows that are expensive to render.
+
+Pass the element that scrolls:
+
+a list or grid's own element (e.g. from useListCallbackRef)
+
+"window" or the scroll element, for lists and grids that use the scrollElement prop
+
+Scrolling ends when the browser fires a "scrollend" event or,
+in browsers that don't support that event, after no scroll events have been received for delay milliseconds.
+
+ℹ️ Scrolling that starts and ends before React renders (e.g. an instant scroll) may not change this value.
+
+⚠️ Changing this value re-renders any rows it is passed to (e.g. via rowProps) when scrolling starts and when it ends.
+
+Parameters
+
+Name
+Description
+
+target
+
+delay?
+
+Milliseconds without scroll events after which scrolling is considered to have ended
+(only used by browsers that don't support the "scrollend" event); defaults to 150.
+
+useListCallbackRef
+
+Convenience hook to return a properly typed ref callback for the List component.
+
+Use this hook when you need to share the ref with another component or hook.
+
+useListRef
+
+Convenience hook to return a properly typed ref for the List component.
+
+useVirtualizer
+
+Calculates which items to render, and where, for custom (headless) virtualized content
+(e.g. a <table> or a custom layout).
+
+The returned items are positioned relative to the start of the element's content;
+how they are rendered (e.g. absolute positioning or spacer elements) is up to the caller.
+
+Parameters
+
+Name
+Description
+
+count
+
+Number of items.
+
+defaultScrollOffset?
+
+Initial scroll offset (in pixels), applied once when the element first mounts with at least one item.
+
+ℹ️ Ignored when a scrollElement is specified.
+
+defaultSize?
+
+Size (in pixels) of the viewport before it has been measured (e.g. during server rendering);
+this determines how many items are initially rendered.
+
+dir?
+
+Direction of horizontal content; detected from the element (or its ancestors) by default.
+
+direction?
+
+Direction that items are laid out in; defaults to "vertical".
+
+element
+
+Element that scrolls the items or, if a scrollElement is specified, the element that contains the items.
+
+ℹ️ Item offsets are relative to the start of this element's content.
+
+itemSize
+
+Item size; the following formats are supported:
+
+number of pixels (number)
+
+percentage of the viewport's size (string)
+
+function that returns the item size (in pixels) given an index
+
+dynamic row height cache returned by the useDynamicRowHeight hook (vertical only);
+rendered items must be passed to measureElement and specify a data-index attribute
+
+ℹ️ Sizes are cached until the value of this option changes;
+memoize functions (e.g. with useCallback) and only change them when sizes change.
+
+onItemsRendered?
+
+Callback notified when the range of visible (or rendered) items changes.
+
+overscanCount?
+
+How many additional items to render outside of the visible area; defaults to 3.
+
+scrollElement?
+
+Element that scrolls the items, for items that scroll along with other content (e.g. the page):
+
+"window" to scroll with the page
+
+an ancestor element that scrolls; null until it has mounted
+
+See the scrollElement prop of List for more information.
+
+Imperative APIs
+
+GridImperativeAPI
+
+Ref used to interact with this component's imperative API.
+This API has imperative methods for scrolling and a getter for the outermost DOM element.
+
+ℹ️ The useGridRef and useGridCallbackRef hooks are exported for convenience in TypeScript projects.
+
+Methods
+
+Name
+Description
+
+scrollToCell
+
+Scrolls the grid so that the specified row and column are visible.
+Like the browser's scrollIntoView, items are aligned within the CSS scroll-padding of the element being scrolled
+(e.g. scroll-padding-top can leave room for a sticky header).
+
+behavior Determines whether scrolling is instant or animates smoothly
+
+columnAlign Determines the horizontal alignment of the element within the grid
+
+columnIndex Index of the column to scroll to (0-based)
+
+rowAlign Determines the vertical alignment of the element within the grid
+
+rowIndex Index of the row to scroll to (0-based)
+
+scrollToColumn
+
+Scrolls the grid so that the specified column is visible.
+Like the browser's scrollIntoView, items are aligned within the CSS scroll-padding of the element being scrolled
+(e.g. scroll-padding-top can leave room for a sticky header).
+
+align Determines the horizontal alignment of the element within the grid
+
+behavior Determines whether scrolling is instant or animates smoothly
+
+index Index of the column to scroll to (0-based)
+
+scrollToRow
+
+Scrolls the grid so that the specified row is visible.
+Like the browser's scrollIntoView, items are aligned within the CSS scroll-padding of the element being scrolled
+(e.g. scroll-padding-top can leave room for a sticky header).
+
+align Determines the vertical alignment of the element within the grid
+
+behavior Determines whether scrolling is instant or animates smoothly
+
+index Index of the row to scroll to (0-based)
+
+ListImperativeAPI
+
+Imperative List API.
+
+ℹ️ The useListRef and useListCallbackRef hooks are exported for convenience in TypeScript projects.
+
+Methods
+
+Name
+Description
+
+scrollToRow
+
+Scrolls the list so that the specified row is visible.
+Like the browser's scrollIntoView, items are aligned within the CSS scroll-padding of the element being scrolled
+(e.g. scroll-padding-top can leave room for a sticky header).
+Dynamic row heights are measured after rendering;
+Content that resizes later may require another scrollToRow call.
+
+ℹ️ For dynamic height lists, "smooth" scrolling is animated by the list (rather than the browser)
+so that the destination can be corrected as rows are measured along the way.
+
+align Determines the vertical alignment of the element within the list
+
+behavior Determines whether scrolling is instant or animates smoothly
+
+index Index of the row to scroll to (0-based)
+
+About
+
+React components for efficiently rendering large lists and tabular data
+
+react-window.vercel.app/
+
+Resources
+
+Readme
+
+MIT license
+
+Contributing
+
+Contributing
+
+Activity
+
+Stars
+
+17.2k stars
+
+Watchers
+
+60 watching
+
+Forks
+
+815 forks
+
+Report repository
+
+Releases
+
+Packages
+
+Used by
+
+Contributors
+
+Languages
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

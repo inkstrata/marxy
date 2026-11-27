@@ -1,0 +1,1019 @@
+{
+ "format": "sources/1",
+ "sources": [
+  {
+   "id": "7d4ea31c0248",
+   "url": "https://accessible-data-interfaces.pages.dev/virtualization-charts-dynamic-data-displays/accessible-virtualized-list-patterns/",
+   "title": "Accessible Virtualized List Patterns — Accessible Data Interfaces",
+   "retrieved": "2026-11-27",
+   "sha256": "7d4ea31c02481ca32e74bc67febd97694321be70217f57df8e8c86760d70e24d",
+   "chars": 19220,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "520551d7d1a2",
+   "url": "https://bugs.webkit.org/show_bug.cgi?id=224547",
+   "title": "224547 – Images and iframes with attribute loading=lazy do not print if not viewed (scrolled to) first",
+   "retrieved": "2026-11-27",
+   "sha256": "520551d7d1a296399e93dcc62ffb4ec5fa55563af3c7f0bb55c1d78e6f33110f",
+   "chars": 3421,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "d6d9fffd82a9",
+   "url": "https://bugs.webkit.org/show_bug.cgi?id=236865",
+   "title": "236865 – AX: VoiceOver table navigation breaks when a virtualized data grid scrolls",
+   "retrieved": "2026-11-27",
+   "sha256": "d6d9fffd82a9bb95a284d1b77485172b0a9ac1918e26150d715edaf159c8ead3",
+   "chars": 4330,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "995ca11dfe72",
+   "url": "https://bugs.webkit.org/show_bug.cgi?id=246426",
+   "title": "246426 – AX: List size is still announced by VoiceOver despite use of aria-setsize=-1",
+   "retrieved": "2026-11-27",
+   "sha256": "995ca11dfe723a980f41c1e5e96f3601dfb98d5f01010082a2c07834b67b0db2",
+   "chars": 3776,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "dc3509ec16e6",
+   "url": "https://bugs.webkit.org/show_bug.cgi?id=256288",
+   "title": "256288 – AX: Build the isolated tree asynchroniously.",
+   "retrieved": "2026-11-27",
+   "sha256": "dc3509ec16e61c4f2dae73e2ed0987d7249ab541e808a5b9d14453c13c4a92cb",
+   "chars": 7758,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "fac33b386481",
+   "url": "https://bugs.webkit.org/show_bug.cgi?id=277573",
+   "title": "277573 – REGRESSION (Safari 18): details/summary with content-visibility:auto doesn't expand",
+   "retrieved": "2026-11-27",
+   "sha256": "fac33b386481048d47320556ca0e9cd75ca1d40c8b061fbe603a088723e116d9",
+   "chars": 2115,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "eeb93f14810d",
+   "url": "https://bugs.webkit.org/show_bug.cgi?id=283846",
+   "title": "283846 – [css-contain-2] content skipped with `content-visibility: auto` should still be findable",
+   "retrieved": "2026-11-27",
+   "sha256": "eeb93f14810d2abdac2b8433b2ad350fc60caf4ba67ac0f2f95ce55b6627a67d",
+   "chars": 4745,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "7f772e17118a",
+   "url": "https://bugs.webkit.org/show_bug.cgi?id=288312",
+   "title": "288312 – Support ContentVisibilityForceLayout in updateLayoutIfDimensionsOutOfDate",
+   "retrieved": "2026-11-27",
+   "sha256": "7f772e17118abd7674e215bda9004b797d4c7d2957fde800978150afd76df895",
+   "chars": 1610,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "4b7d89c8cfec",
+   "url": "https://bugs.webkit.org/show_bug.cgi?id=290577",
+   "title": "290577 – [content visibility] Incorrect geometry values inside c-v hidden subtree",
+   "retrieved": "2026-11-27",
+   "sha256": "4b7d89c8cfece7dfa955a071cfe0ee9e6066c38ad33ea3ee9df126543a8c81ab",
+   "chars": 1962,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "8f6d5babf3b4",
+   "url": "https://bugs.webkit.org/show_bug.cgi?id=292380",
+   "title": "292380 – AX: content-visibility change from hidden to visible ignored by VoiceOver",
+   "retrieved": "2026-11-27",
+   "sha256": "8f6d5babf3b401fafd3829b0b0aa876541c8c05c59530dc805a5191ad5f3be31",
+   "chars": 4014,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "979a25524a08",
+   "url": "https://codemirror.net/docs/ref/",
+   "title": "CodeMirror Reference Manual",
+   "retrieved": "2026-11-27",
+   "sha256": "979a25524a0848685b3351afa02940661bfe60e701b93d0f9992e0288fb571b3",
+   "chars": 235143,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "843cbdf603c3",
+   "url": "https://community.obsidian.md/plugins/reading-view-full-range",
+   "title": "Reading View Full Range - Obsidian Plugin",
+   "retrieved": "2026-11-27",
+   "sha256": "843cbdf603c3e99d3983c108755d7719ae7a9b886190fc186470f0c2e04b889e",
+   "chars": 4708,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e45f3ff55cb8",
+   "url": "https://developer.apple.com/documentation/safari-release-notes/safari-18_1-release-notes.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "e45f3ff55cb88c1f6487b1a6d0866f29afc34880c9a8726f24cc7a8a1b820ee6",
+   "chars": 3422,
+   "via": "save-source.mjs",
+   "content_type": "text/markdown"
+  },
+  {
+   "id": "3e01e287757a",
+   "url": "https://developer.apple.com/forums/thread/851810",
+   "title": "Security Verification",
+   "retrieved": "2026-11-27",
+   "sha256": "3e01e287757af0b8c31e03fc5b608060c5be2217e1282053f3e5bf1284504599",
+   "chars": 199,
+   "via": "save-source.mjs",
+   "final_url": "https://developer.apple.com/forums/verify-human/verify.html?next=/forums/thread/851810",
+   "content_type": "text/html"
+  },
+  {
+   "id": "92eca96dd1aa",
+   "url": "https://developer.apple.com/tutorials/data/documentation/safari-release-notes/safari-18-release-notes.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "92eca96dd1aafb31f97bd2f6a74e8c5088bbd5451971a553a35415a31cfee744",
+   "chars": 28212,
+   "via": "save-source.mjs",
+   "final_url": "https://developer.apple.com/documentation/safari-release-notes/safari-18-release-notes.md",
+   "content_type": "text/markdown"
+  },
+  {
+   "id": "8e9a7aea2801",
+   "url": "https://developer.apple.com/tutorials/data/documentation/safari-release-notes/safari-26-release-notes.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "8e9a7aea2801182ad6c688a8bbb921473d7b31682874e56b5d2202d36b5f8fe3",
+   "chars": 27876,
+   "via": "save-source.mjs",
+   "final_url": "https://developer.apple.com/documentation/safari-release-notes/safari-26-release-notes.md",
+   "content_type": "text/markdown"
+  },
+  {
+   "id": "312fc5fa7644",
+   "url": "https://developer.chrome.com/docs/modern-web-guidance/guides/performance/defer-rendering-heavy-content",
+   "title": "重いコンテンツのレンダリングを遅らせる | Modern Web Guidance | Chrome for Developers",
+   "retrieved": "2026-11-27",
+   "sha256": "312fc5fa76446fccfbeaf7206edf3da92f67b338581cf376564c3038f98506fb",
+   "chars": 10776,
+   "via": "save-source.mjs",
+   "final_url": "https://developer.chrome.com/docs/modern-web-guidance/guides/performance/defer-rendering-heavy-content?hl=ja",
+   "content_type": "text/html"
+  },
+  {
+   "id": "978f1013a4d8",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles/feed_role",
+   "title": "ARIA: feed role - ARIA | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "978f1013a4d87e9119e49f3660b6c0a78e29aa24a172e071e284c20553f74c04",
+   "chars": 11242,
+   "via": "save-source.mjs",
+   "final_url": "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Roles/feed_role",
+   "content_type": "text/html"
+  },
+  {
+   "id": "300bbe3e6069",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/API/ClipboardEvent/clipboardData",
+   "title": "ClipboardEvent: clipboardData property - Web APIs | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "300bbe3e6069aec5c8485291e29475697794119cd1e85b5ed5c62c056cbd1d47",
+   "chars": 4097,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "471b10856858",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/API/CSS_Custom_Highlight_API",
+   "title": "CSS Custom Highlight API - Web APIs | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "471b10856858ed80a87cb73589064200f14263457611852224420b0f1ff90470",
+   "chars": 10970,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "84ff7cf86634",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/API/Element/beforematch_event",
+   "title": "Element: beforematch event - Web APIs | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "84ff7cf8663455a5ee3d6dfdf4a5ddf8b05a8768a82ad540622f5fead9ebd30a",
+   "chars": 10086,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "2290328362ff",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/API/Window/beforeprint_event",
+   "title": "Window: beforeprint event - Web APIs | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "2290328362ff26b8c4435ae2f0ebf6dd41278ec4eaca0672bb56623883f5bdfe",
+   "chars": 8288,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "479f2673ceab",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/CSS/content-visibility",
+   "title": "content-visibility CSS property - CSS | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "479f2673ceab71f6128b4d3fdcb82535266a39776739b0fa676ddb33aa27491a",
+   "chars": 35371,
+   "via": "save-source.mjs",
+   "final_url": "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/content-visibility",
+   "content_type": "text/html"
+  },
+  {
+   "id": "479f2673ceab",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/content-visibility",
+   "title": "content-visibility CSS property - CSS | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "479f2673ceab71f6128b4d3fdcb82535266a39776739b0fa676ddb33aa27491a",
+   "chars": 35371,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "fa4e7a04e4fb",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/hidden",
+   "title": "hidden HTML global attribute - HTML | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "fa4e7a04e4fb9902edfec9cf2b471dc9e466fe5f32478c222c934dab4ca5e063",
+   "chars": 12554,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "a2446b96aad6",
+   "url": "https://discuss.codemirror.net/t/content-height-changes-on-scroll-with-line-wrapping/8008",
+   "title": "Content Height changes on scroll with line wrapping - Uncategorized - discuss.CodeMirror",
+   "retrieved": "2026-11-27",
+   "sha256": "a2446b96aad6112cbf9fd7aa5b5d59b988e0fc1007555a997f82d6bd5f9afb89",
+   "chars": 1249,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e0f8379eb12c",
+   "url": "https://discuss.codemirror.net/t/how-can-make-sure-the-whole-document-is-always-rendered-in-codemirror6/5241",
+   "title": "how can make sure the whole document is always rendered?(in codemirror6) - v6 - discuss.CodeMirror",
+   "retrieved": "2026-11-27",
+   "sha256": "e0f8379eb12c9333998ddb3718cd6c81833c0d5cbec61d26e9f2b98cd20348a0",
+   "chars": 2213,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "5c60c3f80e1f",
+   "url": "https://discuss.prosemirror.net/t/efficient-viewport-rendering-like-codemirror/577",
+   "title": "Efficient Viewport rendering? (like CodeMirror) - Uncategorized - discuss.ProseMirror",
+   "retrieved": "2026-11-27",
+   "sha256": "5c60c3f80e1f7f8fabfa58e24b0f8c610aaa7c9332fbfccd06cbb3fdcfc17070",
+   "chars": 1649,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "13b37e5a2fcc",
+   "url": "https://discuss.prosemirror.net/t/lazy-rendering-for-prosemirror/1486",
+   "title": "Lazy rendering for ProseMirror - Uncategorized - discuss.ProseMirror",
+   "retrieved": "2026-11-27",
+   "sha256": "13b37e5a2fcc816a96005cd7708d8ce87a2298dc145f16ee7274281dc9dd0793",
+   "chars": 4676,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "9c1fec457a8a",
+   "url": "https://discuss.prosemirror.net/t/virtualization-in-prosemirror/3463",
+   "title": "How do I check if a node existed before a set of transactions? - Uncategorized - discuss.ProseMirror",
+   "retrieved": "2026-11-27",
+   "sha256": "9c1fec457a8a08de9a8cfd2bc103d5cf43781dd8a683ec9f7a9a7fdb18a97b19",
+   "chars": 2384,
+   "via": "save-source.mjs",
+   "final_url": "https://discuss.prosemirror.net/t/how-do-i-check-if-a-node-existed-before-a-set-of-transactions/3463",
+   "content_type": "text/html"
+  },
+  {
+   "id": "a0b35ff336aa",
+   "url": "https://drafts.csswg.org/css-contain-2/",
+   "title": "CSS Containment Module Level 2",
+   "retrieved": "2026-11-27",
+   "sha256": "a0b35ff336aa338025d43f654b4d69e670d137e4aef40fbc38f439467b53ee4a",
+   "chars": 124014,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "bea2e7cc7bdb",
+   "url": "https://drafts.csswg.org/css-scroll-anchoring-1/",
+   "title": "CSS Scroll Anchoring Module Level 1",
+   "retrieved": "2026-11-27",
+   "sha256": "bea2e7cc7bdb59dc77a8462663ae9b6ad82af713bb4f6d5c4272dda080f4b520",
+   "chars": 21853,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "350a8497ff30",
+   "url": "https://forum.obsidian.md/t/reading-mode-and-canvas-implement-some-form-of-progressive-rendering-for-long-lists-and-callouts/90646",
+   "title": "Reading mode (and Canvas): Implement some form of progressive rendering for long lists and callouts - Feature requests - Obsidian Forum",
+   "retrieved": "2026-11-27",
+   "sha256": "350a8497ff30d0b7dd8845236b9e287db620fc724bf37d13ef7479f214bf44a6",
+   "chars": 1149,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "a5b6d71a8e01",
+   "url": "https://forum.obsidian.md/t/screen-reader-fails-reading-long-text/58020",
+   "title": "Screen reader fails reading long text - Help - Obsidian Forum",
+   "retrieved": "2026-11-27",
+   "sha256": "a5b6d71a8e01eec4faa1b122badda96749eb08599dd8c203e02f8484a23d2543",
+   "chars": 2335,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "b07e62e0695a",
+   "url": "https://github.com/bvaughn/react-window",
+   "title": "GitHub - bvaughn/react-window: React components for efficiently rendering large lists and tabular data · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "b07e62e0695a894b46209753c7c2bf285e894d3708e8cf83b0a1c4d6e8f48a6a",
+   "chars": 24429,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "2962cf8f6922",
+   "url": "https://github.com/codemirror/dev/issues/1030",
+   "title": "Gigantic expression in Java makes Lezer run out of stack · Issue #1030 · codemirror/dev · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "2962cf8f69220d24fd64a7ec8a3482d69add32022a39a818799ea06cff700aeb",
+   "chars": 7996,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "39826b715dc7",
+   "url": "https://github.com/Microsoft/monaco-editor/wiki/Accessibility-Guide-for-Integrators",
+   "title": "Accessibility Guide for Integrators · microsoft/monaco-editor Wiki · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "39826b715dc75387c5c711141d7088f3d10deae5bac23642fe9f2b1423b7c3a9",
+   "chars": 6000,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "32748db5f0f9",
+   "url": "https://github.com/Microsoft/monaco-editor/wiki/Monaco-Editor-Accessibility-Guide",
+   "title": "Monaco Editor Accessibility Guide · microsoft/monaco-editor Wiki · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "32748db5f0f960725c2005e9634f7433512475d7691f6ed9ec4ab88318e21a58",
+   "chars": 6107,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "78932871ff85",
+   "url": "https://github.com/MicrosoftEdge/WebView2Announcements/issues/137",
+   "title": "[Announcement] WebView2 Runtime and SDK release cadence updates (starting v152) · Issue #137 · MicrosoftEdge/WebView2Announcements · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "78932871ff85674be06891ae3432b1af1252a9b98419f12db93c0bbb0bcf3bb6",
+   "chars": 7322,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "9a53e2006b39",
+   "url": "https://github.com/mozilla/pdf.js/blob/master/web/pdf_viewer.js",
+   "title": "pdf.js/web/pdf_viewer.js at master · mozilla/pdf.js · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "9a53e2006b391b09f580d6b4d2aba6373d41a1f4118b8bc8452ceb7c185b8981",
+   "chars": 35575,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "9a7c0d9cba8c",
+   "url": "https://github.com/nvaccess/nvda/discussions/15995",
+   "title": "Feature request: build JavaScript accessibility bridge to improve accessibility of web applications · nvaccess/nvda · Discussion #15995 · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "9a7c0d9cba8c4e20acbf935251ec2bba1c344de9da9bc1347e6d7ad948a43229",
+   "chars": 52257,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "f8d80787b8e6",
+   "url": "https://html.spec.whatwg.org/multipage/system-state.html",
+   "title": "HTML Standard",
+   "retrieved": "2026-11-27",
+   "sha256": "f8d80787b8e625f36e30c891a2a20ca972a42ec66c990da2361c6fdb2faca0dd",
+   "chars": 30984,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "1325fa218862",
+   "url": "https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution",
+   "title": "Distribute your app and the WebView2 Runtime - Microsoft Edge Developer documentation | Microsoft Learn",
+   "retrieved": "2026-11-27",
+   "sha256": "1325fa2188623cdf3f40b1cf6bde5d78690f839fdf6d7ceefb849053fd7c5ae5",
+   "chars": 27464,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "2a662b693fde",
+   "url": "https://lists.w3.org/Archives/Public/public-css-archive/2021Mar/0561.html",
+   "title": "Re: [csswg-drafts] [css-contain-2] Clarify whether content-visibility: auto subtree elements are visible in accessibility (#5857) from vmpstr via GitHub on 2021-03-18 (public-css-archive@w3.org from March 2021)",
+   "retrieved": "2026-11-27",
+   "sha256": "2a662b693fdea04b1bef5eb4c154d35dc45f932c35b8ccc202b7c838a6307d01",
+   "chars": 3586,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "a2f8ead0c19c",
+   "url": "https://prosemirror.net/docs/guide/",
+   "title": "ProseMirror Guide",
+   "retrieved": "2026-11-27",
+   "sha256": "a2f8ead0c19cc1730943996813520001ff749e279736937d996722761a2dc967",
+   "chars": 66684,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "de65eed413a7",
+   "url": "https://prosemirror.net/docs/ref/",
+   "title": "ProseMirror Reference manual",
+   "retrieved": "2026-11-27",
+   "sha256": "de65eed413a77f5589aafdaae90e5f7910fd58444a9518850baff94a0a3736bf",
+   "chars": 139916,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "726901a6d6a5",
+   "url": "https://raw.githubusercontent.com/codemirror/search/main/src/search.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "726901a6d6a5a9b9de88fb92f6bb5b6d4f1a1a4ca2a88c02acbfb889d59b83c2",
+   "chars": 31231,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "07df7dbdacf6",
+   "url": "https://raw.githubusercontent.com/codemirror/view/main/CHANGELOG.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "07df7dbdacf67489182ddcc4e7558f8a23f3d0f3af28ff95f269106697e9d10a",
+   "chars": 78639,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "98e87548c5f5",
+   "url": "https://raw.githubusercontent.com/codemirror/view/main/src/docview.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "98e87548c5f5d687291c33408b054ac9e7336ebdcc929c89aa97b1a5ce5c6ad0",
+   "chars": 29781,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "493ddc46dcd2",
+   "url": "https://raw.githubusercontent.com/codemirror/view/main/src/editorview.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "493ddc46dcd2e8c31668644e5f784d66cf71b5c5eb57ceb5b65d670e8b9c3695",
+   "chars": 55963,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "c1181dad1800",
+   "url": "https://raw.githubusercontent.com/codemirror/view/main/src/heightmap.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "c1181dad1800a93528a54d0e1a2b2b60ec552c2062e695ae4ad52105eda4cd8b",
+   "chars": 29107,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "c55d77e5d1d4",
+   "url": "https://raw.githubusercontent.com/codemirror/view/main/src/input.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "c55d77e5d1d458dabe97dcfe6b345d933afae52fae18d147ba606ce08acc8d7c",
+   "chars": 35593,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "7d0af441be6c",
+   "url": "https://raw.githubusercontent.com/codemirror/view/main/src/viewstate.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "7d0af441be6c3ff4c1f19002461fd7599865a5966dc0fa9d6323434a9cf31cd2",
+   "chars": 32153,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "b8c9aee7a386",
+   "url": "https://raw.githubusercontent.com/inokawa/virtua/main/src/core/cache.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "b8c9aee7a38625d684cce7b4dc266b4207afda1281b6efe71d00c4e7fa631bd3",
+   "chars": 866,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "5a418cda864c",
+   "url": "https://raw.githubusercontent.com/inokawa/virtua/main/src/core/store.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "5a418cda864cf01ed447e4c7b6b3a89da99b42c525c80d613cffddf10d5d13e4",
+   "chars": 15442,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "1ef7ea9fbfbd",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/api/ContentVisibilityAutoStateChangeEvent.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "1ef7ea9fbfbd560aca1b24cc32842660bda3e4e606ee6b4290e49b1411389e73",
+   "chars": 3552,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "3c8bb00760d0",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/api/Element.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "3c8bb00760d0eabf16cfcb49c0bcb833575a21c1184bcb95696964647f5e0999",
+   "chars": 422777,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "56710ffe0aa5",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/api/HTMLElement.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "56710ffe0aa5e205fba8d739715d9068e288b1ee8bd91b56b9f8fca7f7533479",
+   "chars": 113406,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "b881dd50efce",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/css/properties/contain-intrinsic-size.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "b881dd50efce00dd2e1cccde504744f0a275b54f54e84406a5b79c6eac2ce00c",
+   "chars": 3525,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "9a98287102b3",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/css/properties/content-visibility.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "9a98287102b3478ec458b40791487e30e9e189218323999384add1b1fd3aa725",
+   "chars": 6202,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "ce6744d7449f",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/css/properties/overflow-anchor.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "ce6744d7449f4bf8f3575701778b7c599c213b17419fc4c055a453a4ad150b82",
+   "chars": 3302,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "3118754f4b82",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/http/headers/Content-Security-Policy.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "3118754f4b822c8c98f4d93e08ae7063a2fff0d9a3013299b92767eaa481bc7e",
+   "chars": 49406,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "3a94a1d5644b",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/config/editorOptions.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "3a94a1d5644ba12a86cc3e209611848a2721a93d91d63d9d03c3180d60dd1173",
+   "chars": 260072,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "841861c71e02",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/model/textModel.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "841861c71e02f3bbf301fdde6618c703d82ac09ca7b6b9f1b826ab93542891e3",
+   "chars": 109139,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "2265a18001e0",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/viewLayout/linesLayout.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "2265a18001e0158ec5b0dca17da6385e6101a46f47cbc2830f6a8028a7fdcd71",
+   "chars": 30174,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "1cf182318f7b",
+   "url": "https://raw.githubusercontent.com/mozilla/pdf.js/master/web/pdf_page_view.js",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "1cf182318f7be69c0a8775678a1c0a07a718b1b6de644895fbaa4b894b38cf6d",
+   "chars": 39096,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "5b8a676a4180",
+   "url": "https://raw.githubusercontent.com/mozilla/pdf.js/master/web/pdf_print_service.js",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "5b8a676a41803c31372ddc4fd5bacf0e7a109fb7a6978259405cd6792ff196f4",
+   "chars": 12122,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "3abc31d0a7df",
+   "url": "https://raw.githubusercontent.com/mozilla/pdf.js/master/web/pdf_rendering_queue.js",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "3abc31d0a7df4debbf713a4b1e9ba27a21e1e2401e13a00b797a8243707ec158",
+   "chars": 6234,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "27eb2626e574",
+   "url": "https://raw.githubusercontent.com/mozilla/pdf.js/master/web/pdf_viewer.js",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "27eb2626e574038b99215ae7143b72f3abb4c7a65da2dcc36c44f01b48830ecb",
+   "chars": 87791,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "7eab69675a31",
+   "url": "https://raw.githubusercontent.com/mozilla/pdf.js/master/web/ui_utils.js",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "7eab69675a31f1b0eba92ab65f76dcbf803e8094dc8fa5198886fd90f9d28753",
+   "chars": 27127,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "fcc28ad149bd",
+   "url": "https://raw.githubusercontent.com/petyosi/react-virtuoso/master/packages/react-virtuoso/src/sizeSystem.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "fcc28ad149bded94aad3c1556531f5a3793cec5fdb5a6d7ed131fddf4d1a934f",
+   "chars": 23411,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "bf0060e43f5d",
+   "url": "https://raw.githubusercontent.com/ProseMirror/prosemirror-view/master/src/clipboard.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "bf0060e43f5d50b60d1276700dd88121f630a0d48a1d339f4b551802cf4cf733",
+   "chars": 11724,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "d76704448b1f",
+   "url": "https://raw.githubusercontent.com/TanStack/virtual/main/packages/virtual-core/src/index.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "d76704448b1fe3156fe4ec00c8bea54a641940114b9063d3bebc7677b3232b38",
+   "chars": 109898,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "83806c82ecbc",
+   "url": "https://raw.githubusercontent.com/vivliostyle/vivliostyle.js/master/README.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "83806c82ecbc290091246f9bb21c5a1b312d7729f752af1e553dca948e3e9567",
+   "chars": 20935,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "1fefb542006c",
+   "url": "https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/content-visibility.yml.dist",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "1fefb542006c2b1338f3d38ea7bd39df333c42747d2cb94ca8ccca37618627e6",
+   "chars": 1633,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "58356442062b",
+   "url": "https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/hidden-until-found.yml",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "58356442062b99283c06cd634b1eaa52abc98997765aa4d120c340f6f1bdee28",
+   "chars": 410,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "f1ac59166aa5",
+   "url": "https://raw.githubusercontent.com/web-platform-dx/web-features/main/features/hidden-until-found.yml.dist",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "f1ac59166aa50b6b1e1114661fa139542ed1733b79a7a10036c87a9968370437",
+   "chars": 763,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "c8cf60d70b36",
+   "url": "https://redirect.github.com/microsoft/vscode/wiki/%5BWIP%5D-Code-Editor-Design-Doc",
+   "title": "[WIP] Code Editor Design Doc · microsoft/vscode Wiki · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "c8cf60d70b3623302240706c2e45b1c08d1ff7bc0ee346151ea22b66b4b1ef90",
+   "chars": 20401,
+   "via": "save-source.mjs",
+   "final_url": "https://github.com/microsoft/vscode/wiki/%5BWIP%5D-Code-Editor-Design-Doc",
+   "content_type": "text/html"
+  },
+  {
+   "id": "7c9846b29f69",
+   "url": "https://support.apple.com/148286",
+   "title": "About the security content of Safari 26.6.1 - Apple Support",
+   "retrieved": "2026-11-27",
+   "sha256": "7c9846b29f69c09ad797c52147268c0ba068aff177221a08fb24cc758cb85a6a",
+   "chars": 6918,
+   "via": "save-source.mjs",
+   "final_url": "https://support.apple.com/en-us/148286",
+   "content_type": "text/html"
+  },
+  {
+   "id": "841122f9a014",
+   "url": "https://support.apple.com/en-ae/guide/voiceover/vo15534/10/mac/26",
+   "title": "Use VoiceOver cursor tracking and cursor wrapping on Mac - Apple Support (AE)",
+   "retrieved": "2026-11-27",
+   "sha256": "841122f9a014ff99ecafb100226cc51dddfc6be5879d89afc25d4badb395c005",
+   "chars": 6693,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "062f25159a64",
+   "url": "https://support.apple.com/en-us/124152",
+   "title": "About the security content of Safari 18.6 - Apple Support",
+   "retrieved": "2026-11-27",
+   "sha256": "062f25159a647c2c956aff880d18c67f1ba8f75e333153c381283123fa650f8d",
+   "chars": 6455,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "4cde6e431dbc",
+   "url": "https://tanstack.com/virtual/latest/docs/api/virtualizer",
+   "title": "Virtualizer | TanStack Virtual Docs",
+   "retrieved": "2026-11-27",
+   "sha256": "4cde6e431dbc88ba84ed1e4827a4fa745b392a3b497b94c948892055e8cdd615",
+   "chars": 29577,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "d323b6f95811",
+   "url": "https://unpkg.com/pagedjs@0.4.1/README.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "d323b6f958118a01b6e0b04a7c0d4b09cf5957e2acca902f377758da9fcbfb30",
+   "chars": 7414,
+   "via": "save-source.mjs",
+   "content_type": "text/markdown"
+  },
+  {
+   "id": "6ca92109cc22",
+   "url": "https://v2.tauri.app/reference/webview-versions/",
+   "title": "Webview Versions | Tauri",
+   "retrieved": "2026-11-27",
+   "sha256": "6ca92109cc2280aa0ea0b8b4e84ce4d40a1d9a54c44ee9f99c1583fdeb184f4d",
+   "chars": 7736,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "282be7075431",
+   "url": "https://web.dev/articles/content-visibility",
+   "title": "content-visibility: the new CSS property that boosts your rendering performance | Articles | web.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "282be70754319a9e81dec1c4ff131b8d68ce3cb770683615d9cd099d15c6d5dc",
+   "chars": 15765,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "282be7075431",
+   "url": "https://web.dev/content-visibility",
+   "title": "content-visibility: the new CSS property that boosts your rendering performance | Articles | web.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "282be70754319a9e81dec1c4ff131b8d68ce3cb770683615d9cd099d15c6d5dc",
+   "chars": 15765,
+   "via": "save-source.mjs",
+   "final_url": "https://web.dev/articles/content-visibility",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e3ede2e078f8",
+   "url": "https://webaim.org/blog/seismic-change-to-docs/",
+   "title": "WebAIM: Google Announces Seismic Change to Docs",
+   "retrieved": "2026-11-27",
+   "sha256": "e3ede2e078f844ee910b762366a3d56cd37af952a705f6b0a22a5ac5eaeda39d",
+   "chars": 8249,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "dd0a58fa20f7",
+   "url": "https://webkit.org/?p=17330",
+   "title": "WebKit Features in Safari 18.6 | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "dd0a58fa20f7c181b97afe51349c5b9710b8bc1447a369b7b3c825265fdcf28b",
+   "chars": 2654,
+   "via": "save-source.mjs",
+   "final_url": "https://webkit.org/blog/17330/webkit-features-in-safari-18-6/",
+   "content_type": "text/html"
+  },
+  {
+   "id": "7329de309624",
+   "url": "https://webkit.org/blog/15865/webkit-features-in-safari-18/",
+   "title": "WebKit Features in Safari 18.0 | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "7329de3096245fc3ac1c0d427351a077c768ce0d861820a669d2685496cb3d30",
+   "chars": 51679,
+   "via": "save-source.mjs",
+   "final_url": "https://webkit.org/blog/15865/webkit-features-in-safari-18-0/",
+   "content_type": "text/html"
+  },
+  {
+   "id": "269a01d1604e",
+   "url": "https://webkit.org/blog/16119/webkit-features-in-safari-17-4/",
+   "title": "WebKit Features in Safari 17.4 | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "269a01d1604e32fe59bf541d95a89bda97d677243c78aeb98bc7d49d1fa86e59",
+   "chars": 46005,
+   "via": "save-source.mjs",
+   "final_url": "https://webkit.org/blog/15063/webkit-features-in-safari-17-4/",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e33b436a42a4",
+   "url": "https://webkit.org/blog/16188/webkit-features-in-safari-18-1",
+   "title": "WebKit Features in Safari 18.1 | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "e33b436a42a45859364466073ecd1b39e74b7427d081fbfa3786b5c3af38b944",
+   "chars": 5778,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e4fc2f92621b",
+   "url": "https://webkit.org/blog/16439/webkit-features-in-safari-18-3/",
+   "title": "WebKit Features in Safari 18.3 | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "e4fc2f92621bf16958339e9391368e3d50f9c579e5eab5478fc882593ad3142e",
+   "chars": 5536,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "d8bbacfc2baa",
+   "url": "https://webkit.org/blog/16574/webkit-features-in-safari-18-0/",
+   "title": "WebKit Features in Safari 18.4 | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "d8bbacfc2baa586330bcf149957f0a3711bb6f966ccb5f6b6edca35b58739e75",
+   "chars": 58455,
+   "via": "save-source.mjs",
+   "final_url": "https://webkit.org/blog/16574/webkit-features-in-safari-18-4/",
+   "content_type": "text/html"
+  },
+  {
+   "id": "ffb092195ecb",
+   "url": "https://webkit.org/blog/17333/webkit-features-in-safari-26-0/",
+   "title": "WebKit Features in Safari 26.0 | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "ffb092195ecb12ce826ae87f32ebefce9a5f4d86f8295e9c8ab6efe675cbffdb",
+   "chars": 60033,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "d5439a3b6f3c",
+   "url": "https://webkit.org/blog/17967/news-from-wwdc26-webkit-in-safari-27-beta/",
+   "title": "News from WWDC26: WebKit in Safari 27 beta | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "d5439a3b6f3c10d6204ab4c47c912e87e6eedc57435cbc4888603270f16ea80b",
+   "chars": 89320,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "483b39262ed8",
+   "url": "https://webkit.org/blog/18325/webkit-features-for-safari-27-0/",
+   "title": "WebKit Features for Safari 27.0 | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "483b39262ed8761a8eef0c77d2809a390622e51af98eec7dddb55b533d4c6ee4",
+   "chars": 135852,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "ec75e3fc2c73",
+   "url": "https://workspace.google.com/blog/product-announcements/Google-Docs-Canvas-Based-Rendering-Update",
+   "title": "Google Workspace Blog",
+   "retrieved": "2026-11-27",
+   "sha256": "ec75e3fc2c7332624e6e35d91f70c6809336823e3d638e3dc4bae7645e3332cf",
+   "chars": 1429,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e7bafb1489d1",
+   "url": "https://workspaceupdates.googleblog.com/2021/05/Google-Docs-Canvas-Based-Rendering-Update.html",
+   "title": "Google Workspace Updates: Google Docs will now use canvas based rendering: this may impact some Chrome extensions",
+   "retrieved": "2026-11-27",
+   "sha256": "e7bafb1489d127ddc812ee8bffeb6221fa2d21ceb6ba1c614a94f8824cf29acd",
+   "chars": 5358,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "4b84dd961b4b",
+   "url": "https://www.w3.org/TR/css-contain-2/",
+   "title": "CSS Containment Module Level 2",
+   "retrieved": "2026-11-27",
+   "sha256": "4b84dd961b4b464c6f54441de5c849529b244b91058d79fbc762b96b7e6a9cb6",
+   "chars": 82921,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e901eb4a4ca1",
+   "url": "https://www.w3.org/WAI/ARIA/apg/patterns/feed",
+   "title": "Feed Pattern | APG | WAI | W3C",
+   "retrieved": "2026-11-27",
+   "sha256": "e901eb4a4ca145f616df48f6a29771e949b40f78fd3223c2ad8ed726672448ca",
+   "chars": 7247,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  }
+ ]
+}

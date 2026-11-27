@@ -1,0 +1,43 @@
+discuss.CodeMirror
+
+Content Height changes on scroll with line wrapping
+
+Uncategorized
+
+bradymadden97
+
+March 19, 2024, 1:23pm
+
+1
+
+I’ve noticed the view’s content height can update when the document scrolls - presumably because it waits to measure line heights until they are in/near viewport.
+
+This is especially noticeable when i have line wrapping turned on.
+
+I’m building a “semantic scrollbar” like the image below:
+
+image616×1462 65.8 KB
+
+The challenge is this scrollbar expects to know the total height up front, and when the content height changes, the decorations are recomputed based on the new line heights %s and jump around.
+
+Curious if you have any ideas, or if I’m missing a way to force a full re-measurement in certain situations (like when the view is first mounted/resized)
+
+marijn
+
+March 19, 2024, 1:45pm
+
+2
+
+Eagerly rendering the entire document is not something the editor supports—it’d go against all the effort I’ve made to make the system fast regardless of document size. You’ll have to listen to updates with the heightChanged flag and adjust your scrollbar content to sync with the newly measured heights.
+
+2 Likes
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Powered by Discourse, best viewed with JavaScript enabled

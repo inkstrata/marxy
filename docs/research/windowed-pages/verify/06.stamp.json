@@ -1,0 +1,91 @@
+{
+ "chapter": "06-estimates-anchoring.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "ANC-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "721dcd092dee"
+  },
+  "ANC-02": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "34f9b4cab441"
+  },
+  "ANC-03": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "8c9429cbf1c8"
+  },
+  "ANC-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "217291219a49"
+  },
+  "ANC-05": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "2ac88d4b80ea"
+  },
+  "ANC-06": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "6991072cbb60"
+  },
+  "ANC-07": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "dffc94debeb9"
+  },
+  "ANC-08": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "8475b23a2c27"
+  },
+  "ANC-09": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "4319ff04c0d5"
+  },
+  "ANC-10": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "45f125e7655b"
+  },
+  "ANC-11": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "f8a7ddabc78a"
+  },
+  "ANC-12": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "b58a1ad22133"
+  },
+  "ANC-13": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "76bad9c14c00"
+  },
+  "ANC-14": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "e8063c03ac73"
+  }
+ }
+}

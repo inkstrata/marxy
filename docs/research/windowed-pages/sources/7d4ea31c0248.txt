@@ -1,0 +1,516 @@
+Accessible Data
+Interfaces
+
+Skip to main content
+
+Data Tables & Grids
+
+ARIA & Keyboard
+
+Charts & Virtualization
+
+Home
+
+Virtualization Charts Dynamic Data Displays
+
+Accessible Virtualized List Patterns
+
+Accessible Virtualized List Patterns
+
+Permalink to "Accessible Virtualized List Patterns" #
+Virtualization solves DOM size limits by rendering only the rows visible in the viewport, recycling nodes as the user scrolls. For sighted users this is invisible; for screen reader users it silently destroys positional context — the AT cannot tell whether a list has 20 items or 200,000. This page explains how to synchronise the accessibility tree with recycled DOM nodes so that aria-posinset, aria-setsize, keyboard focus order, and live announcements all remain accurate regardless of scroll position.
+
+The patterns here primarily affect blind users navigating with NVDA, JAWS, and VoiceOver, but they also matter for keyboard-only users who rely on Home/End to jump to list boundaries and for users with motor disabilities who cannot fine-scroll to reach off-screen items.
+
+WCAG Criteria in Scope
+
+Permalink to "WCAG Criteria in Scope" #
+
+Criterion
+Level
+Relevance to this pattern
+
+1.3.1 Info and Relationships
+A
+Positional information (aria-posinset, aria-setsize) must be programmatically determinable
+
+2.1.1 Keyboard
+A
+All list items must be reachable and operable by keyboard alone
+
+2.4.3 Focus Order
+A
+Focus sequence must reflect the logical order of the virtual dataset, not the recycled DOM order
+
+2.4.7 Focus Visible
+AA
+The focused item must always be visible in the viewport after keyboard navigation scrolls it into view
+
+4.1.2 Name, Role, Value
+A
+Every list item must have a correct role, computed name, and up-to-date ARIA state
+
+4.1.3 Status Messages
+AA
+Dynamic count or filter-result changes must be announced without moving focus
+
+Prerequisites
+
+Permalink to "Prerequisites" #
+Before implementing virtualized list accessibility, you should understand:
+
+Roving tabindex for custom data grids — the same focus-ownership pattern used inside virtual lists
+
+Focus management in single-page apps — how SPAs must restore focus after DOM mutations
+
+aria-live regions for dynamic data — throttling announcements when the dataset updates at runtime
+
+DOM size limits and performance tradeoffs — why virtualization is necessary and what DOM budgets trigger it
+
+Architecture: How DOM Recycling Breaks the Accessibility Tree
+
+Permalink to "Architecture: How DOM Recycling Breaks the Accessibility Tree" #
+The diagram below shows what happens at the accessibility tree level when a user scrolls a naively implemented virtualized list. Items 1–5 exist in the AT tree at first paint. As the user scrolls, nodes are recycled and their content replaced — but without aria-posinset updates the AT still reports “item 1 of 5” even when the content is item 47.
+
+ARIA & HTML Spec Reference
+
+Permalink to "ARIA & HTML Spec Reference" #
+aria-setsize
+
+Permalink to "aria-setsize" #
+
+Valid values: integer ≥ 1, or -1 when the total count is genuinely unknown
+
+When to apply: on every role="listitem", role="option", role="treeitem", role="row", or role="gridcell" inside a virtualized container — or on the container itself when using role="listbox" or role="grid"
+
+Common misuse: setting aria-setsize to the number of currently rendered nodes (e.g. 20) instead of the full dataset length (e.g. 1 420). This makes the screen reader announce “20 items” when the dataset is far larger.
+
+aria-posinset
+
+Permalink to "aria-posinset" #
+
+Valid values: integer ≥ 1, must be ≤ the aria-setsize value (or ≤ total when setsize is on the container)
+
+When to apply: on each recycled listitem/option/row/treeitem element, updated synchronously before the node’s text content changes
+
+Common misuse: updating aria-posinset inside a requestAnimationFrame callback — by then the AT may have already read the node with the old value
+
+role="list" + role="listitem"
+
+Permalink to "role="list" + role="listitem"" #
+Use for flat, unordered datasets. The container must carry aria-label or be labelled by a visible heading via aria-labelledby. Do not wrap the container in a <ul> — the role="list" on the <div> is sufficient and avoids the Safari/VoiceOver issue where list-style: none strips list semantics from <ul>.
+
+role="grid" / role="table"
+
+Permalink to "role="grid" / role="table"" #
+Use for tabular data. Columns must carry role="columnheader" with correct aria-sort values. See sortable and filterable data grids for the full sort announcement pattern.
+
+aria-rowcount / aria-rowindex
+
+Permalink to "aria-rowcount / aria-rowindex" #
+The grid/table equivalents of aria-setsize/aria-posinset. aria-rowcount goes on the role="grid" container; aria-rowindex goes on each role="row". Both suffer the same recycling bug if not updated synchronously.
+
+Step-by-Step Implementation
+
+Permalink to "Step-by-Step Implementation" #
+Step 1 — Choose the correct role and container markup (WCAG 1.3.1)
+
+Permalink to "Step 1 — Choose the correct role and container markup (WCAG 1.3.1)" #
+<!-- Flat list: role="list" on the scroll container -->
+<!-- aria-label satisfies SC 4.1.2 Name, Role, Value -->
+<div
+role="list"
+aria-label="Search results"
+class="virtual-scroll-container"
+>
+<!-- Rendered items injected here by the virtualizer -->
+</div>
+
+For tabular data substitute role="grid" and add aria-rowcount in place of aria-setsize on the container.
+
+Step 2 — Declare total count and per-item position (WCAG 1.3.1, 4.1.2)
+
+Permalink to "Step 2 — Declare total count and per-item position (WCAG 1.3.1, 4.1.2)" #
+<!-- Each recycled node must carry both attributes -->
+<!-- aria-setsize = full dataset length, NOT rendered slice length -->
+<!-- aria-posinset = 1-based absolute index in the full dataset -->
+<div
+role="listitem"
+aria-setsize="1420"
+aria-posinset="47"
+tabindex="-1"
+>
+Result 47 of 1 420
+</div>
+
+Update aria-posinset and aria-setsize synchronously (before textContent is replaced) inside the virtualizer’s scroll handler — never inside a requestAnimationFrame callback.
+
+Step 3 — Implement roving tabindex keyboard navigation (WCAG 2.1.1, 2.4.3)
+
+Permalink to "Step 3 — Implement roving tabindex keyboard navigation (WCAG 2.1.1, 2.4.3)" #
+// One item at a time carries tabindex="0"; all others have tabindex="-1"
+// This is the roving tabindex pattern (SC 2.1.1 Keyboard)
+function handleKeyDown(event, state) {
+const { key } = event;
+const { virtualIndex, totalItems, scrollToIndex, getRenderedNode } = state;
+let nextIndex = virtualIndex;
+
+switch (key) {
+case 'ArrowDown': nextIndex = Math.min(virtualIndex + 1, totalItems - 1); break;
+case 'ArrowUp': nextIndex = Math.max(virtualIndex - 1, 0); break;
+case 'Home': nextIndex = 0; break; // SC 2.1.1 — boundary navigation
+case 'End': nextIndex = totalItems - 1; break; // SC 2.1.1 — boundary navigation
+case 'PageDown': nextIndex = Math.min(virtualIndex + 10, totalItems - 1); break;
+case 'PageUp': nextIndex = Math.max(virtualIndex - 10, 0); break;
+default: return; // Let Tab propagate; it exits the widget (SC 2.1.1)
+}
+
+event.preventDefault();
+scrollToIndex(nextIndex); // Tells the virtualizer to render the target
+
+// Use rAF only for the DOM focus call — ARIA attributes must already be set
+// by the virtualizer's render cycle (which runs synchronously before rAF)
+requestAnimationFrame(() => {
+// aria-posinset is 1-based; dataset index is 0-based
+const node = getRenderedNode(nextIndex + 1);
+if (!node) return;
+
+// Demote the previously active node
+const prev = document.querySelector('[tabindex="0"][role="listitem"]');
+if (prev) prev.setAttribute('tabindex', '-1');
+
+// Promote the new active node (SC 2.4.7 Focus Visible — scrollIntoView keeps it in viewport)
+node.setAttribute('tabindex', '0');
+node.focus({ preventScroll: true }); // virtualizer already scrolled
+});
+}
+
+Step 4 — Wire the container to the keyboard handler (WCAG 2.1.1)
+
+Permalink to "Step 4 — Wire the container to the keyboard handler (WCAG 2.1.1)" #
+<!-- tabindex="0" on the container lets Tab land here initially -->
+<!-- Arrow key events are then delegated to the child items -->
+<div
+role="list"
+aria-label="Search results"
+tabindex="0"
+onkeydown="handleKeyDown(event, state)"
+>
+<!-- virtualizer injects items here -->
+</div>
+
+Once an item inside the container receives focus, the container’s tabindex="0" is no longer needed for Tab entry — but keep it so Tab can re-enter the widget after the user leaves and returns.
+
+Step 5 — Add a throttled live region for dynamic data (WCAG 4.1.3)
+
+Permalink to "Step 5 — Add a throttled live region for dynamic data (WCAG 4.1.3)" #
+// Live region sits OUTSIDE the scroll container (SC 4.1.3 Status Messages)
+// aria-live="polite" queues announcements without interrupting current speech
+// aria-atomic="true" reads the whole message, not just the changed node
+const liveRegion = document.getElementById('list-status');
+
+function announce(text, delay = 1500) {
+// Throttle prevents flooding when filter or sort changes emit many events
+clearTimeout(announce._timer);
+announce._timer = setTimeout(() => {
+liveRegion.textContent = ''; // Force re-read even if text is the same
+requestAnimationFrame(() => { liveRegion.textContent = text; });
+}, delay);
+}
+
+// Usage: filter change reduces results from 1 420 to 38
+announce('Showing 38 results for "keyboard navigation"');
+
+<!-- Placed in the document body, outside the scroll container -->
+<div
+id="list-status"
+role="status"
+aria-live="polite"
+aria-atomic="true"
+class="visually-hidden"
+></div>
+
+Keyboard Interaction Contract
+
+Permalink to "Keyboard Interaction Contract" #
+
+Key
+Action
+Expected AT Announcement
+Failure Indicator
+
+Tab
+Enter widget (first visit) or exit widget
+“Search results list, 1 420 items” then “Result 1, 1 of 1 420”
+No role announcement; AT reads container as a plain div
+
+ArrowDown
+Move to next item; scroll into view if needed
+“Result N+1, N+1 of 1 420”
+Announcement says “1 of 20” (setsize not set to full count)
+
+ArrowUp
+Move to previous item; scroll into view if needed
+“Result N−1, N−1 of 1 420”
+Focus stays at item 1 when AT says it moved
+
+Home
+Jump to item 1; virtualizer scrolls to top
+“Result 1, 1 of 1 420”
+Focus moves but AT announces item 1 with old content
+
+End
+Jump to last item; virtualizer scrolls to bottom
+“Result 1 420, 1 420 of 1 420”
+Long delay before focus lands (scroll not triggered before focus)
+
+PageDown
+Advance ~10 items
+“Result N+10, N+10 of 1 420”
+Jump exceeds viewport; focused item is off-screen (SC 2.4.7 fail)
+
+PageUp
+Retreat ~10 items
+“Result N−10, N−10 of 1 420”
+Same as PageDown failure
+
+Enter / Space
+Activate the focused item
+Item-specific action announced via live region
+No announcement; action silently completes
+
+Screen Reader Compatibility Matrix
+
+Permalink to "Screen Reader Compatibility Matrix" #
+
+AT
+Browser
+Expected Announcement
+Known Deviation
+
+NVDA 2024.x
+Chrome 124+
+“Search results list, 1 420 items. Result 47, 47 of 1 420”
+NVDA may re-read the container label on every item if aria-setsize is on the container rather than each item — put aria-setsize on the items
+
+NVDA 2024.x
+Firefox 125+
+Same as Chrome
+None observed
+
+JAWS 2024
+Chrome 124+
+“Search results list with 1 420 items. Result 47, 47 of 1 420”
+JAWS virtual cursor mode intercepts arrow keys — ensure the virtualizer is a focusable widget (has tabindex) so JAWS enters application mode
+
+JAWS 2024
+Edge 124+
+Same as JAWS/Chrome
+None observed
+
+VoiceOver
+Safari 17 (macOS)
+“Search results, 1 420 items. Result 47, 47 of 1 420”
+VoiceOver reads aria-setsize on the container (not items) correctly in Safari 17+; older Safari 16 requires aria-setsize on each item
+
+VoiceOver
+Safari (iOS 17)
+Same as macOS
+Swipe navigation may skip items during rapid swipe — debounce the DOM update
+
+TalkBack
+Chrome (Android)
+“Search results list, 1 420 items. Result 47, 47 of 1 420”
+TalkBack linear navigation reads all rendered items in DOM order; confirm aria-posinset order matches visual order after recycling
+
+Edge Cases & Failure Modes
+
+Permalink to "Edge Cases & Failure Modes" #
+1. aria-posinset updated inside requestAnimationFrame
+
+Permalink to "1. aria-posinset updated inside requestAnimationFrame" #
+If you write aria-posinset inside an rAF callback, the AT reads the node at paint time — before rAF fires — and announces the stale index. Fix: update aria-posinset and aria-setsize synchronously in the scroll event handler, before the virtualizer swaps textContent. Only the focus() call should live in rAF.
+
+2. JAWS application mode not engaged
+
+Permalink to "2. JAWS application mode not engaged" #
+JAWS defaults to virtual cursor mode and intercepts arrow keys for document navigation. A virtualized list container without tabindex="0" never triggers JAWS’s automatic switch to application mode. Fix: add tabindex="0" (or tabindex="-1" if Tab should skip the container) and optionally role="application" — though role="list" with a tabindex is usually sufficient to trigger application mode in JAWS 2023+.
+
+3. VoiceOver on iOS drops focus during recycling
+
+Permalink to "3. VoiceOver on iOS drops focus during recycling" #
+On iOS VoiceOver, if the focused node is recycled (moved off-screen by the virtualizer) before focus is moved to a new node, VoiceOver drops focus to the document body. Fix: always move focus programmatically to the next target before the virtualizer removes the current node from the viewport. Use the scrollToIndex → rAF → focus() sequence from Step 3 above.
+
+4. Live region inside the scroll container
+
+Permalink to "4. Live region inside the scroll container" #
+aria-live regions inside a scroll container are often ignored by NVDA and JAWS because the virtualizer mutates the surrounding DOM, which causes the AT to lose track of the live region. Fix: always place status live regions as a direct child of <body> or of a stable ancestor well outside the scroll container.
+
+5. Infinite scroll with unknown total
+
+Permalink to "5. Infinite scroll with unknown total" #
+When streaming data has no known ceiling, aria-setsize="-1" signals an unknown length. Screen readers announce “unknown” or omit the total. As soon as the backend returns a count, update aria-setsize on all rendered items. Never leave -1 in place once you have the real count — NVDA and JAWS both suppress positional announcements entirely when setsize is -1.
+
+Making react-window Accessible for Screen Reader Users
+
+Permalink to "Making react-window Accessible for Screen Reader Users" #
+The FixedSizeList component from react-window renders a single outer <div> and an inner <div> absolutely positioned child — neither carries semantic role or ARIA attributes by default. Override via the outerElementType and innerElementType props to inject the correct semantics without forking the library.
+
+See the complete hook-based architecture in Making React Window Accessible for Screen Reader Users, which covers outerElementType overrides, the useVirtualFocus hook, and testing with react-testing-library.
+
+import { FixedSizeList } from 'react-window';
+import { useRef, useState, useCallback } from 'react';
+
+// Custom outer container: carries role="list" and the accessible label (SC 4.1.2)
+const ListContainer = React.forwardRef(({ children, ...rest }, ref) => (
+<div
+ref={ref}
+role="list"
+aria-label="Search results" /* SC 4.1.2 Name */
+{...rest}
+>
+{children}
+</div>
+));
+
+// Row renderer: each recycled node gets correct posinset/setsize (SC 1.3.1)
+const Row = ({ index, style, data }) => (
+<div
+style={style}
+role="listitem" /* SC 4.1.2 Role */
+aria-posinset={index + 1} /* SC 1.3.1 — absolute 1-based index */
+aria-setsize={data.totalItems} /* SC 1.3.1 — full dataset length */
+tabIndex={data.activeIndex === index ? 0 : -1} /* roving tabindex SC 2.1.1 */
+onKeyDown={(e) => data.onKeyDown(e, index)}
+>
+{data.items[index].label}
+</div>
+);
+
+export function AccessibleVirtualList({ items, label }) {
+const listRef = useRef();
+const [activeIndex, setActiveIndex] = useState(0);
+
+const onKeyDown = useCallback((e, currentIndex) => {
+// Full keyboard handler — see Step 3 above
+}, [items.length]);
+
+return (
+<FixedSizeList
+ref={listRef}
+outerElementType={ListContainer} /* injects role="list" */
+itemCount={items.length}
+itemData={{ items, totalItems: items.length, activeIndex, onKeyDown }}
+itemSize={44}
+height={480}
+width="100%"
+>
+{Row}
+</FixedSizeList>
+);
+}
+
+Testing Checklist
+
+Permalink to "Testing Checklist" #
+Automated
+
+Permalink to "Automated" #
+
+Run axe-core against virtualized list snapshots with 10, 100, and 1 000+ item datasets — confirm no aria-required-attr violations on listitem roles
+
+Assert aria-setsize on all rendered items equals items.length (not rendered count)
+
+Assert aria-posinset values are sequential and match the data slice offset
+
+Run eslint-plugin-jsx-a11y in CI; enforce role and aria-label on list containers
+
+Write a Playwright test that presses ArrowDown 50 times and asserts aria-posinset on the focused element increments correctly through recycling
+
+Keyboard-only
+
+Permalink to "Keyboard-only" #
+
+Tab into the list; confirm the first item receives focus with a visible focus indicator (SC 2.4.7)
+
+Press End; confirm scroll jumps to the last item and focus lands on it
+
+Hold ArrowDown for 3 seconds; confirm no focus loss or stale aria-posinset after rapid recycling
+
+Press Tab from inside the list; confirm focus exits to the next focusable element (not trapped)
+
+AT manual
+
+Permalink to "AT manual" #
+
+NVDA + Chrome: navigate item-by-item with ArrowDown; verify count announcements use full dataset length
+
+JAWS + Edge: confirm application mode engages automatically; arrow keys navigate items, not the page
+
+VoiceOver + Safari (macOS): swipe through 10 items; verify "X of Y" announcements are accurate
+
+VoiceOver + iOS Safari: confirm focus is not lost to document body during rapid swipe navigation
+
+Apply a filter that reduces results; verify the live region announces the new count without moving focus (SC 4.1.3)
+
+Related
+
+Permalink to "Related" #
+
+Real-Time Data Stream Announcements — throttling live regions when WebSocket payloads arrive faster than the speech queue can drain
+
+Data Visualization & Chart Alternatives — when a virtualized list is the wrong pattern and a chart with text alternatives is more accessible
+
+DOM Size Limits and Performance Tradeoffs — the performance boundary that determines when virtualization is necessary
+
+Implementing Roving Tabindex for Custom Data Grids — the focus ownership pattern that underpins keyboard navigation in virtual lists
+
+Choosing Between Polite and Assertive aria-live Regions — selecting the right politeness level for count and status announcements
+
+← Back to Virtualization, Charts & Dynamic Data Displays
+
+Data Tables & Grids
+
+Section Overview
+
+Semantic HTML Tables
+
+Sortable & Filterable Grids
+
+Expandable Rows
+
+Inline Editing
+
+ARIA & Keyboard
+
+Section Overview
+
+ARIA Live Regions
+
+Focus Management
+
+Focus Trapping
+
+Screen Reader Strategies
+
+Charts & Virtualization
+
+Section Overview
+
+Virtualized Lists
+
+Chart Alternatives
+
+DOM Size & Performance
+
+Real-time Announcements
+
+About
+
+Home
+
+WCAG 2.2-compliant patterns for data-heavy UIs. Built for frontend engineers, UX specialists, and design system teams.
+
+Accessible Data Interfaces
+
+© 2026 Accessible Data Interfaces. WCAG 2.2 reference.

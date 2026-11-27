@@ -1,0 +1,242 @@
+[
+ {
+  "kind": "md-dense",
+  "size": "250k",
+  "bytes": 250002,
+  "has": "keep",
+  "browser": "chromium",
+  "version": "153.0.8010.12",
+  "openWallS": 3.1,
+  "typesetQuiet": true,
+  "settleS": 17.4,
+  "nodes": {
+   "article": 50002,
+   "articleAll": 116935,
+   "doc": 124122,
+   "blocks": 15325
+  },
+  "sample": {
+   "html": "<p data-marxy-s=\"0\" data-marxy-e=\"8\" dir=\"auto\">para one</p>",
+   "nodesInP": 0,
+   "typesetAttrs": 0
+  },
+  "interactions": {
+   "key": {
+    "total": {
+     "med": 62.4,
+     "min": 13.4,
+     "max": 80.5
+    },
+    "sync": {
+     "med": 7.3,
+     "min": 5.7,
+     "max": 24.6
+    },
+    "frame": {
+     "med": 1.4,
+     "min": 1.2,
+     "max": 6.1
+    }
+   },
+   "scroll": {
+    "total": {
+     "med": 37.2,
+     "min": 23.7,
+     "max": 66.4
+    },
+    "sync": null,
+    "frame": {
+     "med": 1.8,
+     "min": 1.2,
+     "max": 40.6
+    }
+   },
+   "forcedLayoutOneBlock": {
+    "total": {
+     "med": 80.7,
+     "min": 63.1,
+     "max": 144.3
+    },
+    "sync": {
+     "med": 9.7,
+     "min": 7.2,
+     "max": 24.4
+    },
+    "frame": {
+     "med": 22.1,
+     "min": 17.4,
+     "max": 29.5
+    }
+   },
+   "forcedLayoutArticleWidth": {
+    "total": {
+     "med": 52.1,
+     "min": 44.9,
+     "max": 79
+    },
+    "sync": {
+     "med": 8.5,
+     "min": 7.3,
+     "max": 15.7
+    },
+    "frame": {
+     "med": 0.9,
+     "min": 0.8,
+     "max": 49.4
+    }
+   },
+   "appendOneBlock": {
+    "total": {
+     "med": 80.5,
+     "min": 72.5,
+     "max": 103
+    },
+    "sync": {
+     "med": 36.7,
+     "min": 33.3,
+     "max": 44.9
+    },
+    "frame": {
+     "med": 13.2,
+     "min": 12.2,
+     "max": 17.1
+    }
+   },
+   "widthChange": {
+    "total": {
+     "med": 286.2,
+     "min": 240,
+     "max": 366.5
+    },
+    "sync": null,
+    "frame": {
+     "med": 0.5,
+     "min": 0.4,
+     "max": 5.2
+    },
+    "note": "trigger to end of next frame; includes Playwright round trip, so an upper bound"
+   }
+  },
+  "__w": 1
+ },
+ {
+  "kind": "md-dense",
+  "size": "1m",
+  "bytes": 1000005,
+  "has": "keep",
+  "browser": "chromium",
+  "version": "153.0.8010.12",
+  "openWallS": 57.8,
+  "typesetQuiet": false,
+  "settleS": 160.4,
+  "nodes": {
+   "article": 198388,
+   "articleAll": 464519,
+   "doc": 487045,
+   "blocks": 61288
+  },
+  "sample": {
+   "html": "<p data-marxy-s=\"0\" data-marxy-e=\"8\" dir=\"auto\">para one</p>",
+   "nodesInP": 0,
+   "typesetAttrs": 0
+  },
+  "interactions": {
+   "key": {
+    "total": {
+     "med": 1972.7,
+     "min": 1058.2,
+     "max": 3850.9
+    },
+    "sync": {
+     "med": 71.9,
+     "min": 63.7,
+     "max": 198.5
+    },
+    "frame": {
+     "med": 634.9,
+     "min": 272.4,
+     "max": 684.6
+    }
+   },
+   "scroll": {
+    "total": {
+     "med": 1464.7,
+     "min": 957.6,
+     "max": 3559.3
+    },
+    "sync": null,
+    "frame": {
+     "med": 896.6,
+     "min": 526,
+     "max": 2865.7
+    }
+   },
+   "forcedLayoutOneBlock": {
+    "total": {
+     "med": 729.9,
+     "min": 321.3,
+     "max": 1270.2
+    },
+    "sync": {
+     "med": 41.8,
+     "min": 27.3,
+     "max": 61.2
+    },
+    "frame": {
+     "med": 247.5,
+     "min": 95,
+     "max": 583.3
+    }
+   },
+   "forcedLayoutArticleWidth": {
+    "total": {
+     "med": 263.7,
+     "min": 221.7,
+     "max": 468.7
+    },
+    "sync": {
+     "med": 56.3,
+     "min": 29.1,
+     "max": 65.9
+    },
+    "frame": {
+     "med": 6.1,
+     "min": 5.3,
+     "max": 17.3
+    }
+   },
+   "appendOneBlock": {
+    "total": {
+     "med": 649.7,
+     "min": 545.9,
+     "max": 840.5
+    },
+    "sync": {
+     "med": 235.5,
+     "min": 195,
+     "max": 329.6
+    },
+    "frame": {
+     "med": 165.5,
+     "min": 145.3,
+     "max": 188.8
+    }
+   },
+   "widthChange": {
+    "total": {
+     "med": 1536.9,
+     "min": 1360.9,
+     "max": 2490.9
+    },
+    "sync": null,
+    "frame": {
+     "med": 199.5,
+     "min": 116.2,
+     "max": 274.2
+    },
+    "note": "trigger to end of next frame; includes Playwright round trip, so an upper bound"
+   }
+  },
+  "__w": 1
+ }
+]

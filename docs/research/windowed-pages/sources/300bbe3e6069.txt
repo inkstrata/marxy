@@ -1,0 +1,407 @@
+Skip to main content
+
+Skip to search
+
+HTML
+
+HTML: Markup language
+
+HTML reference
+
+Elements
+
+Global attributes
+
+Attributes
+
+See all…
+
+HTML guides
+
+Responsive images
+
+HTML cheatsheet
+
+Date & time formats
+
+See all…
+
+Markup languages
+
+SVG
+
+MathML
+
+XML
+
+CSS
+
+CSS: Styling language
+
+CSS reference
+
+Properties
+
+Selectors
+
+At-rules
+
+Values
+
+See all…
+
+CSS guides
+
+Box model
+
+Animations
+
+Flexbox
+
+Colors
+
+See all…
+
+Layout cookbook
+
+Column layouts
+
+Centering an element
+
+Card component
+
+See all…
+
+JavaScriptJS
+
+JavaScript: Scripting language
+
+JS reference
+
+Standard built-in objects
+
+Expressions & operators
+
+Statements & declarations
+
+Functions
+
+See all…
+
+JS guides
+
+Control flow & error handling
+
+Loops and iteration
+
+Working with objects
+
+Using classes
+
+See all…
+
+Web APIs
+
+Web APIs: Programming interfaces
+
+Web API reference
+
+File system API
+
+Fetch API
+
+Geolocation API
+
+HTML DOM API
+
+Push API
+
+Service worker API
+
+See all…
+
+Web API guides
+
+Using the Web animation API
+
+Using the Fetch API
+
+Working with the History API
+
+Using the Web speech API
+
+Using web workers
+
+All
+
+All web technology
+
+Technologies
+
+Accessibility
+
+HTTP
+
+URI
+
+Web extensions
+
+WebAssembly
+
+WebDriver
+
+See all…
+
+Topics
+
+Media
+
+Performance
+
+Privacy
+
+Security
+
+Progressive web apps
+
+Learn
+
+Learn web development
+
+Frontend developer course
+
+Getting started modules
+
+Core modules
+
+MDN Curriculum
+
+Check out the video course from Scrimba, our partner
+
+Learn HTML
+
+Structuring content with HTML module
+
+Learn CSS
+
+CSS styling basics module
+
+CSS layout module
+
+Learn JavaScript
+
+Dynamic scripting with JavaScript module
+
+Tools
+
+Discover our tools
+
+Playground
+
+HTTP Observatory
+
+Border-image generator
+
+Border-radius generator
+
+Box-shadow generator
+
+Color format converter
+
+Color mixer
+
+Shape generator
+
+About
+
+Get to know MDN better
+
+About MDN
+
+Advertise with us
+
+Community
+
+MDN on GitHub
+
+Blog
+
+Toggle sidebar
+
+Web
+
+Web APIs
+
+ClipboardEvent
+
+clipboardData
+
+Theme
+
+OS default
+
+Light
+
+Dark
+
+English (US)
+
+Remember language
+Learn more
+
+Deutsch
+
+English (US)
+
+Español
+
+日本語
+
+한국어
+
+中文 (简体)
+
+ClipboardEvent: clipboardData property
+
+Baseline
+
+Widely available
+
+This feature is well established and works across many devices and browser versions. It’s been available across browsers since March 2017.
+
+See full compatibility
+
+Learn more
+
+The clipboardData property of the ClipboardEvent interface holds a DataTransfer object, which can be used to:
+
+specify what data should be put into the clipboard from the cut and copy event handlers, typically with a setData(format, data) call;
+
+obtain the data to be pasted from the paste event handler, typically with a getData(format) call.
+
+See the cut, copy, and paste events documentation for more information.
+
+In this article
+
+Value
+
+Specifications
+
+Browser compatibility
+
+See also
+
+Value
+
+A DataTransfer object.
+
+The property can be null when the event is created using the constructor. It is never null when dispatched by the browser.
+
+Specifications
+
+Specification
+
+Clipboard API and events
+# clipboardevent-clipboarddata
+
+Browser compatibility
+
+See also
+
+Copy-related events: copy, cut, paste
+
+The ClipboardEvent interface it belongs to.
+
+Clipboard API
+
+Help improve MDN
+
+Yes
+
+No
+
+Learn how to contribute
+
+This page was last modified on Jul 5, 2024 by MDN contributors.
+
+View this page on GitHub • Report a problem with this content
+
+Clear filter input
+
+Clipboard API
+
+ClipboardEvent
+
+Constructor
+
+ClipboardEvent()
+
+Instance properties
+
+clipboardData
+
+Inheritance
+
+Event
+
+Related pages for Clipboard API
+
+Clipboard
+
+ClipboardChangeEvent
+
+ClipboardItem
+
+Navigator.clipboard
+
+Your blueprint for a better internet.
+
+MDN
+
+About
+
+Blog
+
+Mozilla careers
+
+Advertise with us
+
+MDN Plus
+
+Product help
+
+Contribute
+
+MDN Community
+
+Community resources
+
+Writing guidelines
+
+MDN Discord
+
+MDN on GitHub
+
+Developers
+
+Web technologies
+
+Learn web development
+
+Guides
+
+Tutorials
+
+Glossary
+
+Hacks blog
+
+Website Privacy Notice
+
+Telemetry Settings
+
+Legal
+
+Community Participation Guidelines
+
+Portions of this content are ©1998–2026 by individual mozilla.org contributors. Content available under a Creative Commons license.

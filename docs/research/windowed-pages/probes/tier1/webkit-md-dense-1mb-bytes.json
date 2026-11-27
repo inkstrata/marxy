@@ -1,0 +1,27 @@
+{
+ "meta": {
+  "browser": "webkit",
+  "version": "26.6",
+  "kind": "md-dense",
+  "mb": 1,
+  "mode": "bytes",
+  "load": [
+   4.25,
+   4.72,
+   5.26
+  ],
+  "cpus": 10,
+  "date": "2026-11-27T22:20:33.860Z",
+  "loadEnd": [
+   3.52,
+   4.53,
+   5.12
+  ]
+ },
+ "runs": [
+  {
+   "mode": "bytes",
+   "error": "stalled over 120 s (after mode)"
+  }
+ ]
+}

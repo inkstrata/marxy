@@ -1,0 +1,282 @@
+[
+ {
+  "n": 2000,
+  "observed": false,
+  "browser": "webkit",
+  "version": "26.6",
+  "initMs": 179,
+  "initNotified": 0,
+  "layoutOnly": {
+   "med": 1,
+   "min": 1,
+   "max": 5
+  },
+  "toNextFrameEnd": {
+   "med": 1,
+   "min": 1,
+   "max": 10
+  },
+  "roCallbackMs": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  },
+  "notifiedPerChange": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  }
+ },
+ {
+  "n": 2000,
+  "observed": true,
+  "browser": "webkit",
+  "version": "26.6",
+  "initMs": 28,
+  "initNotified": 2001,
+  "layoutOnly": {
+   "med": 1,
+   "min": 1,
+   "max": 2
+  },
+  "toNextFrameEnd": {
+   "med": 1,
+   "min": 1,
+   "max": 2
+  },
+  "roCallbackMs": {
+   "med": 0,
+   "min": 0,
+   "max": 1
+  },
+  "notifiedPerChange": {
+   "med": 2,
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "n": 5000,
+  "observed": false,
+  "browser": "webkit",
+  "version": "26.6",
+  "initMs": 45,
+  "initNotified": 0,
+  "layoutOnly": {
+   "med": 2,
+   "min": 2,
+   "max": 19
+  },
+  "toNextFrameEnd": {
+   "med": 2,
+   "min": 2,
+   "max": 25
+  },
+  "roCallbackMs": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  },
+  "notifiedPerChange": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  }
+ },
+ {
+  "n": 5000,
+  "observed": true,
+  "browser": "webkit",
+  "version": "26.6",
+  "initMs": 58,
+  "initNotified": 5001,
+  "layoutOnly": {
+   "med": 2,
+   "min": 2,
+   "max": 3
+  },
+  "toNextFrameEnd": {
+   "med": 3,
+   "min": 3,
+   "max": 15
+  },
+  "roCallbackMs": {
+   "med": 0,
+   "min": 0,
+   "max": 1
+  },
+  "notifiedPerChange": {
+   "med": 2,
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "n": 10000,
+  "observed": false,
+  "browser": "webkit",
+  "version": "26.6",
+  "initMs": 83,
+  "initNotified": 0,
+  "layoutOnly": {
+   "med": 4,
+   "min": 3,
+   "max": 7
+  },
+  "toNextFrameEnd": {
+   "med": 4,
+   "min": 3,
+   "max": 7
+  },
+  "roCallbackMs": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  },
+  "notifiedPerChange": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  }
+ },
+ {
+  "n": 10000,
+  "observed": true,
+  "browser": "webkit",
+  "version": "26.6",
+  "initMs": 92,
+  "initNotified": 10001,
+  "layoutOnly": {
+   "med": 4,
+   "min": 4,
+   "max": 4
+  },
+  "toNextFrameEnd": {
+   "med": 5,
+   "min": 5,
+   "max": 6
+  },
+  "roCallbackMs": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  },
+  "notifiedPerChange": {
+   "med": 2,
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "n": 20000,
+  "observed": false,
+  "browser": "webkit",
+  "version": "26.6",
+  "initMs": 165,
+  "initNotified": 0,
+  "layoutOnly": {
+   "med": 9,
+   "min": 7,
+   "max": 9
+  },
+  "toNextFrameEnd": {
+   "med": 9,
+   "min": 7,
+   "max": 9
+  },
+  "roCallbackMs": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  },
+  "notifiedPerChange": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  }
+ },
+ {
+  "n": 20000,
+  "observed": true,
+  "browser": "webkit",
+  "version": "26.6",
+  "initMs": 211,
+  "initNotified": 20001,
+  "layoutOnly": {
+   "med": 7,
+   "min": 7,
+   "max": 10
+  },
+  "toNextFrameEnd": {
+   "med": 10,
+   "min": 9,
+   "max": 14
+  },
+  "roCallbackMs": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  },
+  "notifiedPerChange": {
+   "med": 2,
+   "min": 2,
+   "max": 2
+  }
+ },
+ {
+  "n": 40000,
+  "observed": false,
+  "browser": "webkit",
+  "version": "26.6",
+  "initMs": 322,
+  "initNotified": 0,
+  "layoutOnly": {
+   "med": 17,
+   "min": 15,
+   "max": 21
+  },
+  "toNextFrameEnd": {
+   "med": 17,
+   "min": 15,
+   "max": 21
+  },
+  "roCallbackMs": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  },
+  "notifiedPerChange": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  }
+ },
+ {
+  "n": 40000,
+  "observed": true,
+  "browser": "webkit",
+  "version": "26.6",
+  "initMs": 396,
+  "initNotified": 40001,
+  "layoutOnly": {
+   "med": 17,
+   "min": 16,
+   "max": 23
+  },
+  "toNextFrameEnd": {
+   "med": 23,
+   "min": 21,
+   "max": 29
+  },
+  "roCallbackMs": {
+   "med": 0,
+   "min": 0,
+   "max": 0
+  },
+  "notifiedPerChange": {
+   "med": 2,
+   "min": 2,
+   "max": 2
+  }
+ }
+]

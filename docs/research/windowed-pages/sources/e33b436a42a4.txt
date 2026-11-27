@@ -1,0 +1,187 @@
+WebKit
+
+Downloads
+
+Feature Status
+
+CSS Features
+
+Standards Positions
+
+Documentation
+
+Web Inspector
+
+Tracking Prevention
+
+Policies
+
+Project Goals
+
+Bug Prioritization
+
+Bug Report Guidelines
+
+Code Style Guidelines
+
+Commit and Review Policy
+
+Feature Policy
+
+Security Policy
+
+Tracking Prevention Policy
+
+WebKit AI Tool Use Policy
+
+Contribute
+
+Getting Started
+
+Contributing Code
+
+Testing Contributions
+
+How to Report Bugs
+
+GitHub Repository
+
+Blog
+
+News Posts
+
+CSS Posts
+
+Contributing Posts
+
+Privacy Posts
+
+Performance Posts
+
+JavaScript Posts
+
+Standards Posts
+
+Web Inspector Posts
+
+Safari Technology Preview Posts
+
+WebKit Features in Safari 18.1
+
+Oct 28, 2024
+
+by Jen Simmons
+
+Today, Safari 18.1 is available for iOS 18.1, iPadOS 18.1, macOS Sequoia 15.1 and visionOS 2.1, as well as macOS Sonoma and macOS Ventura. Two features are newly available with Apple Intelligence, on devices and in languages where available.
+
+Summaries in Reader
+
+Since 2010, Safari Reader has provided an easy way to view articles on the web without navigation or other distractions — formatted for easy reading and presented all on one page. You can adjust the background color, font, and font size. Safari 18.0 brought a refreshed design to Reader, making it even easier to use.
+
+Now in Safari Reader in Safari 18.1, you can tap Summarize to use Apple Intelligence to summarize the article. Longer pages include table of contents. Safari also offers summary highlights for some articles in the Page Menu on macOS, iOS and iPadOS.
+
+Writing Tools
+
+These days, we do a lot of writing on the web. With Apple Intelligence, Safari 18.1 can help you find just the right words. Writing Tools can proofread your text, or rewrite different versions until the tone and wording are just right. And it can summarize selected text with a tap.
+
+WebKit also adds support for the Writing Tools API in WKWebView for enabling and customizing the behavior of Writing Tools in apps built with web technology. Learn more watching Get started with Writing Tools.
+
+For more information about the availability of Apple Intelligence, see apple.com.
+
+Bug Fixes and more
+
+In addition to all the new features, WebKit for Safari 18.1 includes work to polish existing features, including some that help Safari pass even more tests for Interop 2024.
+
+Accessibility
+
+Fixed display: contents on tbody elements preventing table rows from being properly exposed in the accessibility tree.
+
+Fixed the handling of ElementInternals‘s ariaValueNow null values so the right value is exposed to assistive technologies.
+
+Fixed tables with hidden rows reporting wrong counts and blocking access to some rows in VoiceOver.
+
+Fixed role="menu" elements to allow child groups with menuitem children.
+
+Fixed updating the accessibility tree when text underneath an aria-describedby element changes.
+
+Fixed text exposed to assistive technologies when display: contents directly wraps a display: block text container.
+
+Fixed VoiceOver not finding any content in a table when display: table is applied to tbody elements.
+
+Authentication
+
+Fixed an issue using large credential lists with security keys.
+
+CSS
+
+Fixed style container queries querying the root element.
+
+Editing
+
+Fixed deleting content immediately before a <picture> element unexpectedly removing <source> elements.
+
+Fixed inserting text before a <picture> element inserting the text after the element instead.
+
+JavaScript
+
+Fixed incorrect optimization and random non-updated values.
+
+Media
+
+Fixed a bug in WebCodecs where audio and video codecs with pending work could be prematurely garbage collected.
+
+Networking
+
+Fixed a bug where Cross-Origin-Opener-Policy header fields in the response of iframe elements were not ignored, resulting in window.opener being null after multiple cross-origin navigations of the embedder document.
+
+Rendering
+
+Fixed content-visibility to not apply to elements with display: contents or display: none.
+
+Fixed float clearing in the WordPress Classic Editor sidebar layout.
+
+Security
+
+Fixed the ping attribute for <a> elements to be controlled by the connect-src CSP directive.
+
+Web Extensions
+
+Fixed blob: URL downloads failing to trigger from an extension.
+
+WebRTC
+
+Fixed blurry screen sharing for some sites.
+
+WKWebView
+
+Fixed AVIF in WKWebView on macOS. (FB14678252)
+
+Updating to Safari 18.1
+
+Safari 18.1 is available on iOS 18.1, iPadOS 18.1, macOS Sequoia, macOS Sonoma, macOS Ventura, and in visionOS 2.1.
+
+If you are running macOS Sonoma or macOS Ventura, you can update Safari by itself, without updating macOS. Go to  > System Settings > General > Software Update and click “More info…” under Updates Available.
+
+To get the latest version of Safari on iPhone, iPad or Apple Vision Pro, go to Settings > General > Software Update, and tap to update.
+
+Feedback
+
+We love hearing from you. To share your thoughts, find us on Mastodon at @jensimmons@front-end.social and @jondavis@mastodon.social. Or send a reply on X to @webkit. You can also follow WebKit on LinkedIn. If you run into any issues, we welcome your feedback on Safari UI (learn more about filing Feedback), or your WebKit bug report about web technologies or Web Inspector. If you run into a website that isn’t working as expected, please file a report at webcompat.com. Filing issues really does make a difference.
+
+Download the latest Safari Technology Preview on macOS to stay at the forefront of the web platform and to use the latest Web Inspector features.
+
+You can also find this information in the Safari 18.1 release notes.
+
+NextRelease Notes for Safari Technology Preview 207Learn more
+
+PreviouslyRelease Notes for Safari Technology Preview 206Learn more
+
+@webkit@front-end.social
+
+Site Map
+
+Privacy Policy
+
+Licensing WebKit
+
+WebKit and the WebKit logo are trademarks of Apple Inc.

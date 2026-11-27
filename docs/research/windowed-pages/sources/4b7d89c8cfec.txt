@@ -1,0 +1,213 @@
+WebKit Bugzilla
+
+New
+
+Browse
+
+Search+
+
+Log In
+
+&times;
+
+Sign in with GitHub
+
+or
+
+Remember my login
+
+Create Account
+
+·
+
+Forgot Password
+
+Forgotten password account recovery
+
+RESOLVED
+FIXED290577
+
+[content visibility] Incorrect geometry values inside c-v hidden subtree
+https://bugs.webkit.org/show_bug.cgi?id=290577
+
+Summary
+
+[content visibility] Incorrect geometry values inside c-v hidden subtree
+
+alan
+
+Reported
+2025-03-27 15:50:07 PDT
+
+Created attachment 474742 [details]
+Test case
+
+see attached test case
+
+Attachments
+
+Test case
+
+(287 bytes,
+text/html)
+
+2025-03-27 15:50 PDT,
+
+alan
+
+no flags
+
+Details
+
+[fast-cq]Patch
+
+(15.51 KB,
+patch)
+
+2025-04-04 10:00 PDT,
+
+alan
+
+no flags
+
+DetailsFormatted DiffDiff
+
+View All
+
+Add attachment
+proposed patch, testcase, etc.
+
+Radar WebKit Bug Importer
+
+Comment 1
+2025-04-03 15:51:16 PDT
+
+<rdar://problem/148553259>
+
+alan
+
+Comment 2
+2025-04-04 10:00:56 PDT
+
+Created attachment 474829 [details]
+[fast-cq]Patch
+
+EWS
+
+Comment 3
+2025-04-04 12:43:22 PDT
+
+Committed 293267@main (5f3a9bc9f9b9): <https://commits.webkit.org/293267@main>
+
+All reviewed patches have been landed. Closing bug and clearing flags on attachment 474829 [details].
+
+Ahmad Saleem
+
+Comment 4
+2025-07-15 21:28:35 PDT
+
+Submitted web-platform-tests pull request: https://github.com/web-platform-tests/wpt/pull/53786
+
+Note
+You need to
+log in
+before you can comment on or make changes to this bug.
+
+Status
+
+RESOLVED
+
+Resolution
+
+FIXED
+
+Priority
+
+P2
+
+Severity
+
+Normal
+
+Classification
+
+Unclassified
+
+Version
+
+WebKit Nightly Build
+
+Hardware
+
+Unspecified
+
+OS
+
+Unspecified
+
+Product
+
+WebKit
+
+Component
+
+New Bugs
+
+Assignee
+
+alan
+
+Reported
+
+2025-03-27 15:50 PDT
+
+Modified
+
+2025-07-15 21:28 PDT
+History
+
+CC List
+
+2
+users
+
+Show
+
+koivisto
+webkit-bug-importer
+
+URL
+
+Keywords
+
+InRadar
+
+Depends on
+
+Blocks
+
+See Also
+
+https://github.com/web-platform-tests/wpt/pull/53786
+
+Alias
+
+None
+
+Top of Page
+
+Format For Printing
+
+XML
+
+Clone This Bug
+
+New
+
+Browse
+
+Search+
+
+Reports
+
+Requests

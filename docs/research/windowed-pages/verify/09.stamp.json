@@ -1,0 +1,68 @@
+{
+ "chapter": "09-typeset-distance.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "TBD-01": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "fb5b7c0cdfa6"
+  },
+  "TBD-02": {
+   "tags": [
+    "confirmed",
+    "likely"
+   ],
+   "hash": "0ec0ee0464f3"
+  },
+  "TBD-03": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "99e130913951"
+  },
+  "TBD-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "83435cdfe2c0"
+  },
+  "TBD-05": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "cf445cdde858"
+  },
+  "TBD-06": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "4643ed0603e8"
+  },
+  "TBD-07": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "0b1c5f683a65"
+  },
+  "TBD-08": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "8cbd8c54240d"
+  },
+  "TBD-09": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "d721432db7b0"
+  },
+  "TBD-10": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "da6623ef1c59"
+  }
+ }
+}

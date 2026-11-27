@@ -1,0 +1,67 @@
+{
+ "chapter": "10-editing.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "EDW-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "68b7f6e79a85"
+  },
+  "EDW-02": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "e25ea4913adf"
+  },
+  "EDW-03": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "aa9f33db4292"
+  },
+  "EDW-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "9f9c5a366f2f"
+  },
+  "EDW-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "91d24e3666e9"
+  },
+  "EDW-06": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "aaa08145f1ed"
+  },
+  "EDW-07": {
+   "tags": [
+    "superseded"
+   ],
+   "hash": "c1c9b9a43247"
+  },
+  "EDW-08": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "cb5f47e838ea"
+  },
+  "EDW-09": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "166b867dce7b"
+  },
+  "EDW-10": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "b785f640837e"
+  }
+ }
+}
