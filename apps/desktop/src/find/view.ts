@@ -1,9 +1,14 @@
 // Rendered find, one pane at a time. `Mod+F` mounts a small
-// field in the focused pane's `.marxy-find-slot`, at that pane's top right; typing reruns the match one
-// frame after the last keystroke over that pane's article alone (the index and query compiler, over
-// walk.ts's text), highlights every match, counts them (`3 of 41`) and puts the current one on the
-// pane's reading line. `Enter` and `Shift+Enter` step; `Esc` closes, takes every highlight away and
-// gives focus back to the pane find opened from.
+// field in the focused pane's `.marxy-find-slot`, at that pane's top right; typing reruns the match over
+// that pane's article alone (the index and query compiler, over walk.ts's text), highlights every match,
+// counts them (`3 of 41`) and puts the current one on the pane's reading line. `Enter` and `Shift+Enter`
+// step; `Esc` closes, takes every highlight away and gives focus back to the pane find opened from.
+//
+// A match runs one frame after the last keystroke; on a long page, whose walk costs tens of milliseconds,
+// it waits for a pause in the typing instead, so a key costs nothing and only the query the reader stops
+// at is matched. A long document still mounting is matched whole: its blocks not yet appended are read
+// with the article (`walkPage`), so the count is the file's, and a match among them is mounted through
+// before it is shown.
 //
 // Highlights are `CSS.highlights` (`marxy-find`, `marxy-find-current`): nothing in the article changes.
 // Where the engine has none, the matches near the view are drawn as rectangles in an overlay layer that is
@@ -35,7 +40,7 @@ import { rowsViewIn } from '../view/reading-rows.ts';
 import { linesViewIn } from '../view/reading-lines.ts';
 import { compileQuery } from './query.ts';
 import { buildTextIndex, findAll, type Span } from './text-index.ts';
-import { hiddenText, placeRange, walkText, type Walked } from './walk.ts';
+import { byteAt, hiddenText, inPage, placeRange, walkPage, type Walked } from './walk.ts';
 
 export const FIND_HIGHLIGHT = 'marxy-find';
 export const FIND_CURRENT_HIGHLIGHT = 'marxy-find-current';
@@ -47,6 +52,10 @@ const MAX_RECTS = 600;
 const WHOLE_LIMIT = 200;
 /** Most Ranges held for the window near the view. */
 const WINDOW_MAX = 600;
+/** A walk slower than this (milliseconds) makes typing wait for a pause before it is matched. */
+const SLOW_WALK_MS = 8;
+/** The pause in typing that matches a long page's query. */
+const TYPING_PAUSE_MS = 120;
 
 export interface FindDeps {
   /** Records a timing mark (the `find_first_match` budget). */
@@ -64,6 +73,8 @@ export interface FindState {
   readonly count: number;
   /** The current match, 0-based; -1 with none. */
   readonly current: number;
+  /** False while a typed query waits to be matched: `count` is still the last query's. */
+  readonly settled: boolean;
   /** Whether the matches are `CSS.highlights` or the overlay-rectangle fallback. */
   readonly via: 'highlights' | 'overlay';
 }
@@ -87,6 +98,8 @@ export interface FindController {
   state(): FindState;
   /** Opens find on `text`, matched by `re` (the Line's `/`: a regular expression, or exact case) until the field is typed in. */
   seek(text: string, re: RegExp | null, opts?: { focus?: boolean }): void;
+  /** Where the blocks holding the matches start (bytes), one per block, at most `max`: what the Spine marks. */
+  hitStarts(max: number): number[];
 }
 
 interface Highlights {
@@ -163,7 +176,14 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
   let watching = false;
   let current = -1;
   let via: FindState['via'] = 'highlights';
+  /** The run a keystroke asked for: a frame, or on a long page a timer for the pause in typing. */
   let frame = 0;
+  let pauseTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The last walk of the page, and how long it took. */
+  let lastWalk: Walked | null = null;
+  let lastWalkMs = 0;
+  /** A walk made in this task, reused until it ends (a step reads the page more than once). */
+  let taskWalk: Walked | null = null;
   /** When the keystroke the pending run answers was typed; null for a run no keystroke asked for. */
   let typedAt: number | null = null;
   /** Bumped on every open and close: a late `contentComplete` answers only the open it was asked for. */
@@ -278,6 +298,42 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     heldCount = 0;
     ownRange = null;
     probeRange = null;
+    lastWalk = null;
+    taskWalk = null;
+  }
+
+  /** The page's text now (the blocks still to be appended included), walked once per task. */
+  function walk(): Walked {
+    if (taskWalk) return taskWalk;
+    const t0 = performance.now();
+    const walked = walkPage(pane.article);
+    lastWalkMs = performance.now() - t0;
+    lastWalk = walked;
+    taskWalk = walked;
+    queueMicrotask(() => { taskWalk = null; });
+    return walked;
+  }
+
+  /**
+   * Mounts through the current match when it is in a block not yet appended, so it can be shown: the window
+   * of Ranges is made again over the page as it now is.
+   */
+  function reach(): void {
+    const span = current >= 0 ? spans[current] : undefined;
+    if (!span) return;
+    // The walk the matches were found in serves (a fresh one costs tens of milliseconds a step on a long page).
+    const walked = lastWalk && lastWalk.index.text === indexText ? lastWalk : walk();
+    const last = Math.max(span.start, span.end - 1);
+    if (inPage(walked, last)) return;
+    const byte = byteAt(walked, last);
+    if (byte === null) return;
+    pane.view.mountThrough(byte);
+    taskWalk = null;
+    heldCount = 0;
+    heldAt = Number.NaN;
+    ownFor = -1;
+    // Every match held while the page was short was held: those now in it get their Ranges.
+    if (whole) hold(fresh());
   }
 
   /** Matches in the lines a log's level filter hides: find cannot show them, and says there are more. */
@@ -344,7 +400,7 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
    * set again under find), the matches are found again in it and the window is made again.
    */
   function fresh(): Walked {
-    const walked = walkText(pane.article);
+    const walked = walk();
     if (walked.index.text !== indexText) {
       const re = pattern();
       indexText = walked.index.text;
@@ -571,6 +627,8 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
 
   function run(opts: { keep: boolean }): void {
     frame = 0;
+    if (pauseTimer !== null) clearTimeout(pauseTimer);
+    pauseTimer = null;
     const own = viewerFind();
     if (inViewer && inViewer !== own) {
       inViewer.clear();
@@ -590,7 +648,8 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
       paintCount();
       return;
     }
-    const walked = walkText(pane.article);
+    taskWalk = null;
+    const walked = walk();
     indexText = walked.index.text;
     spans = findAll(walked.index, re);
     countHidden(pane.article, re);
@@ -600,7 +659,8 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     if (!api) ensureLayer();
     watchView(!whole || !api);
     current = spans.length === 0 ? -1 : keep >= 0 ? Math.min(keep, spans.length - 1) : firstInView(walked);
-    hold(walked);
+    reach();
+    hold(fresh());
     if (api && heldCount > 0) api.registry.set(FIND_HIGHLIGHT, api.make(held.slice(0, heldCount)));
     if (spans.length > 0 && typedAt !== null) {
       deps.mark('find_first_match', `ms=${(performance.now() - typedAt).toFixed(1)} matches=${spans.length}`);
@@ -610,10 +670,21 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     if (!opts.keep) land();
   }
 
+  /** Whether a keystroke's run is still to come. */
+  const runPending = (): boolean => frame !== 0 || pauseTimer !== null;
+
+  function cancelRun(): void {
+    if (frame !== 0) cancelAnimationFrame(frame);
+    frame = 0;
+    if (pauseTimer !== null) clearTimeout(pauseTimer);
+    pauseTimer = null;
+  }
+
   function schedule(): void {
     typedAt = performance.now();
-    if (frame !== 0) cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(() => run({ keep: false }));
+    cancelRun();
+    if (lastWalkMs > SLOW_WALK_MS) pauseTimer = setTimeout(() => run({ keep: false }), TYPING_PAUSE_MS);
+    else frame = requestAnimationFrame(() => run({ keep: false }));
   }
 
   function onKey(event: KeyboardEvent): void {
@@ -621,8 +692,8 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
     if (event.key === 'Escape') {
       controller.close({ restore: true });
     } else if (event.key === 'Enter') {
-      if (frame !== 0) {
-        cancelAnimationFrame(frame);
+      if (runPending()) {
+        cancelRun();
         run({ keep: false });
       }
       controller.step(event.shiftKey ? -1 : 1);
@@ -717,8 +788,7 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
       input!.select();
     },
     close(opts) {
-      if (frame !== 0) cancelAnimationFrame(frame);
-      frame = 0;
+      cancelRun();
       typedAt = null;
       generation += 1;
       offDocument?.();
@@ -760,13 +830,29 @@ export function createFind(pane: Pane, deps: FindDeps): FindController {
       if (now && (now.collapsed || !now.startContainer.isConnected)) run({ keep: true });
       if (spans.length === 0) return;
       current = (current + direction + spans.length) % spans.length;
+      reach();
       paintCurrent();
       land();
     },
     refresh() {
       if (field && query.length > 0) run({ keep: true });
     },
-    state: () => ({ open: field !== null, query, pattern: pattern(), count: inViewer ? viewerCount : spans.length, current, via }),
+    state: () => ({ open: field !== null, query, pattern: pattern(), count: inViewer ? viewerCount : spans.length, current, settled: !runPending(), via }),
+    hitStarts(max) {
+      const walked = lastWalk;
+      const out: number[] = [];
+      if (inViewer || !walked || walked.index.text !== indexText) return out;
+      let lastBlock: Element | null = null;
+      for (const span of spans) {
+        if (out.length >= max) break;
+        const node = walked.nodes[walked.index.locate(span.start).piece];
+        const block = node?.parentElement?.closest('[data-marxy-s]') ?? null;
+        if (!block || block === lastBlock) continue;
+        lastBlock = block;
+        out.push(Number(block.getAttribute('data-marxy-s')));
+      }
+      return out;
+    },
     seek(text, re, opts) {
       query = text;
       custom = re;

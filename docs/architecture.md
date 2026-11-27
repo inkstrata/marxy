@@ -68,7 +68,8 @@ path ─ shell.detectFiles (head) ─ shell.readFile ─ decode if not UTF-8 ─
    only on the sanitised output, so a document cannot forge them.
 7. **Mount.** `apps/desktop/src/view/rendered-view.ts` puts the page into the pane: two screens from the
    landing place at once, the rest in idle slices (`render/progressive.ts`), one a frame, each cut by the elements it
-   brings (3,000) and put in with one insertion, with no layout read inside it; after any change to the bytes
+   brings (3,000) and put in with one insertion, with no layout read inside it; find and a copy of the whole page also read the blocks not yet appended
+   (`pendingBlocks`), so neither answers for only the part drawn; after any change to the bytes
    (an operation, undo, redo, a Source commit, a reload), only the changed blocks are replaced when that can be
    proved equal (`render/incremental.ts`), and the page is set whole when it cannot. With footnotes that holds while
    every label keeps its number: the changed blocks take the document's numbers, and only the items of the list of
