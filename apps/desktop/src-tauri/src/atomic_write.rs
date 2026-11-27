@@ -128,11 +128,11 @@ pub fn write_atomic_unless_changed(
 /// Removes a staged file after a failed save. On macOS a staged copy that picked up the destination's immutable flag
 /// (`uchg`, a file locked in Finder) cannot be removed until the flag is cleared, so it is cleared first.
 fn remove_staged(tmp: &Path) {
-    if fs::remove_file(tmp).is_ok() {
-        return;
-    }
+    let removed = fs::remove_file(tmp).is_ok();
+    #[cfg(not(target_os = "macos"))]
+    let _ = removed;
     #[cfg(target_os = "macos")]
-    {
+    if !removed {
         // Only a plain file with this one name: a second name (the link fallback of `commit_new` links the staged
         // name to the destination) shares its flags with the reader's own file, which must keep them.
         use std::os::unix::fs::MetadataExt;
