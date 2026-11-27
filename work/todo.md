@@ -98,7 +98,7 @@ L14 by #798.
 | L25 | JSON as a typed-array node index with lazy expansion and leaf decoding past a low threshold; record scanning for CSV, TSV and JSON Lines that tracks quotes | Research D-08 (DAT-01, DAT-10). Covers L6 and L15 | M | |
 | L26 | Derived copies lazy and bounded: the text and the UTF-16-to-byte map made per range with checkpoints about every 1 KB, line starts in a `Uint32Array`, undo under a byte cap, diff on line hashes under time and size caps, the whole-page HTML and sanitised-page cache kept only below a size | Research D-07 (BUF-03, BUF-04, BUF-08, BUF-12). Covers L16 and the decode half of L19 | M | |
 | L27 | Measure on both platforms with `scripts/measure-scale.mjs` (and in WebKit), then set the node budget and the scale classes | Research open questions (DOM-08, PRS-10, THR-13); every number in this section is Chromium on a loaded Mac | S | |
-| L28 | Lower `check-scale`'s recorded counts (454 unbounded shapes in 185 files on 2026-11-27): the spread calls first (172), then layout reads and DOM queries in loops (156) | Research D-09; `scripts/allowlists/scale.json` | M, gradual | |
+| L28 | Lower `check-scale`'s recorded counts (363 unbounded shapes in 165 files on 2026-11-27, after #798 removed most spreads): layout reads and DOM queries in loops first (157), then spreads (80) and whole-text line splits (68) | Research D-09; `scripts/allowlists/scale.json` | M, gradual | |
 
 ## To try in a real window
 
