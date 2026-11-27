@@ -64,7 +64,7 @@ thousands of lines, the same idea is built several times, and the browser suite 
 - **Windowed rows (Q7)** are built separately in six or more places: the side-panel rows, reading rows, reading
   lines, the table lens, hex and archive.
 - **Shared pieces (Q8).** Each viewer repeats the same scaffolding; 12 hand-made caches with different limits;
-  `plural` 25 times, with en-GB and en-US output mixed in what the reader sees; in core, `utf8Length` four times
+  `plural` 25 times, 17 of which print the bare number while the rest group it (1234 against 1,234), so counts read differently from panel to panel; in core, `utf8Length` four times
   plus two variants, `extensionOf` four times, 11 line splitters and three budget idioms (P4). In Rust, a second
   `ShellError` (`commands/os.rs:10`), about 47 `Result<_, String>` signatures, 89 platform `cfg` attributes inline
   in `atomic_write.rs`, and `main.rs` at about 1,700 lines of non-test code (the watch registry, the macOS menu,
@@ -98,3 +98,6 @@ the `pnpm check` scripts.
   readers and hold them equal with shared fixtures.
 - The browser suite launches a browser about once per four or five tests, not once per test.
 - `isMac` is defined five times, not seven.
+- The `plural` copies do not differ by locale: en-GB and en-US print integers the same way. They differ in grouping: 17
+  print the bare number and eight group it. (Corrected the same day; the first version of this report said en-GB
+  against en-US.)

@@ -36,7 +36,7 @@ look for its owner. If there is none, make one, and do not add a second.
 | Whether a modal owns the keyboard | `pageModalOpen` (`pane/keys.ts`) | other places test their own selectors; `inEditable` is defined twice |
 | A work limit on untrusted input | `budget()` (`packages/core/src/util/budget.ts`) | some readers carry their own (`XmlBudget` in `office/xml.ts`) |
 | Text helpers in core | `packages/core/src/util/text.ts` (line starts, offsets, trimming) | several readers split lines and count UTF-8 bytes themselves |
-| Counted words the reader sees | `plural` in `frame/dom.ts` (numbers in en-GB) | about 25 other definitions, some formatting numbers in en-US |
+| Counted words the reader sees | `plural` in `frame/dom.ts` (numbers grouped: 1,234 files) | about 25 other definitions, most printing the bare number (1234 files) |
 | Errors from Rust commands | `ShellError` (`src-tauri/src/error.rs`) | `commands/os.rs` defines a second one; many commands return `Result<_, String>` |
 | Limits and failures of a binary reader | `Limits` and `Fault`, as in `archive/`, `tables/`, `outlook/` and `legacy_office/` | none |
 
