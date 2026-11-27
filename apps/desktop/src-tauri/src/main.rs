@@ -369,6 +369,8 @@ fn close_confirmed(app: tauri::AppHandle) -> Result<(), ShellError> {
         .get_webview_window("main")
         .ok_or_else(|| ShellError::invalid("", "no main window"))?;
     save_window_state(&app);
+    // The reader has answered: the app exits with this last window, and that exit is not asked about again.
+    EXIT_APPROVED.store(true, std::sync::atomic::Ordering::SeqCst);
     // `destroy`, not `close`: `close` raises CloseRequested again, the run handler prevents it and asks
     // the webview again, and confirm -> close -> ask never ends. `destroy` is Tauri's forced
     // close; it skips CloseRequested, and the last window going ends the app.
@@ -868,6 +870,7 @@ fn stop_watch(
 /// on the way out says whether it stalled before asking to quit or after, and then leaves through
 /// `harness_exit`.
 fn quit_now(app: &tauri::AppHandle, code: i32) {
+    EXIT_APPROVED.store(true, std::sync::atomic::Ordering::SeqCst);
     let harness = quit_after_paint();
     if harness {
         mark("quit", now_ms(), Some(format!("code={code}")));
@@ -1456,6 +1459,30 @@ fn close_request_decision(previous_ms: Option<u64>, now_ms: u64) -> CloseRequest
     }
 }
 
+/// Set once an exit is decided (the reader answered the prompt, or the app's own `quit_now`), so the
+/// `ExitRequested` that Tauri raises when the last window goes is let through instead of asked about again.
+static EXIT_APPROVED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// What an `ExitRequested` event does. A quit that does not come from the menu (Dock Quit, Log Out,
+/// an Apple-event quit) raises it with no code and must go through the same prompt as the close box.
+#[derive(Debug, PartialEq, Eq)]
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+enum ExitRequest {
+    Allow,
+    AskWebview,
+}
+
+/// Pure decision: an exit with a code is the app's own and always proceeds, as does one the reader
+/// already approved or one with no main window to ask.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+fn exit_request_decision(code: Option<i32>, approved: bool, has_main_window: bool) -> ExitRequest {
+    if code.is_some() || approved || !has_main_window {
+        ExitRequest::Allow
+    } else {
+        ExitRequest::AskWebview
+    }
+}
+
 static LAST_CLOSE_REQUEST_MS: Mutex<Option<u64>> = Mutex::new(None);
 
 /// The one path every close request takes (window close box, Cmd+W, Cmd+Q): the webview decides
@@ -1648,6 +1675,16 @@ fn main() {
                     let _ = window.emit("marxy:close-requested", ());
                 }
             }
+            // A quit from outside the app (Dock Quit, Log Out, Apple event) asks like the close box does.
+            #[cfg(target_os = "macos")]
+            if let RunEvent::ExitRequested { code, api, .. } = &event {
+                let has_window = app.get_webview_window("main").is_some();
+                let approved = EXIT_APPROVED.load(std::sync::atomic::Ordering::SeqCst);
+                if exit_request_decision(*code, approved, has_window) == ExitRequest::AskWebview {
+                    api.prevent_exit();
+                    request_close_of_main(app);
+                }
+            }
             // A file dropped on the window opens the way Finder or a second launch opens it. On Windows
             // dragDropEnabled is off so the tabs' HTML5 drag works, and drops arrive through drop_windows instead.
             if let RunEvent::WindowEvent {
@@ -1702,6 +1739,30 @@ mod tests {
             close_request_decision(Some(10_000), 10_000 + REPEATED_CLOSE_MS + 1),
             CloseRequest::AskWebview,
             "a request long after the last one is a new question, not a repeat"
+        );
+    }
+
+    #[test]
+    fn an_outside_quit_asks_but_the_apps_own_and_an_approved_exit_proceed() {
+        use super::{exit_request_decision, ExitRequest};
+        assert_eq!(
+            exit_request_decision(None, false, true),
+            ExitRequest::AskWebview,
+            "Dock Quit, Log Out and Apple-event quits carry no code and must ask"
+        );
+        assert_eq!(
+            exit_request_decision(Some(0), false, true),
+            ExitRequest::Allow
+        );
+        assert_eq!(
+            exit_request_decision(None, true, true),
+            ExitRequest::Allow,
+            "the exit after an answered prompt is not asked again"
+        );
+        assert_eq!(
+            exit_request_decision(None, false, false),
+            ExitRequest::Allow,
+            "no window, nothing to ask"
         );
     }
 
