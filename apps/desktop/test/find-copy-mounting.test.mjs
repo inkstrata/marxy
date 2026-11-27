@@ -38,6 +38,20 @@ async function withPage(fn) {
   const browser = await launchWebkit();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    // The mount appends a long page in a few frames now; it waits while its article reads as hidden, so the page is
+    // held part-mounted, on screen, until `window.__holdMount` is cleared. Blocks asked for (a find landing) still come.
+    await page.addInitScript(() => {
+      window.__holdMount = true;
+      document.addEventListener('DOMContentLoaded', () => {
+        const doc = document.getElementById('doc');
+        if (!doc) return;
+        Object.defineProperty(doc, 'hidden', {
+          configurable: true,
+          get() { return window.__holdMount === true || this.hasAttribute('hidden'); },
+          set(v) { this.toggleAttribute('hidden', Boolean(v)); },
+        });
+      });
+    });
     await bootTwoPanes(page, { files, open: ['/r/long.md'] });
     const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
     await fn(page, mod);
@@ -108,8 +122,8 @@ test('select all then Copy on a page still mounting copies the whole document, a
     assert.ok(early.length > drawnChars, `the copy (${early.length} characters) holds more than was drawn (${drawnChars})`);
     assert.ok(/a\szephyr\sat\sthe\svery\send\.$/.test(early.trimEnd()), `the copy ends with the document: ${JSON.stringify(early.slice(-120))} (${early.length})`);
 
-    // The rest appended now, at once (waiting for the idle slices to finish a page this long takes minutes under load).
-    await page.evaluate((end) => window.__marxyHandle.mountThrough(end), Buffer.byteLength(LONG));
+    await page.evaluate(() => { window.__holdMount = false; });
+    await page.evaluate(() => window.__marxyHandle.contentComplete());
     assert.equal(await stillMounting(page), false);
     const whole = await copyAll();
     assert.equal(early.length, whole.length, 'the same length as a copy of the finished page');
