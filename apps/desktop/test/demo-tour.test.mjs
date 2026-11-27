@@ -6,6 +6,7 @@ import { strict as assert } from 'node:assert';
 import { after, before, test as nodeTest } from 'node:test';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { closeHarness, harnessBase } from './support/two-pane.mjs';
+import { frames, idle } from './support/kit.mjs';
 import { cardsOf, panelRows, panelSecs, showPanel, skip } from './support/frame.mjs';
 
 const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
@@ -86,6 +87,8 @@ test('a fence that opens with a prompt reads as a session part; the Reading card
   await demo('handoffs/auth-refactor-handoff.md', async (page) => {
     const session = '.marxy-article pre[data-marxy-part="session"]';
     await page.waitForSelector(session);
+    // The prompts are drawn by the highlight pass, after the part is on the page.
+    await page.waitForFunction((s) => document.querySelectorAll(`${s} .marxy-term-prompt`).length === 2, session);
     assert.equal((await page.$$(`${session} .marxy-term-prompt`)).length, 2);
     assert.equal(await readingLine(page), 'Read as prose + session');
     assert.match(await partsText(page), /Lines 20 to 27\s*session · guessed/);
@@ -114,9 +117,9 @@ test('a fence that opens with a prompt reads as a session part; the Reading card
     });
     // Polled here: waitForFunction takes an async predicate's promise as truthy and would not wait for the write.
     let parts = null;
-    for (let i = 0; i < 40 && parts === null; i++) {
+    while (parts === null) {
       parts = await kept();
-      if (parts === null) await page.waitForTimeout(100);
+      if (parts === null) await frames(page, 6);
     }
     assert.deepEqual(Object.keys(parts), ['/demo/handoffs/auth-refactor-handoff.md']);
     assert.deepEqual(Object.values(parts['/demo/handoffs/auth-refactor-handoff.md']), ['written']);
@@ -135,7 +138,7 @@ test("in Source the shape is drawn from the editor's lines, its scrollbar hidden
     });
     await page.waitForFunction(() => document.querySelectorAll('.marxy-spine:not([hidden]) .marxy-spine-tick').length > 5);
     // Past the minimap's settling (120 ms), which drew a second strip beside the spine before.
-    await page.waitForTimeout(400);
+    await idle(page);
     assert.ok(await spineOnly(), 'Read: the spine, and no minimap beside it');
     const headings = await page.evaluate(() => [...document.querySelector('.marxy-article').children].filter((el) => /^H[1-3]$/.test(el.tagName)).length);
     await page.evaluate(() => window.marxy.handle.toggleMode());
@@ -154,7 +157,7 @@ test("in Source the shape is drawn from the editor's lines, its scrollbar hidden
     });
     await page.evaluate(() => window.marxy.handle.toggleMode());
     await page.waitForFunction(() => !document.querySelector('.cm-scroller')?.hasAttribute('data-marxy-mmap') && !document.querySelector('.marxy-spine').hidden);
-    await page.waitForTimeout(400);
+    await idle(page);
     assert.ok(await spineOnly(), 'back in Read: the spine alone');
   });
 });

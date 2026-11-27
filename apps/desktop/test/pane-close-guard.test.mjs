@@ -9,7 +9,7 @@ import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { idle, openBrowser } from './support/kit.mjs';
 import { bootTwoPanes, closeHarness } from './support/two-pane.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -29,7 +29,7 @@ const files = {
 };
 
 async function withPage(fn) {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1470, height: 900 } });
     await fn(page);
@@ -135,7 +135,7 @@ test('closing a dirty right pane asks in that pane; Close without saving closes 
     await editTask(page, 1);
     await focus(page, 1);
     await closeKey(page);
-    await page.waitForTimeout(300);
+    await idle(page);
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md'], 'the right pane stays');
     assert.deepEqual(await notices(page, 1), [
       { text: 'B.md has changes that are not saved.', buttons: ['Save and close', 'Close without saving', 'Dismiss'] },
@@ -156,13 +156,13 @@ test('closing a dirty right pane: Save and close writes that file and closes it;
     await editTask(page, 1);
     await focus(page, 1);
     await closeKey(page);
-    await page.waitForTimeout(200);
+    await idle(page);
     await click(page, 1, 'Dismiss');
-    await page.waitForTimeout(200);
+    await idle(page);
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md'], 'Dismiss keeps the pane');
     assert.deepEqual(await notices(page, 1), [], 'a dismissed close says nothing more');
     await closeKey(page);
-    await page.waitForTimeout(200);
+    await idle(page);
     await click(page, 1, 'Save and close');
     await page.waitForFunction(() => window.__marxyHandle.panes().panes.length === 1);
     assert.equal(await calls(page, 'writeFileAtomic', '/r/B.md'), 1);
@@ -180,7 +180,7 @@ test('close() of a dirty left pane asks in the left pane, naming it, before the 
       const panes = window.__marxyHandle.panes();
       window.__closed = panes.close(panes.panes[0]);
     });
-    await page.waitForTimeout(300);
+    await idle(page);
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md']);
     assert.deepEqual(await notices(page, 0), [
       { text: 'A.md has changes that are not saved.', buttons: ['Save and close', 'Close without saving', 'Dismiss'] },
@@ -199,7 +199,7 @@ test('open beside a dirty pane (openIn other): the notice is in that pane, and n
     // The left pane is focused and clean; the right is dirty.
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().focused.slot), 0);
     await page.evaluate(() => window.__marxyHandle.panes().openIn('other', '/r/C.md'));
-    await page.waitForTimeout(300);
+    await idle(page);
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md'], 'nothing replaced');
     assert.deepEqual(await notices(page, 1), [
       { text: 'B.md has changes that are not saved.', buttons: ['Save and open', 'Open without saving', 'Dismiss'] },
@@ -217,7 +217,7 @@ test('both panes dirty: opening over the unfocused one names it and Save and ope
     await editTask(page, 0);
     await editTask(page, 1);
     await page.evaluate(() => window.__marxyHandle.panes().openIn(1, '/r/C.md'));
-    await page.waitForTimeout(300);
+    await idle(page);
     assert.deepEqual(await notices(page, 1), [
       { text: 'B.md has changes that are not saved.', buttons: ['Save and open', 'Open without saving', 'Dismiss'] },
     ]);
@@ -243,7 +243,7 @@ test('the same file in both panes, dirty: closing one view does not ask; closing
     await page.evaluate(() => window.__marxyHandle.panes().openIn('other', '/r/B.md'));
     await focus(page, 0);
     await closeKey(page);
-    await page.waitForTimeout(300);
+    await idle(page);
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md']);
     assert.deepEqual((await notices(page, 0)).map((n) => n.text), ['A.md has changes that are not saved.']);
   });
@@ -265,26 +265,26 @@ test('quit with two dirty documents asks about the left, then the right; Dismiss
     await requestClose();
     assert.equal(await calls(page, 'confirmClose'), 0);
     await click(page, 0, 'Dismiss');
-    await page.waitForTimeout(150);
+    await idle(page);
     assert.deepEqual(await texts(), []);
     assert.equal(await calls(page, 'confirmClose'), 0);
 
     // Close without saving on the first asks about the second; Dismiss there stops the quit.
     await requestClose();
     await click(page, 0, 'Close without saving');
-    await page.waitForTimeout(150);
+    await idle(page);
     assert.deepEqual(await notices(page, 1), [
       { text: 'B.md has changes that are not saved.', buttons: ['Save and close', 'Close without saving', 'Dismiss'] },
     ]);
     assert.deepEqual(await notices(page, 0), []);
     await click(page, 1, 'Dismiss');
-    await page.waitForTimeout(150);
+    await idle(page);
     assert.equal(await calls(page, 'confirmClose'), 0);
 
     // Both answered: the window closes, and nothing was written.
     await requestClose();
     await click(page, 0, 'Close without saving');
-    await page.waitForTimeout(150);
+    await idle(page);
     await click(page, 1, 'Close without saving');
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'confirmClose'));
     assert.equal(await calls(page, 'confirmClose'), 1);
@@ -402,13 +402,13 @@ test('quit: a close request while Save and close is writing does not start a sec
     });
     assert.equal(askedDuringSave, 0, 'the request waits for the save; it does not ask about A again');
     await page.waitForFunction(() => document.querySelector('#marxy-notices-2 .marxy-notice') !== null);
-    await page.waitForTimeout(200);
+    await idle(page);
     assert.deepEqual(await allTexts(page), ['B.md has changes that are not saved.'], 'one walk, at B');
     assert.equal(await calls(page, 'writeFileAtomic', '/r/A.md'), 1);
     assert.equal(await calls(page, 'confirmClose'), 0);
     await click(page, 1, 'Close without saving');
     await page.waitForFunction(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'confirmClose'));
-    await page.waitForTimeout(200);
+    await idle(page);
     assert.equal(await calls(page, 'confirmClose'), 1);
   });
 });
@@ -422,7 +422,7 @@ test("closing a pane: Save and close whose write fails keeps the pane, its edit 
       window.__closed = panes.close(panes.panes[1]);
     });
     await page.waitForFunction(() => document.querySelector('#marxy-notices-2 .marxy-notice') !== null);
-    await page.evaluate(() => window.__marxyHandle.shell.rejectNextWrite('io'));
+    await page.evaluate(() => window.__marxyHandle.shell.rejectNextWrite('io', '/r/B.md'));
     await click(page, 1, 'Save and close');
     assert.equal(await page.evaluate(() => window.__closed), false);
     assert.deepEqual(await paths(page), ['/r/A.md', '/r/B.md']);
@@ -447,7 +447,7 @@ test('the title is the focused document\'s: an edit in the unfocused pane does n
     });
     assert.equal(await dirtyOf(page, 0), true);
     assert.equal(await page.evaluate(() => window.__marxyHandle.panes().focused.slot), 1);
-    await page.waitForTimeout(200);
+    await idle(page);
     assert.equal(await lastTitle(page), 'B.md — marxy');
   });
 });
@@ -544,7 +544,7 @@ test('quit: a second close request on the last notice does not quit over Source 
     // A's answer was for its version before this: the text typed now is in its Source only.
     await typeInSource(page, 0, 'Late');
     await requestClose(page);
-    await page.waitForTimeout(200);
+    await idle(page);
     assert.equal(await calls(page, 'confirmClose'), 0, 'the second request does not quit');
     assert.deepEqual(await allTexts(page), ['B.md has changes that are not saved.'], 'the walk goes on at B');
     await click(page, 1, 'Close without saving');

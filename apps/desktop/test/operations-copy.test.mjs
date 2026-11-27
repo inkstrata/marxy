@@ -11,6 +11,7 @@ import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { createBuffer, parseMarkdown, sectionRange, textOf } from '../../../packages/core/src/index.ts';
 import { DEFAULT_POLICY, sanitizeHtml } from '../../../packages/core/src/sanitize/index.ts';
 import { fileURLToPath } from 'node:url';
+import { quiet, until } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -607,8 +608,13 @@ test('a drag over the hostile fixture copies html the sanitiser would not change
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
-    // The idle highlighter loads the html fence's grammars (html, javascript, css); that is not the copy's doing.
-    await page.waitForFunction(() => [...document.querySelectorAll('#doc pre code')].every((c) => c.dataset.marxyDone !== undefined), undefined, { timeout: 15_000 });
+    // The idle highlighter loads the html fence's grammars (html, javascript, css) as chunks, after the blocks are marked
+    // done; that is not the copy's doing. Wait until the blocks are done, both embedded grammars are in, and the page is quiet.
+    await until(page, () => {
+      const loaded = (name) => performance.getEntriesByType('resource').some((e) => e.name.includes(`/assets/${name}-`) && e.responseEnd > 0);
+      return [...document.querySelectorAll('#doc pre code')].every((c) => c.dataset.marxyDone !== undefined) && loaded('javascript') && loaded('css');
+    });
+    await quiet(page, { root: '#doc' });
     await page.evaluate(() => {
       const r = document.createRange();
       r.selectNodeContents(document.querySelector('#doc'));

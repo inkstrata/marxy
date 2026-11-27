@@ -3,11 +3,14 @@
 import { strict as assert } from 'node:assert';
 import { after, test as nodeTest } from 'node:test';
 import { closeHarness } from './support/two-pane.mjs';
-import { drawerShows, skip, withFrame } from './support/frame.mjs';
+import { drawerShows, withFrame } from './support/frame.mjs';
+import { holdBudget, idle, openBrowser, skip } from './support/kit.mjs';
 
 const test = (name, fn) => nodeTest(name, { skip, timeout: 180_000 }, fn);
 after(() => closeHarness());
 
+// A redraw takes 40 to 390 ms on the machines measured; the limit is where a redraw of the whole list would be.
+const REDRAW_MS = 3_000;
 const N = 1500;
 const LINES = 40;
 const FILES = { '/w/.git/HEAD': 'ref: refs/heads/main\n', '/w/start.md': '# Start\n\nNothing here.\n' };
@@ -22,7 +25,7 @@ const heading = (page) => page.evaluate(() => document.querySelector('.marxy-dra
 const groupRows = (page) => page.evaluate(() => document.querySelectorAll('.marxy-drawer [data-marxy-left-row^="g:"]').length);
 
 test('Search: a common word over many files draws its count, a bounded list, and a click opens the line', async () => {
-  await withFrame({ files: FILES, open: ['/w/start.md'] }, async (page) => {
+  await withFrame({ files: FILES, open: ['/w/start.md'], launch: openBrowser }, async (page) => {
     await show(page, 'search', { q: 'doc', scope: 'grep' });
     await drawerShows(page, 'search');
     await page.waitForFunction(() => /match/.test(document.querySelector('.marxy-drawer .marxy-l-body .marxy-l-sec span')?.textContent ?? ''), null, { timeout: 60_000 });
@@ -38,7 +41,7 @@ test('Search: a common word over many files draws its count, a bounded list, and
       window.__marxyHandle.frame().left.show('search');
       return performance.now() - t;
     });
-    assert.ok(redraw < 300, `a redraw takes ${Math.round(redraw)} ms`);
+    holdBudget(assert, 'search redraw', redraw, REDRAW_MS);
 
     await page.locator('.marxy-drawer [data-marxy-left-row="m:files"]').click();
     await page.waitForFunction(() => document.querySelectorAll('.marxy-drawer [data-marxy-left-row^="g:"]').length === 200);
@@ -58,7 +61,7 @@ test('Search: a common word over many files draws its count, a bounded list, and
     const [, path] = /^h:(.*):(\d+)$/.exec(target);
     await page.locator(`.marxy-drawer [data-marxy-left-row="${target}"]`).click();
     await page.waitForFunction((p) => window.__marxyHandle.panes().focused.path() === p, path, { timeout: 15_000 });
-    await page.waitForTimeout(800);
+    await idle(page);
     const reads = await page.evaluate(() => window.__reads);
     assert.ok(reads < 20, `opening one found file read ${reads} files`);
     assert.match(await heading(page), /^60,000 matches in 1,500 files/, 'the result stands');

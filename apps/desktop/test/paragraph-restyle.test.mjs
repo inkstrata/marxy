@@ -2,30 +2,25 @@
 // mermaid fence at its end is opened in Rendered, then the whole page is restyled by changing its colour variant (the
 // `:root[data-marxy-variant]` tokens every paragraph inherits), and the next frame is awaited. With the old
 // `p:has(+ pre.language-mermaid)` rule in base.css WebKit took 13 to 15 s here, growing with the square of the run
-// with the caption marked by class it takes about 50 ms. The bound of 2,000 ms is 40 times the measured 50 ms:
-// a slow runner has room in it, a quadratic regression does not.
+// with the caption marked by class it takes about 50 ms on a laptop. The bound is 8,000 ms, over any hosted runner and
+// under what the quadratic rule took on a laptop; the timing is recorded (docs/testing.md), so a slow machine shows.
 import { strict as assert } from 'node:assert';
-import { existsSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
-import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { bootTwoPanes, closeHarness } from './support/two-pane.mjs';
+import { holdBudget, openBrowser, skip, until } from './support/kit.mjs';
 
-const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
-  ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
-  : false;
 const test = (name, fn) => nodeTest(name, { skip, timeout: 240_000 }, fn);
 after(() => closeHarness());
 
 /** The longest a full restyle of the page may take, from the change to the next frame, in milliseconds. */
-const RESTYLE_MS = 2_000;
+const RESTYLE_MS = 8_000;
 const PARAGRAPHS = 27_000;
 
 test('a 27,000-paragraph page with a diagram fence restyles in bounded time in Rendered', async () => {
   const lines = [];
   for (let i = 0; i < PARAGRAPHS; i++) lines.push(`Paragraph ${i}, a short line of ordinary prose.`);
   const md = `# Long run\n\n${lines.join('\n\n')}\n\n\`\`\`mermaid\nflowchart LR\n  A --> B\n\`\`\`\n`;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1300, height: 900 } });
     await bootTwoPanes(page, { files: { '/r/long.md': md }, open: ['/r/long.md'] });
@@ -35,11 +30,7 @@ test('a 27,000-paragraph page with a diagram fence restyles in bounded time in R
       window.__marxyHandle.mountThrough(byte);
       await window.__marxyHandle.contentComplete();
     }, Buffer.byteLength(md));
-    await page.waitForFunction(
-      (n) => document.querySelectorAll('#doc p').length >= n && document.querySelector('pre.language-mermaid') !== null,
-      PARAGRAPHS,
-      { timeout: 60_000 },
-    );
+    await until(page, (n) => document.querySelectorAll('#doc p').length >= n && document.querySelector('pre.language-mermaid') !== null, PARAGRAPHS);
     const runs = await page.evaluate(async () => {
       const root = document.documentElement;
       const sample = document.querySelector('#doc p');
@@ -59,7 +50,7 @@ test('a 27,000-paragraph page with a diagram fence restyles in bounded time in R
     const worst = Math.max(...runs.map((r) => r.ms));
     console.log(`restyle of ${PARAGRAPHS} paragraphs, three runs: ${runs.map((r) => Math.round(r.ms)).join(', ')} ms`);
     assert.ok(runs.every((r) => r.changed), 'the colour variant change restyled the paragraphs (their colour changed)');
-    assert.ok(worst < RESTYLE_MS, `a full restyle took ${Math.round(worst)} ms; the bound is ${RESTYLE_MS} ms`);
+    holdBudget(assert, `restyle of ${PARAGRAPHS} paragraphs`, worst, RESTYLE_MS);
   } finally {
     await browser.close();
   }

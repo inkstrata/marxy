@@ -8,7 +8,7 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from './support/shared-vite.mjs';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
+import { idle, openBrowser } from './support/kit.mjs';
 import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -93,7 +93,7 @@ const colourOf = (page, css) => page.evaluate((c) => {
 }, css);
 
 test('every row is one line box, and each number shares its row\'s top, over a long line, emoji, CJK, a tab and a stray byte', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     // Tall, so the editor draws the first 200 lines without scrolling.
     const page = await browser.newPage({ viewport: { width: 1280, height: 4800 } });
@@ -134,7 +134,7 @@ test('every row is one line box, and each number shares its row\'s top, over a l
 });
 
 test('a code line does not wrap: it scrolls inside the editor, and the numbers stay on the left', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await boot(page, '/src/a.ts', TS_LONG);
@@ -168,7 +168,7 @@ test('a code line does not wrap: it scrolls inside the editor, and the numbers s
 });
 
 test('a Markdown line wraps at the editor\'s right edge, with its continuation hung past its own indent', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 640, height: 900 } });
     await boot(page, '/doc/a.md', MD);
@@ -222,7 +222,7 @@ test('a Markdown line wraps at the editor\'s right edge, with its continuation h
 });
 
 test('the Markdown text starts a gutter in from the pane\'s edge with numbers on or off, at any width; the numbers hang left of it', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const starts = [];
     for (const width of [960, 1280]) {
@@ -265,7 +265,7 @@ test('the Markdown text starts a gutter in from the pane\'s edge with numbers on
 });
 
 test('a code file fills the editor: the gutter at its left edge, the text a gutter in, whatever the digits or the width', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await boot(page, '/src/a.ts', 'export const a = 1;\n'.repeat(12));
@@ -284,7 +284,7 @@ test('a code file fills the editor: the gutter at its left edge, the text a gutt
     assert.ok(m.gutterRight <= m.left + 0.01, 'the numbers end where the text begins');
     // A wider window moves only the right edge; a smaller Source size moves nothing the gutter's width does not.
     await page.setViewportSize({ width: 1800, height: 800 });
-    await page.waitForTimeout(400);
+    await idle(page);
     const wider = await read(page);
     assert.ok(Math.abs(wider.text - m.text) <= 0.5 && Math.abs(wider.gutter) <= 0.5, `a wider window does not move the text or the gutter (${wider.text}, ${wider.gutter})`);
     // A file with a thousand lines has four digits; the text does not move for them.
@@ -299,7 +299,7 @@ test('a code file fills the editor: the gutter at its left edge, the text a gutt
 });
 
 test('Source is on the page ground in both variants, numbers included', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await boot(page, '/src/a.ts', TS_LONG);

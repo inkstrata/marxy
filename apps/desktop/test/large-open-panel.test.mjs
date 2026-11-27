@@ -27,8 +27,15 @@ test('a 1.1 MB page is painted before the panel reads it, and its links come aft
       new MutationObserver(look).observe(document.body, { childList: true, subtree: true });
     });
     await page.evaluate(() => window.__marxyHandle.open('/r/long.md'));
-    await page.waitForFunction(() => window.__seen.text && window.__seen.links, null, { timeout: 200_000 });
+    const probe = () => page.evaluate(() => ({ now: Math.round(performance.now()), seen: window.__seen, ps: document.querySelectorAll('.marxy-article p').length, kids: document.getElementById('doc')?.childElementCount, rows: document.querySelectorAll('.marxy-drawer [data-marxy-left-row]').length, body: (document.querySelector('.marxy-drawer .marxy-l-body')?.textContent ?? '').slice(0, 80) })).then((v) => console.log('PROBE', JSON.stringify(v))).catch(() => {});
+    const timer = setInterval(probe, 10_000);
+    try {
+      await page.waitForFunction(() => window.__seen.text && window.__seen.links, null, { timeout: 200_000 });
+    } finally {
+      clearInterval(timer);
+    }
     const seen = await page.evaluate(() => window.__seen);
+    console.log('SEEN', JSON.stringify(seen));
     assert.ok(seen.links > seen.text, `the Links card came at ${Math.round(seen.links)} ms, the first text at ${Math.round(seen.text)} ms`);
     const count = Number((await page.textContent('.marxy-drawer .marxy-l-fld .marxy-l-v')).replace(/ in all$/, '').replace(/,/g, ''));
     assert.equal(count, (text.match(/\]\(https:/g) ?? []).length);
