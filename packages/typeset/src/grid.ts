@@ -105,8 +105,10 @@ function blockChildren(article: HTMLElement): HTMLElement[] {
  * The grid pass over `spans`, in the article's order and apart from one another: what a pass over each of them in turn
  * makes, with each step made for all of them at once, so the whole costs the layouts of one span and not those of one
  * span for each. Every write of a step comes before every read of the next. A span below is planned from where the
- * pushes above will move it, not from where they landed, so a push can differ from that of a pass per span by less
- * than SETTLED, the difference every pass already leaves unmade.
+ * pushes above will move it, not from where they landed. The engine rounds each push it lays out (to 1/64 px), so that
+ * plan can be off by a little more for each span above; the next round reads the real tops and corrects it, and a push
+ * ends within the half pixel `shortfall` leaves unmade of where a pass per span would put it. Every push aims at the
+ * block's own place on the grid, not at an offset carried down, so the difference does not grow down the page.
  */
 function pass(article: HTMLElement, unit: number, spans: readonly Span[], heights: Map<HTMLElement, number>): number {
   // The pass writes padding and reads layout several times over; the engine's own scroll anchoring would
@@ -289,7 +291,7 @@ function blockOf(article: HTMLElement, el: Element): Element | null {
  * moves what is below it by, so nothing below is read, let alone padded again. For a highlight batch on a page of
  * thousands of code pieces this is the difference between the layout of a few and the layout of every one.
  * The windows are passed over together, each step for all of them at once: the padding a pass over each in turn
- * would make (to within SETTLED), for the layouts of one window, where a pass per window laid the page out again for each (a highlight
+ * would make (to within the half pixel `shortfall` leaves), for the layouts of one window, where a pass per window laid the page out again for each (a highlight
  * batch over hundreds of code blocks apart from one another held the page for seconds).
  * Returns how many elements it padded.
  */
