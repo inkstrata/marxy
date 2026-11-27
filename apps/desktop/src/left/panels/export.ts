@@ -43,7 +43,7 @@ export interface ExportState {
   /** What the last build made, for the reader's notice and the tests: its name, its bytes and where it went. */
   last: { readonly name: string; readonly bytes: Uint8Array; readonly text: string | null; readonly path: string | null; readonly entries: readonly string[] } | null;
   /** An export is running: its button says so and pressing it again does nothing until it is done. */
-  busy?: boolean;
+  busy?: 'save' | 'peek' | 'copy';
   wired?: boolean;
   selKey?: string;
 }
@@ -327,12 +327,12 @@ async function build(ctx: Ctx, J: Job, peek: boolean): Promise<Built | string | 
 
 async function run(ctx: Ctx, how: 'save' | 'peek' | 'copy'): Promise<void> {
   if (ctx.st.busy) return;
-  ctx.st.busy = true;
+  ctx.st.busy = how;
   ctx.redraw();
   try {
     await runJob(ctx, how);
   } finally {
-    ctx.st.busy = false;
+    ctx.st.busy = undefined;
     ctx.redraw();
   }
 }
@@ -420,7 +420,7 @@ function render(ctx: Ctx, body: HTMLElement): void {
 
   const form = J.forms.find((f) => f.id === J.as);
   const textual = J.as ? isTextual(J.as, J.kind) : false;
-  const primary = st.busy ? (J.as === 'zip' ? 'Building…' : 'Saving…') : J.as === 'zip' ? `Build ${J.name}` : (form?.act ?? `Save ${J.name}…`);
+  const primary = st.busy === 'save' ? (J.as === 'zip' ? 'Building…' : 'Saving…') : J.as === 'zip' ? `Build ${J.name}` : (form?.act ?? `Save ${J.name}…`);
   const go = (): void => void run(ctx, 'save');
   const peek = (): void => void run(ctx, 'peek');
   const copy = (): void => void run(ctx, 'copy');
@@ -465,7 +465,7 @@ function render(ctx: Ctx, body: HTMLElement): void {
       box('patches', 'Unsaved changes, as patches', { n: dirty }),
       box('pointed', 'The files they point to', {}),
       box('pages', 'A web page of each', { as: 'in the look worn' }),
-      btns({ label: primary, pri: true, run: go }, { label: 'Peek the manifest', run: peek }),
+      btns({ label: primary, pri: true, disabled: !!st.busy, run: go }, { label: 'Peek the manifest', run: peek }),
     );
   } else if (J.as === 'html' || J.as === 'pdf' || J.as === 'html1') {
     const seg = (key: 'look' | 'paper' | 'folds', items: readonly (readonly [string, string])[], label: string): HTMLElement => {
@@ -485,9 +485,9 @@ function render(ctx: Ctx, body: HTMLElement): void {
     body.append(
       seg('folds', [['shown', 'as shown'], ['open', 'open']], 'Folded sections'),
       row({ k: 's:notes', nm: 'Your notes in the margin', post: tog(st.notes, flipNotes, 'Your notes in the margin'), run: flipNotes, tick: flipNotes, go: st.notes ? 'leave them out' : 'put them in' }),
-      btns({ label: primary, pri: true, run: go }),
+      btns({ label: primary, pri: true, disabled: !!st.busy, run: go }),
     );
-  } else if (J.as) body.append(btns({ label: primary, pri: true, run: go }, textual ? { label: 'Copy instead', run: copy } : null));
+  } else if (J.as) body.append(btns({ label: primary, pri: true, disabled: !!st.busy, run: go }, textual ? { label: 'Copy instead', run: copy } : null));
   body.append(hint(J.as === 'pdf' ? 'Goes to the system’s print, where Save as PDF makes the file. Nothing is sent anywhere.' : 'Saved where you choose. Nothing is sent anywhere.'));
 }
 

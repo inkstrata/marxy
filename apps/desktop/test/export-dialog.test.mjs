@@ -126,7 +126,7 @@ test('Save… pressed twice while the save dialog is up opens one dialog, and th
       b.click();
       b.click();
     }, btn);
-    assert.equal(await page.textContent(btn), 'Saving…');
+    await page.waitForFunction((sel) => document.querySelector(sel)?.textContent === 'Saving…' && document.querySelector(sel).disabled, btn);
     await page.waitForFunction((sel) => document.querySelector(sel)?.textContent !== 'Saving…', btn);
     assert.equal(await page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'saveDialog').length), 1);
   });
