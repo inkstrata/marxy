@@ -150,7 +150,7 @@ node --test --test-concurrency=1 --experimental-strip-types test/save.test.mjs
 - For a wider run, three files at a time (`--test-concurrency=3`) in batches that finish within about
   ten minutes; many files at once starve each other and time out. Do not edit app source while browser
   tests run: the dev server serves the source live and the builds are made from it.
-- `test/support/` holds the helpers: `kit.mjs` (the shared kit, below), `two-pane.mjs` (start the harness, boot panes), `frame.mjs` (tab,
+- `test/support/` holds the helpers: `kit.mjs` (the shared kit, below), `two-pane.mjs` (start the harness, boot panes), `frame.mjs` (`withFrame`, in a context of the kit's browser; tab,
   panel and card readers), `store-walk.mjs` (a seeded random walk over the document store), stubs that
   run `src/shell/tauri.ts` under Node.
 
@@ -181,6 +181,16 @@ Rules for a test that uses it:
 `scripts/browser-smoke.test.mjs` fails when a listed file is gone, is in no map entry, sleeps, or launches its own
 browser. A file joins the list once it has passed on the hosted runner three runs in a row; the rest of the suite
 (`pnpm verify --tier full`) is converted a slice at a time.
+
+`scripts/browser-windows.json` lists the files proved on GitHub's `windows-latest`, which a person runs on demand with
+the `browser-windows` workflow (`gh workflow run browser-windows.yml --ref <branch>`, or `-f files="a.test.mjs b.test.mjs"` for
+chosen files, `-f scale=2` for `MARXY_BUDGET_SCALE`; it needs the workflow on `main`). It runs the files `--jobs 2` with
+`MARXY_BROWSER_TESTS_REQUIRED=1` and uploads their timings. The same test (`browser-smoke.test.mjs`) keeps these files
+sleep-free. A hosted runner is two to ten times slower than a laptop and its frames and idle time come late, so a file
+there fails for four reasons, in this order of frequency: a fixed wait that was long enough on a laptop; an assertion read
+right after the element appeared, before the pass that draws the rest of it; a budget set at five times a laptop's time;
+and a real race in the app that a slow machine shows (a redraw that depends on another panel being open). The first three are
+the test's to fix with the kit; the last is the app's: run the file with eight busy processes beside it to find it.
 
 Size and seed knobs for the heavier tests:
 
