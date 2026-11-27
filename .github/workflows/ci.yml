@@ -122,7 +122,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Verify
         env:
-          TIER: ${{ inputs.tier || (github.event_name == 'pull_request' && 'changed' || 'full') }}
+          TIER: full # TEMP: first-build iteration
           BASE: origin/${{ github.base_ref || 'main' }}
         run: >-
           node scripts/verify.mjs --tier "$TIER" --base "$BASE" --no-lock --logs "$RUNNER_TEMP/verify"
