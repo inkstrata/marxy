@@ -8,11 +8,11 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from './support/shared-vite.mjs';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { parseMarkdown } from '../../../packages/core/src/parse/parse.ts';
 import { sectionRange } from '../../../packages/core/src/sourcemap/section.ts';
 import { fileURLToPath } from 'node:url';
 import { parentOf } from '../src/selection/selection.ts';
+import { openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -151,7 +151,7 @@ async function runCorpusProperty(page, { brokenResolve = false } = {}) {
 }
 
 test('corpus property: resolve, textOf, and re-parse for every provenance element', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     for (const file of corpusFiles) {
       const bytes = readFileSync(join(corpusDir, file));
@@ -176,7 +176,7 @@ test('corpus property: resolve, textOf, and re-parse for every provenance elemen
 test('corpus property fails when resolve is neutralised to the parent', async () => {
   const file = '09-gfm-everything.md';
   const docPath = `/corpus/${file}`;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await boot(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -189,7 +189,7 @@ test('corpus property fails when resolve is neutralised to the parent', async ()
 
 test('clicking a paragraph selects it; a link opens externally; Alt+click selects the link', async () => {
   const docPath = '/corpus/09-gfm-everything.md';
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await boot(page, { [docPath]: b64(join(corpusDir, '09-gfm-everything.md')) }, [docPath]);
@@ -212,7 +212,7 @@ test('clicking a paragraph selects it; a link opens externally; Alt+click select
 test('Alt+ArrowDown and Alt+Shift+ArrowUp move structured selection; Esc clears', async () => {
   const source = '- one\n- two\n';
   const docPath = '/list.md';
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await boot(page, { [docPath]: Buffer.from(source, 'utf8').toString('base64') }, [docPath]);
@@ -239,7 +239,7 @@ test('Alt+ArrowDown and Alt+Shift+ArrowUp move structured selection; Esc clears'
 
 test('selection survives a re-render with unchanged bytes', async () => {
   const docPath = '/corpus/02-readme-real-world.md';
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await boot(page, { [docPath]: b64(join(corpusDir, '02-readme-real-world.md')) }, [docPath]);
@@ -259,7 +259,7 @@ test('a selection made in one document does not survive opening another', async 
   const a = '/a.md';
   const b = '/b.md';
   const text = '# Title\n\nThe same first paragraph.\n';
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     const files = { [a]: Buffer.from(text, 'utf8').toString('base64'), [b]: Buffer.from(text, 'utf8').toString('base64') };
@@ -279,7 +279,7 @@ test('after the page fails to render a change, nothing stays selected', async ()
   // A selection held across a failed render names a page that is gone, at offsets
   // of bytes the store has moved past.
   const docPath = '/fail.md';
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await boot(page, { [docPath]: Buffer.from('# Title\n\nA paragraph.\n', 'utf8').toString('base64') }, [docPath]);
@@ -319,7 +319,7 @@ test('after the page fails to render a change, nothing stays selected', async ()
 test('a text drag stays kind text and never becomes structured', async () => {
   const source = 'First paragraph here.\n\nSecond paragraph there.\n';
   const docPath = '/two-para.md';
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 800 } });
     await boot(page, { [docPath]: Buffer.from(source, 'utf8').toString('base64') }, [docPath]);

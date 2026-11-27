@@ -1,0 +1,422 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+micromark
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+micromark
+
+Overview
+
+Repositories
+
+Discussions
+
+Packages
+
+People
+
+More
+
+Overview
+
+Repositories
+
+Discussions
+
+Packages
+
+People
+
+Performance benchmarks
+
+#29
+
+Answered
+
+by
+wooorm
+
+lishid
+
+asked this question in
+Q&A
+
+Performance benchmarks
+
+#29
+
+lishid
+
+Oct 25, 2020
+·
+1 comments
+·
+2 replies
+
+Answered
+
+by
+wooorm
+
+Return to top
+
+Discussion options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+lishid
+
+Oct 25, 2020
+
+Hey everyone, I'm super excited that micromark is now being used for remark-parse!
+
+I noticed that nowhere does it advertise that speed/performance being the focus of the project, so I'm kinda curious if anyone had a chance to play around with the new version and compare it to the older remark-parse. I'd love to do this myself too a bit later once I have the time.
+
+Thanks in advance!
+
+3
+You must be logged in to vote
+
+All reactions
+
+Answered by
+
+wooorm
+
+Oct 25, 2020
+
+Hi!
+
+While performance is important, it is not the sole or most important, focus for this project.
+
+The most important is syntax trees (no other parser does that so well as remark), specifically concrete ones (every character in the source code is accounted for; no other language that I know of in this area has this—JS, CSS, HTML, MD, it doesn’t exist). Where remark has done a lot with its syntax trees in the last 6 years, I think the CST will allow for a similar advancement in formatting and checking markdown.
+
+Second is CM and GFM compliancy. While many parsers work towards CM, they often mess up to varying degrees on edge cases. For CM specifically, which has ±600 tests, I compared 1000 m…
+
+View full answer
+
+Replies:
+
+1 comment
+
+·
+
+2 replies
+
+Oldest
+
+Newest
+
+Top
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+wooorm
+
+Oct 25, 2020
+
+Maintainer
+
+Hi!
+
+While performance is important, it is not the sole or most important, focus for this project.
+
+The most important is syntax trees (no other parser does that so well as remark), specifically concrete ones (every character in the source code is accounted for; no other language that I know of in this area has this—JS, CSS, HTML, MD, it doesn’t exist). Where remark has done a lot with its syntax trees in the last 6 years, I think the CST will allow for a similar advancement in formatting and checking markdown.
+
+Second is CM and GFM compliancy. While many parsers work towards CM, they often mess up to varying degrees on edge cases. For CM specifically, which has ±600 tests, I compared 1000 more edge cases to how the reference CM parsers works, which micromark matches. For GFM, other parsers often have somewhat support for it, but fail a bunch of basic cases. I have spent a lot of time reverse engineering to figure out exactly how github.com works (which is in fact different from their docs or their reference parser), and we match it.
+
+Third: bundle size is important; while there are smaller parsers, and no parser is as compliant as micromark or has its concrete tokens feature, it’s pretty radical that micromark packs all this at such a low size.
+
+Fourth, I think, is performance: micromark is currently slower than what used to be in remark-parse. About 50% slower. That is significant, but a) micromark is also better than what used to be in remark-parse, b) it’s still fast to parse a big book, c)the problem with syntax trees is always the syntax trees, not the parsing—if remark is slow, that’s because a plugin is slow, not the parsing, and d) there is some low hanging fruit (see open issues).
+
+I’ve been reaching out to a couple of folks about improving performance recently (privately and see this tweet), to improve it. I think it can be as fast as remark-parse and maybe a bit better, but in the end I don’t see it ever being as fast as say markdown-it, because the priorities are different.
+
+Marked as answer
+
+2
+You must be logged in to vote
+
+👍
+1
+
+All reactions
+
+👍
+1
+
+2 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+lishid
+
+Oct 25, 2020
+
+Author
+
+Great answer, thank you so much! Totally understand this isn't the focus and syntax tree is exactly why I'm using remark over other implementations.
+
+(which is in fact different from their docs or their reference parser)
+
+I hate it when that happens 😆
+
+micromark is currently slower than what used to be in remark-parse. About 50% slower.
+
+This is the exact information I was looking for :)
+
+I’ve been reaching out to a couple of folks about improving performance recently
+
+I have some experience with that and I'd love to help out later once I get some free time on my hands.
+
+I'd also ping @fabiospampinato since he's quite experienced in the field, and it looks like you guys already know each other 😝
+
+👍
+1
+
+All reactions
+
+👍
+1
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+wooorm
+
+Oct 25, 2020
+
+Maintainer
+
+Yes, we’ve talked about this a couple weeks ago!
+
+👀
+1
+
+All reactions
+
+👀
+1
+
+Answer selected by
+lishid
+
+Sign up for free
+to join this conversation on GitHub.
+Already have an account?
+Sign in to comment
+
+Category
+
+🙏
+
+Q&A
+
+Labels
+
+None yet
+
+2 participants
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

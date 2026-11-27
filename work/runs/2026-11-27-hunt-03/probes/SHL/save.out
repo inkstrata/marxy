@@ -1,0 +1,9 @@
+Probe: probes/SHL/save_probe_drv.rs, compiled with `rustc -O` against an unmodified copy of src-tauri/src/atomic_write.rs (the way scripts/gate-fidelity.mjs builds it); Apple silicon macOS, shared Mac.
+Per size: run 0 = save with an expectation (what every save from the page sends), run 2 = save with no expectation, same bytes, same file.
+size      with expectation   without
+5 MB      162 ms             35 ms
+10 MB     697 ms             37 ms
+20 MB     1.61 s             71 ms
+40 MB     4.03 s             177 ms
+80 MB     9.94 s             206 ms
+(4.9 MB earlier run: 166 ms vs 93 ms)

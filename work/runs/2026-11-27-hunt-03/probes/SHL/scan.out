@@ -1,0 +1,4 @@
+Probe: probes/SHL/scan_probe.rs, std-only copy of watch::scan's per-entry work (read_dir, entry.metadata, BTreeMap insert), rustc -O, warm cache, shared Mac. Time of one poll of a folder.
+1,000 files: 19 ms
+10,000 files: 304-362 ms
+50,000 files: 3.0-3.4 s

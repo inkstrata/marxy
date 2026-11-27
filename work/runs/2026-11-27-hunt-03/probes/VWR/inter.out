@@ -1,0 +1,14 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/VWR/inter.mjs --browser chromium
+{"kind":"csv","bytes":2000031,"end":635,"end_task":0.03,"pgdn":226,"pgdn_task":0.06,"find":615,"find_task":0.21,"filter":276,"filter_task":0.09,"source":288,"source_task":0,"read":506,"read_task":0}
+{"kind":"csv","bytes":5100020,"end":120,"end_task":0.02,"pgdn":35,"pgdn_task":0.02,"find":327,"find_task":0.3,"filter":124,"filter_task":0.03,"source":79,"source_task":0,"read":45,"read_task":0}
+{"kind":"csv-quoted-newlines","bytes":2000013,"end":393,"end_task":0.03,"pgdn":91,"pgdn_task":0.02,"find":541,"find_task":0.15,"filter":78,"filter_task":0.03,"source":42,"source_task":0,"read":287,"read_task":0.01}
+{"kind":"csv-quoted-newlines","bytes":5100003,"end":46,"end_task":0.01,"pgdn":56,"pgdn_task":0.01,"find":462,"find_task":0.24,"filter":62,"filter_task":0.03,"source":82,"source_task":0.01,"read":36,"read_task":0}
+{"kind":"log","bytes":2000093,"end":174,"end_task":0.02,"pgdn":42,"pgdn_task":0.01,"find":275,"find_task":0.2,"filter":176,"filter_task":0.05,"source":248,"source_task":0,"read":45,"read_task":0}
+{"kind":"log","bytes":5100058,"end":78,"end_task":0.04,"pgdn":59,"pgdn_task":0.03,"find":334,"find_task":0.24,"filter":92,"filter_task":0.07,"source":26,"source_task":0,"read":112,"read_task":0.01}
+{"kind":"jsonl","bytes":2000033,"end":133,"end_task":0.03,"pgdn":40,"pgdn_task":0.01,"find":316,"find_task":0.23,"filter":58,"filter_task":0.03,"source":56,"source_task":0.01,"read":59,"read_task":0}
+{"kind":"jsonl","bytes":5100032,"end":88,"end_task":0.03,"pgdn":53,"pgdn_task":0.02,"find":330,"find_task":0.28,"filter":74,"filter_task":0.03,"source":50,"source_task":0.01,"read":21,"read_task":0}
+{"kind":"code-ts","bytes":2003768,"end":48,"end_task":0.02,"pgdn":145,"pgdn_task":0,"find":341,"find_task":0.19,"filter":142,"filter_task":0.05,"source":52,"source_task":0,"read":38,"read_task":0}
+{"kind":"code-ts","bytes":5103938,"end":30,"end_task":0.01,"pgdn":28,"pgdn_task":0,"find":198,"find_task":0.16,"filter":80,"filter_task":0.04,"source":20,"source_task":0,"read":22,"read_task":0}
+{"kind":"json-pretty","bytes":2000025,"end":106,"end_task":0.09,"pgdn":67,"pgdn_task":0.04,"find":686,"find_task":0.65,"filter":344,"filter_task":0.32,"source":213,"source_task":0.11,"read":50,"read_task":0.01}
+{"kind":"json-pretty","bytes":5100097,"end":91,"end_task":0.07,"pgdn":138,"pgdn_task":0.1,"find":986,"find_task":0.69,"filter":462,"filter_task":0.43,"source":65,"source_task":0.01,"read":397,"read_task":0.01}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1039

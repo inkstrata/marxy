@@ -1,0 +1,630 @@
+Skip to main content
+
+Skip to search
+
+HTML
+
+HTML: Markup language
+
+HTML reference
+
+Elements
+
+Global attributes
+
+Attributes
+
+See all…
+
+HTML guides
+
+Responsive images
+
+HTML cheatsheet
+
+Date & time formats
+
+See all…
+
+Markup languages
+
+SVG
+
+MathML
+
+XML
+
+CSS
+
+CSS: Styling language
+
+CSS reference
+
+Properties
+
+Selectors
+
+At-rules
+
+Values
+
+See all…
+
+CSS guides
+
+Box model
+
+Animations
+
+Flexbox
+
+Colors
+
+See all…
+
+Layout cookbook
+
+Column layouts
+
+Centering an element
+
+Card component
+
+See all…
+
+JavaScriptJS
+
+JavaScript: Scripting language
+
+JS reference
+
+Standard built-in objects
+
+Expressions & operators
+
+Statements & declarations
+
+Functions
+
+See all…
+
+JS guides
+
+Control flow & error handling
+
+Loops and iteration
+
+Working with objects
+
+Using classes
+
+See all…
+
+Web APIs
+
+Web APIs: Programming interfaces
+
+Web API reference
+
+File system API
+
+Fetch API
+
+Geolocation API
+
+HTML DOM API
+
+Push API
+
+Service worker API
+
+See all…
+
+Web API guides
+
+Using the Web animation API
+
+Using the Fetch API
+
+Working with the History API
+
+Using the Web speech API
+
+Using web workers
+
+All
+
+All web technology
+
+Technologies
+
+Accessibility
+
+HTTP
+
+URI
+
+Web extensions
+
+WebAssembly
+
+WebDriver
+
+See all…
+
+Topics
+
+Media
+
+Performance
+
+Privacy
+
+Security
+
+Progressive web apps
+
+Learn
+
+Learn web development
+
+Frontend developer course
+
+Getting started modules
+
+Core modules
+
+MDN Curriculum
+
+Check out the video course from Scrimba, our partner
+
+Learn HTML
+
+Structuring content with HTML module
+
+Learn CSS
+
+CSS styling basics module
+
+CSS layout module
+
+Learn JavaScript
+
+Dynamic scripting with JavaScript module
+
+Tools
+
+Discover our tools
+
+Playground
+
+HTTP Observatory
+
+Border-image generator
+
+Border-radius generator
+
+Box-shadow generator
+
+Color format converter
+
+Color mixer
+
+Shape generator
+
+About
+
+Get to know MDN better
+
+About MDN
+
+Advertise with us
+
+Community
+
+MDN on GitHub
+
+Blog
+
+Toggle sidebar
+
+Web
+
+Web APIs
+
+Scheduler
+
+postTask()
+
+Theme
+
+OS default
+
+Light
+
+Dark
+
+English (US)
+
+Remember language
+Learn more
+
+Deutsch
+
+English (US)
+
+Scheduler: postTask() method
+
+Limited availability
+
+This feature is not Baseline because it does not work in some of the most widely-used browsers.
+
+Want more browser support for this feature? Tell us why.
+
+See full compatibility
+
+Learn more
+
+Note: This feature is available in Web Workers.
+
+The postTask() method of the Scheduler interface is used for adding tasks to be scheduled according to their priority.
+
+The method allows users to optionally specify a minimum delay before the task will run, a priority for the task, and a signal that can be used to modify the task priority and/or abort the task.
+It returns a promise that is resolved with the result of the task callback function, or rejected with the abort reason or an error thrown in the task.
+
+Task priority can be mutable or immutable.
+If the task priority will never need to change then it should be set using the options.priority parameter (any priority set through a signal will then be ignored).
+You can still pass an AbortSignal (which has no priority) or TaskSignal to the options.signal parameter for aborting the task.
+
+If the task priority might need to be changed the options.priority parameter must not be set.
+Instead a TaskController should be created and its TaskSignal should be passed to options.signal.
+The task priority will be initialized from the signal priority, and can later be modified using the signal's associated TaskController.
+
+If no priority is set then the task priority defaults to "user-visible".
+
+If a delay is specified and greater than 0, then the execution of the task will be delayed for at least that many milliseconds.
+Otherwise the task is immediately scheduled for prioritization.
+
+In this article
+
+Syntax
+
+Examples
+
+Specifications
+
+Browser compatibility
+
+Syntax
+
+js
+
+postTask(callback)
+postTask(callback, options)
+
+Parameters
+
+callback
+
+A callback function that implements the task.
+The return value of the callback is used to resolve the promise returned by this function.
+
+options Optional
+
+Task options, including:
+
+priority Optional
+
+The immutable priority of the task.
+One of: "user-blocking", "user-visible", "background".
+If set, this priority is used for the lifetime of the task and priority set on the signal is ignored.
+
+signal Optional
+
+A TaskSignal or AbortSignal that can be used to abort the task (from its associated controller).
+
+If the options.priority parameter is set then the task priority cannot be changed, and any priority on the signal is ignored.
+Otherwise, if the signal is a TaskSignal its priority is used to set the initial task priority, and the signal's controller may later use it to change the task priority.
+
+delay Optional
+
+The minimum amount of time after which the task will be added to the scheduler queue, in whole milliseconds.
+The actual delay may be higher than specified, but will not be less.
+The default delay is 0.
+
+Return value
+
+Returns a Promise that is resolved with the return value of the callback function, or which may be rejected with the signal's abort reason (AbortSignal.reason).
+The promise may also be rejected with an error thrown by the callback during execution.
+
+Examples
+
+The following examples are slightly simplified versions of the live examples provided in Prioritized Task Scheduling API > Examples.
+
+Feature checking
+
+Check whether prioritized task scheduling is supported by testing for the scheduler property in the global scope (such as Window.scheduler in window's scope or WorkerGlobalScope.scheduler in worker's scope).
+
+For example, the code below logs "Feature: Supported" if the API is supported on this browser.
+
+js
+
+// Check that feature is supported
+if ("scheduler" in globalThis) {
+console.log("Feature: Supported");
+} else {
+console.error("Feature: NOT Supported");
+}
+
+Basic usage
+
+Tasks are posted specifying a callback function (task) in the first argument, and an optional second argument that can be used to specify a task priority, signal, and/or delay.
+The method returns a Promise that resolves with the return value of the callback function, or rejects with either an abort error or an error thrown in the function.
+
+Because it returns a promise, postTask() can be chained with other promises.
+Below we show how to wait on the promise to resolve using then or reject using catch.
+The priority is not specified, so the default priority of user-visible will be used.
+
+js
+
+// A function that defines a task
+function myTask() {
+return "Task 1: user-visible";
+}
+
+// Post task with default priority: 'user-visible' (no other options)
+// When the task resolves, Promise.then() logs the result.
+scheduler
+.postTask(myTask, { signal: abortTaskController.signal })
+.then((taskResult) => console.log(`${taskResult}`)) // Log resolved value
+.catch((error) => console.error("Error:", error)); // Log error or abort
+
+The method can also be used with await inside an async function.
+The code below shows how you might use this approach to wait on a user-blocking task.
+
+js
+
+function myTask2() {
+return "Task 2: user-blocking";
+}
+
+async function runTask2() {
+const result = await scheduler.postTask(myTask2, {
+priority: "user-blocking",
+});
+console.log(result); // 'Task 2: user-blocking'.
+}
+runTask2();
+
+Permanent priorities
+
+Task priorities may be set using priority parameter in the optional second argument.
+Priorities that are set in this way cannot be changed (are immutable).
+
+Below we post two groups of three tasks, each member in reverse order of priority.
+The final task has the default priority.
+When run, each task simply logs its expected order (we're not waiting on the result because we don't need to in order to show execution order).
+
+js
+
+// three tasks, in reverse order of priority
+scheduler.postTask(() => console.log("bkg 1"), { priority: "background" });
+scheduler.postTask(() => console.log("usr-vis 1"), {
+priority: "user-visible",
+});
+scheduler.postTask(() => console.log("usr-blk 1"), {
+priority: "user-blocking",
+});
+
+// three more tasks, in reverse order of priority
+scheduler.postTask(() => console.log("bkg 2"), { priority: "background" });
+scheduler.postTask(() => console.log("usr-vis 2"), {
+priority: "user-visible",
+});
+scheduler.postTask(() => console.log("usr-blk 2"), {
+priority: "user-blocking",
+});
+
+// Task with default priority: user-visible
+scheduler.postTask(() => {
+console.log("usr-vis 3 (default)");
+});
+
+The expected output is shown below: tasks are executed in priority order, and then declaration order.
+
+usr-blk 1
+usr-blk 2
+usr-vis 1
+usr-vis 2
+usr-vis 3 (default)
+bkg 1
+bkg 2
+
+Changing task priorities
+
+Task priorities can also take their initial value from a TaskSignal passed to postTask() in the optional second argument.
+If set in this way, the priority of the task can then be changed using the controller associated with the signal.
+
+Note:
+Setting and changing task priorities using a signal only works when the options.priority argument to postTask() is not set, and when the options.signal is a TaskSignal (and not an AbortSignal).
+
+The code below first shows how to create a TaskController, setting the initial priority of its signal to user-blocking in the TaskController() constructor.
+
+We then use addEventListener() to add an event listener to the controller's signal (we could alternatively use the TaskSignal.onprioritychange property to add an event handler).
+The event handler uses previousPriority on the event to get the original priority and TaskSignal.priority on the event target to get the new/current priority.
+
+js
+
+// Create a TaskController, setting its signal priority to 'user-blocking'
+const controller = new TaskController({ priority: "user-blocking" });
+
+// Listen for 'prioritychange' events on the controller's signal.
+controller.signal.addEventListener("prioritychange", (event) => {
+const previousPriority = event.previousPriority;
+const newPriority = event.target.priority;
+console.log(`Priority changed from ${previousPriority} to ${newPriority}.`);
+});
+
+Finally, the task is posted, passing in the signal, and then we immediately change the priority to background by calling TaskController.setPriority() on the controller.
+
+js
+
+// Post task using the controller's signal.
+// The signal priority sets the initial priority of the task
+scheduler.postTask(() => console.log("Task 1"), { signal: controller.signal });
+
+// Change the priority to 'background' using the controller
+controller.setPriority("background");
+
+The expected output is shown below.
+Note that in this case the priority is changed before the task is executed, but it could equally have been changed while the task was running.
+
+js
+
+// Expected output
+// Priority changed from user-blocking to background.
+// Task 1
+
+Aborting tasks
+
+Tasks can be aborted using either TaskController and AbortController, in exactly the same way.
+The only difference is that you must use TaskController if you also want to set the task priority.
+
+The code below creates a controller and passes its signal to the task.
+The task is then immediately aborted.
+This causes the promise to be rejected with an AbortError, which is caught in the catch block and logged.
+Note that we could also have listened for the abort event fired on the TaskSignal or AbortSignal and logged the abort there.
+
+js
+
+// Declare a TaskController with default priority
+const abortTaskController = new TaskController();
+// Post task passing the controller's signal
+scheduler
+.postTask(() => console.log("Task executing"), {
+signal: abortTaskController.signal,
+})
+.then((taskResult) => console.log(`${taskResult}`)) // This won't run!
+.catch((error) => console.error("Error:", error)); // Log the error
+
+// Abort the task
+abortTaskController.abort();
+
+Delaying tasks
+
+Tasks can be delayed by specifying an integer number of milliseconds in the options.delay parameter to postTask().
+This effectively adds the task to the prioritized queue on a timeout, as might be created using setTimeout().
+The delay is the minimum amount of time before the task is added to the scheduler; it may be longer.
+
+The code below shows two tasks added (as arrow functions) with a delay.
+
+js
+
+// Post task as arrow function with delay of 2 seconds
+scheduler
+.postTask(() => "Task delayed by 2000ms", { delay: 2000 })
+.then((taskResult) => console.log(`${taskResult}`));
+scheduler
+.postTask(() => "Next task should complete in about 2000ms", { delay: 1 })
+.then((taskResult) => console.log(`${taskResult}`));
+
+Specifications
+
+Specification
+
+Prioritized Task Scheduling
+# dom-scheduler-posttask
+
+Browser compatibility
+
+Help improve MDN
+
+Yes
+
+No
+
+Learn how to contribute
+
+This page was last modified on Oct 8, 2026 by MDN contributors.
+
+View this page on GitHub • Report a problem with this content
+
+Clear filter input
+
+Prioritized Task Scheduling API
+
+Scheduler
+
+Instance methods
+
+postTask()
+
+yield()
+
+Related pages for Prioritized Task Scheduling API
+
+Navigator.scheduling
+
+Scheduling
+
+TaskController
+
+TaskPriorityChangeEvent
+
+TaskSignal
+
+Window.scheduler
+
+WorkerGlobalScope.scheduler
+
+Your blueprint for a better internet.
+
+MDN
+
+About
+
+Blog
+
+Mozilla careers
+
+Advertise with us
+
+MDN Plus
+
+Product help
+
+Contribute
+
+MDN Community
+
+Community resources
+
+Writing guidelines
+
+MDN Discord
+
+MDN on GitHub
+
+Developers
+
+Web technologies
+
+Learn web development
+
+Guides
+
+Tutorials
+
+Glossary
+
+Hacks blog
+
+Website Privacy Notice
+
+Telemetry Settings
+
+Legal
+
+Community Participation Guidelines
+
+Portions of this content are ©1998–2026 by individual mozilla.org contributors. Content available under a Creative Commons license.

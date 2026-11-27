@@ -5,8 +5,8 @@ import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { bootTwoPanes, closeHarness } from './support/two-pane.mjs';
+import { openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -24,7 +24,7 @@ const files = {
 };
 
 async function withApp(open, fn, extra = {}) {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1470, height: 900 } });
     await bootTwoPanes(page, { files: { ...files, ...extra }, open: [open], guard: true });

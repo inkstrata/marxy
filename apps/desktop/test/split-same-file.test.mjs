@@ -4,7 +4,7 @@
 // once. Booted on the shipped skeleton over the memory shell (test/support/two-pane.mjs).
 import { after } from 'node:test';
 import { closeHarness } from './support/two-pane.mjs';
-import { assert, focusPane, storeText, test, toSource, typeAtLineEnd, withPanes } from './support/split-same.mjs';
+import { assert, focusPane, storeText, test, toSource, typeAtLineEnd, untilSettled, withPanes } from './support/split-same.mjs';
 
 after(() => closeHarness());
 
@@ -22,7 +22,7 @@ async function wheel(page, slot, deltaY) {
   }, slot);
   await page.mouse.move(box.x, box.y);
   await page.mouse.wheel(0, deltaY);
-  await page.waitForTimeout(400);
+  await untilSettled(page);
 }
 
 async function runSplitSame(page) {
@@ -56,7 +56,7 @@ test('Split this document opens the file again in the other pane at the reading 
       let last = '';
       let still = 0;
       while (still < 10) {
-        await new Promise((r) => setTimeout(r, 100));
+        await new Promise((r) => requestAnimationFrame(r));
         const h = heights();
         if (h === last) still++;
         else { still = 0; last = h; }
@@ -150,7 +150,7 @@ test('an edit above the right pane\'s place shifts its place by the edit\'s delt
     await typeAtLineEnd(page, 0, 1, 'Qz');
     await page.keyboard.press(`${mod}+Alt+ArrowRight`);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[1].view.store().snapshot().dirty === true);
-    await page.waitForTimeout(400);
+    await untilSettled(page);
     assert.ok((await storeText(page, 1)).startsWith('# AlphaQz\n'));
     const after = await place(page, 1);
     assert.equal(after.byteOffset - before.byteOffset, 2, 'the right pane\'s byte moved by the two typed characters');

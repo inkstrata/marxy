@@ -1,0 +1,6 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/RDR/stall.mjs --browser chromium
+{"kind":"md-technical","size":1000000,"tOpen":2575,"longTasks":1,"max":1311,"over1s":1,"sum":1311,"top":[[1,1311]]}
+{"kind":"md-technical","size":2000000,"tOpen":38600,"longTasks":49,"max":197,"over1s":0,"sum":3589,"top":[[25612,197],[20009,163],[36339,161],[14741,157],[30929,149]]}
+{"kind":"md-code-fences","size":1000000,"tOpen":1772,"longTasks":1,"max":510,"over1s":0,"sum":510,"top":[[49,510]]}
+{"kind":"md-code-fences","size":2000000,"tOpen":2318,"longTasks":0,"max":0,"over1s":0,"sum":0,"top":[]}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1052

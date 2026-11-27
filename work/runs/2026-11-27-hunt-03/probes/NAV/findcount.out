@@ -1,0 +1,32 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/findcount.mjs --browser chromium
+=== 2 MB expected 32442
+5s 1 of 22364 | articleChars 1343044 | settled? 4496
+10s 1 of 22364 | articleChars 1432756 | settled? 4796
+15s 1 of 22364 | articleChars 1495556 | settled? 5007
+20s 1 of 22364 | articleChars 1547979 | settled? 5182
+26s 1 of 22364 | articleChars 1593272 | settled? 5334
+31s 1 of 22364 | articleChars 1635203 | settled? 5474
+36s 1 of 22364 | articleChars 1677069 | settled? 5614
+41s 1 of 22364 | articleChars 1719792 | settled? 5757
+47s 1 of 22364 | articleChars 1759478 | settled? 5889
+52s 1 of 22364 | articleChars 1800438 | settled? 6027
+57s 1 of 22364 | articleChars 1837963 | settled? 6153
+62s 1 of 32442 | articleChars 1910260 | settled? 6204
+68s 1 of 32442 | articleChars 1910260 | settled? 6204
+73s 1 of 32442 | articleChars 1910260 | settled? 6204
+=== 4.9 MB expected 79492
+5s 1 of 21902 | articleChars 1325735 | settled? 4438
+10s 1 of 21902 | articleChars 1382730 | settled? 4628
+16s 1 of 21902 | articleChars 1429527 | settled? 4786
+21s 1 of 21902 | articleChars 1470934 | settled? 4924
+26s 1 of 21902 | articleChars 1511348 | settled? 5060
+31s 1 of 21902 | articleChars 1552316 | settled? 5196
+36s 1 of 21902 | articleChars 1596796 | settled? 5346
+41s 1 of 21902 | articleChars 1638228 | settled? 5484
+47s 1 of 21902 | articleChars 1672266 | settled? 5598
+52s 1 of 21902 | articleChars 1715444 | settled? 5742
+57s 1 of 21902 | articleChars 1752156 | settled? 5866
+63s 1 of 21902 | articleChars 1790996 | settled? 5996
+68s 1 of 21902 | articleChars 1826311 | settled? 6114
+75s 1 of 21902 | articleChars 1863500 | settled? 6238
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1028

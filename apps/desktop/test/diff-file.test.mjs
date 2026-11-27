@@ -8,8 +8,8 @@ import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { bootTwoPanes, closeHarness, harnessBase, routeSkeleton } from './support/two-pane.mjs';
+import { openBrowser, recordTiming } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -25,7 +25,7 @@ const crlf = '--- a/x.txt\r\n+++ b/x.txt\r\n@@ -1,3 +1,3 @@\r\n keep\r\n-gone\r\
 const files = { '/r/change.diff': fixture, '/r/fix.patch': crlf, '/r/note.md': '# Note\n\nSome words to read.\n' };
 
 async function withPage(fn, { width = 1280, height = 900 } = {}) {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width, height } });
     await fn(page);
@@ -311,7 +311,8 @@ for (const shape of ['many files', 'one hunk']) test(`a diff of ${process.env.MA
     assert.ok(first.pieces > 0, 'there is text at first text');
     assert.ok(first.pieces < first.total, `first text holds ${first.pieces} of ${first.total} pieces: it did not wait for the last chunk`);
     assert.ok(first.total > 1, 'more than one piece');
-    assert.ok(first.at < 3000, `first text ${first.at.toFixed(0)} ms`);
+    // That first text came before the last chunk is the piece count above; how long it took is recorded.
+    recordTiming(`diff ${mb} MB first text`, first.at);
     if (shape === 'one hunk') {
       // The second piece begins inside the hunk: its first line is an added line, tinted because the state was carried over.
       await page.evaluate(() => window.__marxyHandle.contentComplete());

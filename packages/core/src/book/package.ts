@@ -52,7 +52,7 @@ export interface TocLink {
 /** Why the book cannot be read as a book: the archive page shows it instead, with this sentence. */
 export class BookError extends Error {}
 
-/** The most a book's contents may list, and how deep it may nest: past either, the rest are left out. */
+/** The most a book's contents may list, and how deep its lists may nest (headings without links count): past either, the rest are left out. */
 export const TOC_MOST = 5000;
 export const TOC_DEPTH = 8;
 /** The most chapters a spine may list. */
@@ -223,8 +223,10 @@ export function navLinks(nav: XmlElement, from: string): TocLink[] {
   const toc = navs.find((n) => (n.attrs.type ?? '').split(/\s+/).includes('toc')) ?? navs[0];
   const list = toc ? kid(toc, 'ol') ?? find(toc, 'ol') : null;
   const out: TocLink[] = [];
-  const walk = (ol: XmlElement, depth: number): void => {
-    if (depth >= TOC_DEPTH) return;
+  // `depth` is the level an entry is drawn at; `nest` is how many lists deep the walk is, and is what the limit counts,
+  // so headings without links cannot carry the walk past it.
+  const walk = (ol: XmlElement, depth: number, nest: number): void => {
+    if (nest >= TOC_DEPTH) return;
     for (const li of kidsOf(ol, 'li')) {
       if (out.length >= TOC_MOST) return;
       const a = kid(li, 'a') ?? kid(li, 'span');
@@ -233,10 +235,10 @@ export function navLinks(nav: XmlElement, from: string): TocLink[] {
       if (at && text) out.push({ text: text.slice(0, 500), depth, path: at.path, frag: at.frag });
       const sub = kid(li, 'ol');
       // A heading with no link of its own still holds its children, one level in.
-      if (sub) walk(sub, at && text ? depth + 1 : depth);
+      if (sub) walk(sub, at && text ? depth + 1 : depth, nest + 1);
     }
   };
-  if (list) walk(list, 0);
+  if (list) walk(list, 0, 0);
   return out;
 }
 
@@ -244,16 +246,16 @@ export function navLinks(nav: XmlElement, from: string): TocLink[] {
 export function ncxLinks(ncx: XmlElement, from: string): TocLink[] {
   const map = kid(ncx, 'navMap') ?? find(ncx, 'navMap');
   const out: TocLink[] = [];
-  const walk = (el: XmlElement, depth: number): void => {
-    if (depth >= TOC_DEPTH) return;
+  const walk = (el: XmlElement, depth: number, nest: number): void => {
+    if (nest >= TOC_DEPTH) return;
     for (const p of kidsOf(el, 'navPoint')) {
       if (out.length >= TOC_MOST) return;
       const text = clean(textOf(kid(kid(p, 'navLabel'), 'text'))) ?? '';
       const at = entryOf(from, kid(p, 'content')?.attrs.src ?? '');
       if (at && text) out.push({ text: text.slice(0, 500), depth, path: at.path, frag: at.frag });
-      walk(p, at && text ? depth + 1 : depth);
+      walk(p, at && text ? depth + 1 : depth, nest + 1);
     }
   };
-  if (map) walk(map, 0);
+  if (map) walk(map, 0, 0);
   return out;
 }

@@ -1,0 +1,12 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/VWR/deep.mjs --browser chromium
+{"name":"html-nested-div","bytes":330042,"ms":8599,"view":"demo › deep-html-nested-div.html Read Source A web page, in a sandbox. Its code, in Source","pageerrors":[]}
+{"name":"html-nested-ul","bytes":270010,"ms":7999,"view":"demo › deep-html-nested-ul.html Read Source A web page, in a sandbox. Its code, in Source","pageerrors":[]}
+{"name":"xml-nested","bytes":210001,"ms":2866,"view":"demo › deep-xml-nested.xml Read Source XML that Marxy cannot draw as a tree: at line 1, nesting more than 256 levels deep, which this view d","pageerrors":[]}
+{"name":"yaml-flow","bytes":60004,"ms":2657,"view":"demo › deep-yaml-flow.yaml Read Source YAML that Marxy cannot draw as a tree: at line 1, a nested flow collection, which this view does not ","pageerrors":[]}
+{"name":"yaml-indent","bytes":4518390,"ms":2765,"view":"demo › deep-yaml-indent.yaml Read Source k0: k1: k2: k3: k4: k5: k6: k7: k8: k9: k10: k11: k12: k13: k14: k15: k16: k17: k18: k19: k20: k21:","pageerrors":[]}
+{"name":"json-arrays","bytes":60000,"ms":2815,"view":"demo › deep-json-arrays.json Read Source JSON that Marxy cannot draw as a tree: at line 1, nesting more than 256 levels deep, which this vie","pageerrors":[]}
+{"name":"json-objs","bytes":180001,"ms":2741,"view":"demo › deep-json-objs.json Read Source JSON that Marxy cannot draw as a tree: at line 1, nesting more than 256 levels deep, which this view ","pageerrors":[]}
+{"name":"toml-inline","bytes":60005,"ms":2616,"view":"demo › deep-toml-inline.toml Read Source TOML that Marxy cannot draw as a tree: at line 1, nesting more than 256 levels deep, which this vie","pageerrors":[]}
+{"name":"svg-nested","bytes":210046,"ms":3113,"view":"demo › deep-svg-nested.svg Read Source AN IMAGE THAT WOULD NOT DRAW deep-svg-nested.svg /demo/ size 205.1 KB · 210,046 bytes kind an image, ","pageerrors":[]}
+{"name":"jsonl-deep","bytes":360060,"ms":2744,"view":"demo › deep-jsonl-deep.jsonl Read Source JSON Lines with fewer than two records · shown line by line, as written 1 {\"a\":{\"a\":{\"a\":{\"a\":{\"a\":","pageerrors":[]}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1046

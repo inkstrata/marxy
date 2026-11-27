@@ -6,8 +6,8 @@ import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { bootTwoPanes, closeHarness } from './support/two-pane.mjs';
+import { idle, openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -29,14 +29,14 @@ const REPLACED = BOM + LF_DOC.replaceAll('colour', 'color').replace(/\n/g, '\r\n
 const hex = (text) => Buffer.from(text, 'utf8').toString('hex');
 
 async function withApp(files, fn, { open = [A] } = {}) {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await bootTwoPanes(page, { files, open, guard: true });
     const mod = (await page.evaluate(() => navigator.platform)) === 'MacIntel' ? 'Meta' : 'Control';
     const api = {
       mod,
-      settle: () => page.evaluate(() => new Promise((r) => setTimeout(r, 150))),
+      settle: () => idle(page),
       /** The editor's text, "\n" between lines. */
       doc: () => page.evaluate(async () => (await import('/src/source/editor.ts')).activeSourceEditor().view.state.doc.toString()),
       /** The store's bytes as hex (a byte-order mark kept). */

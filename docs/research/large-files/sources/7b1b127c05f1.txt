@@ -1,0 +1,335 @@
+Rust Internals
+
+What is perf.rust-lang.org measuring and why is "instructions:u" the default?
+
+compiler
+
+petrochenkov
+
+April 14, 2019, 1:47pm
+
+1
+
+Today I observed this discussion on PR Sign in to GitHub · GitHub
+
+Zoxc: This seems to be a slight performance regression.
+
+nnethercote: How so? Pre-landing measurements indicated it was a slight improvement.
+
+Zoxc: Instruction count doesn't matter =P
+
+So, I wanted to clarify with the people making perf changes to the compiler and running benchmarks - what we are actually measuring and why?
+
+perf.rust-lang.org currently has multiple metrics collected by perf:
+
+wall-time, this what we are ultimately aiming for, I think?
+
+People should wait less for the compilation to complete, however this metric is probably hard to use due to high fluctuation (?).
+
+instructions:u, instructions executed by our process (but not operating system).
+
+For x86 (macro-)instructions are a relatively high-level language that's interpreted by a CPU front-end and coverted into lower-level uops that are actually executed on the rest of CPU, in parallel fashion.
+Mapping to uops is certainly not 1-to-1, moreover even uops can take different number of cycles to execute, both statically and depending on the state of various caches and branch predictor.
+
+cycles:u, cycles required to execute instructions from our process (but not operating system).
+Time as it's measured by the CPU.
+
+max-rss, memory, we are not talking about it right now.
+
+faults, page faults, memory page is not known to MMU yet, OS intervention is needed, pretty specialized metric.
+
+cpu-clock, task-clock - ???
+
+What we need to measure depends highly on the PR in question.
+
+The PR changes IO behavior, or threading behavior, or some other behavior that significantly changes how we are jumping into OS code (e.g. page faults or something).
+
+In this case the CPU time (instructions/cycles/anything:u) goes out of the window and we need to use something else.
+
+The PR changes memory access patterns heavily, affecting behavior of caches.
+
+We probably need cycles:u.
+
+The PR just changes something computational.
+
+We probably need cycles:u.
+
+What we need to measure also depends on what target we are optimizing for.
+
+"Generic" target, it may be x86, or ARM, or WASM, or whatever.
+
+For this, I guess we need something like the number of optimized LLVM IR instructions before they enter the target-specific LLVM backend.
+
+Most of the compiler runs are probably going to be on x86_64 though, so we should probably optimize for that.
+
+Ok, x86_64 it is, but what microarchitecture? Let's optimize for "generic" x86_64.
+
+The exact mapping "instructions:u -> cycles:u" will depend on x86 micro-architecture (I'm not even sure what is perf.rust-lang.org run on).
+
+This is the only case where I think instructions:u is relevant.
+
+Let's optimize for x86_64/Haswell-or-something.
+
+AFAIK, Intel microarchitecture didn't change that much in the recent years, not sure about AMD.
+
+Then we probably need cycles:u.
+
+Conclusions:
+
+No specific conclusions beside that cycles:u should probably be made the default.
+
+Any opinions?
+
+cc @Zoxc @nnethercote
+
+3 Likes
+
+petrochenkov
+
+April 14, 2019, 1:57pm
+
+2
+
+BTW, is there an IRLO alias for @rust-lang/wg-compiler-performance?
+
+eddyb
+
+April 14, 2019, 3:14pm
+
+3
+
+I think we should explicitly track cache misses (https://github.com/rust-lang-nursery/rustc-perf/issues/370).
+
+The short version is that cache misses should correlate well to “expensive (high-latency) memory traffic” and “non-local access patterns”, whereas faults (ignoring memory-mapped files) correlate better with number of allocations, than anything happening during the lifetime of those allocations.
+
+By combining the number of instructions with the number of cache misses, we should have a pretty good picture of the actual behavior of the code.
+
+Also, counting the number of events (rather than wall-time/clock cycles) helps normalize variance due to the OS and other processes coexisting on the same CPU and memory hierarchy.
+
+petrochenkov
+
+April 14, 2019, 3:25pm
+
+4
+
+eddyb:
+
+Also, counting the number of events (rather than wall-time/clock cycles) helps normalize variance due to the OS and other processes coexisting on the same CPU and memory hierarchy
+
+I wonder if PMUs provide some counters that are stable like "number of retired instructions" (not affected by other processes touching caches), but more precise, like "number of retired (uop * static_weight_in_cycles(uop))s". Need to check.
+
+Update: There's only unweighted UOPS_RETIRED.ALL (and a bunch of finer-grained counters for specific kinds of instructions).
+
+(Still feels wrong to measure that though, would be preferable to use cycles and try eliminating "other processes" on the perf machine instead.)
+
+1 Like
+
+nnethercote
+
+April 14, 2019, 11:47pm
+
+5
+
+I have strong opinions on this topic.
+
+Wall time is the ultimate metric. Unfortunately, is has high variance, which makes it very hard to use in practice. Small improvements and regressions (e.g. < 1%) are difficult to reliably detect with wall time.
+
+Instruction counts is a high-quality proxy measurement for wall time. The correlation between instruction counts and wall time is high. Instruction counts also have low variance. Very small improvements and regressions (e.g. 0.3%) can be reliably detected with instruction counts.
+
+Cycles are an even better proxy for wall time than instructions, but also have a high variance. So they have no advantage over wall time and so don't have much value.
+
+Let's look at some examples.
+
+Measurements for a tiny change that should not have affected performance. For instruction counts, the outliers are +1.3% and -1.1%, and the vast majority are inside the range -0.2% to +0.2%. For wall time, the outliers are -8.9% and +9.7%, and many are outside the range -1.0% to +1.0%.
+
+Measurements for a large improvement. This improvement is large enough that it's clear even from the wall time measurements, though the instruction counts are clearly more reliable. The instruction counts underestimate the wall time improvements somewhat.
+
+And just look at the graphs at perf.rust-lang.org. The instruction count graphs are basically straight lines. The wall time graphs bubble up and down significantly.
+
+I am well aware of the ways that instruction counts and wall time can diverge: cache misses, branch mispredictions, slow instructions such as integer division, etc. However, in my experience, significant divergence is extremely rare in practice. I say this as the author and long-term user of a profiling tool (Cachegrind) that measures instruction counts and simulates cache misses and branch mispredictions. Back in 2011 I wrote about using Cachegrind on SpiderMonkey:
+
+"it counts instructions, memory accesses, etc, rather than time. When making a lot of very small improvements, noise variations often swamp the effects of the improvements, so being able to see that instruction counts are going down by 0.2% here, 0.3% there, is very helpful."
+
+For all of the above reasons, I think instruction counts should stay as the default metric. It is certainly worth looking at wall time (and possibly the other metrics) as a sanity check, and I regularly do that.
+
+11 Likes
+
+mark-i-m
+
+April 15, 2019, 2:15am
+
+6
+
+nnethercote:
+
+Cycles are an even better proxy for wall time than instructions, but also have a high variance. So they have no advantage over wall time and so don’t have much value.
+
+I personally prefer cycles because it gives a better picture of overall system performance. The variance can be decreased by adjusting for variables in the environments
+
+fixing the frequency by using the "performance" scaling governor
+
+starting with a clean slate (e.g. rebooting between measurements)
+
+doing unmeasured warmup runs before measurements to warm caches etc
+
+running more than one measured experiment so as to increase sample size
+
+Also, I think the variance itself is an important value to track because it is a proxy for the tail latency. UX people have found that consistent performance is as important as high performance, which is why service providers care so much about 99%-tile latency.
+
+That said, in my normal work, I don't usually have to worry about changes as small as your describing, so YMMV.
+
+EDIT: Also,
+
+nnethercote:
+
+cache misses, branch mispredictions, slow instructions such as integer division, etc
+
+perhaps this is just a difference in the work we do, but I find that the most impactful things are not micro-architecture but (1) algorithms and (2) system-level things (e.g. page faults, disk seeks, bus bandwidth, etc). These things are measured by cycles but not instructions (unless I'm misunderstanding the metrics).
+
+petrochenkov
+
+April 15, 2019, 7:39am
+
+7
+
+@nnethercote, are you aware of any ways to reduce variance in wall-time/cycles to acceptable levels on the perf machine?
+
+(Using a dedicated real machine (not VM) running nothing but benchmarks, disabling hyper-threading, turbo boost, pinning to specific cores, etc.)
+
+Even if the variance stays higher than the instruction variance, that would still be an improvement.
+
+2 Likes
+
+nnethercote
+
+April 15, 2019, 11:21pm
+
+8
+
+Disabling ASLR is another possibility.
+
+Those are all plausible suggestions, but I don’t know what effect each would have in practice. In general, I would be surprised if the variance of wall time or cycles could be made as low as the variance of instruction counts.
+
+comex
+
+April 16, 2019, 2:19am
+
+9
+
+Cachegrind itself is capable of producing deterministic “cycle” counts based on its simulated cache model, right? But at the cost of a 100x or so slowdown in real execution time?
+
+nnethercote
+
+April 16, 2019, 4:46am
+
+10
+
+Callgrind (which is an extended version of Cachegrind) can produce cycle estimates, but I don’t really trust them, because it uses a very simple cost model of a simulated cache hierarchy.
+
+Callgrind’s slowdown is closer to 10x than 100x, but that’s still bad enough that I don’t think it’s a practical option for perf.rust-lang.org.
+
+cuviper
+
+April 16, 2019, 5:55am
+
+11
+
+Valgrind also serializes threads. In rayon, we’ve found that its crude threading model doesn’t represent parallel behavior well at all.
+
+1 Like
+
+petrochenkov
+
+April 16, 2019, 8:07am
+
+12
+
+comex:
+
+Cachegrind itself is capable of producing deterministic “cycle” counts based on its simulated cache model, right? But at the cost of a 100x or so slowdown in real execution time?
+
+FWIW, at work we are using a cycle-accurate simulator of x86 micro-architecture for certain perf work (that means cycles + no variance, yay), but that thing is even slower
+
+gnzlbg
+
+April 16, 2019, 12:36pm
+
+13
+
+How are these metrics gathered? perf can provide stats about misses in the different caches, but I have no idea which kind of variance these will have. Maybe there should be a documentation page somewhere about how to interpret the results shown in perf.rust-lang.org.
+
+system
+
+Closed
+
+July 15, 2019, 12:37pm
+
+14
+
+This topic was automatically closed 90 days after the last reply. New replies are no longer allowed.
+
+Related topics
+
+Topic
+
+Replies
+Views
+Activity
+
+Help Needed: corpus for measuring runtime performance of generated code
+
+compiler
+
+33
+
+6441
+
+October 2, 2018
+
+#[const_instr_count(N)] label on functions?
+
+20
+
+1485
+
+July 10, 2022
+
+Measuring compiler performance
+
+tools and infrastructure
+
+3
+
+1690
+
+June 12, 2017
+
+Compiler Profiling Survey
+
+compiler
+
+24
+
+3147
+
+October 29, 2019
+
+Problem running rustc-perf on local machine
+
+tools and infrastructure
+
+4
+
+790
+
+September 29, 2021
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Powered by Discourse, best viewed with JavaScript enabled

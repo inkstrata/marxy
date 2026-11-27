@@ -1,8 +1,8 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { renderSafeHtml } from '../render/index.ts';
-import { bookAccount, bookHeadLine, readEpub, TOC_MOST, type Book, type BookResult } from './index.ts';
-import { epub2Parts, epub3Parts, NAV, partsReader, SAMPLE_CHAPTERS } from './testing/samples.ts';
+import { bookAccount, bookHeadLine, readEpub, TOC_DEPTH, TOC_MOST, type Book, type BookResult } from './index.ts';
+import { epub2Parts, epub3Parts, NAV, NCX, partsReader, SAMPLE_CHAPTERS } from './testing/samples.ts';
 
 const read = async (parts: Record<string, string | Uint8Array>): Promise<BookResult> => {
   const r = partsReader(parts);
@@ -217,4 +217,24 @@ test('a hostile book: a declared document type, a spine that repeats one chapter
   const b4 = await book(out);
   assert.doesNotMatch(b4.markdown, /passwd/);
   assert.match(b4.markdown, /Back to the start/);
+});
+
+test('contents nested past the limit through headings without links are cut there, in a nav and in an NCX', async () => {
+  // At every level a link, and beside it a heading with no link holding the next level.
+  let ol = '';
+  for (let k = 11; k >= 0; k--) ol = `<ol><li><a href="chapter-02.xhtml">Level ${k}</a></li><li><span>Part ${k}</span>${ol}</li></ol>`;
+  const three = epub3Parts();
+  three['OEBPS/nav.xhtml'] = NAV.replace(/<nav epub:type="toc">[^]*?<\/nav>/, `<nav epub:type="toc">${ol}</nav>`);
+  const levels = Array.from({ length: TOC_DEPTH }, (_, k) => [`Level ${k}`, 0]);
+  const fromNav = await book(three);
+  assert.equal(fromNav.tocFrom, 'nav');
+  assert.deepEqual(fromNav.toc.map((e) => [e.text, e.depth]), levels);
+
+  let points = '';
+  for (let k = 11; k >= 0; k--) points = `<navPoint><navLabel><text>Level ${k}</text></navLabel><content src="chapter-02.xhtml"/></navPoint><navPoint><navLabel><text>Part ${k}</text></navLabel>${points}</navPoint>`;
+  const two = epub2Parts();
+  two['OEBPS/toc.ncx'] = NCX.replace(/<navMap>[^]*<\/navMap>/, `<navMap>${points}</navMap>`);
+  const fromNcx = await book(two);
+  assert.equal(fromNcx.tocFrom, 'ncx');
+  assert.deepEqual(fromNcx.toc.map((e) => [e.text, e.depth]), levels);
 });

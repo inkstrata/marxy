@@ -152,14 +152,17 @@ export function printPane(pane: { readonly host: HTMLElement; readonly article: 
   } catch {
     sheet = null;
   }
+  let fallback: ReturnType<typeof setTimeout> | undefined;
   const done = (): void => {
+    clearTimeout(fallback);
     delete root.dataset.marxyPrint;
     pane.host.removeAttribute('data-marxy-print-pane');
     if (sheet) document.adoptedStyleSheets = document.adoptedStyleSheets.filter((s) => s !== sheet);
     window.removeEventListener('afterprint', done);
   };
   window.addEventListener('afterprint', done);
+  // WKWebView's print() can return before the sheet has drawn the page, so the rules stay until the print
+  // finishes (afterprint). The long timer is only for an engine that never fires it.
+  fallback = setTimeout(done, 60_000);
   window.print();
-  // An engine that prints synchronously has already fired afterprint, or never will.
-  setTimeout(done, 1000);
 }

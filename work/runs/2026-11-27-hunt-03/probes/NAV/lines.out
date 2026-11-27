@@ -1,0 +1,20 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/lines.mjs --browser chromium
+=== md-prose 5.1 MB expected the= 82730
+open: wall 10823ms task 10775ms script 884ms layout 792ms(247) style#281 nodes 198233
+Mod+F: wall 235ms task 251ms script 23ms layout 30ms(5) style#6 nodes 178837
+type t: wall 639ms task 656ms script 269ms layout 48ms(17) style#18 nodes 184907
+type h: wall 669ms task 675ms script 227ms layout 62ms(17) style#18 nodes 190359
+type e: wall 635ms task 639ms script 197ms layout 57ms(19) style#20 nodes 199445
+type  : wall 582ms task 598ms script 183ms layout 50ms(17) style#18 nodes 206714
+ count 1 of 24242
+ count 1 of 24242
+ count 1 of 24242
+Enter: wall 427ms task 485ms script 154ms layout 37ms(9) style#11 nodes 286342
+Enter: wall 363ms task 386ms script 65ms layout 47ms(12) style#14 nodes 291794
+Enter: wall 343ms task 394ms script 67ms layout 43ms(11) style#13 nodes 179694
+Shift+Enter: wall 450ms task 471ms script 72ms layout 54ms(13) style#15 nodes 185146
+End: wall 1331ms task 1336ms script 273ms layout 196ms(49) style#79 nodes 196387
+Ctrl+K @: wall 1020ms task 1022ms script 307ms layout 127ms(25) style#30 nodes 209955
+Ctrl+K : 5: wall 665ms task 652ms script 135ms layout 84ms(38) style#38 nodes 211148
+Enter goto line: wall 1184ms task 1194ms script 254ms layout 147ms(41) style#43 nodes 219674
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1107

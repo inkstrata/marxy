@@ -1,0 +1,90 @@
+[
+ {
+  "kind": "txt",
+  "bytes": 1000024,
+  "name": "big-txt-1000k.txt",
+  "steps": {
+   "open": {
+    "firstMs": 118,
+    "completeMs": 3132,
+    "openReturnMs": 170,
+    "busyUntilIdleMs": 4439,
+    "taskMs": 3235,
+    "layouts": 101,
+    "longestMs": 1166,
+    "nodes": 76752
+   },
+   "key": {
+    "wallMs": 1230,
+    "taskMs": 120,
+    "scriptMs": 13,
+    "layoutMs": 2,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 76867
+   },
+   "scrollMid": {
+    "wallMs": 1056,
+    "taskMs": 11,
+    "scriptMs": 3,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 76943
+   },
+   "scrollEnd": {
+    "wallMs": 1230,
+    "taskMs": 12,
+    "scriptMs": 1,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 76943
+   },
+   "toSource": {
+    "wallMs": 3146,
+    "taskMs": 1826,
+    "scriptMs": 210,
+    "layoutMs": 4,
+    "layouts": 15,
+    "recalcs": 44,
+    "longestMs": 1218,
+    "nodes": 76909
+   },
+   "toRead": {
+    "wallMs": 1921,
+    "taskMs": 716,
+    "scriptMs": 87,
+    "layoutMs": 261,
+    "layouts": 9,
+    "recalcs": 25,
+    "longestMs": 599,
+    "nodes": 77026
+   },
+   "reload": {
+    "wallMs": 6952,
+    "taskMs": 5776,
+    "scriptMs": 427,
+    "layoutMs": 287,
+    "layouts": 94,
+    "recalcs": 101,
+    "longestMs": 2672,
+    "nodes": 76993
+   },
+   "find": {
+    "wallMs": 2492,
+    "taskMs": 1403,
+    "scriptMs": 244,
+    "layoutMs": 50,
+    "layouts": 16,
+    "recalcs": 53,
+    "longestMs": 658,
+    "nodes": 82891
+   }
+  },
+  "errors": []
+ }
+]
