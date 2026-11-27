@@ -1,38 +1,23 @@
 //! `image_facts`: what an image file is, for the image page and its card (`src/facts`). It reads
 //! only what the page opened or scoped, judged as `marxy-file://` judges a request.
 
-use std::path::Path;
 use std::sync::RwLock;
 
 use crate::error::ShellError;
 use crate::facts::{self, ImageFacts};
-use crate::file_scheme::{self, OpenedSet, Refusal};
+use crate::scope::served::open_judged;
+use crate::scope::{self, OpenedSet};
 
 /// The facts of `raw` when `set` holds it; `Ok(None)` when it is not an image the facts know.
 pub fn facts_in(set: &RwLock<OpenedSet>, raw: &str) -> Result<Option<ImageFacts>, ShellError> {
-    let path = match file_scheme::resolve(set, Path::new(raw)) {
-        Ok(p) => p,
-        Err(Refusal::Outside) => {
-            return Err(ShellError::permission(raw, "not a file Marxy has opened"))
-        }
-        Err(Refusal::NotFound) => return Err(ShellError::not_found(raw, "no such file")),
-        Err(Refusal::Io(e)) => return Err(ShellError::io(raw, e)),
-    };
-    let file =
-        file_scheme::open_unblocked(&path).map_err(|e| ShellError::io(raw, e.to_string()))?;
-    if !file_scheme::handle_held(set, &file, &path) {
-        return Err(ShellError::permission(raw, "not a file Marxy has opened"));
-    }
-    if !file.metadata().is_ok_and(|m| m.is_file()) {
-        return Err(ShellError::invalid(raw, "not a file"));
-    }
+    let (file, path) = open_judged(set, raw)?;
     facts::read(&path, file).map_err(|e| ShellError::io(raw, e.to_string()))
 }
 
 #[tauri::command]
 pub async fn image_facts(path: String) -> Result<Option<ImageFacts>, ShellError> {
     let shown = path.clone();
-    crate::commands::fs::off_main(move || facts_in(file_scheme::opened(), &path))
+    crate::commands::fs::off_main(move || facts_in(scope::opened(), &path))
         .await
         .map_err(|e| ShellError::io(&shown, e))?
 }
@@ -44,7 +29,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn fixture(name: &str) -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR"))
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures/images")
             .join(name)
     }
