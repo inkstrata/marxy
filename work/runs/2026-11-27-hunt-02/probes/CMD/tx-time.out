@@ -1,0 +1,36 @@
+== 0.25 MB (519780 chars)
+  unwrap           fx 2979 ms  changedOld(wash) 0 ms  c=0
+  wrap-80          fx 202 ms  changedOld(wash) 196 ms  c=32560
+  sort-lines       fx 219 ms  changedOld(wash) 26 ms  c=27274
+  dedupe-lines     fx 390 ms  changedOld(wash) 176 ms  c=32920
+  renumber-list    fx 2668 ms  changedOld(wash) 0 ms  c=0
+  table-align      fx 13630 ms  changedOld(wash) 30 ms  c=9000
+  tick-all         fx 3087 ms  changedOld(wash) 0 ms  c=0
+  untick-all       fx 3828 ms  changedOld(wash) 0 ms  c=0
+  all counts: 27213 ms
+== 0.5 MB (519780 chars)
+  wrap-80          fx 174 ms  changedOld(wash) 139 ms  c=32560
+  dedupe-lines     fx 171 ms  changedOld(wash) 252 ms  c=32920
+  renumber-list    fx 2980 ms  changedOld(wash) 0 ms  c=0
+  table-align      fx 10465 ms  changedOld(wash) 9 ms  c=9000
+  tick-all         fx 2622 ms  changedOld(wash) 0 ms  c=0
+  untick-all       fx 3336 ms  changedOld(wash) 0 ms  c=0
+  all counts: 20029 ms
+== 1 MB (950670 chars)
+  unwrap           fx 6379 ms  changedOld(wash) 0 ms  c=0
+  wrap-80          fx 358 ms  changedOld(wash) 43 ms  c=66000
+  sort-lines       fx 143 ms  changedOld(wash) 34 ms  c=49650
+  renumber-list    fx 3479 ms  changedOld(wash) 0 ms  c=0
+  table-align      fx 17817 ms  changedOld(wash) 18 ms  c=18000
+  tick-all         fx 2715 ms  changedOld(wash) 0 ms  c=0
+  untick-all       fx 3773 ms  changedOld(wash) 0 ms  c=0
+  all counts: 34963 ms
+== 2 MB (2243340 chars)
+  trim-trailing    fx 123 ms  changedOld(wash) 71 ms  c=15000
+  unwrap           fx 10554 ms  changedOld(wash) 0 ms  c=0
+  wrap-80          fx 356 ms  changedOld(wash) 96 ms  c=156000
+  sort-lines       fx 338 ms  changedOld(wash) 79 ms  c=116681
+  dedupe-lines     fx 169 ms  changedOld(wash) 46 ms  c=141000
+  promote          fx 149 ms  changedOld(wash) 75 ms  c=3000
+  demote           fx 119 ms  changedOld(wash) 73 ms  c=3000
+  renumber-list    fx 10537 ms  changedOld(wash) 0 ms  c=0

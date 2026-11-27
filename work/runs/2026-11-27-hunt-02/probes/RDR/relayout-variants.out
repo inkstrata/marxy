@@ -1,0 +1,32 @@
+size 5MB heads 300 tables 1: open 8218ms
+drawer open (Ctrl+B): call 450ms longest 286ms tasks 5 sum 544ms
+drawer close: call 322ms longest 259ms tasks 6 sum 593ms
+rail hide (Ctrl+\): call 63ms longest 64ms tasks 3 sum 177ms
+rail show: call 105ms longest 76ms tasks 5 sum 318ms
+drawer open 2: call 471ms longest 327ms tasks 8 sum 822ms
+drawer close 2: call 438ms longest 351ms tasks 6 sum 743ms
+{"rail":"","t":0,"p":2327}
+size 3MB heads 3000 tables 3000: open 5860ms
+drawer open (Ctrl+B): call 464ms longest 407ms tasks 6 sum 775ms
+drawer close: call 432ms longest 348ms tasks 6 sum 725ms
+rail hide (Ctrl+\): call 101ms longest 73ms tasks 5 sum 343ms
+rail show: call 42ms longest 75ms tasks 4 sum 287ms
+drawer open 2: call 538ms longest 405ms tasks 8 sum 939ms
+drawer close 2: call 635ms longest 522ms tasks 6 sum 963ms
+{"rail":"","t":839,"p":1680}
+size 0.05MB heads 10 tables 2: open 1430ms
+drawer open (Ctrl+B): call 51ms longest 0ms tasks 0 sum 0ms
+drawer close: call 38ms longest 0ms tasks 0 sum 0ms
+drawer open 2: call 38ms longest 0ms tasks 0 sum 0ms
+drawer close 2: call 32ms longest 0ms tasks 0 sum 0ms
+resize 1000: call 7ms longest 0ms tasks 0 sum 0ms
+resize 1400: call 10ms longest 0ms tasks 0 sum 0ms
+{"rail":"","t":0,"p":92}
+size 2MB heads 1000 tables 100: open 4157ms
+drawer open (Ctrl+B): call 355ms longest 270ms tasks 7 sum 618ms
+drawer close: call 364ms longest 292ms tasks 4 sum 510ms
+drawer open 2: call 368ms longest 256ms tasks 4 sum 460ms
+drawer close 2: call 405ms longest 342ms tasks 5 sum 584ms
+resize 1000: call 94ms longest 73ms tasks 6 sum 400ms
+resize 1400: call 202ms longest 79ms tasks 7 sum 473ms
+{"rail":"","t":0,"p":2193}

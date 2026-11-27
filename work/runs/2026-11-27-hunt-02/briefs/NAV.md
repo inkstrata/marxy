@@ -2,7 +2,7 @@ You are a bug catcher for Marxy, a Tauri 2 desktop reader for local files. Your 
 prefix **NAV**. Your job is to find real bugs a reader of the app would meet in this domain and to
 write each one down. You do not fix anything.
 
-**Where.** Work only in the worktree `/Users/ian/Dev/marxy-wt/hunt-02` (branch `agent/hunt-02`). Read
+**Where.** Work only in the worktree `/Users/<user>/Dev/marxy-wt/hunt-02` (branch `agent/hunt-02`). Read
 `AGENTS.md` there first, then `.claude/skills/bug-catch/format.md`, which is the exact format your findings
 must take. The domain starts in: `src/left/frame.ts`, `src/left/registry.ts`, `src/left/panels/*.ts`, `src/left/row-window.ts`, `src/left/painted.ts`, `src/left/*-model.ts`, `src/layout/`, `src/pane/` (paths under `src/` are `apps/desktop/src/`). Promised behaviour is in
 `docs/using-marxy.md` and `docs/architecture.md`; a gap between what a doc promises and what the code does
@@ -14,7 +14,7 @@ reproduce, find the cause, and append a finding of your own that names the lead'
 be needed because ...".
 
 **Already known.** Skip anything already in `work/todo.md`, and hunt-01's rows B1–B16 in
-`/Users/ian/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/briefs/known-rows-hunt-01.md` (not on main yet). B1 (Export as a web page), B2 (Search regex)
+`/Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/briefs/known-rows-hunt-01.md` (not on main yet). B1 (Export as a web page), B2 (Search regex)
 and B3 (long unbroken run) are being fixed now: do not re-report them, but if opening or switching to a
 panel *sets one of them off by itself* (e.g. the Search panel re-runs a kept query on every switch), that
 is new and worth a finding. If you find more about a row, append a finding that says "Adds to todo row <id>".

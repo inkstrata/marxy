@@ -1,0 +1,41 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/NAV/mine.mjs --browser chromium
+== 5 MB markdown, 3000 headings
+  settled probe                  wall   272ms  longest    50ms  listeners add/rm 93/11
+  r1 Alt+1 Places                wall   729ms  longest   356ms  listeners add/rm 93/11
+  r1 Alt+3 Outline               wall  1167ms  longest   774ms  listeners add/rm 705/11
+  r1 Alt+4 Links                 wall   400ms  longest     0ms  listeners add/rm 1012/11
+  r1 Alt+5 Search                wall  9428ms  longest  8984ms  listeners add/rm 1133/11
+  r2 Alt+1 Places                wall   495ms  longest    81ms  listeners add/rm 1264/11
+  r2 Alt+3 Outline               wall   432ms  longest    72ms  listeners add/rm 1941/11
+  r2 Alt+4 Links                 wall   364ms  longest    86ms  listeners add/rm 2458/11
+  r2 Alt+5 Search                wall   324ms  longest     0ms  listeners add/rm 2585/11
+  r3 Alt+1 Places                wall   384ms  longest    90ms  listeners add/rm 2740/11
+  r3 Alt+3 Outline               wall   399ms  longest    74ms  listeners add/rm 3417/11
+  r3 Alt+4 Links                 wall   679ms  longest    61ms  listeners add/rm 3946/11
+  r3 Alt+5 Search                wall   462ms  longest    88ms  listeners add/rm 4073/11
+  r4 Alt+1 Places                wall   513ms  longest    83ms  listeners add/rm 4228/11
+  r4 Alt+3 Outline               wall   432ms  longest   120ms  listeners add/rm 4905/11
+  r4 Alt+4 Links                 wall   480ms  longest   101ms  listeners add/rm 5434/11
+  r4 Alt+5 Search                wall   439ms  longest    90ms  listeners add/rm 5561/11
+  type query "link"              wall   831ms  longest    81ms  listeners add/rm 5652/11
+  away Alt+1 (query kept)        wall   309ms  longest    51ms  listeners add/rm 5817/11
+  back Alt+5 (query kept)        wall   288ms  longest    61ms  listeners add/rm 5912/11
+  away Alt+1 (query kept)        wall   374ms  longest    70ms  listeners add/rm 6077/11
+  back Alt+5 (query kept)        wall   284ms  longest    76ms  listeners add/rm 6172/11
+  away Alt+1 (query kept)        wall   323ms  longest    79ms  listeners add/rm 6337/11
+  back Alt+5 (query kept)        wall   355ms  longest    80ms  listeners add/rm 6432/11
+  Outline filter type            wall  1740ms  longest    66ms  listeners add/rm 7107/11
+  fold drawer Alt+3              wall   725ms  longest   336ms  listeners add/rm 7113/11
+  reopen Alt+3                   wall   795ms  longest   393ms  listeners add/rm 7735/11
+rail buttons 10
+  rail click 0.0                 wall   861ms  longest    62ms  listeners add/rm 8154/11
+  rail click 0.1                 wall   867ms  longest   162ms  listeners add/rm 8241/11
+  rail click 0.2                 wall   824ms  longest    94ms  listeners add/rm 8867/11
+  rail click 0.3                 wall   878ms  longest    75ms  listeners add/rm 9390/11
+  rail click 0.4                 wall   960ms  longest    89ms  listeners add/rm 9537/11
+  rail click 0.5                 wall  1453ms  longest   198ms  listeners add/rm 9616/11
+rail click 0.6 ERR STALL >10s at rail click 0.6
+rail click 0.7 ERR STALL >10s at rail click 0.7
+/Users/<user>/Dev/marxy-wt/hunt-02/apps/desktop:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @marxy/desktop@0.2.0 shots: `node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/NAV/mine.mjs --browser chromium`
+Exit status 143

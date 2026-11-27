@@ -1,0 +1,14 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/CMD/panels.mjs --browser chromium
+== 1 MB, 3000 headings
+  open                               wall   4090 ms  longest task 2764 ms (>300ms: 1) 
+  background settled after 120692 ms
+  Metadata Alt+2                     wall   2380 ms  longest task 2276 ms (>300ms: 1) 
+  Metadata Tab into panel            wall    497 ms  longest task 108 ms (>300ms: 0) 
+  Metadata ArrowDown x6              wall   2224 ms  longest task 108 ms (>300ms: 0) 
+  Metadata Enter verb menu           wall    422 ms  longest task 108 ms (>300ms: 0) 
+  Metadata Escape                    wall    361 ms  longest task 152 ms (>300ms: 0) 
+  Metadata slash field               wall    927 ms  longest task 332 ms (>300ms: 1) 
+  Metadata type 'a'                  wall    441 ms  longest task 165 ms (>300ms: 0) 
+  Metadata Escape x2                 wall   1817 ms  longest task 386 ms (>300ms: 2) 
+  Transforms Alt+6                   wall  13233 ms  longest task 122 ms (>300ms: -1) 
+  Transforms Tab into panel          wall   3848 ms  longest task 18966 ms (>300ms: 4) 
