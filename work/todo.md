@@ -70,8 +70,7 @@ touch none of the files M1's branches change and were started that day. Q3, Q4, 
 | W7 | Install round 9's build here: `builds\20261123-0631-ee56607d` | Ian's word |
 | W8 | A frames-only launch: no start-time run hit it, so the 2 s stall fix has not been seen in the real app | |
 | W9 | A file on a mapped network drive, a `subst` drive and a OneDrive placeholder still opens: the head read now compares the opened handle's final path | |
-| B11 | Go on the search page does nothing (the owner's report). Not reproduced in the browser build: `o`, `Shift+o`, a click on a hit and the Line's `#` all go; Enter with Replace filled replaces, as meant. Which key or click, in the Mac window? hunt-01 NAV-01, NAV-06 | Ian |
-| B12 | Print to PDF on macOS: `printPane` (`export/page.ts:131`) removes its print rules 1 s after `window.print()`; does the sheet still have them when it draws? hunt-01 EXP-03 | |
+| B11 | Go on the search page does nothing (the owner's report). Not reproduced in the browser build or in Playwright WebKit with Mac keys (alone and in a split, docked): `o` on a hit, the foot's `o go` button, a click, a double-click, Cmd-click (opens beside), a click on a file row, Enter on a hit (verb menu, then Go) and the Line's `#` all go; Enter with Replace filled replaces, as meant. Two presses do nothing by design: Enter in the Find field only moves the cursor into the list, and Cmd+Enter there is ignored (the panel's keys skip Cmd chords). Not tried: floating drawer, the real Mac window. Which key or click did the owner press? hunt-01 NAV-01, NAV-06 | Ian |
 
 ## Waiting on Ian
 
