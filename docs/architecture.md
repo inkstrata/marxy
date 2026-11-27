@@ -93,9 +93,9 @@ nested, steps taken. The shared shape is a budget (`packages/core/src/util/budge
 `take(n)` counts work against it and refuses what would pass it, `give(n)` hands back a level on the way out, and
 `hit` and `refused` say afterwards that the reader stopped early and how much it left. A reader that stops says so to
 the reader in its own words, as the page's notes already do (`Only the first 500 parts are read.`, `The first 100 columns
-of more than 10,000; Source has them all.`), and never fails the page. The mail parser, the RTF reader and JSON Lines'
-keys count this way; other readers still hold their own constants and counters, listed with their limits in
-[file-kinds.md](file-kinds.md#size-limits) and, for the shell, [desktop-shell.md](desktop-shell.md).
+of more than 10,000; Source has them all.`), and never fails the page. The mail parser (its parts and its delimiter
+index), the RTF reader, JSON Lines' keys and the certificate check count this way; other readers still hold their own
+constants and counters, listed with their limits in [file-kinds.md](file-kinds.md#size-limits) and, for the shell, [desktop-shell.md](desktop-shell.md).
 
 Bytes that come in packed or encoded are bounded before they are unpacked, not after. A gzip stream in the page's
 archive reader is asked of the injected `Inflate` only one byte past what may be kept (`ArchiveLimits.stream` for a
@@ -123,6 +123,19 @@ parsed to 1 MB (`READING_MAX_RECORD`); a longer one is not read past its first b
 shows its head. Cut rows are counted apart from lines that are not records (the first line says "1 record cut"), they
 sort last and Export leaves them out as unreadable rows are, and they are not records for deciding that a file is JSON
 Lines at all: a file with fewer than two records under the limit is shown line by line as written.
+
+Containers are walked once, whatever their nesting. An archive's folders are counted as a tree of path segments, not by
+joining every prefix of every path, and each node's path is made from its parent's, so a listing of 100,000 entries 64
+deep sums in a tenth of a second. The office XML `find` is breadth first over a queue read by index, so a list 250,000
+wide is searched in its size, not its square. A book's contents stop at 8 levels of nesting counted by the lists
+themselves, so headings without links (which add no level to the Outline) cannot carry the walk past it. A message's
+lines that begin `--` are indexed once, on the first multipart body, and every level's delimiters are looked for among
+them, not by a rescan of its range: a message nested 12 deep in 64 MB reads in tens of milliseconds. That index is a
+budget (`MAIL_LIMITS.dashLines`, 1,000,000 lines); past it, a part whose end is not known is left out, since running
+it to the end of its parent would show the parts after it as its body, and the page says so (`Past 1,000,000 lines
+beginning “--”, a part whose end was not found is not read.`). A certificate's whole-tree check of lengths and nesting
+counts each element against one budget for the file (`CERT_NODES_MAX`, 100,000) and stops there; the facts are still
+read, and the card's `checked` row says the rest was not.
 
 ## Documents, edits and saves
 
