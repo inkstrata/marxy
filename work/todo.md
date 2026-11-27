@@ -69,8 +69,7 @@ touch none of the files M1's branches change and were started that day. Q3, Q4, 
 | W5 | Round 6 by eye: line icons, the room changes, top-edge wake and left-edge peek with a real pointer, Notepad writing during a 20 MB save, an SMB share | Ian |
 | W6 | Real files: an iPhone HEIC, real PSD and DDS files, WMA/AC3/AMR, a signed installer opened through the UI, and real `.doc`, `.ppt`, `.deb`, `.cab`, `.iso`, `.rar` | Ian |
 | W7 | Install round 9's build here: `builds\20261123-0631-ee56607d` | Ian's word |
-| W8 | A frames-only launch: no start-time run hit it, so the 2 s stall fix has not been seen in the real app | |
-| W9 | A file on a mapped network drive, a `subst` drive and a OneDrive placeholder still opens: the head read now compares the opened handle's final path | |
+| W9 | A file in a OneDrive placeholder (cloud-only) still opens: the head read compares the opened handle's final path; a subst drive and a network path are in check:tauri | Ian |
 | B11 | Go on the search page does nothing (the owner's report). Not reproduced in the browser build: `o`, `Shift+o`, a click on a hit and the Line's `#` all go; Enter with Replace filled replaces, as meant. Which key or click, in the Mac window? hunt-01 NAV-01, NAV-06 | Ian |
 | B12 | Print to PDF on macOS: `printPane` (`export/page.ts:131`) removes its print rules 1 s after `window.print()`; does the sheet still have them when it draws? hunt-01 EXP-03 | |
 

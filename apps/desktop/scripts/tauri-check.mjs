@@ -53,6 +53,19 @@ const env = {
   WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding`,
 };
 const launch = (file) => spawn(exe, [join(demo, file)], { env, stdio: 'ignore' });
+// The first launch's stdout, where the app prints its `MARK <name> <epoch ms> <detail>` lines (a windowed program's stdout is
+// the pipe it was given, so a piped launch hands them over).
+const launchMarks = [];
+const launchMarked = (file) => {
+  const run = spawn(exe, [join(demo, file)], { env, stdio: ['ignore', 'pipe', 'ignore'] });
+  let tail = '';
+  run.stdout.on('data', (chunk) => {
+    const lines = (tail + chunk).split(/\r?\n/);
+    tail = lines.pop();
+    for (const line of lines) if (line.startsWith('MARK ')) launchMarks.push(line);
+  });
+  return run;
+};
 // A deadline already past arrives here as a negative count: it is expired, not a timeout for Node to correct.
 const wait = (ms) => new Promise((r) => setTimeout(r, Math.max(0, ms)));
 const results = [];
@@ -121,7 +134,8 @@ let ev;
 let launchedAt;
 const start = async () => {
   launchedAt = Date.now();
-  app = launch('plans/pg16-upgrade-plan.md');
+  launchMarks.length = 0;
+  app = launchMarked('plans/pg16-upgrade-plan.md');
   browser = undefined;
   for (let i = 0; i < 60 && !browser; i++) {
     try {
@@ -189,6 +203,17 @@ try {
   check('the window is the Tauri app', await ev(() => '__TAURI_INTERNALS__' in window), await ev(() => location.href));
   check('the plan is set', await ev(() => document.querySelector('.marxy-article h1')?.textContent.includes('Postgres 14')));
   check('frame: rail, tab row, pane head, drawer', await ev(() => !!document.querySelector('.marxy-rail .marxy-l-rb') && !!document.querySelector('.marxy-tabbar') && !!document.querySelector('.marxy-head .marxy-crumbs') && !!document.querySelector('.marxy-drawer')));
+  // The launch's own marks: the text is on screen soon after the render, whichever signal ended the wait. A launch the engine
+  // gives no paint entry for waits for one by a fallback of about 2 s unless a contentful paint already sits before the render;
+  // that stall shows here as `since_render_ms` past the fallback, and a frames-only launch must say why it was one.
+  const painted = await (async () => {
+    for (let t = 0; t < 8000 && !launchMarks.some((m) => m.startsWith('MARK painted ')); t += 250) await wait(250);
+    return launchMarks.find((m) => m.startsWith('MARK painted '));
+  })();
+  const sinceRender = Number(/since_render_ms=(\d+)/.exec(painted ?? '')?.[1] ?? NaN);
+  const framesOnlyLaunch = /signal=frames-only/.test(painted ?? '');
+  check(`the launch's text is on screen within 1500 ms of the render, not after a 2 s wait for a paint (${framesOnlyLaunch ? 'a frames-only launch' : 'an engine-paint launch'})`,
+    sinceRender < 1500 && (!framesOnlyLaunch || /source=frame/.test(painted) && /fcp_before_ms=\d+/.test(painted)), painted ?? 'no painted mark was printed');
   const docked = await ev(() => document.body.getAttribute('data-marxy-drawer') === 'docked');
   // Outline is rows: a Markdown file's sections, each keyed by `h:`.
   const outlineRows = (prefix) => ev((p) => document.querySelectorAll(`.marxy-drawer .marxy-l-body[data-marxy-left="outline"] .marxy-l-prow[data-marxy-left-row^="${p}"]`).length, prefix);
@@ -1773,6 +1798,38 @@ try {
         s.kicker === 'A Windows program' && want.test(s.facts.signature ?? '') && /Microsoft/i.test(s.facts.company ?? s.facts.product ?? '') && /x64|ARM64|x86/.test(s.facts['built for'] ?? '') && s.openDisabled !== false, JSON.stringify(s).slice(0, 500));
       check('opening the program cards started no program', !running('signed-copy.exe') && !running('minimal.exe'));
     }
+  });
+  // A file whose path is not the one the disk keeps it under: a `subst` drive and a network path (the loopback administrative
+  // share), as a mapped drive or a share is. Opening one reads its head from a handle whose own path is compared with the path
+  // the shell judged, so the two spellings must agree; the document and a picture must still open.
+  await caseOf('mapped paths', async () => {
+    const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==';
+    const folder = real('mapped');
+    mkdirSync(folder);
+    writeFileSync(join(folder, 'mapped-note.md'), '# Mapped note\n\nread through another spelling of its path\n');
+    writeFileSync(join(folder, 'mapped-dot.png'), Buffer.from(pngBase64, 'base64'));
+    const opens = async (label, base) => {
+      await openReal(join(base, 'mapped-note.md'));
+      const h1 = await ev(() => document.querySelector('.marxy-article h1')?.textContent ?? '');
+      await openReal(join(base, 'mapped-dot.png'));
+      const image = await page.waitForSelector('.marxy-article img, .marxy-viewer-mount:not([hidden]) img', { timeout: 10000 }).then(() => true, () => false);
+      check(`a Markdown file and a picture on ${label} open`, h1 === 'Mapped note' && image, JSON.stringify({ h1, image }));
+    };
+    const taken = new Set(execFileSync('cmd', ['/c', 'subst'], { encoding: 'utf8' }).split(/\r?\n/).map((l) => l[0]?.toUpperCase()));
+    const letter = [...'ZYXWVUTSRQPONM'].find((c) => !taken.has(c) && !existsSync(`${c}:\\`));
+    if (!letter) check('a file on a subst drive opens (skipped: no free drive letter)', true);
+    else {
+      execFileSync('subst', [`${letter}:`, folder]);
+      try {
+        await opens(`a subst drive (${letter}:)`, `${letter}:\\`);
+      } finally {
+        execFileSync('subst', [`${letter}:`, '/d']);
+      }
+    }
+    const drive = /^([A-Za-z]):\\(.*)$/.exec(folder);
+    const share = drive ? `\\\\127.0.0.1\\${drive[1]}$\\${drive[2]}` : null;
+    if (!share || !existsSync(join(share, 'mapped-note.md'))) check('a file on a network path opens (skipped: this account cannot read its own administrative share)', true);
+    else await opens('a network path (the loopback share)', share);
   });
 } catch (error) {
   check('the run', false, String(error?.message ?? error).split('\n')[0]);
