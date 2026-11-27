@@ -283,10 +283,20 @@ export function installerMain(argv) {
   // Register the installed copy now, so Finder's Open With and the file-type defaults see this build at once, and
   // forget every other copy: the build folder (registered by the system shortly after it is written), old
   // worktrees and DMGs once mounted.
+  // The build folder's bundle goes (the zip keeps it; the Rust build cache stays), since the system would register it
+  // again after any sweep. A path can hold more than one record, so sweep until none is left.
   run(LSREGISTER, ['-f', installed]);
-  const others = otherRegistrations(out(LSREGISTER, ['-dump'], { maxBuffer: 1 << 30 }), installed);
-  for (const p of others) spawnSync(LSREGISTER, ['-u', p], { stdio: 'ignore' });
-  if (others.length) console.log(`unregistered ${others.length} other ${APP} cop${others.length === 1 ? 'y' : 'ies'} from Launch Services`);
+  rmSync(built, { recursive: true, force: true });
+  const swept = new Set();
+  for (let pass = 0; pass < 3; pass++) {
+    const others = otherRegistrations(out(LSREGISTER, ['-dump'], { maxBuffer: 1 << 30 }), installed);
+    if (!others.length) break;
+    for (const p of others) {
+      spawnSync(LSREGISTER, ['-u', p], { stdio: 'ignore' });
+      swept.add(p);
+    }
+  }
+  if (swept.size) console.log(`unregistered ${swept.size} other ${APP} cop${swept.size === 1 ? 'y' : 'ies'} from Launch Services`);
 
   if (o.cli) {
     const cliDir = pickCliDir(o.cliDir);

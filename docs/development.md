@@ -152,7 +152,8 @@ pnpm work installer --no-install --dmg               # build and keep the app an
    left alone), swaps the new bundle into `/Applications` (`~/Applications` when that is not
    writable; `--dest` to choose), checks it again, registers it with Launch Services so its file types
    take effect at once and unregisters every other copy of the bundle id (the build folder, old
-   worktrees, DMGs once mounted), so Finder's Open With offers only the installed one, and writes a `marxy` command to `~/.local/bin` when that is on the PATH
+   worktrees, DMGs once mounted; the build folder's bundle is deleted, as the zip keeps it), so
+   Finder's Open With offers only the installed one, and writes a `marxy` command to `~/.local/bin` when that is on the PATH
    (`--cli-dir`, `--no-cli`). `marxy <files>` opens them in the installed app the way Finder would; a
    file of that name the script did not write is left alone. Then opens the app unless `--no-launch`.
 
