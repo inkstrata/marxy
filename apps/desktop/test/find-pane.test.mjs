@@ -308,7 +308,9 @@ test('the typesetter is not slowed by an open find with tens of thousands of mat
     // paragraph is set in place, a split costing several times as much: 3 to 4 times the time here. The live Ranges'
     // cost came on top of that.
     recordTiming('typesetter 1 MB idle', idle);
-    holdBudget(assert, 'typesetter 1 MB with find open', withFind, 5 * idle + 1_000);
+    // Three to four times the idle time on a laptop and up to seven on a loaded hosted runner: the limit is twelve times,
+    // so only a typesetter the open find truly stalls crosses it.
+    holdBudget(assert, 'typesetter 1 MB with find open', withFind, 12 * idle + 5_000);
     // And on its own: 10 to 16 s here, before and after the idle slices.
     recordTiming('typesetter 1 MB 160 paragraphs with find open', withFind);
   });
