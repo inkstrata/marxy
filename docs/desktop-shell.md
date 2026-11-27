@@ -363,9 +363,13 @@ The archive, table, font and media commands open their file through the same rul
   Windows starts `notepad.exe` with the path as one argument; that path takes only files the window
   opened, never a program, and drops the line. A bare program name that is not found on Windows is
   tried again as a `.cmd` shim (`code`). On macOS, opened from Finder or the Dock the app has launchd's bare
-  `PATH`, so the first program it starts asks the login shell for the reader's (`$SHELL -l -c`, 2 s limit, once)
-  and adds `/opt/homebrew/bin`, `/usr/local/bin` and `~/.local/share/mise/shims` when they exist; started from a
-  terminal it keeps the `PATH` it has. The same `PATH` is used for `[[command]]` programs.
+  `PATH`, so a background thread started with the app (or the first program started, if sooner) asks the login shell for
+  the reader's: `$SHELL` (else the account's shell, else zsh) run as `-l -c` in its own process group, 2 s limit, once, so a
+  profile that leaves a daemon behind cannot hold it up. `-l` reads the profile files, not `.zshrc`. Only absolute
+  folders are kept (an empty or relative entry would search the opened folder), and `/opt/homebrew/bin`,
+  `/usr/local/bin` and mise's shims (`$MISE_DATA_DIR`, else `$XDG_DATA_HOME/mise`, else `~/.local/share/mise`) are
+  added when they exist. Started from a terminal the app keeps the `PATH` it has. The same `PATH` serves `[[command]]`
+  programs and the external editor.
 - **Your own commands**: `run_command` receives only an id and a folder. The program and its
   arguments come from `[[command]]` in `config.toml`, read on every run; it runs without a shell,
   with the page's text on stdin, a 10 s limit and 16 MB of output; on Windows inside a job object

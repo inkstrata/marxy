@@ -133,8 +133,13 @@ fn remove_staged(tmp: &Path) {
     }
     #[cfg(target_os = "macos")]
     {
-        macos_flags::clear(tmp);
-        let _ = fs::remove_file(tmp);
+        // Only a plain file with this one name: a second name (the link fallback of `commit_new` links the staged
+        // name to the destination) shares its flags with the reader's own file, which must keep them.
+        use std::os::unix::fs::MetadataExt;
+        if fs::symlink_metadata(tmp).is_ok_and(|m| m.is_file() && m.nlink() == 1) {
+            macos_flags::clear(tmp);
+            let _ = fs::remove_file(tmp);
+        }
     }
 }
 
@@ -156,16 +161,16 @@ mod macos_flags {
     pub const SF_IMMUTABLE: u32 = 0x0002_0000;
 
     extern "C" {
-        fn chflags(path: *const c_char, flags: c_uint) -> c_int;
+        fn lchflags(path: *const c_char, flags: c_uint) -> c_int;
     }
 
-    /// Clears every file flag on `path`; best effort.
+    /// Clears every file flag on `path` itself, not on what a link leads to; best effort.
     pub fn clear(path: &Path) {
         let mut bytes = path.as_os_str().as_bytes().to_vec();
         bytes.push(0);
         // SAFETY: `bytes` is NUL-terminated and outlives the call.
         unsafe {
-            chflags(bytes.as_ptr().cast(), 0);
+            lchflags(bytes.as_ptr().cast(), 0);
         }
     }
 }
@@ -2411,6 +2416,26 @@ mod tests {
         );
         assert_eq!(fs::read(&target).expect("read"), b"old\n");
         assert_eq!(staged_files(&dir), Vec::<String>::new());
+    }
+
+    /// The link fallback's staged name is a second name of the reader's own locked file: cleanup must not strip its flag.
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn cleanup_never_clears_the_flag_of_a_file_another_name_shares() {
+        let dir = scratch("uchg-shared");
+        let target = dir.join("doc.md");
+        let tmp = dir.join(".doc.md.marxy-tmp-1-0-0");
+        fs::write(&target, b"old").expect("seed");
+        fs::hard_link(&target, &tmp).expect("link");
+        chflags("uchg", &target);
+        remove_staged(&tmp);
+        let flags = {
+            use std::os::macos::fs::MetadataExt;
+            fs::metadata(&target).expect("meta").st_flags()
+        };
+        chflags("nouchg", &target);
+        assert_ne!(flags & macos_flags::UF_IMMUTABLE, 0, "the target was unlocked");
+        assert_eq!(fs::read(&target).expect("read"), b"old");
     }
 
     /// Cleanup of a staged file that carries the immutable flag clears the flag first, so it does not stay for good.

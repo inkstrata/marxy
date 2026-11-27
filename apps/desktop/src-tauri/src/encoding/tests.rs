@@ -216,17 +216,23 @@ fn a_save_writes_the_files_encoding_or_says_which_character_it_cannot() {
 #[test]
 fn utf8_with_a_stray_byte_is_still_utf8_and_keeps_the_byte() {
     // A character above ASCII that is well-formed UTF-8 says the file is UTF-8; the stray byte is damage, shown in Source.
-    let bytes = b"caf\xc3\xa9 and \xff here";
+    let bytes = "café crème brûlée and a naïve façade\n".repeat(3);
+    let mut bytes = bytes.into_bytes();
+    bytes.insert(20, 0xff);
+    let bytes = bytes.as_slice();
     let d = decode(bytes, None).unwrap();
     assert_eq!((d.found.label.as_str(), d.found.how), ("utf-8", How::Utf8));
     assert_eq!(d.map, ByteMap::Identity);
     assert_eq!(d.text, bytes);
     assert!(looks_like_utf8(bytes));
     assert!(!looks_like_utf8(b"caf\xe9 au lait"));
-    // A character cut short (E2 82, its last byte gone) is damaged UTF-8 too, however many bytes are stray.
-    let cut = b"# Caf\xe9\n\nmiddle \xff here\n\nlast \xe2\x82 line\n";
-    assert!(looks_like_utf8(cut));
-    assert_eq!(decode(cut, None).unwrap().found.how, How::Utf8);
+    // A character cut short at the very end (E2 82, its last byte gone) is damaged UTF-8 too.
+    let mut cut = "Café ☃ crème brûlée ".repeat(3).into_bytes();
+    cut.extend_from_slice(b"\xe2\x82");
+    assert!(looks_like_utf8(&cut));
+    assert_eq!(decode(&cut, None).unwrap().found.how, How::Utf8);
+    // In the middle it is two stray bytes, not evidence.
+    assert!(!looks_like_utf8(b"\xe2\x82 a \xe2\x82 b \xe2\x82 c"));
     // One byte above 7F is too few to guess from: a stray byte in UTF-8, as before.
     assert_eq!(
         decode(b"caf\xe9 au lait", None).unwrap().found.how,
@@ -312,4 +318,30 @@ fn shift_jis_and_gbk_text_is_guessed_as_such_not_taken_for_damaged_utf8() {
         decode(gbk_text.as_bytes(), None).unwrap().found.how,
         How::Utf8
     );
+}
+
+#[test]
+fn short_and_mixed_legacy_text_is_not_taken_for_utf8() {
+    let samples: [(&str, &encoding_rs::Encoding, &str); 5] = [
+        ("吾輩は猫である。", encoding_rs::SHIFT_JIS, "shift_jis"),
+        ("我是一只猫。", encoding_rs::GBK, "gbk"),
+        ("吾輩は猫である。名前はまだ無い。", encoding_rs::EUC_JP, "euc-jp"),
+        ("ｱｲｳｴｵ ｶｷｸｹｺ ｻｼｽｾｿ", encoding_rs::SHIFT_JIS, "shift_jis"),
+        (
+            "Release notes for version 2.1: the installer now keeps your settings. See the manual. これは新しい",
+            encoding_rs::SHIFT_JIS,
+            "shift_jis",
+        ),
+    ];
+    for (text, enc, label) in samples {
+        let (bytes, _, _) = enc.encode(text);
+        assert!(!looks_like_utf8(&bytes), "{label}: {text}");
+    }
+    // A UTF-8 file with one corrupt byte stays UTF-8, bytes kept.
+    let mut bytes = "日本語のテキスト、これは普通のファイルです。\n".repeat(4).into_bytes();
+    bytes[30] = 0xff;
+    assert!(looks_like_utf8(&bytes));
+    let d = decode(&bytes, None).unwrap();
+    assert_eq!((d.found.label.as_str(), d.found.how), ("utf-8", How::Utf8));
+    assert_eq!(d.text, bytes);
 }

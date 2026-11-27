@@ -1564,6 +1564,8 @@ fn main() {
     }
     builder
         .setup(move |_app| {
+            #[cfg(target_os = "macos")]
+            user_path::warm();
             if let Some(dir) = &own_data_dir {
                 for window in _app.config().app.windows.clone() {
                     tauri::WebviewWindowBuilder::from_config(_app.handle(), &window)?
