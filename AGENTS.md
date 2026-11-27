@@ -81,6 +81,25 @@ elsewhere and pointed in with `-C` refuses to run.
   script in its level's `README.md` (`scripts/verify.test.mjs` and `scripts/readme-index.test.mjs` fail
   otherwise).
 
+## Design principles
+
+The rules no check enforces. They apply to a one-line fix as much as to new design; the reasons, the owner
+of each concern and the shapes to copy are in [docs/principles.md](docs/principles.md). Read it before
+changing structure, adding a mechanism, or fixing a bug that crosses modules.
+
+- **One owner per concern.** Path scope, chords, "is a modal open", work budgets, text helpers and errors
+  each have one implementation. Find it and fix there; never add a second copy.
+- **Look for copies first.** A fix to one of two copies is half a fix: fix both, or route through the owner.
+- **Add nothing global:** no new `document`/`window` key listener, singleton, `appHandle()` call in a leaf
+  module, modal selector or helper copy. A chord is a `key` on a command in the registry.
+- **Dependencies point one way.** Import core from `@marxy/core` (export a missing name, don't deep-import);
+  pass a module what it needs instead of reaching for globals.
+- **Don't grow the giants.** New behaviour in `createRenderedView`, typeset's `attach()` and the other big
+  factories goes in its own module; every listener added is removed on destroy in the same change.
+- **Tests wait for conditions, not time,** and must pass on a hosted CI runner.
+- **Structure changes stand alone,** in their own pull request, after in-flight branches that touch the same
+  files. If the right fix is structural, make the narrow fix and add a tracker row.
+
 ## The cycle
 
 [docs/working.md](docs/working.md) has the whole of it. In short:

@@ -45,6 +45,24 @@ are part of it; R10 and R11 block the tag only if they turn out real. R1 (macOS 
 | E23 | Near-typeset: bound the idle typesetting queue to what is near the reader; `done` means nothing near is unset; `setAll()` for export, print and the rag gate; the page held still by keepPlace during scroll (cut from `geometry-table`) | A long page is at rest about as fast as a short one | M | `near-typeset` |
 | F24 | Teardown, what is still left: an open emitted live by Rust while no boot is subscribed (after the first take) is dropped; `createDocumentSignal` keeps its pane subscriptions after destroy until the panes go; if a boot's open callback throws, the held batches after it are lost | In-page reboots only, so latent | S | `teardown-2` |
 
+## Structure
+
+From the code-quality review of 2026-11-27 (`main` `b30bf002`): `reports/2026-11-27-code-quality.md`. Q1, Q5 and Q9
+touch none of the files M1's branches change and were started that day. Q3, Q4, Q6 and Q7 cut through
+`rendered-view.ts`, typeset, the core readers or most import lines, so they wait for M1.
+
+| # | What | Why | Size | Branch |
+| --- | --- | --- | --- | --- |
+| Q1 | One path-scope check in Rust: `file_scheme.rs` `handle_held` and `scope.rs` `handle_in` are one body with a different predicate, `commands/search.rs` judges its roots a third way, and 11 files call `file_scheme::opened()` directly (35 sites) against 21 through `scope::`. The opened set and the handle check move into `scope/`; `file_scheme.rs` only serves bytes | The security boundary has three copies; a fix to one misses the others | M | `scope-one-check` |
+| Q2 | One key router that knows what owns the keyboard (page, editor, modal, menu, palette, viewer): 53 keydown listeners and about 10 document or window dispatchers ordered by capture phase and `stopPropagation`; whether a modal is open is decided at 16 sites with four or more selectors; `inEditable` twice. Takes P5's "route keys once" | Key bugs such as a menu that stops taking arrows come from that ordering. After the menu-freeze fix lands | L | |
+| Q3 | Front-end layering: 38 of the 42 folders are in one value-import cycle; `appHandle()` is called 202 times in 78 files, viewers and document code included. Narrow interfaces passed in instead of the global; a dependency-direction rule in `check-boundaries` with a baseline that only shrinks; `frame/` as a named UI kit, the one-to-three-file folders merged | Nothing can be moved or tested alone. After M1, so the new rule fails no in-flight branch | L, gradual | |
+| Q4 | Core's public surface: 489 imports of `@marxy/core/src/...` in 223 files (132 through the package), no `exports` map. Add the map and rewrite the imports; then split core into the Markdown engine, the format readers (about 13k lines: office, book, mail, archive, certificates) and the workspace (index model, paths, layout, position) | The import rewrite is what makes any later move cheap; it touches 223 files, so after M1 | M | |
+| Q5 | Browser tests a hosted runner can pass: 466 fixed sleeps in 125 files, 441 launches for about 2,050 tests, timing budgets asserted as pass or fail, one preamble pasted 150 to 237 times. A shared test kit, waits on conditions, one boot per file, budgets recorded rather than failed; first slice: 20 to 30 files on a pull-request smoke job | CI runs no browser test (M4, M5) | L | `browser-test-kit` |
+| Q6 | Split the long functions: `createRenderedView` (S9) with one scroll keeper for its five or more hold mechanisms and one place type for the eight or more the app has; typeset `attach()` (about 900 lines) after `split-place` and `fold-typeset`; `createArchiveViewer` 1,372, the table lens 1,091, `createOpenPath` 1,003, `readRtf` about 736 lines | 43 front-end functions are over 200 lines. After M1, with E22 | L, gradual | |
+| Q7 | One windowed-row engine for the six or more lists that build their own (side-panel rows, reading rows, reading lines, table lens, hex, archive) | Each has its own scrolling bugs. With E22 | M | |
+| Q8 | Shared pieces: the scaffolding every viewer repeats; 12 hand-made caches; `plural` 25 times, 17 of them printing the bare number and the rest grouping it, so one panel says 1234 files and another 1,234; in core four `utf8Length`, four `extensionOf`, 11 line splitters; in Rust a second `ShellError` (`commands/os.rs`), 89 platform `cfg` lines inline in `atomic_write.rs`, and `main.rs` at about 1,700 lines of non-test code with two `#[path]` includes | Copies drift | M, gradual | `shared-pieces` |
+| Q9 | Run `pnpm gate:aesthetics` and `test:mutations` in the full tier and in CI on `main`: both are documented in `docs/testing.md` and run nowhere. The owner chose wiring them in over deleting them; `probe-layout.mjs` stays a hand-run probe and the contract-2 user themes stay beside the looks | A gate nobody runs stops being true | S | `gates-in-ci` |
+
 ## To try in a real window
 
 | # | What | Branch |
@@ -71,7 +89,7 @@ are part of it; R10 and R11 block the tag only if they turn out real. R1 (macOS 
 | S10 | Watch: the 2 s flat poll stats symlink targets, SMB included; needs a rule for which links are followed (`src-tauri` watch) | Polling a share costs | M |
 | S9 | `createRenderedView` is about 2,600 lines; listeners added far outnumber those removed (`view/rendered-view.ts`) | Goes with P3 and P5 | L |
 | P4 | `budgets`: untrusted input gets work budgets everywhere, not branch by branch | Each format found its own gap in review | L, gradual |
-| P5 | `one-view`: split the view's main function and route keys once | See S9 | L, gradual |
+| P5 | `one-view`: split the view's main function (Q6); routing keys once is Q2 | See S9 | L, gradual |
 | P6 | `invites`: `.ics` and `.vcf` as cards; the usable parser is MPL or large | Held | S |
 | P7 | `read-aloud`: the page read by a local Windows voice | Held | M |
 | R15 | iCloud Drive placeholder ("dataless") files are not recognised: a read, the index walk or a save may stall while the file downloads | Unverified; try it in M2 | S |

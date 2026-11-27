@@ -16,6 +16,7 @@ it is; file paths are relative to the repository root.
 | Document | Covers |
 | --- | --- |
 | [Architecture](architecture.md) | the packages, the path from bytes to page, editing and saving, the shell boundary, the front end's modules |
+| [Design principles](principles.md) | the rules every change follows: one owner per concern, dependency direction, keys, function size, budgets, tests, structure changes, shapes to copy |
 | [The desktop shell](desktop-shell.md) | the Rust side: startup, commands, file access, watching, archives and decoders, OS integration |
 | [Themes, looks and type](themes-and-type.md) | theme sheets, the look engine, tokens, the Studio, colour per language, typesetting, fonts |
 | [What Marxy keeps on disk](data-on-disk.md) | the config and data folders and every file in them |
