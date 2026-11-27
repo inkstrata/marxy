@@ -12,7 +12,7 @@ import { lineOfByte, parseJsonFrom, scanJson, type Cut, type JsonStream } from '
 import { fileTypeFor, guessedFromBytes } from '../kind/registry.ts';
 import { NOTEBOOK_MAX_BYTES, notebookReading } from './notebook.ts';
 import { accountHtml } from './account.ts';
-import { indexLines, linesAccount, linesTier, renderedChosen, type LinesTier, type ReadingLines } from './lines.ts';
+import { indexLines, isUtf8, linesAccount, linesTier, renderedChosen, type LinesTier, type ReadingLines } from './lines.ts';
 import {
   drawnColumns,
   columnTotal,
@@ -187,6 +187,21 @@ function written(t: Text, format: string, failed: Reading['failed'], note: strin
 }
 
 // ---- lines: a big log, text or code file ----------------------------------------------------------------------
+
+/**
+ * From this size a data file that does not parse is shown through the lines page (windowed, as a big text file is) and
+ * not as every line drawn at once: its text drawn whole is some thirty elements a line, a minute or more for a megabyte
+ * of pretty-printed JSON the moment an edit leaves it unreadable.
+ */
+export const WRITTEN_LINES_FROM = 256 * 1024;
+
+/** A data file that did not parse: its lines as written, drawn all at once when short and windowed when long. */
+function unreadable(t: Text, path: string, bytes: Uint8Array, format: string, failed: NonNullable<Reading['failed']>, note: string, account: readonly string[]): Reading {
+  if (bytes.length < WRITTEN_LINES_FROM || bytes.length >= 0xffffffff || !isUtf8(bytes)) return written(t, format, failed, note, account);
+  const made = linesReading(path, bytes, 'text');
+  const html = `<div class="marxy-reading marxy-lines" data-marxy-reading="lines">${accountHtml(account, esc(note))}<div class="marxy-lines-body" data-marxy-lines></div></div>`;
+  return { ...made, html, format, failed };
+}
 
 /** The last lines indexed for each path, held weakly: a log that grew is indexed from where the last index ended. */
 const lastLines = new Map<string, WeakRef<ReadingLines>>();
@@ -1059,7 +1074,7 @@ function choose(path: string, bytes: Uint8Array, kind: string | null, from: Tree
     } catch (error) {
       if (!(error instanceof TreeError)) throw error;
       const line = lineAt(t, error.at);
-      return written(t, format, { line, why: error.message }, `${format} that Marxy cannot draw as a tree: at line ${line}, ${error.message}. Shown line by line, as written.`, ['Nothing in the file was changed. The line named above is where reading stopped; Source shows it with the rest.']);
+      return unreadable(t, path, bytes, format, { line, why: error.message }, `${format} that Marxy cannot draw as a tree: at line ${line}, ${error.message}. Shown line by line, as written.`, ['Nothing in the file was changed. The line named above is where reading stopped; Source shows it with the rest.']);
     }
   }
   if (type.reading === 'records') {
@@ -1075,7 +1090,7 @@ function choose(path: string, bytes: Uint8Array, kind: string | null, from: Tree
     const read = notebookReading(path, t.text, t.offsets, (cu) => lineAt(t, cu));
     if ('id' in read) return read;
     const { line, why } = read.failed;
-    return written(t, 'Jupyter notebook', read.failed, `A notebook Marxy cannot read: at line ${line}, ${why}. Shown line by line, as written.`, ['Nothing in the file was changed. The line named above is where reading stopped; Source shows it with the rest.']);
+    return unreadable(t, path, bytes, 'Jupyter notebook', read.failed, `A notebook Marxy cannot read: at line ${line}, ${why}. Shown line by line, as written.`, ['Nothing in the file was changed. The line named above is where reading stopped; Source shows it with the rest.']);
   }
   if (plainPath(path, kind)) {
     const t = textOf(bytes);
