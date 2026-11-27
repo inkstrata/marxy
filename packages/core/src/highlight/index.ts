@@ -56,6 +56,7 @@ export {
   type LogRank,
 } from './line-classes.ts';
 import { own } from '../util/text.ts';
+import { pushAll } from '../util/spread.ts';
 
 /** One highlighted run; `scope` is omitted for unclassified text. */
 export interface HighlightToken {
@@ -106,13 +107,13 @@ function logTokens(line: string): HighlightToken[] {
     // A `[` just before the level word opens it (`[INFO]`): it and the `]` after the word are spacing too.
     const opens = fields.endsWith('[');
     space(lead);
-    if (fields.length > (opens ? 1 : 0)) runs.push(...escapeRuns(fields.slice(0, opens ? -1 : undefined)));
+    if (fields.length > (opens ? 1 : 0)) pushAll(runs, escapeRuns(fields.slice(0, opens ? -1 : undefined)));
     if (opens) space('[');
     runs.push({ text: line.slice(levelStart, levelEnd), className: LOG_LEVEL_CLASS });
     const rest = line.slice(levelEnd);
     const after = /^\]?:?\s*(?:-\s+)?/.exec(rest)![0];
     space(after);
-    runs.push(...escapeRuns(rest.slice(after.length)));
+    pushAll(runs, escapeRuns(rest.slice(after.length)));
     return runs;
   }
   // The time or the level elsewhere in the line: each is marked where it stands. A time in brackets loses them, and what
@@ -125,7 +126,7 @@ function logTokens(line: string): HighlightToken[] {
   for (const m of marks) {
     const [start, end] = m.at;
     const bracketed = m.time && line[start - 1] === '[' && line[end] === ']';
-    runs.push(...escapeRuns(line.slice(at, bracketed ? start - 1 : start)));
+    pushAll(runs, escapeRuns(line.slice(at, bracketed ? start - 1 : start)));
     if (bracketed) space('[');
     runs.push({ text: line.slice(start, end), className: m.className });
     at = end;
@@ -134,7 +135,7 @@ function logTokens(line: string): HighlightToken[] {
     space(taken);
     at += taken.length;
   }
-  runs.push(...escapeRuns(line.slice(at)));
+  pushAll(runs, escapeRuns(line.slice(at)));
   return runs;
 }
 

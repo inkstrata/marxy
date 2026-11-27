@@ -5,6 +5,7 @@
 import { lineSpan } from '../selection/cursor.ts';
 import type { PartTree, PartUnit } from '../viewers/types.ts';
 import { treeParts } from './moves.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 interface Range {
   readonly start: number;
@@ -242,7 +243,7 @@ export function readingParts(i: ReadingPartsInputs): PartTree | null {
     // A log or a patch read as a file of lines: each of the file's pieces in turn.
     top = [];
     const codes = i.within ? [...root.querySelectorAll<HTMLElement>(':scope > code[data-marxy-s]')] : [...i.article.querySelectorAll<HTMLElement>('pre.marxy-run > code[data-marxy-s]')].filter((c) => c.closest(FENCED) === null);
-    for (const code of codes) top.push(...codeUnits(code, i, mk));
+    for (const code of codes) pushAll(top, codeUnits(code, i, mk));
   } else {
     const build = (holder: Element): PartUnit[] => {
       const out: PartUnit[] = [];

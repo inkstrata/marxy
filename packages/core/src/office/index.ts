@@ -9,6 +9,7 @@ import { readOdf } from './odf.ts';
 import { readRtf, type RtfOptions } from './rtf.ts';
 import { readSlides } from './slides.ts';
 import { readWord } from './word.ts';
+import { pushAll } from '../util/spread.ts';
 
 export { IMAGE_SCHEME, escapeText, sourceRangeOf, writeMarkdown, type OfficeMarks, type OfficeMarkdown, type SourceSpan } from './markdown.ts';
 export { RTF_LIMITS, startsAsRtf, type RtfOptions } from './rtf.ts';
@@ -118,7 +119,7 @@ function rtfAccount(r: OfficeReading): string[] {
   out.push('A field shows the text it last showed, and a link’s address is written after its words as text: nothing is followed, fetched or run.');
   const said = [...doc.leftOut];
   if (said.length > 0) out.push(`Also left out: ${said.join(', ')}.`);
-  out.push(...(doc.cut ?? []));
+  pushAll(out, (doc.cut ?? []));
   out.push('Source shows the file as it is.');
   return out;
 }

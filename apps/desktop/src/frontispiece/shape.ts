@@ -2,6 +2,7 @@
 // and the sanitiser and is in `#doc`; this only moves those elements into place and names them with
 // classes. It writes no markup: every node here was made by createElement or already existed.
 import { directionOf, type PieceMatter } from './pieces.ts';
+import { appendAll } from '@marxy/core/src/util/spread.ts';
 
 /** Verse indents deeper than this are set at this depth; no piece in the corpus comes close. */
 const MAX_INDENT = 8;
@@ -115,7 +116,7 @@ export function shapeFrontispiece(doc: HTMLElement, matter: PieceMatter): HTMLEl
   root.className = `marxy-frontispiece marxy-frontispiece-${matter.form}`;
   const page = owner.createElement('div');
   page.className = 'marxy-frontispiece-page';
-  page.append(...doc.childNodes);
+  appendAll(page, doc.childNodes);
   root.append(page);
   doc.append(root);
 

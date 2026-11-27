@@ -15,6 +15,7 @@ import { langOfFence } from '@marxy/core/src/kind/registry.ts';
 import type { LineRange, RunSessionOptions } from '@marxy/core/src/highlight/session.ts';
 import { peekTokens, rememberTokens } from '../render/block-cache.ts';
 import { fenceTokens, openRuns, type RunsChannel, type RunsPiece, type RunsSink } from '../render/highlight.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 /** One mark per role, with the class Read's spans carry (base.css colours both). */
 const MARKS = RUN_ROLES.map((role) => Decoration.mark({ class: `marxy-tok-${role}` }));
@@ -257,7 +258,7 @@ export function fenceColour(tokens: FenceTokens = fenceTokens): Extension {
           const known = peekTokens(fence.lang, text);
           const runs = known ? (known.runs ??= runsFromTokens(known.lines)) : this.unkept.get(key);
           if (runs) {
-            marks.push(...marksFromRuns(runs, fence.from, fence.to));
+            pushAll(marks, marksFromRuns(runs, fence.from, fence.to));
           } else if (!this.asked.has(key)) {
             this.ask(key, text, fence.lang);
           }

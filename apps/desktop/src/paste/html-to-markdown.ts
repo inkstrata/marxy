@@ -6,6 +6,7 @@
 import { fenceFor } from '@marxy/core/src/paste/classify.ts';
 import { DEFAULT_POLICY, type Policy } from '@marxy/core/src/sanitize/policy.ts';
 import { sanitizeHtml } from '@marxy/core/src/sanitize/sanitize-html.ts';
+import { maxOf, pushAll } from '@marxy/core/src/util/spread.ts';
 
 // Sentinels for what inline text cannot say yet. NUL never survives HTML parsing, so a payload
 // cannot forge one (input NULs are removed first anyway).
@@ -21,7 +22,8 @@ const isElement = (n: Node): n is Element => n.nodeType === 1;
 const isText = (n: Node): n is Text => n.nodeType === 3;
 const tag = (e: Element): string => e.tagName.toLowerCase();
 const isBlock = (n: Node): n is Element => isElement(n) && BLOCKS.has(tag(n));
-const containsBlock = (e: Element): boolean => [...e.querySelectorAll('*')].some((c) => BLOCKS.has(tag(c)));
+const BLOCK_SELECTOR = [...BLOCKS].join(',');
+const containsBlock = (e: Element): boolean => e.querySelector(BLOCK_SELECTOR) !== null;
 
 /**
  * The default allow-list (same elements, attributes and URL schemes: a script, a handler, a style,
@@ -216,7 +218,7 @@ function tableOf(table: Element): string {
     return paragraph(s.replace(/\u0002+/g, '\u0001'), '<br>').replace(/\|/g, '\\|');
   };
   const grid = rows.map((tr) => [...tr.children].filter((c) => tag(c) === 'td' || tag(c) === 'th').map(cellText));
-  const width = Math.max(...grid.map((r) => r.length));
+  const width = maxOf(grid.map((r) => r.length), 0);
   if (width === 0) return '';
   const line = (r: string[]): string => `| ${Array.from({ length: width }, (_, i) => r[i] ?? '').join(' | ')} |`.replace(/ +\|/g, ' |');
   const [head, ...body] = grid as [string[], ...string[][]];
@@ -242,7 +244,7 @@ function blocksOf(nodes: Iterable<Node>): Out[] {
       const t = oneLine(inlineNodes(n.childNodes, false));
       if (t !== '') out.push({ text: `${'#'.repeat(Number(name[1]))} ${t}` });
     } else if (name === 'p' || name === 'dt' || name === 'dd' || name === 'summary' || name === 'caption' || name === 'figcaption') {
-      if (containsBlock(n)) out.push(...blocksOf(n.childNodes));
+      if (containsBlock(n)) pushAll(out, blocksOf(n.childNodes));
       else { const t = block(inlineNodes(n.childNodes, false)); if (t !== '') out.push({ text: t }); }
     } else if (name === 'ul' || name === 'ol') {
       const t = listOf(n);
@@ -259,7 +261,7 @@ function blocksOf(nodes: Iterable<Node>): Out[] {
       // An item with no list around it (a clipboard fragment can start mid-list): a one-item list.
       const t = listItem(n, '- ');
       if (t !== '- ') out.push({ text: t, list: true });
-    } else out.push(...blocksOf(n.childNodes)); // div, section, tr, tbody ...: transparent containers
+    } else pushAll(out, blocksOf(n.childNodes)); // div, section, tr, tbody ...: transparent containers
   }
   flush();
   return out;

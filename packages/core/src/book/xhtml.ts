@@ -6,6 +6,7 @@
 import { inlineText, run, type Block, type Inline, type OfficeImage, type Run } from '../office/model.ts';
 import { find, LENIENT_ROOT, type XmlElement } from '../office/xml.ts';
 import { entryOf } from './package.ts';
+import { pushAll } from '../util/spread.ts';
 
 export interface ChapterContext {
   /** The chapter's own zip entry, which its addresses are read against. */
@@ -139,7 +140,7 @@ export function chapterBlocks(body: XmlElement, ctx: ChapterContext): Block[] {
           to = at ? (ctx.linkKey(at.path, at.frag) ?? '') : '';
         }
         if (to) out.push({ t: 'link', href: to, kids });
-        else out.push(...kids);
+        else pushAll(out, kids);
         return;
       }
       default:
@@ -177,7 +178,7 @@ export function chapterBlocks(body: XmlElement, ctx: ChapterContext): Block[] {
       }
       if (BLOCK.has(k.name) || (k.name === 'img' && loose.every((x) => x.t === 'run' && x.text.trim() === ''))) {
         flush();
-        out.push(...blockOf(k));
+        pushAll(out, blockOf(k));
       } else inlineOf(k, {}, loose);
     }
     flush();
@@ -266,7 +267,7 @@ export function chapterBlocks(body: XmlElement, ctx: ChapterContext): Block[] {
       } else if (BLOCK.has(k.name) || (k.name === 'img' && loose.every((x) => typeof x === 'string' && x.trim() === ''))) {
         flush();
         for (const id of idsIn(k)) mark(id);
-        out.push(...blockOf(k));
+        pushAll(out, blockOf(k));
       } else loose.push(k);
     }
     flush();

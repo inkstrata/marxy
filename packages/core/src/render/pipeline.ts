@@ -13,6 +13,7 @@ import { headingIdsForDocument } from './heading-ids.ts';
 import { Abandoned } from '../parse/chunked.ts';
 import { rawTagsBalanced } from './raw-tags.ts';
 import { footnoteNumbers, listedFootnotes, renderToUnsanitisedHtml } from './render-html.ts';
+import { pushAll } from '../util/spread.ts';
 
 export { footnoteNumbers, listedFootnotes };
 
@@ -167,9 +168,9 @@ export async function renderDocumentSafeHtmlInSlices(document: Document, options
       // A run the sanitiser ended with an element open took the rest of the document with it in a whole render.
       if (pass.removed.some((r) => r.what === 'truncation')) return null;
       pieces.push(publish(pass.html, secret, remoteAttr));
-      passRemoved.push(...pass.removed);
+      pushAll(passRemoved, pass.removed);
     }
-    islandRemoved.push(...islands);
+    pushAll(islandRemoved, islands);
     const spent = performance.now() - t0;
     count = Math.max(4, Math.min(4096, Math.round(count * (budgetMs / Math.max(spent, 0.25)))));
     if (at < blocks.length) {
@@ -184,7 +185,7 @@ export async function renderDocumentSafeHtmlInSlices(document: Document, options
     const pass = sanitizeHtml(renderToUnsanitisedHtml(prepared, { provenance: secret, headingIds }), withNames, { provenanceNames: secret, remoteAttr });
     if (pass.removed.some((r) => r.what === 'truncation')) return null;
     pieces.push(publish(pass.html, secret, remoteAttr));
-    passRemoved.push(...pass.removed);
+    pushAll(passRemoved, pass.removed);
   }
   const removed: RenderRemoval[] = [...islandRemoved, ...passRemoved];
   return { html: pieces.join('\n'), pieces, removed, blockedImages: blockedImagesFrom(removed) };
