@@ -1,0 +1,19 @@
+{
+  "_note": "Browser test files a hosted Windows runner is known to pass (workflow browser-windows, run by hand). docs/testing.md has the rules.",
+  "files": [
+    "archive-page.test.mjs",
+    "data-tree-budget.test.mjs",
+    "demo-tour.test.mjs",
+    "frame-pdf.test.mjs",
+    "frame-viewers.test.mjs",
+    "large-open-panel.test.mjs",
+    "left-search-big.test.mjs",
+    "operations-copy.test.mjs",
+    "pane-close-guard.test.mjs",
+    "paragraph-restyle.test.mjs",
+    "progressive-large.test.mjs",
+    "reading-rows.test.mjs",
+    "source-place.test.mjs",
+    "tail-follow.test.mjs"
+  ]
+}
