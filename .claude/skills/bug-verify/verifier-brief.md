@@ -27,7 +27,8 @@ probes it cites under `probes/<PREFIX>/`.
    For a freeze, race each step against a 10 s timer and print which stalled.
 5. A test that fails without a fix is the best proof, because it becomes the repair's test. If you write one
    that has to sit in `apps/desktop/test/` to run, copy it into `probes/<PREFIX>/` and delete it from the
-   tree as soon as it has run.
+   tree as soon as it has run. If putting it in the tree is refused, do not retry: run a standalone probe
+   from `probes/<PREFIX>/` instead (a `shots` scenario, or a small program that copies the code's steps).
 6. If the bug can only show in the real window, on Windows, or with a real file you do not have, say so:
    `PLAUSIBLE`, with what would drive it.
 
