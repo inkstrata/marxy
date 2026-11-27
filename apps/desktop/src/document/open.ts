@@ -4,13 +4,14 @@
 // `createOpenPath` returns, never module state, so a second app instance in one page starts clean.
 // Every edit, save and fold of the open document goes through its store here.
 import { keepBeforeOverwrite } from '../versions/recorder.ts';
-import { KIND_HEAD_BYTES, lastChunkedParse, parseMarkdownChunked, slicesWithin, type Buffer, type DetectResult, type KindRule, readsAsPage } from '@marxy/core';
+import { KIND_HEAD_BYTES, lastChunkedParse, parseMarkdownChunked, slicesWithin, type Buffer, type Document, type DetectResult, type KindRule, readsAsPage } from '@marxy/core';
 import { detectFileKind, emptyKindsEnvelope, ruleReadFor, type KindsEnvelope } from '@marxy/core/src/kind/show-as.ts';
 import { fileTypeFor, nameTypeOf, noteContent, noteSniffed, type ContentSignals } from '@marxy/core/src/kind/registry.ts';
 import { setsPlainReading } from '@marxy/core/src/reading/index.ts';
 import { LINES_READ_ONLY_FROM, linesTier } from '@marxy/core/src/reading/lines.ts';
 import { parseConfig } from '@marxy/theme';
 import { buildNodeMapInSlices } from '../render/post.ts';
+import { parseInWorker, parseWorkerAvailable } from './parse-worker.ts';
 import { dirname } from '@marxy/core/src/index-model/paths.ts';
 import type { AppShell, OpenDocumentState } from '../app.ts';
 import { confirmLeaveDocument } from '../close.ts';
@@ -623,7 +624,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     const slices = bytes.length >= SLICED_BYTES && (bytes.length >= SLICED_ALONE_BYTES || deps.sliced?.() === true);
     openedInSlices = slices;
     let preparsed: Preparsed | undefined;
-    let cut = 0;
+    let parsedAs = '';
     // Plain prose, verse or a file as written never reads the Markdown parse in Read: the store makes it when
     // something asks (Source, the outline, a transform). One decode per kind asked about.
     const plainAsked = new Map<string | null, boolean>();
@@ -656,9 +657,9 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
       !(await kindAhead().then((ahead) => plainRead(ahead) || readsAsPage(file, ahead)))
     ) {
       const parsing = holding ? holding.snapshot().buffer.bytes : bytes;
-      const ast = await parseMarkdownChunked(parsing, { file, yieldNow: yieldToEventLoop, aborted: () => closed });
-      const stats = lastChunkedParse();
-      cut = stats.kind === 'slices' ? stats.slices : 0;
+      const large0 = await parseLarge(parsing, file, () => closed);
+      const ast = large0.ast;
+      parsedAs = large0.as;
       const made = { ast, nodeMap: await buildNodeMapInSlices(ast, yieldToEventLoop, undefined, () => closed) };
       if (closed) throw new Error('closed while the document was read');
       if (!holding) preparsed = made;
@@ -712,7 +713,7 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     if (claimed) while (deps.stores!.takeUnseen(claimed)) await revalidate(claimed, file);
     if (slices) await yieldToEventLoop();
     // One parse for a file however many panes show it: a pane that shares the store makes none.
-    if (parsedHere) await shell.mark('parsed', Date.now(), preparsed ? `slices=${cut}` : undefined);
+    if (parsedHere) await shell.mark('parsed', Date.now(), preparsed ? parsedAs : undefined);
     // A different document starts with no notices in this pane; another pane's are its own.
     clearNotices(paneOf(doc));
     // A text file whose Read is a page of the app's own (an SVG's image page, a message, an RTF document, a web page): its viewer, over the
@@ -759,19 +760,34 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   async function parseBehind(store: DocumentStore, file: string): Promise<void> {
     const bytes = store.snapshot().buffer.bytes;
     const stale = (): boolean => closed || current !== store || store.parsed() || store.snapshot().buffer.bytes !== bytes;
-    // A text the slices cannot cut (no blank line: one paragraph, a long task of its own) is not parsed behind its page:
-    // the store makes the parse if something asks for it.
-    if (!slicesWithin(bytes, UNCUT_SLICE_BYTES)) return;
+    // Where no worker can make it, a text the slices cannot cut (no blank line: one paragraph, a long task of its own)
+    // is not parsed behind its page: the store makes the parse if something asks for it.
+    const uncut = (): boolean => !slicesWithin(bytes, UNCUT_SLICE_BYTES);
+    if (!parseWorkerAvailable() && uncut()) return;
     try {
       // After the page's own idle mount, which the slices would otherwise starve.
       await view.contentComplete();
       if (stale()) return;
-      const ast = await parseMarkdownChunked(bytes, { file, yieldNow: yieldToEventLoop, aborted: stale });
+      const inWorker = await parseInWorker(bytes, file, stale);
+      if (inWorker === 'none' && uncut()) return;
+      const ast = inWorker !== 'none' ? inWorker : await parseMarkdownChunked(bytes, { file, yieldNow: yieldToEventLoop, aborted: stale });
       const nodeMap = await buildNodeMapInSlices(ast, yieldToEventLoop, undefined, stale);
       if (!stale()) store.takeParse(bytes, { ast, nodeMap });
     } catch (error) {
       if (!stale()) console.warn('marxy: the parse behind a plain reading failed', error);
     }
+  }
+
+  /**
+   * The parse of a large Markdown document for its page: in a worker, so this thread only receives it, or where no worker
+   * can start, in slices here as before. `as` is what the `parsed` mark says of it: `worker`, or `slices=<n>`.
+   */
+  async function parseLarge(bytes: Uint8Array, file: string, aborted: () => boolean): Promise<{ ast: Document; as: string }> {
+    const inWorker = await parseInWorker(bytes, file, aborted);
+    if (inWorker !== 'none') return { ast: inWorker, as: 'worker' };
+    const ast = await parseMarkdownChunked(bytes, { file, yieldNow: yieldToEventLoop, aborted });
+    const stats = lastChunkedParse();
+    return { ast, as: `slices=${stats.kind === 'slices' ? stats.slices : 0}` };
   }
 
   /** An archive's entry says what it is while its tab is open: an entry, in memory, not on disk, not editable. */
