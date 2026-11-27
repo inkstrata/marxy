@@ -378,8 +378,32 @@ test('a Word document of 150,000 paragraphs opens on its first 20,000, says the 
     assert.equal(shape.paras, 20_000);
     assert.equal(shape.last, 'paragraph 19999');
     assert.equal(shape.cut, 'Only the first 20,000 paragraphs, headings, tables and lists are shown; 130,000 more are left out.');
+    // Export as Markdown is the whole document, not the page's 20,000.
+    const md = await page.evaluate(async () => {
+      const out = window.__marxyHandle.panes().focused.content.viewer().exports('rendered').find((x) => x.id === 'markdown');
+      return new TextDecoder().decode((await out.build()).bytes);
+    });
+    assert.equal(md.split('\n').filter((l) => /^paragraph \d+$/.test(l)).length, 150_000);
+    assert.ok(md.includes('paragraph 149999'));
     // A timer asked for in the page fires soon: nothing holds the window for long once the page is up.
     const late = await page.evaluate(() => new Promise((done) => { const t = performance.now(); setTimeout(() => done(performance.now() - t), 0); }));
     assert.ok(late < 2_000, `a timer waited ${late} ms`);
+  });
+});
+
+const BIG_RTF = '/r/docs/big.rtf';
+test('the line saying the page was cut shows once, for a long RTF file and a long Word file', async () => {
+  const rtf = new TextEncoder().encode(`{\\rtf1\\ansi ${Array.from({ length: 20_500 }, (_, i) => `line ${i}\\par`).join('\n')}}`);
+  const body = Array.from({ length: 20_500 }, (_, i) => `<w:p><w:r><w:t>line ${i}</w:t></w:r></w:p>`).join('');
+  await withFrame({ files: { ...FILES, [BIG_RTF]: rtf, [BIG]: docWith(body, '') }, open: ['/r/README.md'] }, async (page) => {
+    for (const path of [BIG_RTF, BIG]) {
+      await open(page, path);
+      await page.waitForSelector('.marxy-office .marxy-article > p:not(.marxy-office-cut)', { timeout: 60_000 });
+      const seen = await page.evaluate(() => {
+        const a = document.querySelector('.marxy-office .marxy-article');
+        return [...a.querySelectorAll('*')].filter((e) => [...e.childNodes].some((n) => n.nodeType === 3 && /Only the first 20,000/.test(n.textContent))).length;
+      });
+      assert.equal(seen, 1, `${path}: the cut line is on the page ${seen} times`);
+    }
   });
 });

@@ -173,7 +173,12 @@ export function writeMarkdown(doc: Pick<OfficeDoc, 'blocks' | 'notes' | 'images'
   const alt = (i: number): string => doc.images[i]?.alt ?? '';
   // A note's label is the writer's own, so nothing a reader handed over is written into the Markdown as it stands.
   const labels = new Map(doc.notes.map((n, i) => [n.label, `n${i + 1}`]));
-  const note = (label: string): string | null => labels.get(label) ?? null;
+  const used = new Set<string>();
+  const note = (label: string): string | null => {
+    const l = labels.get(label) ?? null;
+    if (l) used.add(l);
+    return l;
+  };
   const parts: string[] = [];
   let bytes = 0;
   const asides: { start: number; end: number; who: string; when: string | null }[] = [];
@@ -286,12 +291,16 @@ export function writeMarkdown(doc: Pick<OfficeDoc, 'blocks' | 'notes' | 'images'
   };
 
   const most = options.blocks ?? Number.POSITIVE_INFINITY;
-  const left = doc.blocks.length - most;
-  write(left > 0 ? doc.blocks.slice(0, most) : doc.blocks, '', '');
+  const over = doc.blocks.length > most;
+  // What is left out: blocks with something to show (an empty paragraph or a bookmark mark is not counted).
+  const left = over ? doc.blocks.slice(most).filter((b) => b.t !== 'mark' && !(b.t === 'para' && !hasText(b.kids))).length : 0;
+  write(over ? doc.blocks.slice(0, most) : doc.blocks, '', '');
   // Marks after the last block name the end.
   for (const id of marks) anchors.push({ id, at: bytes });
   marks = [];
   doc.notes.forEach((n, i) => {
+    // A cut page keeps only the notes its kept text marks: a definition nothing points to would be an orphan.
+    if (over && !used.has(`n${i + 1}`)) return;
     push('\n');
     write(n.blocks, `[^n${i + 1}]: `, '    ');
   });

@@ -59,6 +59,9 @@ export function readRtfOffice(bytes: Uint8Array, options: RtfOptions = {}): Offi
 }
 
 /** The page's reading of `doc`: its Markdown, written to the block cap, and the sentences of every cap it met. */
+/** What the line for the block cap begins with: the RTF account leaves it to the line the page draws above the text. */
+export const BLOCKS_CUT = ' paragraphs, headings, tables and lists are shown;';
+
 function reading(doc: OfficeDoc): OfficeReading {
   const written = writeMarkdown(doc, { blocks: OFFICE_LIMITS.blocks });
   return { ...written, doc: written.cut.length > 0 ? { ...doc, cut: [...(doc.cut ?? []), ...written.cut] } : doc, words: countWords(doc.blocks) };
@@ -126,7 +129,7 @@ function rtfAccount(r: OfficeReading): string[] {
   out.push('A field shows the text it last showed, and a link’s address is written after its words as text: nothing is followed, fetched or run.');
   const said = [...doc.leftOut];
   if (said.length > 0) out.push(`Also left out: ${said.join(', ')}.`);
-  pushAll(out, (doc.cut ?? []));
+  pushAll(out, (doc.cut ?? []).filter((c) => !c.includes(BLOCKS_CUT)));
   out.push('Source shows the file as it is.');
   return out;
 }
