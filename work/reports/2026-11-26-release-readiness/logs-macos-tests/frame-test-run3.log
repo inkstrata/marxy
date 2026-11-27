@@ -1,0 +1,30 @@
+✔ the top bar says what the bytes are: line endings, BOM, bytes that are not UTF-8, indentation, size and lines (11607.396458ms)
+✔ the path is quiet segments and the file is named last (1344.133625ms)
+✔ the bottom bar says line, column and byte offset, and the code point after the caret (U+200B by name) (1528.672167ms)
+✔ the bottom bar says CRLF at the end of a line in a CRLF file, and the byte offset counts both bytes (1293.916208ms)
+✔ the byte count follows the reader's edits exactly (multi-byte text, breaks, a deletion and its undo) (5529.403166ms)
+ruler at 14px, scrolled 0: 23 ticks, worst error 0.297 px at column 5
+ruler at 14px, scrolled 700: 23 ticks, worst error 0.297 px at column 85
+ruler at 18px, scrolled 0: 17 ticks, worst error 0.094 px at column 5
+ruler at 18px, scrolled 700: 17 ticks, worst error 0.094 px at column 70
+✔ the ruler's tick for column N is within half a pixel of character N's centre, at 14 and 18 px, scrolled or not (3452.493334ms)
+✔ the ruler marks the caret column and a selection on one line, and the numbers are every tenth (1320.167584ms)
+✔ the ruler is hidden with soft wrap (Markdown) and below 520 px (4277.267583ms)
+✔ the bars never cover text and scrolling does not move them (1770.406ms)
+✔ the frame fills the pane, folded and unfolded, and the editor fills the frame (1834.10425ms)
+✔ invisible characters and find matches have marks at the height of their bytes; a click selects them (1740.209792ms)
+✔ find in Source still opens its panel inside the frame and finds the text (1353.96325ms)
+✔ the bars are not focus stops or live regions, and the strip and ruler are hidden from a screen reader (1422.081208ms)
+✔ first text never waits for the frame: the bars are in the page, filled, when the first line is (1306.027542ms)
+✔ a change on disk updates what the bars say (a reload: another line ending, size and lines) (1341.021ms)
+✔ opening another file from Source, slowly, keeps the old text on screen as the whole frame, at its place (2986.709708ms)
+✔ the caret byte counts the BOM after an edit, a character outside the BMP is one column, a stray byte is named (3922.886334ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 48469.635208
+node --test --experimental-strip-types --test-concurrency=1   22.96s user 8.07s system 63% cpu 48.525 total

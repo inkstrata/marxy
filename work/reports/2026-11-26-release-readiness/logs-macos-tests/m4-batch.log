@@ -1,0 +1,508 @@
+✔ the plan opens in the frame: the rail, its head and the drawer, its heading set, and the Outline card (3980.418542ms)
+✔ each data and text file is read as what it is: trees, records, a table, verse and prose (2940.335666ms)
+✔ a column's name sorts a table's rows, high to low first, and the table says so (2061.035458ms)
+✖ a fence that opens with a prompt reads as a session part; the Reading card names the parts by line; the block menu reads it as written (2097.401333ms)
+✔ in Source the shape is drawn from the editor's lines, its scrollbar hidden, and a click on it goes there; Read has the spine alone (4858.238375ms)
+✔ a JSON fence reads as a data tree at the file's own bytes, and the Reading card says prose + data + session (3718.070666ms)
+✖ a patch marks the words that changed in a changed line (323590.975209ms)
+✔ a log has the Levels card, and its times can be shown in your zone (2937.972292ms)
+✔ the log page has its day heading, the pauses and its escape code drawn as the warning tone, with the account in the fold; Filter by level to Warn hides the rest, saying so (3727.802083ms)
+✔ a photo is a page with its folder a step away, a HEIC falls to the card, a 2 GB disk image reaches its last byte (2540.510042ms)
+✔ on the plan: Space turns the page and marks the lines carried over, the spine is the scrollbar, and a note opens where you read (1996.297167ms)
+✔ Settings lists the eleven proposals, and a switch writes config.toml (1705.481334ms)
+✔ Export opens on the file in front with a web page chosen (1864.533125ms)
+✔ a TrueType font is a specimen the webview draws from the file: sets, sample, waterfall, every character, Font and Names (4642.85075ms)
+✔ a variable font has a slider per axis that sets its variation settings, and named instances as chips (3056.117584ms)
+✔ a collection's faces are a row above the specimen, each lifted into a font of its own and drawn (2979.157042ms)
+✔ a WOFF2 is drawn, and its names and axes come from the file itself, its own directory in the Font card (2531.705833ms)
+✔ a face the webview will not draw is its tables only, said in grey in the head as a tier (1868.109ms)
+✔ a WAV is the webview’s player, never started on its own, under a waveform drawn from its samples (5494.828208ms)
+✔ an MP4 says its codecs, size and an average rate for a recording, and plays where the webview has the codec (2214.51575ms)
+✔ one file follows what the webview says it can play: no gives the card, maybe gives the player (5380.947708ms)
+✔ an AIFF and an MKA open as media with their facts, and are asked about as what they are (3910.983458ms)
+✖ a WMA with no facts is the card when the webview says no, and the player when it says maybe (327101.128667ms)
+✔ a player that fails on the source turns the page to the facts-only card, with what the player said (2214.696459ms)
+✖ a codec the webview cannot play is a facts-only card with the way out, said in grey in the head as a tier (33127.775875ms)
+✔ an Ogg and a FLAC say their codec, channels, rate and length in the Media card, and their comments in Tags (1350.146958ms)
+✔ a PDF opens as its pages, drawn from ranges: the bar, the text layer, the Pages and Document cards (4516.524333ms)
+✖ a PDF opened with Outline shown opens at its first page: the dot that follows the page never draws one to find it (323485.157708ms)
+✔ find on a viewer's page sits under its bar, so the bar's right end stays in reach (2752.754584ms)
+✔ Find in the page reaches the text layer, page by page; the text layer selects the words (3568.655625ms)
+✖ a new query over a long PDF never shows the last query's count while its own pages are still being read (2260.93975ms)
+✔ Find stays live over a PDF made again after it changed on disk: its marks come back, and Enter steps in the new page (2066.959125ms)
+✔ the place is kept: Source shows the bytes, and Read comes back where it was (2046.836667ms)
+✔ a 400-page PDF draws only the pages near the view, and its last page is one key away (1897.796916ms)
+✔ a PDF with no extension opens by its bytes, guessed; a broken one is the card that says why (3025.554708ms)
+✔ a file with no reading: the card of facts with the bytes beside it, a quiet head, a byte named in the panel (1888.226333ms)
+✔ a 2 GB file opens at once and its last byte is one key away; only ranges are read (1410.815208ms)
+✔ the image page: fit, zoom by keys, square pixels from 300 %, the grid past 800 %, the readout from 400 % (1493.917167ms)
+✔ transparency over checks, with Light and Dark grounds for the tab; a large image fits without enlarging (1331.009625ms)
+✔ ← and → step through the folder in the same tab, with Back; the strip from three images (1417.893166ms)
+✔ → pressed faster than the pages open steps once per press, in one tab with Back; the HEIC card steps on too (1475.881958ms)
+✔ closing the left pane keeps the right pane's image an image, in Read; a hex view stays a hex view (1895.250166ms)
+✔ EXIF: the camera’s notes, a stored-sideways photo shown upright, and a location named but shown only on request (1444.404458ms)
+✖ a WebP with no extension is read from its bytes and the Reading card says so; a HEIC falls to the card; Source of a PNG is the bytes (1389.169417ms)
+✔ an SVG is text: Read draws it as an image and its script never runs; Source is its text (1204.975042ms)
+✖ a 1.1 MB page is painted before the panel reads it, and its links come after in the Links panel, every one counted (231900.546208ms)
+✔ in Split, Read returns to one pane in Read, and the control agrees at every step (1324.253541ms)
+✔ in Split, Source returns to one pane in Source (1267.669125ms)
+✔ pressing Split again toggles back to Read in one pane (1438.544792ms)
+✔ Read and Source chords leave Split too, including from inside the Source editor (1484.133458ms)
+✔ Source text typed in the closing pane is folded into the survivor, nothing lost (1558.927042ms)
+✖ the reading place survives leaving Split (2401.803875ms)
+✔ two different documents are never closed by Read, Source or Split: the notice stays and Read sets the focused mode (1186.543708ms)
+✔ quitting after leaving Split relaunches with one pane (the stuck layout) (1830.526625ms)
+✖ a 6 MB Markdown file opens as lines, its Outline from the scan, and a heading clicked lands on its line (212292.54825ms)
+✔ g r shows it rendered and the Outline becomes the parsed one; g r again comes back to lines (11782.527833ms)
+✔ under 5 MB Markdown opens as its page, with the parsed Outline, as before (6381.380625ms)
+✔ a file that could not be opened is the floor card, and the tab, head and cards name it (701.681458ms)
+✖ a wide table ends between two columns, fades at the side with more, and counts the columns past the edge (793.192125ms)
+✔ a CSV reading wider than its room says the columns past the edge in its own foot (919.383542ms)
+✔ a margin note measures its room to the Shape strip, and falls back under its line when a drawer takes it (981.806667ms)
+✖ a large open says "Reading N MB…" in the grey of a tier while it works, and not after (203517.614292ms)
+✔ a file gone from disk is said while it is gone, on its tab too, and nothing of it is left when it comes back (1885.642833ms)
+✔ an empty file says so, and its cards say no reading time and no lines (791.90425ms)
+✔ each block takes its own direction, a block in another script drops the chrome language, as do outline rows and tab names (921.264542ms)
+✔ golden pair code-escapes: Mod+V with HTML puts the Markdown at the caret, and one undo restores the buffer's bytes (1502.289208ms)
+✔ golden pair code: Mod+V with HTML puts the Markdown at the caret, and one undo restores the buffer's bytes (671.104792ms)
+✔ golden pair div-soup: Mod+V with HTML puts the Markdown at the caret, and one undo restores the buffer's bytes (921.153625ms)
+✔ golden pair google-docs: Mod+V with HTML puts the Markdown at the caret, and one undo restores the buffer's bytes (2717.872416ms)
+✔ golden pair headings-inline: Mod+V with HTML puts the Markdown at the caret, and one undo restores the buffer's bytes (1140.223333ms)
+✔ golden pair hostile-page: Mod+V with HTML puts the Markdown at the caret, and one undo restores the buffer's bytes (970.38575ms)
+✔ golden pair nested-lists: Mod+V with HTML puts the Markdown at the caret, and one undo restores the buffer's bytes (1070.766792ms)
+✔ golden pair table: Mod+V with HTML puts the Markdown at the caret, and one undo restores the buffer's bytes (1081.90875ms)
+✔ golden pair word: Mod+V with HTML puts the Markdown at the caret, and one undo restores the buffer's bytes (1057.255125ms)
+✔ the notice says once that the paste was converted (1947.405541ms)
+✔ a CRLF buffer: every line break of the insert is CRLF and no bare LF is in the saved bytes (1175.994625ms)
+✔ an LF buffer gets LF; a mixed one gets LF and its own endings are untouched (2945.072333ms)
+✔ a BOM buffer saves with its one BOM, and an insert holding U+FEFF adds none (1198.910833ms)
+✔ a concealed item: nothing is read, a notice names the refusal, the buffer and the panes are unchanged (1421.140833ms)
+✔ a TransientType item pastes as any other (1873.867417ms)
+✔ a rejected read refuses with its own message and inserts nothing (1546.585834ms)
+✖ hostile payloads pasted into Source give only the golden text: no request, no script, no change outside the editor (2136.366292ms)
+✔ plain text only: the editor's own paste inserts it, and the pasteboard is not asked (1721.562167ms)
+✔ HTML that is also Markdown text: the clipboard's own text goes in, not a conversion of the rendering (1778.006ms)
+✔ JSON text beside HTML goes in as typed: no fence is added to a Source buffer (1766.478041ms)
+✔ HTML with no text and nothing readable inserts nothing and says so (5993.941542ms)
+✔ several selections: the whole Markdown goes into every range, as one undo step (1993.307958ms)
+✔ a paste over a selection replaces it, and one undo brings it back (1506.321875ms)
+✔ a paste is one undo step on its own, apart from the typing before and after it (1599.958209ms)
+✔ the document changing while the pasteboard is read: nothing is inserted and a notice says so (2355.617166ms)
+✔ a paste into a file that changed on disk goes into the reloaded text, and the app writes nothing (1843.932083ms)
+✖ a paste while a conflict is pending lands in the editor like typing, and nothing is written over the other program's text (766450.39225ms)
+✔ Mod+Alt+Shift+V inserts the plain text, byte for byte, once, with no conversion notice (2015.226292ms)
+✔ Mod+Alt+Shift+V writes the plain text's line breaks as the buffer's own (859.213791ms)
+✔ Mod+Alt+Shift+V is not the find field's: in the find panel it reads nothing and inserts nothing (1423.01375ms)
+✔ nothing reads the pasteboard at boot, on focus, on a mode switch or after a copy (2381.100875ms)
+✔ source.paste-plain is a palette command too: run from the registry it inserts the text once, and is not offered in Rendered (1315.74575ms)
+✔ a shell with no native pasteboard (unsupported): an HTML + text paste in Source inserts the text as before, one undo restores, and nothing is said (1370.563084ms)
+✖ folds with both panes in Source set no page; each pane then shows the whole render of the current bytes (7435.789791ms)
+✔ a fold from the Source pane reaches the other pane showing Rendered, and nothing else changed for one pane (8412.586916ms)
+✔ moveLineDown keeps a LF file LF, and its last line's ending as it was; one undo step (5.132917ms)
+✔ moveLineUp keeps a LF file LF, and its last line's ending as it was; one undo step (0.479042ms)
+✔ duplicateLineDown keeps a LF file LF, and its last line's ending as it was; one undo step (0.479875ms)
+✔ duplicateLineUp keeps a LF file LF, and its last line's ending as it was; one undo step (0.315584ms)
+✔ deleteLine keeps a LF file LF, and its last line's ending as it was; one undo step (0.292541ms)
+✔ joinLines keeps a LF file LF, and its last line's ending as it was; one undo step (0.477209ms)
+✔ sortLines keeps a LF file LF, and its last line's ending as it was; one undo step (0.398083ms)
+✔ toggleTask keeps a LF file LF, and its last line's ending as it was; one undo step (0.43125ms)
+✔ toggleQuote keeps a LF file LF, and its last line's ending as it was; one undo step (0.353167ms)
+✔ moveLineDown keeps a LF file LF, its BOM, and its last line's ending as it was; one undo step (0.808833ms)
+✔ moveLineUp keeps a LF file LF, its BOM, and its last line's ending as it was; one undo step (0.333792ms)
+✔ duplicateLineDown keeps a LF file LF, its BOM, and its last line's ending as it was; one undo step (0.309833ms)
+✔ duplicateLineUp keeps a LF file LF, its BOM, and its last line's ending as it was; one undo step (0.246375ms)
+✔ deleteLine keeps a LF file LF, its BOM, and its last line's ending as it was; one undo step (0.157417ms)
+✔ joinLines keeps a LF file LF, its BOM, and its last line's ending as it was; one undo step (0.209334ms)
+✔ sortLines keeps a LF file LF, its BOM, and its last line's ending as it was; one undo step (0.175542ms)
+✔ toggleTask keeps a LF file LF, its BOM, and its last line's ending as it was; one undo step (0.143375ms)
+✔ toggleQuote keeps a LF file LF, its BOM, and its last line's ending as it was; one undo step (0.119125ms)
+✔ moveLineDown keeps a CRLF file CRLF, and its last line's ending as it was; one undo step (0.291708ms)
+✔ moveLineUp keeps a CRLF file CRLF, and its last line's ending as it was; one undo step (0.316292ms)
+✔ duplicateLineDown keeps a CRLF file CRLF, and its last line's ending as it was; one undo step (0.1785ms)
+✔ duplicateLineUp keeps a CRLF file CRLF, and its last line's ending as it was; one undo step (0.195041ms)
+✔ deleteLine keeps a CRLF file CRLF, and its last line's ending as it was; one undo step (0.110583ms)
+✔ joinLines keeps a CRLF file CRLF, and its last line's ending as it was; one undo step (0.161625ms)
+✔ sortLines keeps a CRLF file CRLF, and its last line's ending as it was; one undo step (0.190875ms)
+✔ toggleTask keeps a CRLF file CRLF, and its last line's ending as it was; one undo step (0.142292ms)
+✔ toggleQuote keeps a CRLF file CRLF, and its last line's ending as it was; one undo step (0.10275ms)
+✔ moveLineDown keeps a CRLF file CRLF, its BOM, and its last line's ending as it was; one undo step (0.130958ms)
+✔ moveLineUp keeps a CRLF file CRLF, its BOM, and its last line's ending as it was; one undo step (0.091083ms)
+✔ duplicateLineDown keeps a CRLF file CRLF, its BOM, and its last line's ending as it was; one undo step (0.083792ms)
+✔ duplicateLineUp keeps a CRLF file CRLF, its BOM, and its last line's ending as it was; one undo step (0.080125ms)
+✔ deleteLine keeps a CRLF file CRLF, its BOM, and its last line's ending as it was; one undo step (0.072ms)
+✔ joinLines keeps a CRLF file CRLF, its BOM, and its last line's ending as it was; one undo step (0.087667ms)
+✔ sortLines keeps a CRLF file CRLF, its BOM, and its last line's ending as it was; one undo step (0.089ms)
+✔ toggleTask keeps a CRLF file CRLF, its BOM, and its last line's ending as it was; one undo step (0.10225ms)
+✔ toggleQuote keeps a CRLF file CRLF, its BOM, and its last line's ending as it was; one undo step (0.101834ms)
+✔ moveLineDown keeps a CR file CR, and its last line's ending as it was; one undo step (0.179167ms)
+✔ moveLineUp keeps a CR file CR, and its last line's ending as it was; one undo step (0.100583ms)
+✔ duplicateLineDown keeps a CR file CR, and its last line's ending as it was; one undo step (0.083209ms)
+✔ duplicateLineUp keeps a CR file CR, and its last line's ending as it was; one undo step (0.094334ms)
+✔ deleteLine keeps a CR file CR, and its last line's ending as it was; one undo step (0.092959ms)
+✔ joinLines keeps a CR file CR, and its last line's ending as it was; one undo step (0.086292ms)
+✔ sortLines keeps a CR file CR, and its last line's ending as it was; one undo step (0.090959ms)
+✔ toggleTask keeps a CR file CR, and its last line's ending as it was; one undo step (0.088208ms)
+✔ toggleQuote keeps a CR file CR, and its last line's ending as it was; one undo step (0.079292ms)
+✔ moveLineDown keeps a CR file CR, its BOM, and its last line's ending as it was; one undo step (0.0905ms)
+✔ moveLineUp keeps a CR file CR, its BOM, and its last line's ending as it was; one undo step (0.068375ms)
+✔ duplicateLineDown keeps a CR file CR, its BOM, and its last line's ending as it was; one undo step (0.06575ms)
+✔ duplicateLineUp keeps a CR file CR, its BOM, and its last line's ending as it was; one undo step (0.060833ms)
+✔ deleteLine keeps a CR file CR, its BOM, and its last line's ending as it was; one undo step (0.067ms)
+✔ joinLines keeps a CR file CR, its BOM, and its last line's ending as it was; one undo step (0.079625ms)
+✔ sortLines keeps a CR file CR, its BOM, and its last line's ending as it was; one undo step (0.104458ms)
+✔ toggleTask keeps a CR file CR, its BOM, and its last line's ending as it was; one undo step (0.108042ms)
+✔ toggleQuote keeps a CR file CR, its BOM, and its last line's ending as it was; one undo step (0.082417ms)
+✔ a file with mixed endings keeps each line's own ending through every operation that moves lines (0.206958ms)
+✔ toggle task on several lines is one undo step; with no list marker it does nothing and says nothing (0.160333ms)
+✔ toggle quote on several lines is one undo step (0.103416ms)
+✔ two operations in a row are two undo steps, not one (0.267416ms)
+✔ toggle comment is one undo step in a language that has comments, and nothing in one that has none (42.754875ms)
+✔ block and section select the exact ranges; expand walks to the end of the document and stops (15.165125ms)
+✔ in a Source file that is not Markdown, block is a paragraph and section is nothing (0.4305ms)
+✔ next occurrence and all occurrences come from the editor's search (1.134125ms)
+✔ property: every line operation on random files is the same in CRLF and CR as in LF, one undo step, bytes outside it untouched (215.288583ms)
+✔ property: several carets (adjacent, repeated, on one line) give the same bytes in LF, CRLF and CR, and the bytes of untouched lines stay (59.52575ms)
+✔ carets on neighbouring lines: join and delete line act once (0.2025ms)
+✔ alignTable keeps a LF file LF and its final newline; one undo step (5.886959ms)
+✔ addTableRow keeps a LF file LF and its final newline; one undo step (1.756583ms)
+✔ addTableColumn keeps a LF file LF and its final newline; one undo step (2.11825ms)
+✔ sortTableRows keeps a LF file LF and its final newline; one undo step (1.628041ms)
+✔ alignTable keeps a LF file LF and no final newline; one undo step (1.94ms)
+✔ addTableRow keeps a LF file LF and no final newline; one undo step (1.350042ms)
+✔ addTableColumn keeps a LF file LF and no final newline; one undo step (1.345708ms)
+✔ sortTableRows keeps a LF file LF and no final newline; one undo step (1.103334ms)
+✔ alignTable keeps a LF file LF, its BOM and its final newline; one undo step (1.164958ms)
+✔ addTableRow keeps a LF file LF, its BOM and its final newline; one undo step (1.125917ms)
+✔ addTableColumn keeps a LF file LF, its BOM and its final newline; one undo step (0.990083ms)
+✔ sortTableRows keeps a LF file LF, its BOM and its final newline; one undo step (0.991542ms)
+✔ alignTable keeps a LF file LF, its BOM and no final newline; one undo step (1.194459ms)
+✔ addTableRow keeps a LF file LF, its BOM and no final newline; one undo step (1.016708ms)
+✔ addTableColumn keeps a LF file LF, its BOM and no final newline; one undo step (1.091166ms)
+✔ sortTableRows keeps a LF file LF, its BOM and no final newline; one undo step (1.122417ms)
+✔ alignTable keeps a CRLF file CRLF and its final newline; one undo step (0.8635ms)
+✔ addTableRow keeps a CRLF file CRLF and its final newline; one undo step (1.214583ms)
+✔ addTableColumn keeps a CRLF file CRLF and its final newline; one undo step (1.168125ms)
+✔ sortTableRows keeps a CRLF file CRLF and its final newline; one undo step (1.024292ms)
+✔ alignTable keeps a CRLF file CRLF and no final newline; one undo step (1.0295ms)
+✔ addTableRow keeps a CRLF file CRLF and no final newline; one undo step (0.663709ms)
+✔ addTableColumn keeps a CRLF file CRLF and no final newline; one undo step (0.992584ms)
+✔ sortTableRows keeps a CRLF file CRLF and no final newline; one undo step (6.38425ms)
+✔ alignTable keeps a CRLF file CRLF, its BOM and its final newline; one undo step (1.308625ms)
+✔ addTableRow keeps a CRLF file CRLF, its BOM and its final newline; one undo step (0.922458ms)
+✔ addTableColumn keeps a CRLF file CRLF, its BOM and its final newline; one undo step (0.816541ms)
+✔ sortTableRows keeps a CRLF file CRLF, its BOM and its final newline; one undo step (0.692625ms)
+✔ alignTable keeps a CRLF file CRLF, its BOM and no final newline; one undo step (0.639125ms)
+✔ addTableRow keeps a CRLF file CRLF, its BOM and no final newline; one undo step (0.752166ms)
+✔ addTableColumn keeps a CRLF file CRLF, its BOM and no final newline; one undo step (0.767584ms)
+✔ sortTableRows keeps a CRLF file CRLF, its BOM and no final newline; one undo step (0.793666ms)
+✔ alignTable keeps a CR file CR and its final newline; one undo step (0.802833ms)
+✔ addTableRow keeps a CR file CR and its final newline; one undo step (0.5625ms)
+✔ addTableColumn keeps a CR file CR and its final newline; one undo step (0.517708ms)
+✔ sortTableRows keeps a CR file CR and its final newline; one undo step (0.966375ms)
+✔ alignTable keeps a CR file CR and no final newline; one undo step (1.010167ms)
+✔ addTableRow keeps a CR file CR and no final newline; one undo step (0.897916ms)
+✔ addTableColumn keeps a CR file CR and no final newline; one undo step (0.808083ms)
+✔ sortTableRows keeps a CR file CR and no final newline; one undo step (0.876459ms)
+✔ alignTable keeps a CR file CR, its BOM and its final newline; one undo step (0.875167ms)
+✔ addTableRow keeps a CR file CR, its BOM and its final newline; one undo step (0.772083ms)
+✔ addTableColumn keeps a CR file CR, its BOM and its final newline; one undo step (0.564792ms)
+✔ sortTableRows keeps a CR file CR, its BOM and its final newline; one undo step (0.797458ms)
+✔ alignTable keeps a CR file CR, its BOM and no final newline; one undo step (0.565334ms)
+✔ addTableRow keeps a CR file CR, its BOM and no final newline; one undo step (0.824583ms)
+✔ addTableColumn keeps a CR file CR, its BOM and no final newline; one undo step (0.820209ms)
+✔ sortTableRows keeps a CR file CR, its BOM and no final newline; one undo step (0.91225ms)
+✔ every table tool with the caret outside a table does nothing: no change, no undo step, false (9.751125ms)
+✔ table tools do nothing in a file that is not Markdown (0.217209ms)
+✔ a table in a mixed-ending file: each tool keeps every other line's ending, and the table's own (5.813458ms)
+✔ a table in a block quote or a list item is edited with its prefix on every line, in CRLF too (19.74825ms)
+✔ escaped pipes stay in their cell through every tool, and a code span's with them (5.811416ms)
+✔ wide characters align by display width: CJK and emoji are two cells (1.117333ms)
+✔ sort leaves the header and alignment rows in place and is one undo step (0.517041ms)
+✔ Copy table as CSV is the text of copy-table-csv for the same table, and reads nothing it does not own (1.549708ms)
+✔ the table commands are palette-only entries of the Source group, each runs from inside the editor and has a title that says what it does (0.19925ms)
+✔ replaceRange applies a transform to a selection of a LF file: the bytes outside the range stay, the endings are the file's, one undo step restores every byte (0.57775ms)
+✔ replaceRange applies a transform to a selection of a LF file with a BOM: the bytes outside the range stay, the endings are the file's, one undo step restores every byte (0.093833ms)
+✔ replaceRange applies a transform to a selection of a CRLF file: the bytes outside the range stay, the endings are the file's, one undo step restores every byte (0.074291ms)
+✔ replaceRange applies a transform to a selection of a CRLF file with a BOM: the bytes outside the range stay, the endings are the file's, one undo step restores every byte (0.084083ms)
+✔ replaceRange applies a transform to a selection of a CR file: the bytes outside the range stay, the endings are the file's, one undo step restores every byte (0.069792ms)
+✔ replaceRange applies a transform to a selection of a CR file with a BOM: the bytes outside the range stay, the endings are the file's, one undo step restores every byte (0.067375ms)
+✔ replaceRange keeps a mixed-ending file's other lines as they were, and a doubled CR never appears (0.106541ms)
+✔ replaceRange does nothing, dispatches nothing and says false for the same text or a range outside the document (0.169959ms)
+✔ registry: no chord is bound twice, and the new chords do not touch a pane chord (9.345792ms)
+✔ registry: the editor keeps none of the chords the registry binds in Source, and drops only those (0.860709ms)
+✔ the keys work from inside the editor, past the pane listener, and each runs once (1524.938ms)
+✔ with two panes in Source, an operation changes its own pane's document and nothing else, until folded (1771.714125ms)
+✖ in Rendered no Source key does anything, and Source gains no element (1257.977333ms)
+✔ the find panel's field keeps its own keys: the Source chords do nothing from it (1894.952042ms)
+✔ source.table-align in the app: one undo step, and Save writes the file's own CRLF, BOM and missing final newline (1709.789125ms)
+✔ source.table-add-row in the app: one undo step, and Save writes the file's own CRLF, BOM and missing final newline (1800.922666ms)
+✔ source.table-add-column in the app: one undo step, and Save writes the file's own CRLF, BOM and missing final newline (1792.133875ms)
+✔ source.table-sort in the app: one undo step, and Save writes the file's own CRLF, BOM and missing final newline (1809.65ms)
+✔ the table commands with the caret outside a table do nothing and say nothing (1366.808417ms)
+✔ Copy table as CSV in Source goes through the one copy path: one pasteboard item, the text of copy-table-csv, one notice (1141.020375ms)
+✔ the table commands are offered in Source and not in Rendered (1061.700417ms)
+✔ addTableColumn on a last column with no closing pipe: exactly one refused notice and the bytes are unchanged (1.37925ms)
+✔ addTableColumn on a ragged row whose last cell has no closing pipe: exactly one refused notice and the bytes are unchanged (0.691875ms)
+✔ a table tool says nothing when the caret is in no table, or when there is nothing to do (2.689625ms)
+✔ every table-tool refusal is worded to the template: what happened · what is unchanged · what to do (0.471417ms)
+✔ chains of apply, undo, redo and Source commits over a long document: the replaced page is the whole render, byte for byte (4612.640958ms)
+✔ several commits, undos and redos behind Source, then Read: the replaced page is the whole render, byte for byte (3766.425708ms)
+✔ chains of apply, undo, redo and Source commits over the small corpus documents: the replaced page is the whole render, byte for byte (2930.685042ms)
+✔ Mod+Z after an operation on a 25 KB page replaces a handful of top-level nodes and leaves every set paragraph as it was (1720.940458ms)
+✔ Mod+Z after an operation on a long page replaces a handful of top-level nodes and leaves the set paragraphs as they were (1465.08225ms)
+✔ a tick, undo, redo and a Source commit on a long page keep the cursor, an open find, the set type and the place (3143.733292ms)
+✔ a page in the other pane that replaces its changed blocks says what it blocked in its own pane (1808.843125ms)
+✔ typing in Source and returning to Read replaces the blocks that were typed in and keeps the rest of the page as it was (2572.73375ms)
+✔ behind Source: commits undone to the first bytes keep every node, the cursor and find hold, and a rename or a new face sets the page whole (3407.146667ms)
+✔ a log at its end appends its new lines, reads only the new bytes, and stays at the end (2647.944708ms)
+✔ a log scrolled up appends its new lines and keeps the reader's place (2672.81725ms)
+✔ a truncated log is read whole and shows the new file (2602.661042ms)
+✖ a log rotated to a larger file is read whole (767963.468792ms)
+✔ a log copied and truncated, then grown past its old size in one tick, is read whole (1927.739709ms)
+✔ a log with unsaved edits in Marxy is not appended to: the change waits for the reader's choice (1028.993958ms)
+✔ escapes only in the last piece of a log are in the fold, and escapes in appended lines join it (3703.0275ms)
+✔ a piece drawn before it is marked done puts its escapes in the fold (1346.624541ms)
+✔ Lines: a 5 MB log appends only the new bytes and a reader at the end stays on the last line (2758.537417ms)
+✔ Lines: a big plain-text file (not a log) that grows is read whole (1015.0115ms)
+✔ Lines: a reader above the end keeps the line at the top of the screen; a truncated log is read whole (2028.065584ms)
+✔ Lines: the level filter and the line count follow the appended lines (2306.926584ms)
+ℹ tests 268
+ℹ suites 0
+ℹ pass 251
+ℹ fail 11
+ℹ cancelled 6
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1422705.801709
+
+✖ failing tests:
+
+test at test/demo-tour.test.mjs:11:28
+✖ a fence that opens with a prompt reads as a session part; the Reading card names the parts by line; the block menu reads it as written (2097.401333ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/demo-tour.test.mjs:89:12
+      at async demo (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/demo-tour.test.mjs:37:5)
+      at async TestContext.<anonymous> (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/demo-tour.test.mjs:86:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/demo-tour.test.mjs:11:28
+✖ a patch marks the words that changed in a changed line (323590.975209ms)
+  'test timed out after 120000ms'
+
+test at test/frame-media.test.mjs:14:28
+✖ a WMA with no facts is the card when the webview says no, and the player when it says maybe (327101.128667ms)
+  'test timed out after 120000ms'
+
+test at test/frame-media.test.mjs:14:28
+✖ a codec the webview cannot play is a facts-only card with the way out, said in grey in the head as a tier (33127.775875ms)
+  page.waitForSelector: Timeout 30000ms exceeded.
+  Call log:
+    - waiting for locator('[data-marxy-viewer="media"] .marxy-media-noplay') to be visible
+  
+      at /Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/frame-media.test.mjs:221:16
+      at withFrame (/Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/support/frame.mjs:35:11)
+      at async TestContext.<anonymous> (/Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/frame-media.test.mjs:220:3) {
+    name: 'TimeoutError',
+    log: [ `  - waiting for locator('[data-marxy-viewer="media"] .marxy-media-noplay') to be visible` ]
+  }
+
+test at test/frame-pdf.test.mjs:15:28
+✖ a PDF opened with Outline shown opens at its first page: the dot that follows the page never draws one to find it (323485.157708ms)
+  'test timed out after 120000ms'
+
+test at test/frame-pdf.test.mjs:15:28
+✖ a new query over a long PDF never shows the last query's count while its own pages are still being read (2260.93975ms)
+  AssertionError [ERR_ASSERTION]: counts seen: 1 of 1 · still counting | counting… | 1 of 8 · still counting | 1 of 16 · still counting | 1 of 24 · still counting | 1 of 32 · still counting | 1 of 40 · still counting | 1 of 48 · still counting | 1 of 56 · still counting | 1 of 64 · still counting | 1 of 72 · still counting | 1 of 80 · still counting | 1 of 88 · still counting | 1 of 96 · still counting | 1 of 104 · still counting | 1 of 112 · still counting | 1 of 120 · still counting | 1 of 128 · still counting | 1 of 136 · still counting | 1 of 144 · still counting | 1 of 152 · still counting | 1 of 160 · still counting | 1 of 168 · still counting | 1 of 176 · still counting | 1 of 184 · still counting | 1 of 192 · still counting | 1 of 200 · still counting | 1 of 208 · still counting | 1 of 216 · still counting | 1 of 224 · still counting | 1 of 232 · still counting | 1 of 240 · still counting | 1 of 248 · still counting | 1 of 256 · still counting | 1 of 264 · still counting | 1 of 272 · still counting | 1 of 280 · still counting | 1 of 288 · still counting | 1 of 296 · still counting | 1 of 304 · still counting | 1 of 312 · still counting | 1 of 320 · still counting | 1 of 328 · still counting | 1 of 336 · still counting | 1 of 344 · still counting | 1 of 352 · still counting | 1 of 360 · still counting | 1 of 368 · still counting | 1 of 376 · still counting | 1 of 384 · still counting | 1 of 392 · still counting | 1 of 399 · still counting | 1 of 399
+      at file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/frame-pdf.test.mjs:172:12
+      at async withFrame (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/support/frame.mjs:35:5)
+      at async TestContext.<anonymous> (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/frame-pdf.test.mjs:155:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test/frame-viewers.test.mjs:15:28
+✖ a WebP with no extension is read from its bytes and the Reading card says so; a HEIC falls to the card; Source of a PNG is the bytes (1389.169417ms)
+  AssertionError [ERR_ASSERTION]: the signature underlined, in bytes and text
+  
+  0 !== 16
+  
+      at file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/frame-viewers.test.mjs:313:12
+      at async withFrame (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/support/frame.mjs:35:5)
+      at async TestContext.<anonymous> (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/frame-viewers.test.mjs:287:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 16,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/large-open-panel.test.mjs:9:28
+✖ a 1.1 MB page is painted before the panel reads it, and its links come after in the Links panel, every one counted (231900.546208ms)
+  page.waitForFunction: Timeout 200000ms exceeded.
+      at /Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/large-open-panel.test.mjs:30:16
+      at async withFrame (/Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/support/frame.mjs:35:5)
+      at async TestContext.<anonymous> (/Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/large-open-panel.test.mjs:18:3) {
+    name: 'TimeoutError',
+    log: []
+  }
+
+test at test/leave-split.test.mjs:14:28
+✖ the reading place survives leaving Split (2401.803875ms)
+  AssertionError [ERR_ASSERTION]: place 2021 became 0
+      at file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/leave-split.test.mjs:184:12
+      at async withPage (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/leave-split.test.mjs:59:5)
+      at async TestContext.<anonymous> (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/leave-split.test.mjs:174:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test/markdown-lines.test.mjs:11:28
+✖ a 6 MB Markdown file opens as lines, its Outline from the scan, and a heading clicked lands on its line (212292.54825ms)
+  page.waitForFunction: Timeout 30000ms exceeded.
+      at /Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/markdown-lines.test.mjs:132:16
+      at async withMarkdown (/Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/markdown-lines.test.mjs:51:5)
+      at async TestContext.<anonymous> (/Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/markdown-lines.test.mjs:88:3) {
+    name: 'TimeoutError',
+    log: []
+  }
+
+test at test/page-states.test.mjs:11:28
+✖ a wide table ends between two columns, fades at the side with more, and counts the columns past the edge (793.192125ms)
+  AssertionError [ERR_ASSERTION]: no cell is cut through
+  
+  1 !== 0
+  
+      at file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/page-states.test.mjs:65:12
+      at async withFrame (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/support/frame.mjs:35:5)
+      at async TestContext.<anonymous> (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/page-states.test.mjs:51:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/page-states.test.mjs:11:28
+✖ a large open says "Reading N MB…" in the grey of a tier while it works, and not after (203517.614292ms)
+  'test timed out after 120000ms'
+
+test at test/paste-source.test.mjs:17:28
+✖ hostile payloads pasted into Source give only the golden text: no request, no script, no change outside the editor (2136.366292ms)
+  AssertionError [ERR_ASSERTION]: the page outside the editor is byte-identical
+  + actual - expected
+  
+    '<body data-marxy-frame="unfolded" data-marxy-drawer="docked" data-marxy-left="open" style="--marxy-frame-left: 360px; --marxy-frame-right: 0px; --marxy-frame-head: 44px; --marxy-frame-tabs: 36px;" data-marxy-mode="source"><div class="marxy-tabbar"><div class="marxy-tabs" role="tablist" aria-label="Tabs" style="--lb-fade-start: 0px; --lb-fade-end: 0px;"><div class="marxy-tab" role="tab" aria-selected="true" data-marxy-tab="1" data-marxy-tab-path="/r/A.md" title="/r/A.md" draggable="true" tabindex="0" aria-label="A.md" style="width: 56px;"><button type="button" class="marxy-tab-open" tabindex="-1"><span class="marxy-tab-name" dir="auto">A.md</span></button><button type="button" class="marxy-tab-close" aria-label="Close" title="Close" tabindex="-1" hidden=""><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button></div></div><button type="button" class="marxy-tabs-all" aria-label="All 1 tabs" title="All 1 tabs" aria-haspopup="menu" hidden=""><span class="marxy-tabs-all-n"></span><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M4.5 6.5 8 10l3.5-3.5"></path></svg></button><span class="marxy-tabbar-grow"></span><button type="button" class="marxy-tab-new" aria-label="Find a file to open (⌘K)" title="Find a file to open (⌘K)"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M8 3.5v9M3.5 8h9"></path></svg></button><button type="button" class="marxy-tabbar-split" aria-label="Split: show this beside" title="Split: show this beside" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2"></rect><path d="M8 2.75v10.5"></path></svg></button><span class="marxy-tab-drop" hidden=""></span></div>\n' +
+      '  <nav class="marxy-rail" aria-label="Panels" aria-orientation="vertical"><button class="marxy-l-rb" type="button" data-marxy-left="places" aria-label="Places" aria-pressed="true"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M2.5 5h4.2l1.5 1.6h7.3v7.9h-13z"></path></svg></button><span class="marxy-l-rule"></span><button class="marxy-l-rb" type="button" data-marxy-left="metadata" aria-label="Metadata" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><circle cx="9" cy="9" r="6.3"></circle><path d="M9 8.3v4.2M9 5.6v.3"></path></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="outline" aria-label="Outline" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M3 4h12M6 7.3h9M6 10.7h9M3 14h12"></path></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="links" aria-label="Links" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M7.6 10.4a3 3 0 0 0 4.3 0l2.2-2.2a3 3 0 0 0-4.3-4.3l-.9.9M10.4 7.6a3 3 0 0 0-4.3 0L3.9 9.8a3 3 0 0 0 4.3 4.3l.9-.9"></path></svg></button><span class="marxy-l-rule"></span><button class="marxy-l-rb" type="button" data-marxy-left="search" aria-label="Search" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><circle cx="8" cy="8" r="4.6"></circle><path d="M11.5 11.5l4 4"></path></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="transforms" aria-label="Transforms" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M3 6.3h11l-2.4-2.4M15 11.7H4l2.4 2.4"></path></svg></button><span class="marxy-l-rule"></span><button class="marxy-l-rb" type="button" data-marxy-left="export" aria-label="Export" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M9 11.2V3M6 5.9l3-3 3 3M3.5 9.6v5h11v-5"></path></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="versions" aria-label="Versions" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M3.3 9.2a5.8 5.8 0 1 0 1.8-4.4M3.2 3.2v2.7h2.7M9 6.2v3.1l2.2 1.4"></path></svg></button><span class="marxy-rail-grow"></span><button class="marxy-l-rb" type="button" data-marxy-left="look" aria-label="Look" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><text x="9" y="13.2" text-anchor="middle" font-size="11" font-weight="700" stroke="none" fill="currentColor" font-family="Georgia,serif">Aa</text></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="settings" aria-label="Settings" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M7.51 3.81 7.75 1.91A7.2 7.2 0 0 1 10.25 1.91L10.49 3.81A5.4 5.4 0 0 1 12.75 5.12L14.52 4.37A7.2 7.2 0 0 1 15.77 6.54L14.24 7.69A5.4 5.4 0 0 1 14.24 10.31L15.77 11.46A7.2 7.2 0 0 1 14.52 13.63L12.75 12.88A5.4 5.4 0 0 1 10.49 14.19L10.25 16.09A7.2 7.2 0 0 1 7.75 16.09L7.51 14.19A5.4 5.4 0 0 1 5.25 12.88L3.48 13.63A7.2 7.2 0 0 1 2.23 11.46L3.76 10.31A5.4 5.4 0 0 1 3.76 7.69L2.23 6.54A7.2 7.2 0 0 1 3.48 4.37L5.25 5.12A5.4 5.4 0 0 1 7.51 3.81z"></path><circle cx="9" cy="9" r="2.3"></circle></svg></button></nav><aside class="marxy-drawer" aria-label="Panel" tabindex="-1" data-marxy-left="places"><div class="marxy-l-head"><b>Places</b><span class="marxy-l-subject"></span><button class="marxy-l-hb" type="button" title="Open a file, add a folder, save a set" aria-label="Open a file, add a folder, save a set"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M8 3.5v9M3.5 8h9"></path></svg></button></div><div class="marxy-l-top"><div class="marxy-l-fld"><input type="text" spellcheck="false" autocomplete="off" placeholder="Filter files and folders" aria-label="Filter files and folders" data-marxy-left-field="places-q"><button class="marxy-l-v" type="button" title="Order, grouping and what is shown">by name ▾</button></div><div class="marxy-l-census"><span class="marxy-l-kind"><button type="button" title="Show only prose">1 prose</button></span></div></div><div class="marxy-l-body" tabindex="-1" data-marxy-left="places" role="tree" aria-label="Places"><div class="marxy-l-gh marxy-l-prow" data-marxy-left-row="g:root:/r" id="marxy-l-o-13" role="treeitem" aria-label="r /r 1" aria-level="1" aria-expanded="true"><span class="marxy-l-tw marxy-l-chev marxy-l-on"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path class="marxy-chev" d="M6 4 10 8 6 12"></path></svg><span class="marxy-l-sr">▾</span></span><b>r</b><small>/r</small><span class="marxy-l-n">1</span></div><div class="marxy-l-row marxy-l-open marxy-l-at marxy-l-prow" title="/r/A.md" data-marxy-left-row="f:/r/A.md" id="marxy-l-o-14" role="treeitem" aria-label="A.md Article, guessed, current, open in a tab" aria-level="2" style="--marxy-l-depth: 1;"><span class="marxy-l-tw"></span><span class="marxy-l-nm"><span>A.md</span></span><span class="marxy-l-as marxy-l-g">Article, guessed</span></div><div class="marxy-l-gh marxy-l-prow" data-marxy-left-row="g:sets" id="marxy-l-o-15" role="treeitem" aria-label="Sets 0" aria-level="1" aria-expanded="false"><span class="marxy-l-tw marxy-l-chev"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path class="marxy-chev" d="M6 4 10 8 6 12"></path></svg><span class="marxy-l-sr">▸</span></span><b>Sets</b><span class="marxy-l-n">0</span></div></div><div class="marxy-l-foot"><span class="marxy-l-what marxy-l-rest">Tab comes here. J K move, L opens a folder.</span></div></aside><main id="marxy-main">\n' +
+  +   '    <section class="marxy-pane" data-marxy-pane="0" data-marxy-focus="" data-marxy-kind="article" data-marxy-mode="source"><header class="marxy-head" data-marxy-head="0"><div class="marxy-head-history"><button type="button" class="marxy-head-step" aria-label="Back" title="Back" disabled=""><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M10 3.5 5.5 8 10 12.5"></path></svg></button><button type="button" class="marxy-head-step" aria-label="Forward" title="Forward" disabled=""><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M6 3.5 10.5 8 6 12.5"></path></svg></button></div><nav class="marxy-crumbs" aria-label="Where this is"><button type="button" class="marxy-crumb" data-marxy-crumb="root" title="/r" aria-haspopup="menu">r</button><span class="marxy-crumb-sep" aria-hidden="true">›</span><button type="button" class="marxy-crumb" data-marxy-crumb="file" title="/r/A.md · what is beside it" aria-haspopup="menu" aria-current="page">A.md</button></nav><div class="marxy-ktools"><button type="button" class="marxy-guess" aria-label="Read this file as…" title="Read this file as…" hidden=""></button><button type="button" class="marxy-guess marxy-guess-encoding" aria-label="How this file’s bytes are read" title="How this file’s bytes are read" hidden=""></button><button type="button" class="marxy-head-chip" data-marxy-chip="reveal" hidden="" title="Reveal is on: the markup put back around the reading · press to turn it off (Shift+X)" aria-label="Reveal is on. Turn it off" aria-pressed="true">¶</button><div class="marxy-rs" role="group" aria-label="Read or Source"><button type="button" class="marxy-rs-read" aria-label="Read" title="Read" aria-pressed="false">Read</button><button type="button" class="marxy-rs-source" aria-label="Source" title="Source (\\)" aria-pressed="true">Source</button></div><button type="button" class="marxy-head-chip" data-marxy-chip="unsaved" hidden="" title="Nothing is written until you save · press to read the changes as a patch (R)"><i class="marxy-head-chip-dot" aria-hidden="true"></i><span></span></button></div></header>\n' +
+  -   '    <section class="marxy-pane" data-marxy-pane="0" data-marxy-focus="" data-marxy-kind="article" data-marxy-spine="" data-marxy-mode="source"><header class="marxy-head" data-marxy-head="0"><div class="marxy-head-history"><button type="button" class="marxy-head-step" aria-label="Back" title="Back" disabled=""><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M10 3.5 5.5 8 10 12.5"></path></svg></button><button type="button" class="marxy-head-step" aria-label="Forward" title="Forward" disabled=""><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M6 3.5 10.5 8 6 12.5"></path></svg></button></div><nav class="marxy-crumbs" aria-label="Where this is"><button type="button" class="marxy-crumb" data-marxy-crumb="root" title="/r" aria-haspopup="menu">r</button><span class="marxy-crumb-sep" aria-hidden="true">›</span><button type="button" class="marxy-crumb" data-marxy-crumb="file" title="/r/A.md · what is beside it" aria-haspopup="menu" aria-current="page">A.md</button></nav><div class="marxy-ktools"><button type="button" class="marxy-guess" aria-label="Read this file as…" title="Read this file as…" hidden=""></button><button type="button" class="marxy-guess marxy-guess-encoding" aria-label="How this file’s bytes are read" title="How this file’s bytes are read" hidden=""></button><button type="button" class="marxy-head-chip" data-marxy-chip="reveal" hidden="" title="Reveal is on: the markup put back around the reading · press to turn it off (Shift+X)" aria-label="Reveal is on. Turn it off" aria-pressed="true">¶</button><div class="marxy-rs" role="group" aria-label="Read or Source"><button type="button" class="marxy-rs-read" aria-label="Read" title="Read" aria-pressed="false">Read</button><button type="button" class="marxy-rs-source" aria-label="Source" title="Source (\\)" aria-pressed="true">Source</button></div><button type="button" class="marxy-head-chip" data-marxy-chip="unsaved" hidden="" title="Nothing is written until you save · press to read the changes as a patch (R)"><i class="marxy-head-chip-dot" aria-hidden="true"></i><span></span></button></div></header>\n' +
+      '      <article id="doc" class="marxy-article" style="overflow-anchor: none;" hidden=""><p data-marxy-s="0" data-marxy-e="2" dir="auto">XY</p></article>\n' +
+  +   '      <div id="marxy-source" class="marxy-source-mount"><div class="marxy-source-frame"><div class="marxy-source-top" role="group" aria-label="This file"><span class="marxy-source-path" title="/r/A.md"><span class="marxy-source-seg">r</span><span class="marxy-source-sep" ar'... 300892 more characters
+  -   '      <div id="marxy-source" class="marxy-source-mount"><div class="marxy-source-frame"><div class="marxy-source-top" role="group" aria-label="This file"><span class="marxy-source-path" title="/r/A.md"><span class="marxy-source-seg">r</span><span class="'... 299507 more characters
+  
+      at file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/paste-source.test.mjs:280:12
+      at async withSource (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/paste-source.test.mjs:103:5)
+      at async TestContext.<anonymous> (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/paste-source.test.mjs:250:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '<body data-marxy-frame="unfolded" data-marxy-drawer="docked" data-marxy-left="open" style="--marxy-frame-left: 360px; --marxy-frame-right: 0px; --marxy-frame-head: 44px; --marxy-frame-tabs: 36px;" data-marxy-mode="source"><div class="marxy-tabbar"><div class="marxy-tabs" role="tablist" aria-label="Tabs" style="--lb-fade-start: 0px; --lb-fade-end: 0px;"><div class="marxy-tab" role="tab" aria-selected="true" data-marxy-tab="1" data-marxy-tab-path="/r/A.md" title="/r/A.md" draggable="true" tabindex="0" aria-label="A.md" style="width: 56px;"><button type="button" class="marxy-tab-open" tabindex="-1"><span class="marxy-tab-name" dir="auto">A.md</span></button><button type="button" class="marxy-tab-close" aria-label="Close" title="Close" tabindex="-1" hidden=""><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button></div></div><button type="button" class="marxy-tabs-all" aria-label="All 1 tabs" title="All 1 tabs" aria-haspopup="menu" hidden=""><span class="marxy-tabs-all-n"></span><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M4.5 6.5 8 10l3.5-3.5"></path></svg></button><span class="marxy-tabbar-grow"></span><button type="button" class="marxy-tab-new" aria-label="Find a file to open (⌘K)" title="Find a file to open (⌘K)"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M8 3.5v9M3.5 8h9"></path></svg></button><button type="button" class="marxy-tabbar-split" aria-label="Split: show this beside" title="Split: show this beside" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2"></rect><path d="M8 2.75v10.5"></path></svg></button><span class="marxy-tab-drop" hidden=""></span></div>\n  <nav class="marxy-rail" aria-label="Panels" aria-orientation="vertical"><button class="marxy-l-rb" type="button" data-marxy-left="places" aria-label="Places" aria-pressed="true"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M2.5 5h4.2l1.5 1.6h7.3v7.9h-13z"></path></svg></button><span class="marxy-l-rule"></span><button class="marxy-l-rb" type="button" data-marxy-left="metadata" aria-label="Metadata" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><circle cx="9" cy="9" r="6.3"></circle><path d="M9 8.3v4.2M9 5.6v.3"></path></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="outline" aria-label="Outline" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M3 4h12M6 7.3h9M6 10.7h9M3 14h12"></path></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="links" aria-label="Links" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M7.6 10.4a3 3 0 0 0 4.3 0l2.2-2.2a3 3 0 0 0-4.3-4.3l-.9.9M10.4 7.6a3 3 0 0 0-4.3 0L3.9 9.8a3 3 0 0 0 4.3 4.3l.9-.9"></path></svg></button><span class="marxy-l-rule"></span><button class="marxy-l-rb" type="button" data-marxy-left="search" aria-label="Search" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><circle cx="8" cy="8" r="4.6"></circle><path d="M11.5 11.5l4 4"></path></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="transforms" aria-label="Transforms" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M3 6.3h11l-2.4-2.4M15 11.7H4l2.4 2.4"></path></svg></button><span class="marxy-l-rule"></span><button class="marxy-l-rb" type="button" data-marxy-left="export" aria-label="Export" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M9 11.2V3M6 5.9l3-3 3 3M3.5 9.6v5h11v-5"></path></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="versions" aria-label="Versions" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M3.3 9.2a5.8 5.8 0 1 0 1.8-4.4M3.2 3.2v2.7h2.7M9 6.2v3.1l2.2 1.4"></path></svg></button><span class="marxy-rail-grow"></span><button class="marxy-l-rb" type="button" data-marxy-left="look" aria-label="Look" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><text x="9" y="13.2" text-anchor="middle" font-size="11" font-weight="700" stroke="none" fill="currentColor" font-family="Georgia,serif">Aa</text></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="settings" aria-label="Settings" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M7.51 3.81 7.75 1.91A7.2 7.2 0 0 1 10.25 1.91L10.49 3.81A5.4 5.4 0 0 1 12.75 5.12L14.52 4.37A7.2 7.2 0 0 1 15.77 6.54L14.24 7.69A5.4 5.4 0 0 1 14.24 10.31L15.77 11.46A7.2 7.2 0 0 1 14.52 13.63L12.75 12.88A5.4 5.4 0 0 1 10.49 14.19L10.25 16.09A7.2 7.2 0 0 1 7.75 16.09L7.51 14.19A5.4 5.4 0 0 1 5.25 12.88L3.48 13.63A7.2 7.2 0 0 1 2.23 11.46L3.76 10.31A5.4 5.4 0 0 1 3.76 7.69L2.23 6.54A7.2 7.2 0 0 1 3.48 4.37L5.25 5.12A5.4 5.4 0 0 1 7.51 3.81z"></path><circle cx="9" cy="9" r="2.3"></circle></svg></button></nav><aside class="marxy-drawer" aria-label="Panel" tabindex="-1" data-marxy-left="places"><div class="marxy-l-head"><b>Places</b><span class="marxy-l-subject"></span><button class="marxy-l-hb" type="button" title="Open a file, add a folder, save a set" aria-label="Open a file, add a folder, save a set"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M8 3.5v9M3.5 8h9"></path></svg></button></div><div class="marxy-l-top"><div class="marxy-l-fld"><input type="text" spellcheck="false" autocomplete="off" placeholder="Filter files and folders" aria-label="Filter files and folders" data-marxy-left-field="places-q"><button class="marxy-l-v" type="button" title="Order, grouping and what is shown">by name ▾</button></div><div class="marxy-l-census"><span class="marxy-l-kind"><button type="button" title="Show only prose">1 prose</button></span></div></div><div class="marxy-l-body" tabindex="-1" data-marxy-left="places" role="tree" aria-label="Places"><div class="marxy-l-gh marxy-l-prow" data-marxy-left-row="g:root:/r" id="marxy-l-o-13" role="treeitem" aria-label="r /r 1" aria-level="1" aria-expanded="true"><span class="marxy-l-tw marxy-l-chev marxy-l-on"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path class="marxy-chev" d="M6 4 10 8 6 12"></path></svg><span class="marxy-l-sr">▾</span></span><b>r</b><small>/r</small><span class="marxy-l-n">1</span></div><div class="marxy-l-row marxy-l-open marxy-l-at marxy-l-prow" title="/r/A.md" data-marxy-left-row="f:/r/A.md" id="marxy-l-o-14" role="treeitem" aria-label="A.md Article, guessed, current, open in a tab" aria-level="2" style="--marxy-l-depth: 1;"><span class="marxy-l-tw"></span><span class="marxy-l-nm"><span>A.md</span></span><span class="marxy-l-as marxy-l-g">Article, guessed</span></div><div class="marxy-l-gh marxy-l-prow" data-marxy-left-row="g:sets" id="marxy-l-o-15" role="treeitem" aria-label="Sets 0" aria-level="1" aria-expanded="false"><span class="marxy-l-tw marxy-l-chev"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path class="marxy-chev" d="M6 4 10 8 6 12"></path></svg><span class="marxy-l-sr">▸</span></span><b>Sets</b><span class="marxy-l-n">0</span></div></div><div class="marxy-l-foot"><span class="marxy-l-what marxy-l-rest">Tab comes here. J K move, L opens a folder.</span></div></aside><main id="marxy-main">\n    <section class="marxy-pane" data-marxy-pane="0" data-marxy-focus="" data-marxy-kind="article" data-marxy-mode="source"><header class="marxy-head" data-marxy-head="0"><div class="marxy-head-history"><button type="button" class="marxy-head-step" aria-label="Back" title="Back" disabled=""><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M10 3.5 5.5 8 10 12.5"></path></svg></button><button type="button" class="marxy-head-step" aria-label="Forward" title="Forward" disabled=""><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M6 3.5 10.5 8 6 12.5"></path></svg></button></div><nav class="marxy-crumbs" aria-label="Where this is"><button type="button" class="marxy-crumb" data-marxy-crumb="root" title="/r" aria-haspopup="menu">r</button><span class="marxy-crumb-sep" aria-hidden="true">›</span><button type="button" class="marxy-crumb" data-marxy-crumb="file" title="/r/A.md · what is beside it" aria-haspopup="menu" aria-current="page">A.md</button></nav><div class="marxy-ktools"><button type="button" class="marxy-guess" aria-label="Read this file as…" title="Read this file as…" hidden=""></button><button type="button" class="marxy-guess marxy-guess-encoding" aria-label="How this file’s bytes are read" title="How this file’s bytes are read" hidden=""></button><button type="button" class="marxy-head-chip" data-marxy-chip="reveal" hidden="" title="Reveal is on: the markup put back around the reading · press to turn it off (Shift+X)" aria-label="Reveal is on. Turn it off" aria-pressed="true">¶</button><div class="marxy-rs" role="group" aria-label="Read or Source"><button type="button" class="marxy-rs-read" aria-label="Read" title="Read" aria-pressed="false">Read</button><button type="button" class="marxy-rs-source" aria-label="Source" title="Source (\\)" aria-pressed="true">Source</button></div><button type="button" class="marxy-head-chip" data-marxy-chip="unsaved" hidden="" title="Nothing is written until you save · press to read the changes as a patch (R)"><i class="marxy-head-chip-dot" aria-hidden="true"></i><span></span></button></div></header>\n      <article id="doc" class="marxy-article" style="overflow-anchor: none;" hidden=""><p data-marxy-s="0" data-marxy-e="2" dir="auto">XY</p></article>\n      <div id="marxy-source" class="marxy-source-mount"><div class="marxy-source-frame"><div class="marxy-source-top" role="group" aria-label="This file"><span class="marxy-source-path" title="/r/A.md"><span class="marxy-source-seg">r</span><span class="marxy-source-sep" ar'... 300892 more characters,
+    expected: '<body data-marxy-frame="unfolded" data-marxy-drawer="docked" data-marxy-left="open" style="--marxy-frame-left: 360px; --marxy-frame-right: 0px; --marxy-frame-head: 44px; --marxy-frame-tabs: 36px;" data-marxy-mode="source"><div class="marxy-tabbar"><div class="marxy-tabs" role="tablist" aria-label="Tabs" style="--lb-fade-start: 0px; --lb-fade-end: 0px;"><div class="marxy-tab" role="tab" aria-selected="true" data-marxy-tab="1" data-marxy-tab-path="/r/A.md" title="/r/A.md" draggable="true" tabindex="0" aria-label="A.md" style="width: 56px;"><button type="button" class="marxy-tab-open" tabindex="-1"><span class="marxy-tab-name" dir="auto">A.md</span></button><button type="button" class="marxy-tab-close" aria-label="Close" title="Close" tabindex="-1" hidden=""><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="m4 4 8 8M12 4l-8 8"></path></svg></button></div></div><button type="button" class="marxy-tabs-all" aria-label="All 1 tabs" title="All 1 tabs" aria-haspopup="menu" hidden=""><span class="marxy-tabs-all-n"></span><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M4.5 6.5 8 10l3.5-3.5"></path></svg></button><span class="marxy-tabbar-grow"></span><button type="button" class="marxy-tab-new" aria-label="Find a file to open (⌘K)" title="Find a file to open (⌘K)"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M8 3.5v9M3.5 8h9"></path></svg></button><button type="button" class="marxy-tabbar-split" aria-label="Split: show this beside" title="Split: show this beside" aria-pressed="false"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2"></rect><path d="M8 2.75v10.5"></path></svg></button><span class="marxy-tab-drop" hidden=""></span></div>\n  <nav class="marxy-rail" aria-label="Panels" aria-orientation="vertical"><button class="marxy-l-rb" type="button" data-marxy-left="places" aria-label="Places" aria-pressed="true"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M2.5 5h4.2l1.5 1.6h7.3v7.9h-13z"></path></svg></button><span class="marxy-l-rule"></span><button class="marxy-l-rb" type="button" data-marxy-left="metadata" aria-label="Metadata" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><circle cx="9" cy="9" r="6.3"></circle><path d="M9 8.3v4.2M9 5.6v.3"></path></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="outline" aria-label="Outline" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M3 4h12M6 7.3h9M6 10.7h9M3 14h12"></path></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="links" aria-label="Links" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M7.6 10.4a3 3 0 0 0 4.3 0l2.2-2.2a3 3 0 0 0-4.3-4.3l-.9.9M10.4 7.6a3 3 0 0 0-4.3 0L3.9 9.8a3 3 0 0 0 4.3 4.3l.9-.9"></path></svg></button><span class="marxy-l-rule"></span><button class="marxy-l-rb" type="button" data-marxy-left="search" aria-label="Search" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><circle cx="8" cy="8" r="4.6"></circle><path d="M11.5 11.5l4 4"></path></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="transforms" aria-label="Transforms" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M3 6.3h11l-2.4-2.4M15 11.7H4l2.4 2.4"></path></svg></button><span class="marxy-l-rule"></span><button class="marxy-l-rb" type="button" data-marxy-left="export" aria-label="Export" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M9 11.2V3M6 5.9l3-3 3 3M3.5 9.6v5h11v-5"></path></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="versions" aria-label="Versions" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M3.3 9.2a5.8 5.8 0 1 0 1.8-4.4M3.2 3.2v2.7h2.7M9 6.2v3.1l2.2 1.4"></path></svg></button><span class="marxy-rail-grow"></span><button class="marxy-l-rb" type="button" data-marxy-left="look" aria-label="Look" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><text x="9" y="13.2" text-anchor="middle" font-size="11" font-weight="700" stroke="none" fill="currentColor" font-family="Georgia,serif">Aa</text></svg></button><button class="marxy-l-rb" type="button" data-marxy-left="settings" aria-label="Settings" aria-pressed="false"><svg viewBox="0 0 18 18" aria-hidden="true" class="marxy-icon"><path d="M7.51 3.81 7.75 1.91A7.2 7.2 0 0 1 10.25 1.91L10.49 3.81A5.4 5.4 0 0 1 12.75 5.12L14.52 4.37A7.2 7.2 0 0 1 15.77 6.54L14.24 7.69A5.4 5.4 0 0 1 14.24 10.31L15.77 11.46A7.2 7.2 0 0 1 14.52 13.63L12.75 12.88A5.4 5.4 0 0 1 10.49 14.19L10.25 16.09A7.2 7.2 0 0 1 7.75 16.09L7.51 14.19A5.4 5.4 0 0 1 5.25 12.88L3.48 13.63A7.2 7.2 0 0 1 2.23 11.46L3.76 10.31A5.4 5.4 0 0 1 3.76 7.69L2.23 6.54A7.2 7.2 0 0 1 3.48 4.37L5.25 5.12A5.4 5.4 0 0 1 7.51 3.81z"></path><circle cx="9" cy="9" r="2.3"></circle></svg></button></nav><aside class="marxy-drawer" aria-label="Panel" tabindex="-1" data-marxy-left="places"><div class="marxy-l-head"><b>Places</b><span class="marxy-l-subject"></span><button class="marxy-l-hb" type="button" title="Open a file, add a folder, save a set" aria-label="Open a file, add a folder, save a set"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M8 3.5v9M3.5 8h9"></path></svg></button></div><div class="marxy-l-top"><div class="marxy-l-fld"><input type="text" spellcheck="false" autocomplete="off" placeholder="Filter files and folders" aria-label="Filter files and folders" data-marxy-left-field="places-q"><button class="marxy-l-v" type="button" title="Order, grouping and what is shown">by name ▾</button></div><div class="marxy-l-census"><span class="marxy-l-kind"><button type="button" title="Show only prose">1 prose</button></span></div></div><div class="marxy-l-body" tabindex="-1" data-marxy-left="places" role="tree" aria-label="Places"><div class="marxy-l-gh marxy-l-prow" data-marxy-left-row="g:root:/r" id="marxy-l-o-13" role="treeitem" aria-label="r /r 1" aria-level="1" aria-expanded="true"><span class="marxy-l-tw marxy-l-chev marxy-l-on"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path class="marxy-chev" d="M6 4 10 8 6 12"></path></svg><span class="marxy-l-sr">▾</span></span><b>r</b><small>/r</small><span class="marxy-l-n">1</span></div><div class="marxy-l-row marxy-l-open marxy-l-at marxy-l-prow" title="/r/A.md" data-marxy-left-row="f:/r/A.md" id="marxy-l-o-14" role="treeitem" aria-label="A.md Article, guessed, current, open in a tab" aria-level="2" style="--marxy-l-depth: 1;"><span class="marxy-l-tw"></span><span class="marxy-l-nm"><span>A.md</span></span><span class="marxy-l-as marxy-l-g">Article, guessed</span></div><div class="marxy-l-gh marxy-l-prow" data-marxy-left-row="g:sets" id="marxy-l-o-15" role="treeitem" aria-label="Sets 0" aria-level="1" aria-expanded="false"><span class="marxy-l-tw marxy-l-chev"><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path class="marxy-chev" d="M6 4 10 8 6 12"></path></svg><span class="marxy-l-sr">▸</span></span><b>Sets</b><span class="marxy-l-n">0</span></div></div><div class="marxy-l-foot"><span class="marxy-l-what marxy-l-rest">Tab comes here. J K move, L opens a folder.</span></div></aside><main id="marxy-main">\n    <section class="marxy-pane" data-marxy-pane="0" data-marxy-focus="" data-marxy-kind="article" data-marxy-spine="" data-marxy-mode="source"><header class="marxy-head" data-marxy-head="0"><div class="marxy-head-history"><button type="button" class="marxy-head-step" aria-label="Back" title="Back" disabled=""><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M10 3.5 5.5 8 10 12.5"></path></svg></button><button type="button" class="marxy-head-step" aria-label="Forward" title="Forward" disabled=""><svg viewBox="0 0 16 16" aria-hidden="true" class="marxy-icon"><path d="M6 3.5 10.5 8 6 12.5"></path></svg></button></div><nav class="marxy-crumbs" aria-label="Where this is"><button type="button" class="marxy-crumb" data-marxy-crumb="root" title="/r" aria-haspopup="menu">r</button><span class="marxy-crumb-sep" aria-hidden="true">›</span><button type="button" class="marxy-crumb" data-marxy-crumb="file" title="/r/A.md · what is beside it" aria-haspopup="menu" aria-current="page">A.md</button></nav><div class="marxy-ktools"><button type="button" class="marxy-guess" aria-label="Read this file as…" title="Read this file as…" hidden=""></button><button type="button" class="marxy-guess marxy-guess-encoding" aria-label="How this file’s bytes are read" title="How this file’s bytes are read" hidden=""></button><button type="button" class="marxy-head-chip" data-marxy-chip="reveal" hidden="" title="Reveal is on: the markup put back around the reading · press to turn it off (Shift+X)" aria-label="Reveal is on. Turn it off" aria-pressed="true">¶</button><div class="marxy-rs" role="group" aria-label="Read or Source"><button type="button" class="marxy-rs-read" aria-label="Read" title="Read" aria-pressed="false">Read</button><button type="button" class="marxy-rs-source" aria-label="Source" title="Source (\\)" aria-pressed="true">Source</button></div><button type="button" class="marxy-head-chip" data-marxy-chip="unsaved" hidden="" title="Nothing is written until you save · press to read the changes as a patch (R)"><i class="marxy-head-chip-dot" aria-hidden="true"></i><span></span></button></div></header>\n      <article id="doc" class="marxy-article" style="overflow-anchor: none;" hidden=""><p data-marxy-s="0" data-marxy-e="2" dir="auto">XY</p></article>\n      <div id="marxy-source" class="marxy-source-mount"><div class="marxy-source-frame"><div class="marxy-source-top" role="group" aria-label="This file"><span class="marxy-source-path" title="/r/A.md"><span class="marxy-source-seg">r</span><span class="'... 299507 more characters,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/paste-source.test.mjs:17:28
+✖ a paste while a conflict is pending lands in the editor like typing, and nothing is written over the other program's text (766450.39225ms)
+  'test timed out after 120000ms'
+
+test at test/source-fold-stale.test.mjs:17:28
+✖ folds with both panes in Source set no page; each pane then shows the whole render of the current bytes (7435.789791ms)
+  AssertionError [ERR_ASSERTION]: pane 0: the page that showed is a whole render of the current bytes
+  + actual - expected
+  
+    '<h1 id="alphaqzwx" data-marxy-s="0" data-marxy-e="11" dir="auto">AlphaQzWx</h1>\n' +
+      '<p data-marxy-s="13" data-marxy-e="686" dir="auto" class="marxy-set"><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span>&nbsp;second</p>\n' +
+      '<h2 id="middle-third" data-marxy-s="688" data-marxy-e="703" dir="auto">Middle third</h2>\n' +
+  +   '<p data-marxy-s="705" data-marxy-e="1377" dir="auto" class="marxy-set">Middle runs long enough to wrap across several lines <span class="marxy-lb"></span>of the column, so that the typesetter has real para<span class="marxy-lb marxy-hyphen"></span>graphs. Middle runs long enough to wrap across sev<span class="marxy-lb marxy-hyphen"></span>eral lines of the column, so that the typesetter has real <span class="marxy-lb"></span>paragraphs. Middle runs long enough to wrap across <span class="marxy-lb"></span>several lines of the column, so that the typesetter has <span class="marxy-lb"></span>real paragraphs. Middle runs long enough to wrap <span class="marxy-lb"></span>across several lines of the column, so that the type<span class="marxy-lb marxy-hyphen"></span>setter has real paragraphs. Middle runs long enough <span class="marxy-lb"></span>to wrap across several lines of the column, so that <span class="marxy-lb"></span>the typesetter has real paragraphs. Middle runs long <span class="marxy-lb"></span>enough to wrap across several lines of the column, so <span class="marxy-lb"></span>that the typesetter has real&nbsp;paragraphs.</p>\n' +
+  -   '<p data-marxy-s="705" data-marxy-e="1377" dir="auto" class="marxy-set">Middle runs long enough to wrap across several lines of the col<span class="marxy-lb marxy-hyphen"></span>umn, so that the typesetter has real paragraphs. Middle runs <span class="marxy-lb"></span>long enough to wrap across several lines of the column, so that <span class="marxy-lb"></span>the typesetter has real paragraphs. Middle runs long enough to <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.764001px;">w</span>rap across several lines of the column, so that the typesetter <span class="marxy-lb"></span>has real paragraphs. Middle runs long enough to wrap across <span class="marxy-lb"></span>several lines of the column, so that the typesetter has real para<span class="marxy-lb marxy-hyphen"></span>graphs. Middle runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. Middle <span class="marxy-lb"></span>runs long enough to wrap across several lines of the column, so <span class="marxy-lb"></span>that the typesetter has real&nbsp;paragraphs.</p>\n' +
+      '<h2 id="last" data-marxy-s="1379" data-marxy-e="1386" dir="auto">Last</h2>\n' +
+      '<p data-marxy-s="1388" data-marxy-e="1428" dir="auto">The <em data-marxy-s="1392" data-marxy-e="1397">end</em> of <a href="http://x.example/" class="marxy-external" data-marxy-s="1401" data-marxy-e="1427">Alpha<code class="marxy-link-dest" aria-hidden="true">x.example</code></a>.</p>'
+  
+      at file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/source-fold-stale.test.mjs:116:14
+      at async withPanes (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/source-fold-stale.test.mjs:31:5)
+      at async TestContext.<anonymous> (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/source-fold-stale.test.mjs:88:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '<h1 id="alphaqzwx" data-marxy-s="0" data-marxy-e="11" dir="auto">AlphaQzWx</h1>\n<p data-marxy-s="13" data-marxy-e="686" dir="auto" class="marxy-set"><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span>&nbsp;second</p>\n<h2 id="middle-third" data-marxy-s="688" data-marxy-e="703" dir="auto">Middle third</h2>\n<p data-marxy-s="705" data-marxy-e="1377" dir="auto" class="marxy-set">Middle runs long enough to wrap across several lines <span class="marxy-lb"></span>of the column, so that the typesetter has real para<span class="marxy-lb marxy-hyphen"></span>graphs. Middle runs long enough to wrap across sev<span class="marxy-lb marxy-hyphen"></span>eral lines of the column, so that the typesetter has real <span class="marxy-lb"></span>paragraphs. Middle runs long enough to wrap across <span class="marxy-lb"></span>several lines of the column, so that the typesetter has <span class="marxy-lb"></span>real paragraphs. Middle runs long enough to wrap <span class="marxy-lb"></span>across several lines of the column, so that the type<span class="marxy-lb marxy-hyphen"></span>setter has real paragraphs. Middle runs long enough <span class="marxy-lb"></span>to wrap across several lines of the column, so that <span class="marxy-lb"></span>the typesetter has real paragraphs. Middle runs long <span class="marxy-lb"></span>enough to wrap across several lines of the column, so <span class="marxy-lb"></span>that the typesetter has real&nbsp;paragraphs.</p>\n<h2 id="last" data-marxy-s="1379" data-marxy-e="1386" dir="auto">Last</h2>\n<p data-marxy-s="1388" data-marxy-e="1428" dir="auto">The <em data-marxy-s="1392" data-marxy-e="1397">end</em> of <a href="http://x.example/" class="marxy-external" data-marxy-s="1401" data-marxy-e="1427">Alpha<code class="marxy-link-dest" aria-hidden="true">x.example</code></a>.</p>',
+    expected: '<h1 id="alphaqzwx" data-marxy-s="0" data-marxy-e="11" dir="auto">AlphaQzWx</h1>\n<p data-marxy-s="13" data-marxy-e="686" dir="auto" class="marxy-set"><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.66261px;">A</span>lpha runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. <span class="marxy-lb"></span>&nbsp;second</p>\n<h2 id="middle-third" data-marxy-s="688" data-marxy-e="703" dir="auto">Middle third</h2>\n<p data-marxy-s="705" data-marxy-e="1377" dir="auto" class="marxy-set">Middle runs long enough to wrap across several lines of the col<span class="marxy-lb marxy-hyphen"></span>umn, so that the typesetter has real paragraphs. Middle runs <span class="marxy-lb"></span>long enough to wrap across several lines of the column, so that <span class="marxy-lb"></span>the typesetter has real paragraphs. Middle runs long enough to <span class="marxy-lb"></span><span class="marxy-hang" style="margin-inline-start: -0.764001px;">w</span>rap across several lines of the column, so that the typesetter <span class="marxy-lb"></span>has real paragraphs. Middle runs long enough to wrap across <span class="marxy-lb"></span>several lines of the column, so that the typesetter has real para<span class="marxy-lb marxy-hyphen"></span>graphs. Middle runs long enough to wrap across several lines of <span class="marxy-lb"></span>the column, so that the typesetter has real paragraphs. Middle <span class="marxy-lb"></span>runs long enough to wrap across several lines of the column, so <span class="marxy-lb"></span>that the typesetter has real&nbsp;paragraphs.</p>\n<h2 id="last" data-marxy-s="1379" data-marxy-e="1386" dir="auto">Last</h2>\n<p data-marxy-s="1388" data-marxy-e="1428" dir="auto">The <em data-marxy-s="1392" data-marxy-e="1397">end</em> of <a href="http://x.example/" class="marxy-external" data-marxy-s="1401" data-marxy-e="1427">Alpha<code class="marxy-link-dest" aria-hidden="true">x.example</code></a>.</p>',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test/source-structure.test.mjs:519:35
+✖ in Rendered no Source key does anything, and Source gains no element (1257.977333ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+      html: '<h1 id="alpha" data-marxy-s="0" data-marxy-e="7" dir="auto">Alpha</h1>\n' +
+        '<p data-marxy-s="9" data-marxy-e="28" dir="auto">alpha one\n' +
+        'alpha two</p>\n' +
+        '<h2 id="part" data-marxy-s="30" data-marxy-e="37" dir="auto">Part</h2>\n' +
+  +     '<p data-marxy-s="39" data-marxy-e="50" dir="auto" class="marxy-selected marxy-cursor">alpha three</p>',
+  -     '<p data-marxy-s="39" data-marxy-e="50" dir="auto">alpha three</p>',
+      mode: 'rendered'
+    }
+  
+      at file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/source-structure.test.mjs:647:12
+      at async withPanes (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/source-structure.test.mjs:547:5)
+      at async TestContext.<anonymous> (file:///Users/<user>/Dev/marxy-wt/release-probe/apps/desktop/test/source-structure.test.mjs:644:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { html: '<h1 id="alpha" data-marxy-s="0" data-marxy-e="7" dir="auto">Alpha</h1>\n<p data-marxy-s="9" data-marxy-e="28" dir="auto">alpha one\nalpha two</p>\n<h2 id="part" data-marxy-s="30" data-marxy-e="37" dir="auto">Part</h2>\n<p data-marxy-s="39" data-marxy-e="50" dir="auto" class="marxy-selected marxy-cursor">alpha three</p>', mode: 'rendered' },
+    expected: { html: '<h1 id="alpha" data-marxy-s="0" data-marxy-e="7" dir="auto">Alpha</h1>\n<p data-marxy-s="9" data-marxy-e="28" dir="auto">alpha one\nalpha two</p>\n<h2 id="part" data-marxy-s="30" data-marxy-e="37" dir="auto">Part</h2>\n<p data-marxy-s="39" data-marxy-e="50" dir="auto">alpha three</p>', mode: 'rendered' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test/tail-follow.test.mjs:11:28
+✖ a log rotated to a larger file is read whole (767963.468792ms)
+  'test timed out after 240000ms'
+
+real	23m43.163s
+user	1m27.146s
+sys	0m25.385s
