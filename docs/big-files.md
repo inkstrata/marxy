@@ -21,8 +21,9 @@ too. That range is where big files hurt, and where the rules below matter most.
 
 ## The rules
 
-Each rule is checkable: by `check-scale` in `pnpm check`, by a growth case in a test, or by a reviewer reading the
-diff with the question it asks.
+Each rule is checkable: by `check-scale` in `pnpm check` (the code shapes of rules 3 and 4), by a growth case in a test
+(rules 2 and 6), or by a reviewer reading the diff with the question it asks (the rest, and the parts of rule 3 no syntax
+check sees: a scan of the whole text per match, recursion as deep as the input).
 
 1. **Work for an interaction is bounded by what it touches.** A key, a scroll, a hover, a click, opening a panel or a
    menu costs work in proportion to what is on screen or what changed, never to the file. A panel that needs the whole

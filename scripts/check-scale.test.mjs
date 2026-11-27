@@ -53,6 +53,7 @@ test('a scale: comment on the line or just above bounds a hit', () => {
   assert.deepEqual(rules('out.push(...row); // scale: one row, at most 100 cells'), []);
   assert.deepEqual(rules('// scale: one heading\nconst words = heading.split("\\n");'), []);
   assert.deepEqual(rules('// a comment that says nothing about size\nconst words = heading.split("\\n");'), ['line-split']);
+  assert.deepEqual(rules('rows\n  .filter(Boolean)\n  .push(...cells); // scale: one row, at most 100 cells'), []);
 });
 
 test('counts go by file and rule, and only growth fails', () => {

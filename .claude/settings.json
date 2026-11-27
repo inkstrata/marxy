@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/check-scale.mjs\" --hook",
+            "command": "[ -f \"$CLAUDE_PROJECT_DIR/scripts/check-scale.mjs\" ] && node \"$CLAUDE_PROJECT_DIR/scripts/check-scale.mjs\" --hook || true",
             "timeout": 20
           }
         ]

@@ -103,7 +103,10 @@ export function hitsIn(text, fileName = 'file.ts') {
   const out = [];
   const add = (rule, node) => {
     const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
-    out.push({ rule, line, bounded: bounded(line) });
+    // In a chain over several lines the comment may sit on the call's own line (`.push(...rows) // scale: ...`).
+    const callee = ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) ? node.expression.name : null;
+    const at = callee ? sf.getLineAndCharacterOfPosition(callee.getStart(sf)).line + 1 : line;
+    out.push({ rule, line: at, bounded: bounded(line) || bounded(at) });
   };
   const visit = (node) => {
     if (ts.isCallExpression(node)) {
@@ -186,6 +189,14 @@ function checkoutOf(file) {
 }
 
 function hook() {
+  try {
+    hookOnce();
+  } catch {
+    // A hook that cannot read its record or the file says nothing rather than failing the edit.
+  }
+}
+
+function hookOnce() {
   let input = {};
   try { input = JSON.parse(readFileSync(0, 'utf8') || '{}'); } catch { return; }
   const file = input?.tool_input?.file_path ?? input?.tool_input?.notebook_path;

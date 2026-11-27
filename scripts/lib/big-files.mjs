@@ -96,7 +96,7 @@ export async function bigFile(kind, bytes) {
   return { name: `big-${kind}-${Math.round(bytes / 1000)}k.${k.ext}`, text, bytes: Buffer.byteLength(text) };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.main) {
   const [out, size, only] = process.argv.slice(2);
   if (!out || !size) {
     console.error('usage: node gen.mjs <out dir> <bytes> [kind,kind]');

@@ -76,7 +76,7 @@ export function table(results, steps) {
       const p = prev[`${r.kind}:${s}`];
       const g = p ? perDoubling(p.work, p.bytes, work, r.bytes) : null;
       prev[`${r.kind}:${s}`] = { work, bytes: r.bytes };
-      return `${work}${g ? ` (${g.toFixed(1)}${g > 2.5 ? ' !' : ''})` : ''}`;
+      return `${work}${m.neverQuiet ? '+' : ''}${g ? ` (${g.toFixed(1)}${g > 2.5 ? ' !' : ''})` : ''}`;
     });
     rows.push(`| ${r.kind} | ${(r.bytes / 1e6).toFixed(1)} MB | ${cells.join(' | ')} |`);
   }
@@ -252,6 +252,6 @@ if (import.meta.main) {
   await browser.close();
   await server.close();
   console.log(table(results, o.steps.filter((s) => results.some((r) => r.steps[s]))));
-  console.log('\nms: main-thread task time (Chromium, this machine). ×/2: growth per doubling from the size above; 2 is linear, over 2.5 is marked !.');
+  console.log('\nms: main-thread task time (Chromium, this machine); + still busy at the cap, so the real figure is higher. ×/2: growth per doubling from the size above; 2 is linear, over 2.5 is marked !.');
   process.exit(failed ? 1 : 0);
 }
