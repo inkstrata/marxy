@@ -1,0 +1,495 @@
+{
+  "api": {
+    "Highlight": {
+      "__compat": {
+        "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight",
+        "spec_url": "https://drafts.csswg.org/css-highlight-api/#highlight",
+        "tags": [
+          "web-features:highlight"
+        ],
+        "support": {
+          "chrome": {
+            "version_added": "105"
+          },
+          "chrome_android": "mirror",
+          "edge": "mirror",
+          "firefox": {
+            "version_added": "140"
+          },
+          "firefox_android": "mirror",
+          "oculus": "mirror",
+          "opera": "mirror",
+          "opera_android": "mirror",
+          "safari": {
+            "version_added": "17.2"
+          },
+          "safari_ios": "mirror",
+          "samsunginternet_android": "mirror",
+          "webview_android": "mirror",
+          "webview_ios": "mirror"
+        },
+        "status": {
+          "experimental": false,
+          "standard_track": true,
+          "deprecated": false
+        }
+      },
+      "Highlight": {
+        "__compat": {
+          "description": "`Highlight()` constructor",
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight/Highlight",
+          "spec_url": "https://drafts.csswg.org/css-highlight-api/#dom-highlight-highlight",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      },
+      "add": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight/add",
+          "spec_url": "https://drafts.csswg.org/css-highlight-api/#highlight",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      },
+      "clear": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight/clear",
+          "spec_url": "https://drafts.csswg.org/css-highlight-api/#highlight",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      },
+      "delete": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight/delete",
+          "spec_url": "https://fetch.spec.whatwg.org/#dom-headers-delete",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      },
+      "entries": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight/entries",
+          "spec_url": "https://drafts.csswg.org/css-highlight-api/#highlight",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      },
+      "forEach": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight/forEach",
+          "spec_url": "https://drafts.csswg.org/css-highlight-api/#highlight",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      },
+      "has": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight/has",
+          "spec_url": "https://fetch.spec.whatwg.org/#dom-headers-has",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      },
+      "keys": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight/keys",
+          "spec_url": "https://drafts.csswg.org/css-highlight-api/#highlight",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      },
+      "priority": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight/priority",
+          "spec_url": "https://drafts.csswg.org/css-highlight-api/#dom-highlight-priority",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      },
+      "size": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight/size",
+          "spec_url": "https://drafts.csswg.org/css-highlight-api/#highlight",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      },
+      "type": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight/type",
+          "spec_url": "https://drafts.csswg.org/css-highlight-api/#enumdef-highlighttype",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      },
+      "values": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/API/Highlight/values",
+          "spec_url": "https://drafts.csswg.org/css-highlight-api/#highlight",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      },
+      "@@iterator": {
+        "__compat": {
+          "description": "[Symbol.iterator]",
+          "spec_url": "https://drafts.csswg.org/css-highlight-api/#highlight",
+          "tags": [
+            "web-features:highlight"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "105"
+            },
+            "chrome_android": "mirror",
+            "edge": "mirror",
+            "firefox": {
+              "version_added": "140"
+            },
+            "firefox_android": "mirror",
+            "oculus": "mirror",
+            "opera": "mirror",
+            "opera_android": "mirror",
+            "safari": {
+              "version_added": "17.2"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": "mirror",
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": false,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      }
+    }
+  }
+}

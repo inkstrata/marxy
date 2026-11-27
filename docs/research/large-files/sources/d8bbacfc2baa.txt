@@ -1,0 +1,1012 @@
+WebKit
+
+Downloads
+
+Feature Status
+
+CSS Features
+
+Standards Positions
+
+Documentation
+
+Web Inspector
+
+Tracking Prevention
+
+Policies
+
+Project Goals
+
+Bug Prioritization
+
+Bug Report Guidelines
+
+Code Style Guidelines
+
+Commit and Review Policy
+
+Feature Policy
+
+Security Policy
+
+Tracking Prevention Policy
+
+WebKit AI Tool Use Policy
+
+Contribute
+
+Getting Started
+
+Contributing Code
+
+Testing Contributions
+
+How to Report Bugs
+
+GitHub Repository
+
+Blog
+
+News Posts
+
+CSS Posts
+
+Contributing Posts
+
+Privacy Posts
+
+Performance Posts
+
+JavaScript Posts
+
+Standards Posts
+
+Web Inspector Posts
+
+Safari Technology Preview Posts
+
+WebKit Features in Safari 18.4
+
+Mar 31, 2025
+
+by Jen Simmons, Saron Yitbarek, Jon Davis, Razvan Caliman, Karl Dubost, Brady Eidson, Elika Etemad, Youenn Fablet, Matthew Finkel, Simon Fraser, Timothy Hatcher, David Johnson, Anne van Kesteren, Daniel Liu, Keith Miller, Rupin Mittal, Tim Nguyen, Pascoe, Abrar Rahman Protyasha, Richard Robinson, Lily Spiniolas, Brandon Stewart, John Wilander and Luming Yin
+
+Contents
+
+Declarative Web Push
+
+CSS
+
+HTML
+
+Web Inspector
+
+Media
+
+WebRTC
+
+SVG
+
+Web API
+
+JavaScript
+
+Canvas
+
+Editing
+
+Loading
+
+WebAssembly
+
+Web Extensions
+
+WKWebView
+
+Networking
+
+Storage
+
+Connection Security
+
+Security
+
+Resolved Issues
+
+Updating to Safari 18.4
+
+Feedback
+
+Safari 18.4 is here! It includes 84 new features, including a completely new declarative mechanism for sending Web Push notifications, lots of CSS including a brand-new shape() function, P3 & translucency for the HTML color picker, media formats with more robust support for recording, new Web APIs including modern popover manipulation, new JavaScript features like Iterators, a faster way to jump to device viewport presets in Responsive Design Mode, new Web Extension API, improvements to WKWebView, and enhancements across Networking, Storage, and Connection Security—plus much more.
+
+A lot of our focus this winter has been on improving the quality and polish of existing web platform features, with a goal of greatly improving compatibility. WebKit for Safari 18.4 includes 184 resolved issues and 13 deprecations of older technology.
+
+If you’ve struggled with support for something in WebKit or Safari in the past, please test again with WebKit for Safari 18.4. You can always file an issue about WebKit at bugs.webkit.org. Or, if the issue involves technology deeper in the stack, file feedback with a sysdiagnose to provide information on how the operating system itself is being impacted. If you run into a website that isn’t working as expected, please file a report at webcompat.com and our team will take a look. Filing issues really does make a difference. You can always ping our web evangelists: Jen Simmons on Bluesky / Mastodon, Saron Yitbarek on BlueSky, or Jon Davis on Bluesky / Mastodon.
+
+Here’s a tour of what’s new with WebKit in Safari 18.4.
+
+Declarative Web Push
+
+Reaching users through push notifications is a powerful and important part of any modern computing platform. In 2013, Safari 7 on OS X 10.9 Mavericks added Safari Push, giving sites the ability to send push notifications across the web for the very first time. We learned a lot about how websites used this capability, and how users responded to it.
+
+Other browsers were also eager to add push notifications to the web. The development of the Service Worker API coincided with the development of Push API, Notifications API, and RFC 8030. All four were combined into what we now call Web Push. Chrome first supported these standards in 2015 and Firefox in 2016.
+
+The Safari team at Apple continued to refine Safari Push over the years, learning more about power usage, privacy, and its potential for abuse. The WebKit team at Apple watched the deployment of Web Push standards closely, then made deliberate decisions in implementing those standards in a privacy and power preserving way. That implementation shipped Web Push for Safari 16.1 on macOS followed by support for web apps on iOS and iPadOS 16.4.
+
+The Web Push standards have required a Service Worker since the beginning, much like how web apps require Service Workers in Chromium browsers. Compared to the original Safari Push, which used a declarative model, requiring a Service Worker introduces added complexity for web developers. It also demands more from the system — consuming additional battery and CPU resources — and opens the door to potential misuse. Much like how web apps created from within Safari have never required a Service Worker on iOS, iPadOS, or macOS, we wanted the web platform to have push notifications that can also be declarative, displaying instantly without requiring a Service Worker.
+
+Over the last several years we’ve been working on a new technology for push notifications on the web — Declarative Web Push. Learn all about how we designed and implemented it in Meet Declarative Web Push.
+
+Declarative Web Push is now available on iOS and iPadOS 18.4 for web apps added to the Home Screen.
+
+CSS
+
+Shape function
+
+For complex graphical effects like clipping an image or video to a shape, authors often fall back on CSS masking so that they can ensure that the mask adapts to the size and aspect ratio of the content being masked. Using the clip-path property was problematic, because the only way to specify a complex shape was with the path() function, which takes an SVG-style path, and the values in these paths don’t have units; they are just treated as CSS pixels. It was impossible to specify a path that was responsive to the element being clipped.
+
+The CSS shape() function, new in WebKit for Safari 18.4, addresses these shortcomings. The shape() function is a new member in the family of CSS basic shapes, and provides a way to describe an SVG-style path as a list of path commands which use CSS units. For example, to create this simple shape:
+
+We can use this style:
+
+clip-path: shape(from right center,
+line to bottom center,
+arc to top center of 50% 50% cw,
+line to right center);
+
+Details styling
+
+WebKit for Safari 18.4 adds several improvements to the experience of using <details> and <summary> elements, continuing a slow march to significantly improve this feature. If you steered away from it in the past because of limitations, you should try it again. Web standards have evolved in recent years, and all browsers have been improving support as part of Interop 2025.
+
+First, there is new support for the::details-content pseudo-element. You can use this pseudo-element to select just the content that appears when the details element is open, so you can style it independently.
+
+Try this demo out in a browser with support.
+
+This also means you can animate the height of this container for the first time, solving a long-standing problem that previously required JavaScript or an extra container around the content.
+
+And WebKit for Safari 18.4 reimplements the <details> and </details><summary> disclosure triangle as a list item. This means you can now easily change the character used like this: summary { list-style: "+ "; } and further customize its styling using the::marker pseudo-element.
+
+These changes modernize <details> and <summary>, making it possible to use this HTML instead of building custom controls from scratch using JavaScript. It’s faster and easier for you, and ensures your results have the proper semantics and full support for users of assistive technologies.
+
+Sideways writing modes
+
+Writing modes in CSS provide support for a wide variety of layout directions for written languages. At its core, the writing-mode property switches the text flow in the inline direction between a horizontal or vertical layout, as well as determining in which the direction in blocks stack. Safari has had support for writing-mode: horizontal-tb, vertical-rl, and vertical-lr since 2011 (prefixed until March 2017). Now, WebKit for Safari 18.4 adds support for writing-mode: sideways-rl and writing-mode: sideways-lr.
+
+The sideways writing modes are very similar to vertical writing modes, but not the same. They were intended to be used for text that’s normally laid out horizontally to be instead displayed vertically as a graphic design effect. Note in the demo below the difference between how CJK characters are rendered in sideways-* vs vertical-*. When the intention is to layout out typical horizontal text sideways, using sideways-rl instead of vertical-rl ensures punctuation and other direction-neutral characters are typeset correctly for the purpose at hand. It also handles the baseline of the text differently. Using sideways-lr instead of vertical-lr creates an entirely different result. Dig into this example to see more, including toggling to see the differences in text wrapping.
+
+Try this demo in a browser with support.
+
+Text auto space
+
+WebKit for Safari 18.4 adds support for the brand new text-autospace property, which automatically introduces extra space to provide visual breathing room when transitioning between scripts. In the distant past, Chinese and Japanese were written in a purely native writing system derived from ancient Chinese Han characters. But in modern typesetting, they liberally mix in Western numbers and letters. When set solid, the boundary between the traditional characters and the new foreign characters feels cramped, and so modern typesetting convention has adopted a practice of inserting a little bit of extra space at these boundaries. With the text-autospace property, the browser automatically inserts this extra space whenever it detects a script transition.
+
+The options for values include:
+
+ideograph-alpha creates extra spacing between runs of CJK and non-CJK letters.
+
+ideograph-numeric creates extra spacing between runs of CJK and non-CJK numerals.
+
+normal does both ideograph-alpha and ideograph-numeric at the same time.
+
+no-autospace inserts no space at all.
+
+Try this demo in a browser with support.
+
+WebKit defaults to text-autospace: no-autospace to match the current default behavior of older (currently all) browsers. The CSS specification calls for browsers to switch the default to text-autospace: normal — automatically applying better spacing to all CJK content on the web, no matter when the website was created.
+
+We have not yet switched to the new default behavior. Use text-autospace In Safari 18.4 to opt your content into the new spacing, and test it out. If you have thoughts about the implementation, file an issue at bugs.webkit.org. We want to ensure our implementation is well tested before changing the default.
+
+View Transitions
+
+Last December, Safari 18.2 added support for view-transition-name: auto, allowing you to avoid individually naming potentially hundreds of different content items if you are applying transitions to the content on a single page. With auto , the id is first checked to be identical across the transition, then if the id isn’t present, the elements are checked directly to be identical across the transition.
+
+In WebKit for Safari 18.4, we’re adding support for view-transition-name: match-element, which only checks the elements to be identical across the transition. This can only be used for single-page view transitions, whereas auto can be used for multi-page view transitions through matching the id attribute.
+
+And more CSS updates
+
+There’s also added support for several more CSS features in WebKit for Safari 18.4:
+
+gradients with only one stop
+
+fallbacks inside attr(), for example — attr(data-count, "0")
+
+unicode-bidi text rendering UA rules (except for ruby elements)
+
+And the non-standard CSSUnknownRule interface has been removed.
+
+HTML
+
+Now, WebKit for Safari 18.4 enhances <input type="color"> to support alpha and colorspace attributes. This means now you can offer users the chance to choose a color from the Display P3 colorspace, and/or to adjust the opacity of their choice with <input type="color" colorspace="display-p3" alpha>.
+
+You can also use any supported CSS color syntax inside the value attribute of the <input type="color" /> control and it will be properly converted as per the colorspace attribute.
+
+And the WebKit team worked with the WHATWG community to standardize these color picker enhancements in the HTML standard.
+
+WebKit for Safari 18.4 adds iOS support for thewebkitdirectory attribute on <input type="file" /> elements. When a file input with the attribute is invoked, the document picker is immediately displayed with non-directory items grayed out. From this document picker, a directory can be uploaded by navigating into the target directory and pressing “Open”.
+
+Support for the composite attribute on an <img> element has been removed in WebKit for Safari 18.4. It was originally added in April 2004 to support composite operations on images (combining two images for creating an effect) in the context of the now discontinued Dashboard macOS feature. This attribute is not necessary anymore and can be safely removed.
+
+Web Inspector
+
+Responsive Design Mode in Safari 18.4 allows you to select from a list of device viewport size presets to quickly test the layout of your web page. Presets can be rotated for portrait and landscape orientations. Viewport size presets offer a good approximation of how your web page will be affected by viewport sizes, but they don’t represent exact layout, rendering, and behavior as experienced on an actual device. For example, the page layout on a device might be influenced by the browser address bar or the on-screen keyboard. To get high fidelity previews, use the Open with Simulator menu to check the webpage on a device simulator.
+
+If you use JSContexts in your macOS, iOS, iPadOS, visionOS, watchOS or tvOS app, you can use Safari Web Inspector to debug them. Sometimes, you need to automatically inspect and pause script execution in a JSContext before it has a chance to run so you can set breakpoints and manually step through the code. Prior to Safari 18.4, you could only configure these options for the entire device which could lead to interruptions as JSContexts from other apps would also be automatically inspected. Starting in Safari 18.4, you can configure automatic inspection and pausing of JSContexts just for your app.
+
+The new Inspect Apps and Devices menu item in the Develop menu opens a window with a list of all connected devices and currently running apps that have inspectable content, such as webpages, service workers, JSContexts, WKWebViews, and web extension background pages. Next to each app in the list, there is a triple-dot menu which reveals options to configure automatic inspection and pausing of JSContexts just for that app. The settings apply to any new JSContext created by that app. If the JSContext you want to automatically inspect is created at app launch, you’ll need to restart the app to see the effect.
+
+You can use a Request Local Override to add or change headers for requests matching a URL without modifying any of the other data by ticking the checkbox for “Include original request data” in the Local Override configuration popover. Any new or changed headers will augment the request headers. Starting in Safari 18.4, you can select the “passthrough” option for the Method selector to apply the override for any HTTP method.
+
+The User Agent string overrides list now includes Android options. You can apply an override for the currently open page using the User Agent submenu from the Safari Develop menu. When remotely-inspecting a web page on a connected device or simulator, you can find User Agent string overrides in the Device Settings popover.
+
+The console.screenshot method from the Web Inspector Console API now supports providing a DOMRect as an argument to capture a screenshot of a precise area of the web page.
+
+You can grab a DOMRect from an existing DOM node:
+
+console.screenshot(document.querySelector("#testNode").getBoundingClientRect())
+
+Or you can define a DOMRect with custom values:
+
+console.screenshot(new DOMRect(0, 0, 800, 600))
+
+Web Inspector now supports the ignoreList field from the official source map specification. Tools that generate source maps can use this field to identify sources that can be ignored, for example framework code or bundler-generated code, to ease the cognitive burden for developers when debugging their own code.
+
+The Cookie table view in the Storage tab can now be configured to show a column with the cookie partition key for partitioned cookies.
+
+Media
+
+WebKit for Safari 18.4 adds support for Image Capture API. It provides a way to enable the capture of images or photos from a camera or other photographic device through MediaStream Image Capture API.
+
+As part of our efforts to improve web compatibility, MediaRecorder in WebKit for Safari 18.4 now supports creating WebM files using the Opus audio codec and either VP8 or VP9 for video.
+
+This makes it possible for web apps that record audio, including popular podcasting apps, to save WebM files via the MediaRecorder API.
+
+Simply create your MediaRecorder by specifying the mimeType like so:
+
+const recorder = new MediaRecorder(stream, { mimeType : 'video/webm' });
+
+you can also, specify which codec is to be used:
+
+const video = await navigator.mediaDevices.getUserMedia({
+audio: true,
+video: true,
+});
+
+const recorder = new MediaRecorder(video, {
+mimeType: "video/mp4; codecs=avc1.42000a,opus",
+});
+
+Additionally, it can now create ISOBMFF (fragmented MP4) files, which can be easily used with Media Source Extensions’ SourceBuffer. MediaRecorder can also generate high-quality, lossless audio tracks in ALAC or PCM formats. And we’ve added support for video tracks in H264, HEVC, and AV1 (for devices with AV1 hardware support).
+
+WebKit for Safari 18.4 rounds out our support for media formats by adding Ogg container support for both Opus and Vorbis audio on macOS Sequoia 15.4, iOS 18.4, iPadOS 18.4, and visionOS 2.4.
+
+WebRTC
+
+WebKit for Safari 18.4 adds WebRTC support for the MediaSession capture mute API:
+
+Web pages can detect in a central place whether user muted/unmuted camera/microphone/screenshare capture via specific actions
+
+Web pages can ask capture to be muted/unmuted via dedicated methods. Unmuting requires user activation and will not trigger a user prompt if muting was done by the web page.
+
+WebKit for Safari 18.4 adds speaker selection API on macOS:
+
+Speakers can be enumerated once microphone access is granted
+
+Audio rendered with HTMLMediaElement can be routed to specific speakers via setSinkId.
+
+SVG
+
+There are a few updates to SVG in WebKit for Safari 18.4.
+
+There’s new support for the lh and ch units inside of SVG. Note that support for the ch does not include support for upright vertical character width.
+
+SVGImageElement.prototype.decode() is now supported to help you avoid an empty image while waiting to download and decoding an SVG image.
+
+And WebKit for Safari 18.4 removes support for the SVG 1.1 kerning property, and the SVGDocument alias to XMLDocument.
+
+Web API
+
+The Screen Wake Lock API now also works in Home Screen Web Apps on iOS and iPadOS 18.4. This allows you to prevent a device from dimming and locking the screen. It’s especially great for use cases like recipe apps, when the user is still reading but not touching the screen.
+
+The dialog.requestClose() method is new with WebKit for Safari 18.4. Use it to request to close a <dialog>. It differs from the other methods by firing a cancel event before firing the close event and closing the dialog.
+
+WebKit for Safari 18.4 adds an option to set an invoker for popover from an imperative API with the showPopover() and togglePopover() methods. For example:
+
+element.showPopover({ source: document.querySelector("#menu-button") })
+
+The Cookie Store API is a new asynchronous API in WebKit for Safari 18.4 for managing cookies and getting notifications about changes. Due to privacy concerns, this new API exposes only the “name” and “value” properties of cookies—just like document.cookie. The change event is implemented for windows, but not yet for service workers due to ambiguities in the specification.
+
+Compression Streams now supports compressing and decompressing data using the Brotli format. This may offer significant improvements in both performance and compression size based on the specific data compared to Deflate. Authors only need to update the CompressionStreams constructor to brotli to take advantage of the new feature.
+
+WebKit for Safari 18.4 adds support for X25519 for Web Cryptography which allows access to deriveBits, deriveKey, exportKey, generateKey, and importKey in the SubtleCrypto interface. This offers better security and less reliance on external libraries to get the benefits of secure curves.
+
+Key generation, import and export support for CryptoKeyOKP(x25519/ed25519) is now supported with a CryptoKit implementation, allowing use of Curve25519 in cryptography.
+
+New control of the focusing process is available in WebKit for Safari 18.4 with support for element.focus({ focusVisible: true }). This allows developers to programmatically control the visible focus indicator of an element, to force it to be visible or prevent it from being visible instead of relying exclusively on the User Agent.
+
+WebKit for Safari 18.4 adds support for the PublicKeyCredential.parseCreationOptionsFromJSON() , PublicKeyCredential.parseRequestOptionsFromJSON(), and PublicKeyCredential.toJSON() methods. This provides web developers an easy way to serialize Web Authentication requests and responses objects between client and server.
+
+WebKit for Safari 18.4 adds support for Scroll To Text Fragment feature detection with document.fragmentDirective. This lets you test whether or not text fragments are supported in your browser by checking for existence of the object.
+
+WebKit for Safari 18.4 removes support for built-in wheel event handling for <input type="number" />. Its behavior did not match the equivalent control on Apple platform’s and was confusing to end users. Web developers frequently sought to disable it, or would enable it inadvertently.
+
+JavaScript
+
+Iterators
+
+WebKit for Safari 18.4 adds support for several new features from the Iterator Helpers proposal. When interacting with large sets of data it might not be possible to fit all your data in memory at once, such as in an Array. With iterator helpers, data is handled lazily so it doesn’t all have to be in memory at the same time.
+
+As an example, Around the World in Eighty Days is a French novel by Jules Verne. The hero, Phileas Fogg, makes a bet that he can navigate around the world in no more than 80 days. These are the cities Phileas Fogg will go through:
+
+function* cities() {
+yield "London (UK)";
+yield "Suez (Egypt)";
+yield "Bombay (India)";
+yield "Calcutta (India)";
+yield "Victoria (Hong-Kong)";
+yield "Singapore (Singapore)";
+yield "Yokohama (Japan)";
+yield "San Francisco (USA)";
+yield "New-York (USA)";
+yield "London (UK)";
+// If Phileas went to every city in the world this list would be very long.
+}
+
+We can make an iterator out of the cities generator function by calling it. For other iterable data structures such as Map, Set, and Array we can use Iterator.from.
+
+let citiesIter = cities();
+
+let otherCitiesIter = Iterator.from(["London (UK)", "Suez (Egypt)", "Bombay (India)"]);
+
+To iterate through an iterator, we can call next():
+
+citiesIter.next(); // < {value: "London (UK)", done: false}
+citiesIter.next(); // < {value: "Suez (Egypt)", done: false}
+citiesIter.next(); // < {value: "Bombay (India)", done: false} // etc.
+
+As we can see we can iterate through the cities, one by one. If we want to restart the iterator from the beginning, we just need to create a new one:
+
+citiesIter = cities();
+
+Let’s create functions that will check if a city is in India or France:
+
+isCityInIndia = (x) => x.includes("India");
+isCityInFrance = (x) => x.includes("France");
+
+The method iterator.some() will check if some elements in the iterator meet a certain criteria:
+
+citiesIter.some(isCityInIndia);
+
+It will return true as some of the cities are in India.
+
+Let’s make a new iterator again and check for cities in France:
+
+citiesIter.some(isCityInFrance);
+
+As expected, it returns false as none of the cities are in France.
+
+The method Iterator.every() checks if all elements in the iterator meet the specified criteria.
+
+citiesIter.every(isCityInIndia);
+
+It will return false. Indeed. Not all cities from the iterator are in India.
+
+The method Iterator.filter() returns a new iterator whose elements match our criteria.
+
+citiesIter.filter(isCityInIndia);
+// Iterator.from(["Bombay (India)", "Calcutta (India)"]);
+
+One of the nicest parts of iterator helpers is that you can compose them. Let’s say we want to know how many places Phileas visited in India on his journey. We can use the reduce function on our filtered iterator to get our answer.
+
+cities().filter(isCityInIndia).reduce((count, city) => count + 1, 0);
+// 2
+
+The method Iterator.map() applies the function for each elements returned by the iterator when .next() is called.
+
+citiesIter = cities();
+// here we create a function modifying the element returned by `next()`.
+travelDone = (x); "Travel to " + x + ": done!";
+let citiesDone = citiesIter.map(travelDone);
+citiesDone.next();
+// {value: "Travel to London (UK): done!", done: false}
+citiesDone.next();
+// {value: "Travel to Suez (Egypt): done!", done: false}
+// etc.
+
+These are a couple of examples of the new methods which have been added to Safari. Take your time to discover others: some(), every(), find(), map(), filter(), take(), drop(), flatMap() , toArray(), forEach(), reduce().
+
+JSON Parsing
+
+WebKit improves parsing performance using SIMDe in JSON for fast scanning of strings in JSON.parse, plus fast scanning and copying of strings in JSON.stringify. SIMD (Single Instruction, Multiple Data) is practical when handling computations on a large set of data, where each data element receives the same instruction.
+
+Improved Error detection
+
+WebKit for Safari 18.4 supports Error.isError to identify a “real” native error in a world where Symbol.toStringTag means there isn’t a reliable way to test the internal slot for Error instances. It makes it possible to normalize error objects instead of relying on only strings.
+
+try {
+throw "Oops; this is not an Error object. Just a string.";
+} catch (e) {
+// test if it's not an error
+if (!Error.isError(e)) {
+// make it a real error
+e = new Error(e);
+}
+console.error(e.message);
+}
+
+And more
+
+WebKit also allows for programs using spin-wait loops to give the CPU a hint that it’s waiting on a value and still spinning by implementing Atomics.pause.
+
+Canvas
+
+WebKit adds un-prefixed letterSpacing and wordSpacing for CanvasRenderingContext2D in Safari 18.4. This enables you to specify the spacing between words and letters when drawing text in a 2D canvas, without a -webkit prefix.
+
+And support has been removed for three antiquated technologies to improve interoperability and compatibility:
+
+webKitBackingStorePixelRatio
+
+the prefixed webkitImageSmoothingEnabled — use the standard imageSmoothingEnabled property instead
+
+the non-standard legacy alias of Canvas Compositing including setAlpha and setCompositeOperation
+
+Editing
+
+WebKit for Safari 18.4 adds support for ClipboardItem.supports(). When a web application needs to place content in the clipboard of the operating system, it is useful to know in advance if the format is supported by the clipboard. By default, browsers support text/plain, text/html and image/png .
+
+This gives the ability to check if other formats are supported. It will send back false when the format is not supported and avoid an error message.
+
+It also adds text/uri-list which is a supported format by Safari, useful when sharing list of URLs.
+
+It also improves interoperability by sending TypeError for a new ClipboardItem() with an empty Array.
+
+Also, WebKit for Safari 18.4 fixes document.execCommand("copy") so that it can be triggered even if there is not any text selected.
+
+Loading
+
+With Safari 18.4, WebKit now supports noopener-allow-popups in Cross-Origin-Opener-Policy (COOP). This disconnects the relationship between the opener and the document loaded with its policy, but still allows the document to open other documents if their COOP policy allows it.
+
+WebAssembly
+
+WebKit for Safari 18.4 supports running Wasm when Just-In-Time compilation (JIT) is disabled. That means Safari can still run Wasm in environments where JIT compilation has been turned off to boost system security.
+
+There’s also support for the new Wasm Exception specification. Exception handling allows code to break control flow when an exception is thrown. The new specification provides both a mechanism for Wasm code to handle JavaScript exceptions, and to throw its own exceptions. This new specification supersedes the legacy proposal, which WebKit supported since Safari 15.2 and will continue to support for compatibility.
+
+WebKit for Safari 18.4 adds support for relaxed_laneselect SIMD instructions which means that when the mask is all its bits set or unset, it will behave like a bitwise select SIMD instruction. Otherwise, if the mask has a different value, the implementation can then use the backing architecture to pick the relaxed instruction’s behavior.
+
+Web Extensions
+
+Browser Web Extension APIs
+
+WebKit on iOS 18.4, iPadOS 18.4, visionOS 2.4, and macOS Sequoia 15.4 adds support for integrating web extensions into WebKit-based browsers with a set of straightforward Swift and Objective-C APIs. With the new WKWebExtension, WKWebExtensionContext, and WKWebExtensionController classes, browsers can incorporate web extensions that empower users to customize their browsing experience. Integrating web extensions into WebKit enables all WebKit-based browsers to align on a unified implementation, ensuring they all benefit from continuous improvements and fixes in support of the evolving web extensions standard.
+
+Temporary Extension Installation
+
+New in Safari 18.4 on macOS, you can temporarily install a web extension from disk. This provides a convenient way to develop your extension and test compatibility without building an Xcode project. When loading a temporary extension, you’ll have access to most Safari Web Extension functionality. When you’re ready to test out nativeMessaging, or prepare your extension for distribution, you can create a new Xcode project using the Safari Web Extension Converter.
+
+Developer ID-Signed and Notarized Safari Web Extensions
+
+Safari 18.4 on macOS now supports Safari Web Extensions that have been Developer ID-signed and notarized. Notarization is an additional step after signing your app and extension with your Developer ID. Apple’s notarization service automatically checks for malicious content and code-signing issues. Once notarized, your app and extension is ready for distribution and use in Safari.
+
+Reliable Document Identification
+
+Safari 18.4 adds support for documentId in webRequest, webNavigation, tabs, and scripting APIs, ensuring extensions can reliably track documents when sending messages, injecting scripts, or processing requests. Unlike frameId, which stays the same when a new document loads in the same frame, documentId updates with each navigation, helping extensions avoid interacting with the wrong content.
+
+Efficient Storage Key Retrieval
+
+Safari 18.4 introduces getKeys() in extension storage, allowing developers to retrieve stored keys without fetching their associated values. This improves performance for extensions that manage large sets of structured data, such as those that store user preferences, session data, or categorized content. By retrieving only the keys, extensions can efficiently determine what data is available before deciding which values to load, reducing unnecessary data transfers.
+
+Improved Localization Support
+
+Support for i18n.getSystemUILanguage() and i18n.getPreferredSystemLanguages() in Safari 18.4 provides extensions with access to the user’s system language settings. Unlike i18n.getUILanguage(), which returns the browser’s interface language, these APIs allow extensions to align with system-wide language preferences. This is particularly useful for extensions that format dates, numbers, and other locale-specific content according to the user’s preferred regional settings, even when the browser’s locale differs.
+
+Expanded Subframe Injection
+
+Safari 18.4 adds support for match_about_blank and match_origin_as_fallback in extension manifests, as well as matchOriginAsFallback in scripting for dynamically registered content scripts. These properties allow scripts and styles to run in additional frames such as about:blank, data:, and blob: URLs by matching based on the origin of the parent frame rather than the frame’s own URL, making it possible to target frames with opaque origins. Host permissions for the parent frame’s origin are still required.
+
+WKWebView
+
+In this release, we brought more platform parity across our APIs. On iOS, it’s now possible for API clients to customize the upload flow for file inputs using the WKUIDelegate/webView(_:runOpenPanelWith:initiatedByFrame:) delegate method.
+
+We also now expose the buttonNumber and modifierFlags properties of WKNavigationAction on iOS and visionOS.
+
+Lastly, visionOS 2.4 brings Apple Intelligence features like summarization, text compose, rewriting, and proofreading into WebKit client experiences on visionOS with support for Writing Tools. This includes their respective APIs, WKWebView.isWritingToolsActive and WKWebViewConfiguration.writingToolsBehavior.
+
+Networking
+
+WebKit for Safari 18.4 on macOS Sequoia 15.4, iOS 18.4, and visionOS 2.4 introduce support for opt-in partitioned cookies, known as CHIPS. Partitioned cookies allow third-party content on a web page to create and access cookies on that specific site without allowing cross-site tracking. CHIPS is an important technology for web sites that still require access to cookies in a third-party context (e.g., an iframe), and it is an important step toward helping sites finish their migration away from relying on unpartitioned, cross-site cookies.
+
+For example, if https://siteA.example creates an iframe and loads https://siteB.example in it, and the webpage from https://siteB.example creates a partitioned cookie, then that cookie is only accessible to siteB.example on a webpage from siteA.example. Note that WebKit is using a different partitioning boundary for CHIPS compared with its other storage areas (e.g., localstorage). WebKit is aligning with the other browser engines by partitioning cookies by site, as compared to by origin. This means that if both https://news.siteA.example and https://mail.siteA.example embed an iframe from https://chat.siteB.example, then https://chat.siteB.example will have access to the same cookie on both web pages because https://news.siteA.example and https://mail.siteA.example are subdomains of the same site: https://siteA.example.
+
+Partitioned cookies with CHIPS require that the website explicitly sets a new attribute on the cookie. This explicit attribute ensures that WebKit and the website have a shared understanding that the cookie will be only accessible on a particular site. The new attribute is named Partitioned, and it is used in a similar manner to the Secure or HTTPOnly attributes. As with other cookie attributes, the Partitioned attribute is only used when the cookie is set, and it is not accessible afterward.
+
+As an example, if you want to set a partitioned cookie using the HTTP Set-Cookie header, that could look like:
+
+Set-Cookie: TestCookie=12345; SameSite=None; Secure; Partitioned
+
+Note, this cookie includes the SameSite=None and Secure attributes. These attributes are required for a Partitioned cookie, and the cookie will be blocked if those attributes are not set. This means that the cookie much be created and accessed from a secure webpage (e.g., https) and the cookie will be sent in all go your cross-site requests to your server. You can read more about these attributes on the linked pages.
+
+Similar to setting a partitioned cookie with the HTTP header, you can set it using JavaScript, as well. For example, JavaScript could create the same cookie as above:
+
+document.cookie = "TestCookie=12345; SameSite=None; Secure; Partitioned";
+
+And document.cookie will return "TestCookie=12345".
+
+Note, cross-site tracking domains may not be allowed to use partitioned cookies.
+
+If you require access to both partitioned third-party cookies and unpartitioned third-party cookies, then you can continue using the Storage Access API with document.requestStorageAccess() to request access to the unpartitioned cookies.
+
+Storage
+
+WebKit for Safari 18.4 adds support for clearing partitioned cookies using the Clear-Site-Data HTTP header. Support for clearing first party cookies using the Clear-Site-Data was introduced in Safari 17.0. Now, with the introduction of CHIPS, described above, this HTTP header has different behavior depending on which server sends it. If the header is received in the response that was sent by the first party site (e.g., the main web page), then WebKit will clear only unpartitioned cookies for that domain. If the HTTP header is received in a response that was sent by a cross-site iframe, then WebKit will clear only partitioned cookies for the particular site on which the iframe is loaded.
+
+Connection Security
+
+For years, the lock icon in Safari indicated that the connection is secure — that the site is using HTTPS. With more than 87% of all connections made over HTTPS now, secure connections are ubiquitous. The new norm. Meanwhile, the presence of the lock could be creating a false sense of trustworthiness, if users instead believe it’s there to signal the website is trustworthy. With this in mind, we removed the lock icon from the Smart Search field for HTTPS connection in Safari 18.4.
+
+For users who would like the ability to learn more about connection security, we’re introducing a new option. On macOS, go to Safari menu; Connection Security Details. And on iOS, iPadOS, and visionOS, you’ll find the information in Page menu; more; Connection Security Details.
+
+This view lets users confirm the connection is secure, and for the first time on iOS, iPadOS, and visionOS, view certificate information such as CA issuer and expiration date.
+
+In the EU, Connection Security Details indicate connections made using an EU Qualified Web Authentication (QWAC) certificate providing an indicator for enhanced trust and security for online interactions on iOS 18.4, iPadOS 18.4, macOS Sequoia 15.4, and in visionOS 2.4.
+
+Additionally, WebKit for Safari 18.4 changes 3DES cipher to show a warning to users that it’s a legacy TLS (Transport Layer Security). Tap here to see such a warning.
+
+Security
+
+WebKit for Safari 18.4 adds support for CSP Hash Reporting keywords: report-sha256, report-sha384 and report-sha512. And it removes support for Clear-Site-Data: for executionContexts since Safari was the most only browser with support.
+
+WebKit for Safari 18.4 now enables a user to set a PIN for a security key when it’s required during registration.
+
+Resolved Issues
+
+In addition to new features, WebKit for Safari 18.4 includes work to polish existing features.
+
+Browser
+
+Fixed an issue where sites would log out automatically after a brief time. (99829958)
+
+CSS
+
+Fixed table border-color to be currentColor by default. (48382483)
+
+Fixed combining CSS clip-path with any property that creates a new stacking context makes <img> element disappear. (86091397)
+
+Fixed resize to not be applied to generated content. (121348638)
+
+Fixed contain: size breaking object-fit. (131866042)
+
+Fixed: Dropped layout containment from container-type. (132549134)
+
+Fixed handling all of the CSS properties in specifications that should cause a UI widget to devolve to a primitive appearance. (134273374)
+
+Fixed scrollIntoView alignment to always be honored. (135484284)
+
+Fixed:background-clip: border-area to do nothing on the root. (135972986)
+
+Fixed vertical-rl writing mode inter-character ruby text being significantly smaller than over ruby text. (135973587)
+
+Fixed CSS cursor to not eagerly evaluate calc() values. (136103471)
+
+Fixed flex shorthand to not eagerly evaluate calc(). (136103475)
+
+Fixed -webkit-perspective to not eagerly evaluate calc(). (136103493)
+
+Fixed @property initial-value descriptor to prevent containing var(--foo). (136103499)
+
+Fixed delaying the evaluation of calc() for raw font consumers so that each caller can choose the correct behavior. (136103500)
+
+Fixed grid to not eagerly evaluate calc() for repetitions value. (136103503)
+
+Fixed counter-increment, counter-set, and counter-reset to not eagerly evaluate calc(). (136103519)
+
+Fixed CSS nested declarations inside a @scope to behave like :where(:scope). (136856371)
+
+Fixed: Updated the shape() function to match the proposed syntax. (138126105)
+
+Fixed same-document view transitions performance on pages with many elements. (138966650)
+
+Fixed an issue where radial gradients with two color stops at 100% failed to extend the last color. (139369366)
+
+Fixed @scope start and end to be a classic (non-forgiving) selector list. (139471866)
+
+Fixed updating the base background color where the root has color set explicitly when switching to light or dark modes. (139917332)
+
+Fixed performance of querySelectorAll() with :has() descendant selectors. (140093151)
+
+Fixed the unicode-bidi default for the <bdo> element. (140662417)
+
+Fixed broken revert-layer when logical group CSS properties are explicitly inherited. (140819138)
+
+Fixed border-spacing to use the shortest possible serialization (“0px” vs “0px 0px”). (141920587)
+
+Fixed subsequent nested styles getting ignored after an incorrect nested selector. (142187930)
+
+Fixed font-variant-caps: all-small-caps causing incorrect box-sizing in flex inline context. (142212550)
+
+Fixed ensuring the correct logic is run for over-constrained cases when the absolute positioned box is a writing-mode root. (142214631)
+
+Fixed animation-name set from the view transitions dynamic UA stylesheet having extra quotes. (142298840)
+
+Fixed the serialization and parsing of animation-name strings. (142318879)
+
+Fixed text-box-trim accumulation failing when updating the CSS dynamically. (142386761)
+
+Fixed text-emphasis to not paint emphasis marks on punctuations. (142387538)
+
+Fixed sizing and positioning issues when a popover changes CSS position upon opening. (142491219)
+
+Fixed Page Zoom (⌘+ and ⌘-) to work with calc() used with font-size on macOS. (142736427) (FB16287129)
+
+Fixed scroll-padding and scroll-margin to be strongly typed CSS/Style values. (142830546)
+
+Fixed View Transitions to stop running when the user navigates with a swipe. (142844150)
+
+Fixed top-level and nesting selector to have zero specificity matching a recent specification update. (143765827)
+
+Editing
+
+Fixed document.execCommand("copy") only triggering if there is a selection. (27792460)
+
+Fixed an issue where iCloud Notes pasted text copied from a plain text document in Safari as raw markup. (124788252)
+
+Fixed highlighting correctly a large text selection that ends with a common phrase. (135973065)
+
+Fixed copying a link to a common term in an article to highlight the correct part of the page. (135973186)
+
+Fixed missing SecureContext in the ClipboardItem interface. (137197266)
+
+Fixed Hebrew text pasted from Safari getting aligned left. (139029945)
+
+Fixed setting selection to not set focus unless there is an existing selection. (139075809)
+
+Fixed sometimes being unable to select text for non-editable content. (143296175)
+
+Fixed missing selection handles after selecting text across multiple lines. (143720155)
+
+Forms
+
+Fixed <textarea> to handle switching direction. (73475239)
+
+Fixed setting a datetime-local input to a large value cause a crash. (135733092)
+
+Fixed <datalist> dropdown keyboard interactions to align with platform conventions. (143012287)
+
+Fixed: Disabled all Writing Tools app menu items, except “Compose”, for empty editable content. (143332082)
+
+Home Screen Web Apps
+
+Fixed Screen Wake Lock API for Home Screen Web Apps. (108573133)
+
+HTML
+
+Implemented <details> and <summary> disclosure triangle as a list item. (95148788)
+
+Images
+
+Fixed broken WebP images in lockdown mode. (144224372)
+
+JavaScript
+
+Fixed Array destructuring assignment to close the iterator if an evaluation throws an exception. (121960887)
+
+Fixed: Updated Intl.DurationFormat#resolvedOptions to the latest specification. (136276429)
+
+Fixed Iterator Helpers methods to not iterate an array. (136303997)
+
+Fixed Iterator.prototype.reduce() not properly forwarding the return() call to the underlying iterator. (137181340)
+
+Fixed Set.prototype methods to invoke keys() without arguments. (137395979)
+
+Fixed Array.from(), Array.fromAsync(), and TypedArray.from() to invoke document.all passed as a mapper. (137490201)
+
+Fixed Intl.DurationFormat to have a value limit to match the specification. (137885273)
+
+Fixed a rounding error for Intl.DurationFormat. (138261569)
+
+Fixed calendar canonicalization logic in DateTimeFormat. (141792829)
+
+Fixed broken output for Intl.DurationFormat digital style when hoursDisplay is "auto". (141969050)
+
+Fixed Intl.DurationFormat to print a negative sign for minutes after hidden hours. (142119353)
+
+Fixed Array.prototype.toReversed to fill holes with undefined. (142197604)
+
+Fixed: Increased the matchLimit for regular expressions, allowing complex matches on longer strings. (143202375)
+
+Media
+
+Fixed handling an empty srcAttr in Media Element. (132042925)
+
+Fixed getUserMedia video track getSettings() returning a stale value for torch and whiteBalanceMode constraints. (137870391)
+
+Fixed the space key not pausing a video in fullscreen by making the video mouse focusable. (138037616)
+
+Fixed an issue where playback doesn’t always resume after a seek. (140097993)
+
+Fixed playing video generating non-monotonic ‘timeupdate’ events. (142275184) (FB16222910)
+
+Fixed websites calling play() during a seek() is allowed by the specification so that the play event is fired even if the seek hasn’t completed. (142517488)
+
+Fixed seek not completing for WebM under some circumstances. (143372794)
+
+Fixed MediaRecorderPrivateEncoder writing frames out of order. (143956063)
+
+Networking
+
+Fixed optimistically upgraded navigations to set a timeout based on current network conditions. (135972599)
+
+PDF
+
+Fixed switching a PDF from continuous to discrete mode displaying the page(s) that are at the top of the window, even when barely visible. (137608841)
+
+Fixed the “Previous Page” context menu option not navigating to previous page in 2-up continuous mode. (139817364)
+
+Fixed main frame PDFs served with a CSP sandbox header not loading. (141166987)
+
+Rendering
+
+Fixed computing the baseline for replaced elements with an intrinsic ratio but no intrinsic size as flex items. (74279029)
+
+Fixed flickering caused by extra resize events dispatched when rotating from landscape to portrait on iOS. (93767145)
+
+Fixed adding out-of-flow objects under the inline in a continuation chain, when possible. (102421379)
+
+Fixed mix-blend-mode to work for large resolution fixed or stick elements. (104686540)
+
+Fixed the missing table collapsed border for <thead>, <tbody>, and <tfoot> elements in the wrong order. (110430887)
+
+Fixed handling inline-box trailing content. (112409103)
+
+Fixed <input type="range"> taking up space even with width: 0 applied. (113402515)
+
+Fixed the Spotify media player disappearing when rotating to landscape mode on iOS. (123870311)
+
+Fixed textarea elements to reserve space for overlay scrollbars. (129597865)
+
+Fixed grid layout animation performance by caching intrinsic logical heights during the first row sizing pass, improving efficiency and preventing invalidation issues with complex grid configurations. (135791322)
+
+Fixed Grid item which is an image with specified sizes failing to update when the src changes. (135972911)
+
+Fixed nested inlines’ vertical alignment when line-fit-edge is set. (136036997)
+
+Fixed the consistency of table layout with <td width="100%">. (136090741)
+
+Fixed repainting to be more consistent for text-underline-position. (136095297)
+
+Fixed floats not clearing in the WordPress Classic Editor sidebar layout. (136362683)
+
+Fixed handling of out-of-flow children in MathML layout functions to be consistent. (136683070)
+
+Fixed a repeating background-image sized to the content-box failing to fill the viewport in an iframe. (136725820)
+
+Fixed consistently triggering a reflow when needed for table DOM manipulations. (137300794)
+
+Fixed scriptlevel multipler for font-size in MathML. (137671252)
+
+Fixed inline marquees to allow them to shrink when adjacent to float(s). (137766071)
+
+Fixed a flex container with no flex item to not run flex layout. (137884128)
+
+Fixed support for CSS width and height properties on MathML elements. (138174295)
+
+Fixed Inline content incorrectly positioning around right-to-left and/or vertical shape-outside floats. (139076129)
+
+Fixed incorrectly overlapping when a float has shape-outside: inset. (139133291)
+
+Fixed right-to-left content failing with a shape-outside float. (139198865)
+
+Fixed incorrectly overlapping a float that has shape-outside: ellipse in vertical mode. (139208636)
+
+Fixed incorrectly overlapping a float that has shape-outside: polygon in right-to-left. (139215719)
+
+Fixed outside list-style-position quirk to only be applicable in quirks mode. (140602985)
+
+Fixed: Updated line box dimensions. (141167251)
+
+Fixed incorrect horizontal writing mode state when nested in a vertical block container. (141543326)
+
+Fixed baseline calculation few cases for tables with empty rows. (142046863)
+
+Fixed to refuse to break inside replaced content. (142224455)
+
+Fixed absolute positioned child with percent to include containing block padding. (142321535)
+
+Fixed computing an out-of-flow box width correctly when it is inside an inline continuation. (142417374)
+
+Fixed a border not showing when a linear gradient and a border radius are set. (142617573)
+
+Fixed relative-positioned input elements in scroll areas not rendering outlines. (142995142)
+
+Fixed tabbing out of a popover causing a hang in certain cases. (143145544)
+
+Fixed setting up inline continuations correctly when not inserting a new child. (143388080)
+
+Fixed adding a margin-top to a <rt> also adds a bottom margin. (143720832)
+
+Scrolling
+
+Fixed changes to the “scrolling” attribute on an iframe element already in the DOM to take effect. (98911472)
+
+Service Workers
+
+Fixed handling the case of busy looping service workers in a process containing web pages. (138626537)
+
+Fixed an unexpected failure when serving a redirected response from cache for a navigation loaded via service worker navigation preload. (146113615)
+
+Storage
+
+Fixed the Storage Access API to consider AllExceptPartitioned as not currently having cookie access, ensuring sites can request access to first-party cookie. (143508260)
+
+SVG
+
+Fixed not propagating the bounding box for empty text to ancestors. (115217040)
+
+Fixed SVG masks not working as a mask-image. (127327715)
+
+Fixed a bug in case of reference elements (e.g., textPath) unable to notify the referring element (e.g, text) about their availability. (135509733)
+
+Fixed SVGUseElement to prevent sniffing the content type when loading an external document. (135972621)
+
+Fixed vertical writing modes to se the correct bounding rect. (135973175)
+
+Fixed: Updated getTotalLength() with the web specification to throw an exception when non-renderable and the path is empty. (136719548)
+
+Fixed SVG quadratic curve getting incorrectly clipped at tile boundaries. (139904014)
+
+Fixed dynamically updating the transform attribute. (140761655)
+
+Fixed synthesizing a viewBox in <img> only for the document element <svg>. (141733733)
+
+Fixed SVGElement.prototype.ownerSVGElement on the outermost <svg> in foreignObject. (143625675)
+
+Tables
+
+Fixed table row direction to be determined by the table’s direction, not the section. (99343532)
+
+Fixed missing behavior for rowspan="0" on HTML tables where 0 means span over all the remaining rows. (133910430)
+
+Fixed Table Root to also account for fill-available in a fixed table layout. (137297914)
+
+Fixed table section and row background to not be treated as opaque. (142588505)
+
+Text
+
+Fixed an issue where a thick underline would not show on short content. (64705955)
+
+Fixed: The changes for GB18030-2022 now properly impact GBK as well, as required by the Encoding Standard. (136368583)
+
+Fixed automatically hyphenating text only when a language specified. (136826305)
+
+Fixed the boundary style calculation when text-spacing: text-autospace is applied. (137153961)
+
+Fixed displaying OpenType-SVG color fonts. (137496217) (FB15426148)
+
+Web API
+
+Fixed: Aligned some MIME type handling in EME with the MIME Sniffing standard. (114311586)
+
+Fixed window.history.replaceState('', '', '') having no effect on macOS. (117782346)
+
+Fixed MutationObserver to observe style attribute changes when resizing the element. (120109181)
+
+Fixed: Updated selectorText handling to align with the specification for CSSPageRule. (125588212)
+
+Fixed Gamepad rumble issue where sending two sequential playEffect() requests prevents reset() from working as expected. (126589062) (FB13733668)
+
+Fixed matching emoji in an element’s id attribute from a <link rel=expect> with an href that uses percent-encoded syntax. (134531921)
+
+Fixed the onrejectionhandled and onunhandledrejection event handler attributes to work correctly on body and frameset elements. (135401362)
+
+Fixed render blocking for <link> to not match elements that are on a ‘stack of open elements’ for the parser. (135846827)
+
+Fixed Distraction Control unexpectedly hiding out-of-flow elements that overlap with a hidden element. (136358918)
+
+Fixed CSSOM setSelectorText(string) to prepend the implicit selector. (136791222)
+
+Fixed HTMLElement.prototype.requestPointerLock to return a Promise. (139854530)
+
+Fixed innerText behavior for <details> and <summary>. (140172890)
+
+Fixed the HTML parser phone number handling to better account for MathML. (141632782)
+
+Fixed Range.getClientRects to take surrogate pairs into account. (142098484)
+
+Fixed tokenization of the rel attribute of the link element and Link header. (142600096)
+
+Web Authentication
+
+Fixed .catch() for conditional mediation not getting passed the abort reason that was thrown. (112178073)
+
+Web Extensions
+
+Fixed CORS for Web Extension pages to respect granted per-site permissions.
+
+Developers will need to add a browser.permissions.request({origins: []}) call before doing any fetch() that is blocked by CORS. (102912898)
+
+Fixed an issue causing content blockers to not hide content in about:blank frames. (134273470)
+
+Fixed a slowdown in applying rulesets and dynamic rules in declarativeNetRequest. (136394861) (FB15196130)
+
+Fixed clicking the “Clear Storage…” button in Safari Extensions Settings. (137533628)
+
+Fixed storage.onChanged returning undefined as the areaName. (138086765)
+
+Fixed the tabs field missing from the result returned by windows.create. (138529797)
+
+Fixed es-419 support in Web Extensions. (138857112)
+
+Fixed the webRequest.onBeforeRequest event missing the requestBody. (140338580) (FB15911234)
+
+Fixed blurry extension icons. (142070967) (FB16171862)
+
+Fixed not picking the “zh” locale when “zh-Hant” is preferred. (142602243) (FB16271745)
+
+Fixed webRequest event listeners to honor extraInfoSpec for better performace. (142907168)
+
+Fixed web extension resources to be treated as UTF-8 by default. (143079179)
+
+Web Inspector
+
+Fixed ensuring that all of the Desktop Sites on iPad site-specific hacks are disabled when the site-specific hacks setting is turned off in Web Inspector. (50035167)
+
+Fixed style rules to stay editable after being modified by CSSOM in JavaScript. (124650808)
+
+Fixed glitches when trying to edit a style from a stylesheet that has an @import statement. (131756178)
+
+Fixed error cases to match new source map specification. (137934436)
+
+Fixed the overview icon to be inverted dark mode in the Graphics tab. (140602803)
+
+Fixed recorded WebGL objects not getting highlighted correctly in the Graphics tab. (140625113)
+
+WebAssembly
+
+Fixed Wasm legacy catch_all instruction to correctly catch thrown JS primitives. (135972897)
+
+WebDriver
+
+Fixed a crash that could occur when simulating drag events with the right mouse button. (137068514)
+
+WebRTC
+
+Fixed MediaSession.setMicrophoneActive(true) prompting repeatedly if the microphone was muted by the user-agent once. (135941062)
+
+Fixed setCameraActive to not unmute microphone if the user-agent previously muted both camera and microphone. (136221456)
+
+Fixed AirPods unmuting to not unmute the camera if website muted the camera. (137065964)
+
+Fixed voice search to not re-prompt for camera or microphone permission after a page-initiated same origin navigation. (138122655)
+
+WKWebView
+
+Fixed calling WKWebView.evaluateJavaScript in an async context when nothing is returned by JS. (139618495) (FB15755273)
+
+Updating to Safari 18.4
+
+Safari 18.4 is available on iOS 18.4, iPadOS 18.4, macOS Sequoia 15.4, macOS Sonoma, macOS Ventura, and in visionOS 2.4. To get the latest version of Safari on iPhone, iPad or Apple Vision Pro, go to Settings; General; Software Update, and tap to update.
+
+If you are running macOS Sonoma or macOS Ventura, you can update Safari by itself, without updating macOS. Go to ; System Settings; General; Software Update and click “More info…” under Updates Available.
+
+Feedback
+
+We love hearing from you. To share your thoughts, find our web evangelist online: Jen Simmons on Bluesky / Mastodon, Saron Yitbarek on BlueSky, and Jon Davis on Bluesky / Mastodon. You can follow WebKit on LinkedIn. If you run into any issues, we welcome your feedback on Safari UI (learn more about filing Feedback), or your WebKit bug report about web technologies or Web Inspector. If you run into a website that isn’t working as expected, please file a report at webcompat.com. Filing issues really does make a difference.
+
+Download the latest Safari Technology Preview on macOS to stay at the forefront of the web platform and to use the latest Web Inspector features.
+
+You can also find this information in the Safari 18.4 release notes.
+
+NextRelease Notes for Safari Technology Preview 216Learn more
+
+PreviouslyItem Flow, Part 1:
+A new unified concept for layoutLearn more
+
+@webkit@front-end.social
+
+Site Map
+
+Privacy Policy
+
+Licensing WebKit
+
+WebKit and the WebKit logo are trademarks of Apple Inc.

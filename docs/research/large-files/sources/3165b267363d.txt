@@ -1,0 +1,880 @@
+WebKit
+
+Downloads
+
+Feature Status
+
+CSS Features
+
+Standards Positions
+
+Documentation
+
+Web Inspector
+
+Tracking Prevention
+
+Policies
+
+Project Goals
+
+Bug Prioritization
+
+Bug Report Guidelines
+
+Code Style Guidelines
+
+Commit and Review Policy
+
+Feature Policy
+
+Security Policy
+
+Tracking Prevention Policy
+
+WebKit AI Tool Use Policy
+
+Contribute
+
+Getting Started
+
+Contributing Code
+
+Testing Contributions
+
+How to Report Bugs
+
+GitHub Repository
+
+Blog
+
+News Posts
+
+CSS Posts
+
+Contributing Posts
+
+Privacy Posts
+
+Performance Posts
+
+JavaScript Posts
+
+Standards Posts
+
+Web Inspector Posts
+
+Safari Technology Preview Posts
+
+WebKit Features for Safari 26.2
+
+Dec 12, 2025
+
+by Jen Simmons, Tim Nguyen, Vassili Bykov, David Johnson, Lily Spiniolas and Brian Weinstein
+
+Contents
+
+HTML
+
+CSS
+
+Web API
+
+Performance API
+
+Web Inspector
+
+Web Animations API
+
+JavaScript
+
+WebAssembly
+
+WebGPU
+
+SVG
+
+WebRTC
+
+Canvas
+
+Web Compatibility
+
+WebDriver
+
+WebKit API
+
+Web Extensions
+
+Bug fixes and more
+
+Feedback
+
+Safari 26.2 is a big release. Packed with 62 new features, this release aims to make your life as a web developer easier by replacing long-standing frustrations with elegant solutions. You’ll find simpler ways to create common UI patterns with just a few lines of HTML or CSS, and no JavaScript — like auto-growing text fields with CSS field-sizing, and buttons that open/close dialogs and popovers with command and commandfor HTML attributes. Navigation API makes building single-page apps more straightforward. Full width numbers are normalized, and text shaping across element boxes is supported for languages like Arabic. Anchor Positioning expands with the position-visibility property and much more. The cursor property works on pseudo-elements. Improvements to Initial Letter make it easier to create drop-caps. CHIPS brings back partitioned cookies, this time opt-in. WebXR on visionOS now supports WebGPU. And much, much more. Plus, this release resolves 165 bugs. It’s a release that makes the web more dependable, letting you spend less time working around browser inconsistencies and more time accomplishing your goals.
+
+HTML
+
+HTML is 35 years old, yet keeps evolving to make web development easier. Recent years have brought many small but powerful HTML innovations that simplify building dynamic user interfaces — letting you solve common use cases with HTML and CSS alone, “paving the cowpaths”, and reducing the need for JavaScript or third-party frameworks. Safari 26.2 delivers several more such features.
+
+Button commands
+
+Before, using a button on a web page to trigger a client-side action required JavaScript. Now, you can use command and commandfor attributes in HTML to control popovers and dialogs.
+
+Use the commandfor attribute to tie the button to the id of the element it affects. And use the command attribute to tell the browser which action to take. There are six predefined values for the command attribute. These map to existing JavaScript methods. Fordialogelements: show-modal, close, and request-close. And for any HTML element with thepopover attribute: show-popover, hide-popover, and toggle-popover.
+
+You can also observe custom commands in JavaScript through events. Custom commands are named using --foobar syntax, and used declaratively in HTML as command="--foobar".
+
+Finding content
+
+Safari 26.2 adds support for auto-expanding the details element. Now, anytime someone uses “Find” in Safari to search the page, if the search result is hidden inside a closed details element, the element will automatically expand to reveal the text. Also, if the user navigates to a URL that contains a Text Fragment and the targeted fragment is inside a closed details, it will automatically expand.
+
+Similarly, Safari 26.2 adds support for the hidden=until-found attribute. You can apply this to any element in HTML, causing the content to not be rendered as part of the page, until a user searches for it. Then it appears.
+
+<div hidden="until-found">
+<p>This content is hidden, but will be found by search!</p>
+</div>
+
+Thebeforematch event fires on an element with hidden=until-found just before it’s revealed by a find-in-page search. This allows you to run JavaScript to prepare the content, update analytics, or perform other actions before the hidden content becomes visible to the user.
+
+Off-screen radio buttons now automatically scroll into view when focused. This is especially helpful when users navigate with keyboard shortcuts or screen readers, improving accessibility.
+
+ARIA Index Text attributes
+
+Safari 26.2 adds support for thearia-colindextext andaria-rowindextext attributes, which provide human-readable alternatives to aria-colindex and aria-rowindex.
+
+The previously-supported options use numeric values to indicate a cell’s position within a table or grid. Now aria-colindextext and aria-rowindextext let you provide more meaningful labels. This is particularly valuable when columns use letters (like A, B, C in a spreadsheet) or when rows represent time periods, categories, or other non-numeric sequences. When both attributes are present, assistive technologies announce the human-readable text instead of the number, giving users better context as they navigate complex tables and grids.
+
+Full width number normalization
+
+Full-width characters are commonly used in Japanese, Chinese, and Korean text input. Safari 26.2 converts certain full-width characters into normalized equivalents for <input type="number"> fields. Now full-width digits (０１２３) become standard digits (0123); full-width minus signs (－) become standard minus signs (-); and full-width dots (．) become standard periods (.) This normalization lets users type numbers naturally in their language while ensuring the input works correctly as a number value. Also, disallowed characters are now immediately rejected.
+
+And more
+
+You might remember that HTML5 was originally intended to provide an outlining algorithm — where a website could use multiple h1 headlines on a page, and the browser would assign levels to each headline based on the overall DOM structure of elements. In practical terms, this idea didn’t work out and it was never widely implemented in browsers. Developers simply use h2, h3, h4, etc to convey levels of headline. To go with the intended original behavior in HTML5, the default UA styling for h1 elements was specified to visually change the headline when it was a child of article, aside, nav, or section — making the font-size and margin smaller and smaller each time it was nested. In Safari 26.2, following a recent HTML standard change, those UA styles are being removed.
+
+When viewing web content in a Mac Catalyst app on macOS 26.2, elements with a title attribute will now display the tooltip when a user hovers.
+
+CSS
+
+Shrink wrapping form fields
+
+Safari 26.2 adds support for the field-sizing property. Applying field-sizing: content causes the input and textarea form fields to shrink-wrap their content and grow as more text is entered. This eliminates the need for JavaScript to resize form fields dynamically. You can use min-height, min-width, max-height, and max-width to keep the field within the range you desire.
+
+CSS Calc functions
+
+In recent years, CSS has gained many powerful mathematical abilities, adding to its maturity as a programming language. Safari 26.2 brings three new functions — random(), sibling-index() and sibling-count().
+
+The random() function lets you include a randomly generated value from a specified range in your calculations. For example, random(0, 100, 2) will choose an even number between 0 and 100, while random(0turn, 1turn) will be a fraction of a turn — basically, any decimal between 0 and 360 degrees. Learn all about what the CSS random function can do in our article, Rolling the dice with CSS random().
+
+The sibling-count() function counts up the number of elements that are siblings of the current element, and returns a number, while sibling-index() will tell you which numbered item this one is — the 4th item for example. They make it incredibly easy to do things you’ve probably wished you could do for years.
+
+For example, today, CSS Grid makes it trivial to proportion space in a layout with fr units — but in the days of float-based responsive layouts, this code would have been incredibly helpful (and still is today):
+
+.gallery-item {
+width: calc(100% / sibling-count());
+}
+
+It calculates a width for an item by dividing the total width available by the total number of sibling items in the DOM. When there’s four items, the width of each is 25%. When there’s five items, each is 20%.
+
+CSS has had nth-child() for a long time, letting you target a specific numbered item. The sibling-index() function is similar, telling you which number item a particular one is in the order.
+
+This demo uses random() to generate the random rotation distance and sibling-index() to generate the angle for each of the wheel items.
+
+Text shaping across inline boxes
+
+Safari 26.2 adds support for text shaping across inline boxes. This is especially impactful for scripts like Arabic, N’Ko and many others where the letters join together and change appearance as text is rendered. The word “مرحبا” in Arabic (which means “hello” or “welcome”) is spelled using these letters: م ر ح ب ا — which then change their shapes and work together to create مرحبا. Before Safari 26.2, such letters would not combine if they were wrapped in separate elements. Of course, it’s not common to wrap an individual letter in the middle of a word with a span or other inline element, but there are good use cases for this — especially, perhaps, when wanting to change the color of the letters in teaching how the writing system works, like this:
+
+There’s still more work to do in this space to support the full range of different behaviors of the many kinds of text shaping around the world.
+
+Initial letter improvements
+
+Initial letter was originally created by folks at Apple and implemented over a decade ago in Safari 9. It was created behind a -webkit- prefix, as was best practice at that time. Since then, the CSS web standard has matured to handle more complex use-cases. Safari 26.2 updates our implementation, adding support for decimal values in the initial-letter property. This can be especially helpful if you need to make a slight adjustment to better fit your font. Also, support for web fonts was added in March 2024 with Safari 18.4. The -webkit- prefix is still required, but these updates make it very usable in the meantime.
+
+Anchor positioning improvements
+
+Safari 26.2 adds several refinements to Anchor Positioning, which originally shipped in Safari 26.0. First, Safari 26.2 supports for flip-x and flip-y options in position-try-fallback. These keywords allow an anchored element to flip along the x- or y-axis when it would otherwise overflow its container.
+
+The new position-visibility property lets you control when anchor-positioned elements are visible. For example, use no-overflow to hide an element when it overflows its container. Other values include always, anchors-visible, inherit, initial, revert, revert-layer, and unset.
+
+The position-try property now works on pseudo-elements like ::before, ::after, and ::backdrop, which were previously unaffected. This means pseudo-elements can be repositioned using fallback strategies just like regular elements.
+
+There are also many updates to the WebKit implementation of Anchor Positioning, listed in Bug Fixes below.
+
+Color improvements
+
+After being the first browser to ship new color spaces to CSS, color-mix(), relative color syntax, and contrast-color(), we’re excited to bring even more improvements in Safari 26.2.
+
+The color-mix() function blends two color values and returns the result. Previously, developers were required to list a color space as the first argument of the function, like this: color-mix(in srgb, magenta, pink). Since many developers used srgb out of habit, the results were often sub-optimal. Starting with Safari 26.2, you can use color-mix() without listing a color space — and get oklab as the default. You can just say color-mix(magenta, pink)
+
+and you’ll get the same result as if you’d written color-mix(in oklab, magenta, pink). The Oklab color space is an especially good choice when blending colors, since the mathematical model is designed to make adjustments based on how humans perceive color, rather than pure numbers. Learn more about wide-gamut P3 color on the web in this video from WWDC.
+
+Safari 26.2 also adds support for thescrollbar-color property. It takes two values — one for the color of the scrollbar thumb (the part that moves) and the second for the scrollbar track (the background). Note in all browsers, the track background color only has an effect according to how that particular operating system works, and is dependent on how the user has their personal settings for scrollbars configured. Along with scrollbar-width and scrollbar-gutter, the scrollbar-color property completes the set of modern properties for styling scrollbars, making it a good time to stop using the original ::-webkit-scrollbar pseudo elements.
+
+Safari 26.2 also adds display-p3-linear to the predefined set of color spaces available for use, alongside of display-p3, srgb and others.
+
+P3 is still a better color space to use in most cases, but having support for P3 Linear provides an easy way to use linear color math while optimizing performance compared to other options like rec2100-linear.
+
+accent-color legibility
+
+The accent-color property allows for the customization of form controls with native appearance, but certain color choices could make text or indicators within the control hard to read. Safari 26.2 fixes these issues in both light and dark mode while maintaining a consistently-displayed color across all form controls. To achieve this, the following behaviors are performed:
+
+For elements with a light color scheme, if the luminance of the accent color is greater than 0.5, the displayed accent color is clamped back down to 0.5 while preserving the hue.
+
+For elements with a dark color scheme, if the luminance of the accent color is less than 0.5, the displayed accent color is clamped back down to 0.5 while preserving the hue. If the luminance of the accent color is greater than 0.5, then the following controls adapt in order to remain legible:
+
+checkboxes display with a dark check
+
+radio buttons display with a dark indicator
+
+submit buttons display with dark text by default
+
+switch controls display with an increased drop shadow for the thumb in the on-state
+
+Text decoration improvements
+
+In Safari 26.2, the text-decoration property is a proper shorthand for all four of the longhand properties: text-decoration-line, text-decoration-color, text-decoration-style and text-decoration-thickness. This means you can combine separate underline qualities for underlines, overlines and sidelines into one CSS rule like this: text-decoration: green wavy underline 3px. This turned out to be a large project, requiring significant refactoring of decades-old code to untangle the interaction between text-decoration and editing code.
+
+The text-decoration-line property now supports the new spelling-error and grammar-error values, which let you emulate the respective native error markers. For example, this code will take the browser’s default styling for spelling errors (whatever that might be) and apply it to the span of text:
+
+.span {
+text-decoration-line: spelling-error;
+}
+
+(If you want to override the browser’s default styling for spelling or grammar errors, you can target it with ::spelling-error or ::grammar-error and apply styling as desired — a feature that shipped in Safari 17.4 and is supported in Chromium browsers.)
+
+Finally, Safari 26.2 provides bug fixes for text decoration. The text-decoration-thickness and text-underline-offset have been fixed to properly work in vertical writing modes. And the default computed value for text-emphasis-style: filled|open has been corrected to be filled|open circle instead of filled|open dot in horizontal typographic modes.
+
+@scope
+
+The @scope rule now correctly handles implicit scoping roots when used with constructed and adopted stylesheets in shadow DOM contexts. Previously, styles defined in constructed stylesheets might not have properly respected the shadow boundary as an implicit scope.
+
+This improvement ensures that when you create a CSSStyleSheet programmatically and adopt it into a shadow root, any @scope rules without an explicit root will correctly treat the shadow root as the implicit scoping boundary:
+
+const sheet = new CSSStyleSheet();
+sheet.replaceSync(`
+@scope { .item { padding: 1em; } }`);
+shadowRoot.adoptedStyleSheets = [sheet];
+
+This is particularly important for developers building design systems and component libraries using the Constructable Stylesheets API, which is a common pattern in modern Web Components.
+
+WebKit for Safari 26.2 supports using :host as the scoping root in @scope rules. This allows you to create scoped styles that target the shadow host element, making it easier to write encapsulated component styles.
+
+@scope(:host) {
+/* Styles scoped to elements within the shadow host */
+.component {
+color: blue;
+}
+}
+
+This feature enhances the ability to write modular, component-based styles while maintaining proper encapsulation boundaries in Web Components.
+
+Safari 26.2 adds support for using the :scope pseudo-class when the scoping root matches the :visited pseudo-class. This allows you to create sophisticated scoping patterns that take link visitation state into account.
+
+@scope (a:visited) {
+:scope {
+color: green;
+}
+}
+
+MathML
+
+A new value forfont-family is now available in Safari 26.2, named math. This moves a previously directly-coded stack of fonts intended for use with mathematical expressions from being defining in the UA style sheet for just the <math> element to a new rule that can be called anywhere with font-family: math. Math fonts include specialized data for equation layout — things like stylistic variants for stretching glyphs, proper handling of superscripts and subscripts, brackets that span multiple lines, and double-struck characters.
+
+The newmath-shift CSS property gives you the ability to create a more tightly compacted rendering of formulas by using math-shift: compact to reduce the vertical shift of superscripts.
+
+More CSS
+
+Safari 26.2 adds support for cross-origin() and referrer-policy() CSS URL modifiers. These let you control CORS and referrer behavior directly in CSS when loading resources like images or fonts, without needing HTML attributes or server headers. You can now specify these policies inline with your url() functions for more granular control over resource fetching.
+
+The cursor property now works on pseudo-elements like ::before and ::after. Previously, you couldn’t change the cursor when hovering over content generated by pseudo-elements — now you can style them just like regular elements, giving you more control over the user experience and visual feedback throughout your interface.
+
+Positioned boxes in scrollable containing blocks can now overflow in the scrollable direction. Previously, positioned elements might be clipped or behave unexpectedly when they extended beyond their scrollable container. This fix ensures that positioned content can properly overflow in the direction the container scrolls, making it easier to create complex layouts with scrollable regions and absolutely or fixed positioned elements.
+
+Web API
+
+Navigation API
+
+Safari 26.2 adds support for the Navigation API. A modern replacement for the History API, it’s designed to give you better control over browser navigation. For years, web developers have relied on the History API (pushState, replaceState, and the popstate event) to build single-page applications, but it had significant limitations — you couldn’t intercept link clicks or form submissions, the popstate event only fired for back-forward navigation, and managing navigation state was cumbersome. The Navigation API solves these problems with a cleaner, more powerful interface.
+
+The key feature is the navigate event, which fires for all types of navigation — link clicks, form submissions, back-forward buttons, and programmatic changes. You can intercept these navigations and handle them client-side, making it much easier to build SPAs without routing libraries. The API is also promise-based, so you can easily coordinate async operations like data fetching with navigation changes, and it includes built-in state management for each navigation entry. Here’s a simple example of client-side routing:
+
+navigation.addEventListener('navigate', (event) => {
+// Only intercept same-origin navigations
+if (!event.canIntercept) return;
+
+event.intercept({
+async handler() {
+// Fetch and display new content
+const response = await fetch(event.destination.url);
+const html = await response.text();
+document.querySelector('main').innerHTML = html;
+}
+});
+});
+
+With this code, all link clicks and navigation within your site are automatically intercepted and handled client-side, turning your multi-page site into a single-page application with just a few lines of code.
+
+Scrollend
+
+Safari 26.2 adds support for the scrollend event, which fires once when scrolling definitively completes. Whether triggered by user gestures, keyboard navigation, smooth scrolling, or JavaScript, this event gives you a reliable signal that scrolling has finished. Previously, developers had to debounce the scroll event with timers to detect when scrolling stopped, which was imprecise and required guessing at appropriate delay values.
+
+The scrollend event is useful for tasks that should only happen after scrolling is done, like lazy-loading content, updating UI based on final scroll position, or saving scroll state. Instead of firing dozens of times during a scroll, you get one clean event when it’s actually over.
+
+document.addEventListener('scrollend', () => {
+// Scrolling has completely finished
+const scrollPosition = window.scrollY;
+localStorage.setItem('scrollPosition', scrollPosition);
+
+// Or lazy-load images now in view
+loadVisibleImages();
+});
+
+This fires once when scrolling stops, giving you a clean, reliable way to respond to the final scroll position without any timer-based guesswork.
+
+View Transitions
+
+Safari 26.2 adds support for document.activeViewTransition, which exposes the currently active View Transition. This gives you direct access to the transition object while it’s running, allowing you to check its state, wait for specific phases to complete, or programmatically control the transition. You can use this to coordinate other animations or UI updates with your View Transitions, or to handle cases where you need to know if a transition is already in progress before starting a new one.
+
+Text Interaction
+
+WebKit for Safari 26.2 adds support for document.caretPositionFromPoint(). This method is useful whenever you want to convert screen coordinates (x, y) into a text position in the document, giving you character-level precision for sophisticated text interaction (like building text editors, annotation tools, or custom selection interfaces).
+
+Pointer and Touch Events
+
+Safari 26.2 adds support for fractional coordinates in PointerEvent and TouchEvent properties like clientX, clientY, pageX, pageY, offsetX, offsetY, and screenX/screenY. Previously, these values were rounded to whole numbers, but they now include sub-pixel precision as decimal values (like 150.7 instead of 151). This gives you more accurate position data for touch and pointer interactions, which is useful for precise drawing applications, gesture recognition, or smooth animation tracking. Note that MouseEvent coordinates remain whole numbers, so if you’re handling multiple input types, you may see different precision levels depending on the event type.
+
+As part of Interop 2025, Safari 26.2 continues to improve the interoperability of Pointer and Mouse Events. Early implementations of these events predated any official web standard, leading to inconsistencies across browsers. In 2022, the Interop Project took on Pointer and Mouse Events as an investigation to sort out the complexities and chart a path forward. The official web standard for Pointer Events was first published in November 2024, and WebKit now further aligns with that maturing specification.
+
+Service Workers
+
+Safari 26.2 improves asynchronous URL error handling in Service Workers. Invalid or malformed URLs now properly throw catchable errors in async operations, allowing you to handle URL errors gracefully with try/catch blocks.
+
+Cookie Store
+
+Safari 26.2 adds support in the Cookie Store API for handling cookieStore.set() calls with an empty string path. Previously, passing an empty string for the path parameter could cause issues or unexpected behavior. Now you can explicitly set a cookie with an empty path string, and the API will handle it correctly, giving you more flexibility in how you manage cookie paths programmatically.
+
+The CookieStore API originally shipped in Safari 18.4. Now, with Safari 26.2, it enforces stricter validation for special cookie name prefixes to prevent misuse. Cookies with certain prefixes have special security meanings: the __Host- prefix indicates an extra-secure cookie (must be secure, no domain, path must be /), and the __Secure- prefix signals it must be sent over HTTPS only. Cookies with invalid names like __Host-Http- and __Http- are now rejected.
+
+And more
+
+Safari 26.2 removes support for the overflowchanged event, which was never standardized. This event fired when an element’s overflow state changed, but modern alternatives like ResizeObserver offer more robust ways to detect layout changes.
+
+Performance API
+
+Safari 26.2 adds support for two tools that measure the performance of web applications, Event Timing API and Largest Contentful Paint.
+
+The Event Timing API lets you measure how long it takes for your site to respond to user interactions. When someone clicks a button, types in a field, or taps on a link, the API tracks the full timeline — from the initial input through your event handlers and any DOM updates, all the way to when the browser paints the result on screen. This gives you insight into whether your site feels responsive or sluggish to users. The API reports performance entries for interactions that take longer than a certain threshold, so you can identify which specific events are causing delays. It makes measuring “Interaction to Next Paint” (INP) possible.
+
+Largest Contentful Paint (LCP) measures how long it takes for the largest visible element to appear in the viewport during page load. This is typically your main image, a hero section, or a large block of text — whatever dominates the initial view. LCP gives you a clear signal about when your page feels loaded to users, even if other resources are still downloading in the background.
+
+Web Inspector
+
+Web Inspector now shows Largest Contentful Paint entries in the Timelines tab, both in the Layout & Rendering timeline and in the events list. This makes it easier to see exactly when your page’s largest visible element rendered, and to correlate that timing with other layout and rendering work happening on the page.
+
+Web Animations API
+
+Safari 26.2 adds support for theoverallProgress property on the Animation interface. It gives you a number between 0 and 1 that represents how far the animation has progressed toward completion. Unlike tracking individual iterations, this tells you the progress across the entire animation — so if you have an animation set to run three times, overallProgress tracks the journey from start to finish across all three iterations.
+
+The Animation.commitStyles() method now works with completed animations, letting you persist their final state as inline styles. You can run an animation to completion, lock in the result, and remove the animation itself — keeping the visual effect while freeing up resources.
+
+JavaScript
+
+Safari 26.2 adds support for Math.sumPrecise(), which sums multiple numbers with better floating-point accuracy. Regular addition accumulates rounding errors with each operation — adding 12 numbers means 11 separate additions, each losing a bit of precision. Math.sumPrecise() performs the entire sum as a single operation, eliminating accumulated error.
+
+Safari 26.2 adds support for Map.prototype.getOrInsert() and WeakMap.prototype.getOrInsert(), letting you retrieve a value or insert a default if the key doesn’t exist — all in one operation. This simplifies the common check-then-set pattern, making code that builds up data structures cleaner and more efficiently.
+
+WebAssembly
+
+WebKit for Safari 26.2 adds support for Wasm Memory resizable buffer APIs. They give you more control over how WebAssembly memory is allocated and managed, allowing code in both Wasm and JavaScript to directly access the same memory space for efficient communication.
+
+JS String Builtins now let Wasm modules import string constants without substantial glue code, reducing memory usage for some Wasm applications. They also enable working directly with JavaScript strings without calling imported JavaScript functions, avoiding the overhead of Wasm-to-JavaScript calls.
+
+Safari 26.2 also adds two resizable ArrayBuffer methods to WebAssembly to allow conversion between fixed-length and resizable memory buffers. The WebAssembly.Memory.prototype.toResizableBuffer() method converts a WebAssembly memory instance to use a resizable ArrayBuffer, whose maximum size is determined by the memory’s maximum property. The WebAssembly.Memory.prototype.toFixedLengthBuffer() method converts a WebAssembly memory instance to use a fixed-length ArrayBuffer, which is the traditional WebAssembly memory behavior.
+
+Back in September 2025, Safari 26.0 added support for WebAssembly.JSTag to bridge exception handling between JavaScript and WebAssembly. When JavaScript throws an exception into Wasm, the exception is wrapped with a JSTag so WebAssembly can catch and handle it appropriately.
+
+WebGPU in WebXR
+
+Support for WebXR first shipped in Safari 18.0 in visionOS 2 in September 2024. It relied on WebGL for rendering 3D graphics. In September 2025, Safari 26.0 added support for WebGPU for use cases outside of WebXR. WebGPU is similar to WebGL in its capabilities, but it’s designed to better match how modern GPUs work, resulting in better performance and more flexibility. Now with Safari 26.2 on visionOS, WebXR supports WebGPU. This means you can build experiences in WebXR with the full power of WebGPU.
+
+Safari 26.2 also adds support for using GPUTexture objects as depth-stencil attachments in rendering operations and resolve attachments in WebGPU render passes. Depth-stencil attachments are special textures used during 3D render. Depth tracks how far away each pixel is from the camera, while stencil creates masks and templates that control which pixels get rendered. This change simply updates to the very latest specification now allowing texture in JavaScript anyplace you would have used texture.createView() in the past. Now, both are supported.
+
+SVG
+
+Safari 26.2 brings many improvements to SVG. First, the <a> element now supports the type attribute, which lets you specify the MIME type of the linked resource. For instance:
+
+<svg>
+<a href="destination.svg" type="image/svg+xml">
+<text x="10" y="20">Click me</text>
+</a>
+</svg>
+
+The repeatEvent in SVG animations is an event that fires each time an SVG animation element repeats its iteration, now supported to better align with the SMIL specification and match other browsers. Safari 26.2 also supports the onbegin event handler property defined in the SVGAnimationElement IDL (Interface Definition Language) that fires when an SVG animation starts.
+
+The async attribute in SVGScriptElement controls whether a script should be executed asynchronously, matching the behavior of HTMLScriptElement.
+
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200">
+<script href="external-script.js" async="true"/>
+<!-- or -->
+<script href="another-script.js" async="async"/>
+</svg>
+
+Safari 26.2 supports the hreflang attribute on SVGAElement. It specifies the language of the linked resource, matching the functionality of HTMLAnchorElement to improve SVG link handling.
+
+And see the list of bug fixes below for the full picture of the improvements to SVG.
+
+WebRTC
+
+Safari 26.2 adds support for the encrypted field to RTCRtpHeaderExtensionParameters. This gives you as a developer more fine-grained control over which metadata is visible to network intermediaries versus what remains private end-to-end. The RTCRtpHeaderExtensionParameters WebRTC API interface describes Real-time Transport Protocol header extensions used in media streams. Additional metadata alongside the already-encrypted media payload, might include audio levels, video orientation, timing information and custom application data.
+
+Canvas
+
+WebKit for Safari 26.2 removes the non-standard legacy drawImageFromRect. Created in the earliest days of Canvas API, it was originally intended to be an intuitive way to draw a rectangular portion of an image, but it never became part of the official Canvas specification. Instead the standard drawImage() method provides this functionality, supported since Safari 2.
+
+Web Compatibility
+
+Safari 26.2 ships support for CHIPS (Cookies Having Independent Partitioned State) once again. Originally shipped in Safari 18.4 in March 2025, CHIPS was temporarily removed in Safari 18.5 for further refinement.
+
+Beginning with Intelligent Tracking Prevention 1.0 in 2017, we began unconditionally partitioning cookies. Over the next two year, WebKit’s implementation evolved based on feedback, until in 2019 we stopped partitioning cookies. Based on this experience, CHIPS was designed as a way to give site owners control over whether their cookies are partitioned.
+
+Now, partitioned cookies let third-party content — like embedded chat widgets, payment processors, or SaaS tools in iframes — opt-in to using cookies on a specific site without enabling cross-site tracking. Safari blocks setting and accessing cross-site cookies when partitioning was not requested.
+
+If siteB.example is embedded in an iframe on siteA.example and sets a partitioned cookie, that cookie is only accessible when siteB.example appears on siteA.example — not on other sites.
+
+To create a partitioned cookie, add the Partitioned attribute along with SameSite=None and Secure:
+
+Set-Cookie: TestCookie=12345; SameSite=None; Secure; Partitioned
+
+Or in JavaScript:
+
+document.cookie = "TestCookie=12345; SameSite=None; Secure; Partitioned";
+
+Safari partitions cookies by site (not origin), matching other browsers. This means news.siteA.example and mail.siteA.example share the same partition since they’re subdomains of siteA.example.
+
+If you need access to unpartitioned third-party cookies, continue using the Storage Access API with document.requestStorageAccess().
+
+WebDriver
+
+WebDriver in Safari 26.2 makes it easy to write automated tests that exercise different user scenarios involving the Storage Access API. Using the new Set Storage Access WebDriver command, a test can validate what happens when cross-site storage access is granted or denied (i.e., when calling document.requestStorageAccess()). The Set Permissions WebDriver command has been extended to support the storage-access key. This allows a test to validate website behavior when the user has configured permissions to always accept or reject such storage-access requests.
+
+WebKit API
+
+Now in iOS 26.2, iPadOS 26.2, macOS 26.2, watchOS 26.2 and visionOS 26.2, WebKit supports exporting more types of WebPage content using SwiftUI Transferable APIs — now including .png, .flatRTFD, .rtf, and .utf8PlainText.
+
+Web Extensions
+
+Safari 26.2 brings some much-requested APIs for developers of extensions. These enhancements make it easier than ever for you to help your users get started using a Safari Web Extension.
+
+First, from your native iOS, iPadOS, and visionOS application, it’s now possible to determine if your Safari Web Extension has been turned on by the user. To do so, call SFSafariExtensionManager.stateOfExtension(withIdentifier identifier: String) async throws -> SFSafariExtensionState. The SFSafariExtensionState result has an isEnabled boolean property that lets your app know if the extension has been turned on.
+
+Once you’ve determined the state of your extension, you may want to help your user understand where to turn it on. With one function call, you can deep link into Safari Extension Settings directly into the view for your extension. To do so, call
+
+SFSafariSettings.openExtensionsSettings(forIdentifiers: [``String``]) async throws and pass in an array of the composed identifiers for your extension(s) as the extensionIdentifiers argument. If you pass a single identifier, the user will be deep linked directly into settings for that extension. If you pass multiple identifiers, the user will be deep linked into Safari Extension Settings and see the list of all installed extension, highlighting the rows of the extensions whose identifiers you passed in.
+
+Finally, if you’re currently shipping a Safari App Extension, Safari 26.2 on macOS introduces improvements to the migration path for your users. Previously, it’s been possible to associate your web extension with an app extension and replace it during an upgrade. By making this association, it would automatically turn the web extension on and hide the app extension. In Safari 26.2 and later, if the Safari web extension replaces a single Safari app extension, Safari also migrates web permissions and the setting that indicates whether the user allows the extension in Private Browsing. Safari only migrates website permissions if the Safari web extension does not require more website access than the Safari app extension.
+
+Also introduced browser.runtime.getVersion() as a simplified synchronous method to retrieve the installed extension version, replacing the common pattern of runtime.getManifest().version.
+
+Bug fixes and more
+
+Along with the new features, WebKit for Safari 26.2 includes additional improvements to existing features.
+
+Accessibility
+
+Fixed Voice Control number and name overlays not labeling content inside iframe elements. (118252216)
+
+Fixed incorrect accessibility bounds of SVG roots, ensuring assistive technologies have access to the correct geometry. (153782363)
+
+Fixed an issue where <label> elements targeted by aria-labelledby stopped providing accessibility text to assistive technologies after dynamic page changes. (158906980)
+
+Animations
+
+Fixed inheritance of additional animation properties (animation-timing-function, animation-play-state, animation-iteration-count, and animation-direction) in ::view-transition pseudo-elements to improve style consistency. (156131284)
+
+Fixed animation-name resolution to correctly find matching @keyframes within tree-scoped and shadow DOM contexts. (156484228)
+
+Fixed a bug where extremely large animation-duration values could cause the page to become unresponsive. (158775366)
+
+Fixed Animation.commitStyles() so that custom properties are properly committed to the target element. (158919736)
+
+Fixed Animation.commitStyles() to correctly commit logical properties as their corresponding physical properties. (158920529)
+
+Browser
+
+Fixed: Safari now reports a frozen OS version in its user agent string on iOS 26 and iPadOS 26, showing the last version released before iOS 26. (156170132)
+
+CSS
+
+Fixed -webkit-user-select: none disabling find-in-page in Safari. (8081660)
+
+Fixed incorrect z-ordering for position: sticky elements. (90572595)
+
+Fixed getComputedStyle to correctly ignore ::first-letter and ::first-line styles on flex containers, to reflect used style. (94163778)
+
+Fixed style invalidation so that :scope selectors always match even when the scoping root is unavailable. (135907710)
+
+Fixed propagation of the body element’s writing-mode to the document element to match the CSS Writing Modes Level 4 specification. (149475070)
+
+Fixed @position-try so that revert-layer correctly only reverts the position-try origin instead of affecting other cascade origins. (154355428)
+
+Fixed positioned boxes in scrollable containing blocks to overflow in scrollable direction. (155625030)
+
+Fixed anchor-center so that when an anchored element has no anchor in the same containing block, it correctly falls back to behaving like center as specified. (155768216)
+
+Fixed anchor() positioning in CSS Grid to correctly account for grid-area. (155823420)
+
+Fixed the default computed value for text-emphasis-style: filled|open to be filled|open circle not filled|open dot in horizontal typographic modes. (155911820)
+
+Fixed the text-decoration shorthand to cover all four longhand properties. (156011594)
+
+Fixed an issue where @namespace rules that failed insertion could still affect the namespace node. (156651404)
+
+Fixed incorrect handling of auto inline margins on grid items during track sizing that caused excessive vertical spacing in subgrids. (157638931)
+
+Fixed automatic min-size handling for flex and grid items to correctly treat overflow: clip as non-scrollable, aligning with the CSS specifications. (158215991)
+
+Fixed incorrect baseline alignment for <button> elements when contain: layout is applied by using the content box as the baseline. (159007878)
+
+Fixed out-of-flow box with no sibling ignoring align-content. (159097576)
+
+Fixed CSS anchor positioning to remember the last successful position option at ResizeObserver delivery time, aligning with the spec. (159225250)
+
+Fixed handling of the ::first-line pseudo-element when floats prevent the initial line from containing inline content, ensuring correct styling is applied to the actual first formatted line. (159613287)
+
+Fixed an issue where collapsed table rows subtracted border-spacing twice. (160542118)
+
+Fixed ::view-transition pseudo-element to use position: absolute instead of fixed to align with the updated specification. (160622000)
+
+Fixed container queries to allow container-name matching across the full flat tree, making container names tree-scoped in line with the CSS Conditional 5 specification. (160696378)
+
+Fixed handling of ::first-letter pseudo-elements to always force inline display unless floated.(160710650)
+
+Fixed the behavior of the nesting selector & directly inside @scope to correctly act like :where(:scope) for proper specificity handling. (160769736)
+
+Fixed position-try-fallback resolution by treating names as tree-scoped references to properly search shadow DOM host scopes. (161081231)
+
+Fixed an issue where a <select> element with long <option> text caused horizontal scrolling when nested inside a flex item. (161563289)
+
+Fixed getComputedStyle to return numeric values for orphans and widows instead of the internal auto value, ensuring the computed values correctly reflect the CSS specification. (161566631)
+
+Fixed column-count: 1 so that it now correctly creates a multi-column container per the CSS Multi-column Layout specification. (161611444)
+
+Fixed the calculation of anchor positions in vertical-rl multi-column layouts by correctly flipping coordinates in fragmented flows. (161616545)
+
+Fixed the order to try anchor position fallback options, such that the last successful position option is tried first, followed by the original style, and then the remaining options. (161714637)
+
+Fixed position-area handling to include the in-flow scrollable area of the initial containing block. (161741583)
+
+Fixed position-visibility: no-overflow to respond correctly to scrolling. (162173481)
+
+Fixed: Renamed position-area keywords from x-self-start, x-self-end, y-self-start, and y-self-end to self-x-start, self-x-end, self-y-start, and self-y-end respectively to align with updated CSSWG specifications.(162214793)
+
+Fixed auto margins by converting them to zero when position-area or anchor-center is applied in CSS Anchor Positioning. (162809291)
+
+Fixed FontFace.family so that font family names with spaces are treated as plain strings without parsing or serializing aligning with other browsers. (163047573)
+
+Fixed flex and grid layout to correctly handle padding and margins in all writing modes. (163048874)
+
+Fixed an issue where underlines using text-underline-position: right appeared on top of the text in horizontal writing modes instead of under the line. (163506701)
+
+Fixed an infinite style resolution loop when a position-try box was inside a display: none tree. (163691875)
+
+Fixed position-area alignment so that when only one inset is set to auto, the element now aligns toward the opposite non-auto inset. (163691905)
+
+Fixed text-decoration-thickness and text-underline-offset not working in vertical writing modes. (163727749)
+
+Fixed an issue where scrollRectToVisible() did not scroll pages to bring fixed anchor-positioned boxes into view when navigating with the keyboard. (163764088)
+
+Fixed an issue where anchor-positioned elements transitioning from display: block to display: none can not anchor themselves to the anchor. (163861918)
+
+Fixed incorrect underline positioning for text-decoration when inline box sides are trimmed. (163909909)
+
+DOM
+
+Fixed an issue where command-clicking to open a link in a new tab navigates the current tab. (57216935)
+
+Editing
+
+Fixed jumbled text when copy/pasting bidirectional text starting with left-to-right. (152236717)
+
+Fixed paste performance in textarea by skipping unnecessary layout calls and only removing unrendered text nodes in richly editable fields. (157813510)
+
+Events
+
+Fixed boundary pointer and mouse events not firing when the hit test target changed under a stationary pointer. (160147423)
+
+Forms
+
+Fixed an issue where some websites may sometimes fail to reveal the focused element when the keyboard appears. (50384887)
+
+Fixed form controls to preserve legibility when using accent-color in both light and dark modes by adjusting luminance thresholds and updating submit button text handling. (99018889)
+
+Fixed input fields with field-sizing: content so that larger placeholder text now correctly expands the height of the field by including the placeholder’s computed height. (123125836)
+
+Fixed <select> element with long <option> text causing horizontal scrolling in grid or flex containers. (141633685)
+
+Fixed an issue on iOS where backing out of the “Take a photo/video” file upload flow caused the upload button to stop working. (157789623)
+
+Fixed painting for <input type="range"> sliders in right-to-left vertical block writing modes. (158567821)
+
+Fixed an issue where tainted scripts were blocked from reading values of form fields they created, now allowing access if the field was not modified by user input. (163299988)
+
+HTML
+
+Fixed an issue where navigating to :~:text fragments on dynamically generated pages did not highlight or scroll to the fragment. (150880542)
+
+Home Screen Web Apps
+
+Fixed an issue where an audio element failed to play when re-opening a Home Screen Web App. (155336513)
+
+Images
+
+Fixed HDR images in CSS backgrounds, CSS borders and inside SVG images so they are now properly decoded and rendered in HDR mode. (158076668)
+
+JavaScript
+
+Fixed non-standard new Date(2024-12-3) yielding to an “Invalid Date” error. (141044926)
+
+Fixed “text/json/json+json” to be considered an invalid JSON MIME type. (154912716)
+
+Fixed compatibility issues with the timezone option in the Intl.DateTimeFormat constructor. (156148700)
+
+Fixed Intl.Local#language to return "und" if the language subtag is "und". (156248659)
+
+Fixed Intl to support non-continental timezones to align with the specification. (156424446)
+
+Fixed exception check errors by adding a missing exception check for Array#flat. (157525399)
+
+Fixed an issue where the module loader would incorrectly attempt to refetch a module after a failed fetch. (158084942)
+
+Fixed Iterator.prototype.flatMap to properly handle iterators without a return method. (158783404)
+
+Fixed poor error messages for destructing null or undefined values. (159340067)
+
+Fixed TypeError messages to be clearer in for-of loops. (159814766)
+
+Fixed TypeError messages when calling class or function constructors without new to include the constructor name. (161152354)
+
+MathML
+
+Fixed rendering of unknown MathML elements so they now behave like mrow as required by the MathML Core specification. (148593275)
+
+Fixed mfenced elements to render like mrow. (161416576)
+
+Media
+
+Fixed western Arabic numbers being displayed in the video viewer instead of eastern Arabic numbers. (141281469)
+
+Fixed WebVTT line-height to be normal by default, not 1. (156633220)
+
+Fixed handling of null media accessibility caption profile. (159134245)
+
+Fixed hiding and resuming a webm video that sometimes causes a decoding error. (159508950)
+
+Fixed MediaRecorder to no longer fire erroneous error events when stopped immediately after track changes, aligning behavior with Chrome and closer to Firefox. (161124260)
+
+Fixed an issue where custom WebVTT caption text size settings did not propagate to cue child elements by moving the font-size definition into the cue’s shared <style> block. (162547969)
+
+Networking
+
+Fixed an issue where rel=preload link headers with a nonce could trigger erroneous Content-Security-Policy-Report-Only violations due to the nonce not being copied into the fetch options. (75060055)
+
+Fixed an issue where apps that are mistakenly calling the WKWebView API loadRequest from a background thread may end up crashing. (162070925)
+
+PDF
+
+Fixed an issue where the active PDF annotation hover effect would remain visible after moving the pointer away. (162951528)
+
+Rendering
+
+Fixed incorrect clipping of position: fixed and position: sticky content during view transitions. (154886047)
+
+Fixed computing static position to correctly size and locate an inset modified containing block. (155650719)
+
+Fixed alignment candidate to consider both first and last baseline item position. (155806707)
+
+Fixed the cross axis direction in flexbox to properly consider text directionality when the cross axis aligns with the inline axis to handle direction property and flex-wrap: wrap-reverse interactions. (156540996)
+
+Fixed <button> elements to use the last line as their baseline instead of the first line to ensure consistent alignment with <br> in the text. (157955703)
+
+Fixed orthogonal table cells so their writing-mode is no longer forced to match the table, allowing proper vertical layout. (158221827)
+
+Fixed an issue where exiting fullscreen could scroll to unscrollable areas. (158351089)
+
+Fixed an issue where the padding end incorrectly contributed to scrollable overflow when the inline direction was flipped. (158529814)
+
+Fixed word breaking so that a hyphen followed by a Latin-1 Supplement character (U+00C0–U+00FF) correctly allows line breaks. (158942361)
+
+Fixed large inset box shadows to render correctly. (159888287)
+
+Fixed an issue where sticky elements at the edge of the viewport could disappear during rubber band scrolling. (160385933)
+
+Fixed an issue where selecting table cells could cause overlapping selections in flex and grid layouts. (160805174)
+
+Fixed flickering of elements with slow-painting content during view transitions. (160886647)
+
+Fixed an issue where elements with both opacity and CSS filter effects could render incorrectly. (161130683)
+
+Fixed an issue where elements with background images were not counted as contentful for Paint Timing. (161456094)
+
+Fixed scroll-to-text fragment highlights to automatically choose a contrasting foreground and background color to keep text readable on dark pages, while respecting custom ::target-text styles. (163166782)
+
+Fixed an issue where fullscreen dialog backdrops did not properly extend below the address bar by extending the backdrop’s background into obscured inset areas. (163535684)
+
+Fixed an issue where slotted text nodes could become hidden when adjacent elements in a flex container changed their display property. (163571747)
+
+SVG
+
+Fixed an issue where a dynamic change in a CSS property of an SVG element does not get reflected in the instances of the SVGElement. (98577657)
+
+Fixed an issue where stop-color incorrectly accepted hashless hex color values like 1234 by treating them as invalid to follow the spec. (119166640)
+
+Fixed SVGMarkerElement to correctly support the SVG_MARKER_ORIENT_AUTO_START_REVERSE value, aligning behavior with the spec and other browsers. (123453058)
+
+Fixed absolutely positioned SVG elements to correctly account for the containing block’s padding. (127608838)
+
+Fixed handling of word-spacing so that leading white space in SVG text correctly applies spacing at the start of a text box. (134941299)
+
+Fixed an issue where SVGs with a 0px intrinsic width were ignored but now correctly respect degenerate aspect ratios and fall back to the viewBox aspect ratio. (156339128)
+
+Fixed handling semicolons at end of a keySplines value. (156511711)
+
+Fixed unnecessary rounding of viewportLocation in 'foreignObject' layout. (156740732)
+
+Fixed <svg> elements to correctly calculate their intrinsic aspect ratio using currentViewBoxRect() when a <view> is referenced. (157445966)
+
+Fixed SVGFETurbulenceElement to correctly fallback numOctaves to 1 for invalid or negative values, aligning with the specification and other browsers. (158988528)
+
+Fixed an issue where SVG pattern tileImage could appear blurred or pixelated when zooming or printing. (159202567)
+
+Fixed SVGStyleElement so that its type and media attributes now use pure attribute reflection, matching HTMLStyleElement. (159358585)
+
+Fixed an issue where <view> element was not applied to the root element. (159705519)
+
+Fixed SVGAElement so that its rel and relList attributes now affect navigation behavior, including proper handling of noopener, noreferrer, and the new opener value, aligning SVG links with HTMLAnchorElement behavior. (160724516)
+
+Security
+
+Fixed parsing of require-trusted-types-for in CSP to ensure 'script' is only valid when followed by whitespace or end of buffer. (147760089)
+
+Service Worker
+
+Fixed an issue where service worker downloads are not being saved to Downloads folder. (154501503)
+
+Storage
+
+Fixed WebSockets to correctly inherit storage access from the frame that created them. (147949918)
+
+Fixed requestStorageAccess() should always grant access when called from a same-site iframe. (156545395)
+
+Fixed Storage Access API to not be usable in insecure contexts. (157337423)
+
+Fixed requestStorageAccess() to reject with a NotAllowedError. (157446015)
+
+Fixed an issue where cross-origin navigations incorrectly preserved storage access. (158446697)
+
+Fixed an issue where dedicated workers could inherit storage access from their parent document, preventing them from sending cross-site requests with cookies. (158814068)
+
+Tables
+
+Fixed collapsed table rows retaining nonzero height. (158276634)
+
+Web API
+
+Fixed an issue where the first pointerdown event was lost after triggering a context menu by right-clicking. (84787733)
+
+Fixed window.opener being incorrectly set to null when a site-isolated iframe navigated to a new site, ensuring opener relationships persist across frame migrations. (117269418)
+
+Fixed the ability to delete a cookie through Cookie Store API that was set through document.cookie. (142339417)
+
+Fixed Trusted Types to only verify event handler attributes for elements in the XHTML, SVG, and MathML namespaces, preventing incorrect checks on other namespaces. (147763139)
+
+Fixed reading the mutable field from the outer object instead of as a child of notification. (157475553)
+
+Fixed location.protocol setter to be restricted to HTTP(S) schemes. (157607342)
+
+Fixed scroll and scrollend events so they correctly fire on <input type="text"> elements instead of their inner elements. (157880733)
+
+Fixed CookieStore methods to strip tabs and spaces from the names and values passed in. (157907393)
+
+Fixed JSON modules to fetch with an application/json Accept header. (158176845)
+
+Fixed an issue where click and auxclick event targeting does not follow pointer capture target override. (159477637)
+
+Fixed the order of pointerup and boundary events so that pointerout and pointerover fire before pointerup when a child element is attached under the cursor. (160913756)
+
+Fixed element.scrollTo and element.scrollBy so they correctly scroll text input fields by forwarding scroll operations to the inner text element. (160963921)
+
+Fixed EventCounts interface was not maplike. Enables use of methods such as .forEach(), keys(), and entries(). (160968888)
+
+Fixed an issue where mousemove events were still dispatched to removed mouseover targets instead of their parent element when the target was deleted. (161203639)
+
+Fixed missing pointerenter and mouseenter events when a child element moved under the mouse. (161362257)
+
+Fixed an issue where only one CSP violation report was sent for multiple enforced require-trusted-types-for directives. (161740298)
+
+Fixed Trusted Types incorrectly treating null or undefined policy return values as null instead of empty strings during createHTML, createScript, and createScriptURL operations. (161837641)
+
+Fixed attachShadow() to default to using the global custom element registry instead of the host’s registry when customElementRegistry is null. (161949419)
+
+Fixed attachShadow() to use the global custom element registry by default when customElementRegistry is null, aligning with the specification. (161949493)
+
+Web Extensions
+
+Fixed an issue where onInstalled getting called after every launch of Safari when opening a profile window. (147491513)
+
+Fixed sender.origin parameter to match window.location.origin. (155884667)
+
+Fixed an issue where Safari extension popups could open scrolled down and some websites could flicker during scrolling. (155965298)
+
+Fixed an issue that caused the web page to crash when navigating to certain URLs with an extension enabled. (158180410)
+
+Web Inspector
+
+Fixed syntax highlighting for JavaScript features like template literals, private class elements, optional chaining, and others. (107619553)
+
+Fixed an issue where the Console truncated long string outputs. (124629101)
+
+Fixed an issue where DOM elements represented in the Console could not be selected. (157015598)
+
+Fixed an issue where newlines and indentation in HTML markup would show up in DOM node previews in the Console. (157225532)
+
+Fixed an issue that prevented scrolling of the Media details sidebar from the Elements tab. (157768497)
+
+Fixed an issue where accepting a completion suggestion for a shorthand property value would malform the combined value. (159107788)
+
+Fixed an issue where navigating the DOM tree using the keyboard would get stuck in a loop within certain subtrees. (159841729)
+
+Fixed an issue where the Sources tab won’t show contents of a script that contains a for statement with optional chaining in the test condition. (160617913)
+
+Fixed an issue where adding DOM attributes or node siblings did not work correctly when using the actions from the context menu. (161577627)
+
+WebDriver
+
+Fixed the navigate endpoint in WebDriver to properly validate URLs against the current browsing context and set the default readiness state to Interactive to align with the specification. (157031091)
+
+Fixed an issue where element references nested inside Array or Object arguments were not properly extracted when executing scripts. (162571946)
+
+WebRTC
+
+Fixed camera indicator staying enabled even after ending a meeting or removing access to the camera. (152962650)
+
+Feedback
+
+We love hearing from you. To share your thoughts, find us online: Jen Simmons on Bluesky / Mastodon, Saron Yitbarek on BlueSky / Mastodon, and Jon Davis on Bluesky / Mastodon. You can follow WebKit on LinkedIn. If you run into any issues, we welcome your feedback on Safari UI (learn more about filing Feedback), or your WebKit bug report about web technologies or Web Inspector. If you run into a website that isn’t working as expected, please file a report at webcompat.com or refresh the page and then select Report a Website Issue from Safari Page Menu to share feedback directly with Apple. Filing issues really does make a difference.
+
+You can also find this information in the Safari release notes.
+
+NextIntroducing CSS Grid LanesLearn more
+
+PreviouslyRelease Notes for Safari Technology Preview 233Learn more
+
+@webkit@front-end.social
+
+Site Map
+
+Privacy Policy
+
+Licensing WebKit
+
+WebKit and the WebKit logo are trademarks of Apple Inc.

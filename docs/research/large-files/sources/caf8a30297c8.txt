@@ -1,0 +1,1158 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+microsoft
+
+vscode
+
+Repository navigation
+
+Code
+
+Issues5k+ ( 5k+ )
+
+Pull requests3.2k ( 3.2k )
+
+Actions
+
+Projects
+
+Wiki
+
+Security and quality81 ( 81 )
+
+Insights
+
+More items
+
+[DEV] Perf Tools for VS Code Development
+
+Jump to bottom
+
+Copilot edited this page Sep 5, 2025
+·
+9 revisions
+
+The page lists some tools to investigate and understand the performance of VS Code. They complement the built-in Performance, CPU Profiler, and Memory tabs of dev tools and usually require code changes (which usually must not be committed).
+
+The following tools are available to the "core" of VS Code, e.g main, renderer, shared, and extension host process but not to extensions.
+
+Performance View/Editor
+
+The startup performance editor (F1 > Developer: Startup Performance) gives you a good overview of things that are important for startup, such as
+
+high-level aggregation of perf-marks (see below for more details)
+
+extension activation stats (activation reason, code loading time, time to finish calling activate)
+
+code loading stats (dev only)
+
+The screen capture below shows a sample and highlights some interesting bits like code loading, processing extension contributions, and extension stats. The durations are derived from well-known perf-markers. Simplest is to look them up in the source here.
+
+Performance Marks
+
+We have the performance.mark-utility that works very similarly to the standard mark-function. The difference is that you can use it in any context (node, electron, browser, or worker) and that it works with Unix timestamps. This allows them to be compared across different processes.
+
+Performance markers should be used for significant points of program execution and usually come in pairs of willXYZ and didXYZ.
+
+// Create the window
+mark('code/willCreateCodeWindow');
+const createdWindow = window = this.instantiationService.createInstance(CodeWindow, {
+state,
+extensionDevelopmentPath: configuration.extensionDevelopmentPath,
+isExtensionTestHost: !!configuration.extensionTestsPath
+});
+mark('code/didCreateCodeWindow');
+
+Note that mark names should start with code/ - other marks aren't considered for down-level tooling (perf-editor, telemetry)
+
+Note that marks around async code might measure more than you think because yielding the event loop gives any scheduled code a chance to run
+
+Performance marks can be used in the following ways:
+
+All marks from all contexts are sent as telemetry events. That allows you to aggregate any of them and to learn how long things take in the "real world"
+
+All marks from all contexts are listed in the "Startup Performance"-editor. They are formatted so that you can copy-paste them into Excel and they include the name, the absolute timestamp (unix epoch), the delta from the previous marks, and the total time since the time origin
+
+Marks from the renderer are visible in the Performance-tab when recording while reload, like so
+
+Eventing
+
+Emitting events can be a source of performance issues. Imagine an event with 100 listeners: if the average listener takes 2ms to execute then each fire costs 200ms. This slows down your component but isn't in your control. A fun exercise is to step into each listener to see what they do or to profile firing. This is quite laborious too and therefore you can get a high-level overview via EmitterOptions._profName. Do the following:
+
+When creating your emitter, pass the _profName-option. ❗This is dev-time only and MUST NOT be committed
+
+Reload or execute the code in questions
+
+Run "F1 > Print Emitter Profiles"
+
+On the dev tools console and you'll see a summary including the listener count, the invocation count, total, and average durations
+
+Targeted CPU profiling
+
+(This isn't VS Code specific but dev tools)
+
+Know that you can use console.profile and console.profileEnd to profile just some code. This is useful to keep profiles small and focused on one area, e.g emitting of events, reading of contributions etc.
+
+Open dev tools
+
+From the ︙ menu select "More tools > JavaScript Profiler"
+
+Have and execute code like below
+
+The JavaScript Profiler tab will be populated with the profiles
+
+console.profile('Hi');
+// some code that you want to drill into
+console.profileEnd('Hi');
+
+Profile Startup
+
+You can start VS Code with a --prof-startup flag and it will automatically capture a profile of the main, renderer, and extension host process. Once it is done it asks you to restart and it stores the files in your home directory. This is great to analyse the whole startup, esp of the built product.
+
+Delayed Services
+
+We use dependency injection and services for most parts of VS Code. Concrete services are registered via the registerSingleton-function and when a service consumer (actions, workbench- or editor-contribution, etc) is being created our instantiation service ensures that the services it needs are also created. This is often wasteful because most consumers don't need the service right away - e.g their constructors simply store the service-instance for later use. To counter that, a concrete service can mark itself as supporting delayed instantiation - in that case, the instantiation service gives consumers a proxy of the actual service which becomes "real" when needed or when there is some idle time.
+
+It is highly recommended to register services with support for being instantiated delayed. Services are usually fit for this - a good indication is a more or less empty constructor and not relying on events to build up some state but to build up state from other state and use events for updates only.
+
+Trace Instantiation
+
+The instantiation service supports a trace mode. It records all invocations of createInstance and invokeFunction and knows the overall cost of such a call and what creations it has caused. To use it, do the following:
+
+Uncomment this line ❗ MUST NOT be committed and written so weirdly that this shouldn't happen by accident
+
+Run "F1 > Print Service Traces"
+
+On the dev tools console and you will see a trace for each instantiation and call
+
+Log Extension Host Communication
+
+You can log all communication that happens between the renderer and its extension hosts. This gives you insight of how chatty and heavy communication is. Do the following
+
+Change this line ❗ MUST NOT be committed
+
+On the dev tools console and you will see a trace for each RPC message
+
+Perf Machine
+
+Last but not least are the performance machines. We use a Windows laptop, Mac mini and Linux mini PC as hardware to test VS Code Insiders and Exploration leveraging the https://github.com/Microsoft/vscode-perf-bot module.
+
+Using wall-clock time we know it can start VS Code in a certain duration and it needs to prove that. We use the best of N runs and send a Slack message to the performance-channel with the results.
+
+Note that you DO NOT NEED access to the perf-machine. It's just a normal computer and if it runs slower things will also run slower locally. Likely not as dramatic because it is around 10 years old but still slower and something you can find locally. Rarely it is OS dependent: the perf-machine runs Windows 10 and MacOS 12.x.
+
+Slow Workbench Contributions
+
+We started to log workbench contributions (registerWorkbenchContribution) that block the startup more than 5ms before editors have restored so that we can drill into them. Watch out for console messages in developer tools similar to this one:
+
+WARN Workbench contribution WalkThroughSnippetContentProvider blocked restore phase by 7ms.
+
+In that case, the idea is to either move the contribution out to a later phase or profile what takes long in the contribution.
+
+Performance Bots Dashboard
+
+We maintain a dashboard to show performance metrics for our Windows and MacOS perf bots: https://dataexplorer.azure.com/dashboards/2e20491b-d517-40b5-bab4-269607f05221
+
+For numbers across all insiders and stable releases and knobs for drilling into non-standard scenarios, you can visit:
+
+https://msit.powerbi.com/groups/2bb9c256-c8ed-47a3-b1be-ebf0c050fb85/reports/2f5bed71-2607-4e0c-8a83-d0f9de023342/ReportSection2a538e7da53fa84953d6?experience=power-bi
+
+Want to contribute to this Wiki?
+
+Fork it and send a pull request.
+
+Wiki pages
+
+Pages 88
+
+Loading
+
+Home
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+[dev perf] PerformanceError and unresponsive renderer telemetry
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+[DEV] Perf Tools for VS Code Development
+
+Performance View/Editor
+
+Performance Marks
+
+Eventing
+
+Targeted CPU profiling
+
+Profile Startup
+
+Delayed Services
+
+Trace Instantiation
+
+Log Extension Host Communication
+
+Perf Machine
+
+Slow Workbench Contributions
+
+Performance Bots Dashboard
+
+Loading
+
+[DEV] Programming advice and tips & tricks
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+[WIP] Code Editor Design Doc
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+[WIP] Design Checklist
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+[WIP] Design Principles
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Accessibility Guidelines
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Adopting Multi Root Workspace APIs
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Automated Issue Triaging
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Build and run 32bit Code OSS on Windows
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Build Champion
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Code Editor Roadmap
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Coding Guidelines
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Color customization color id changes
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Commit Signing
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Community Issue Tracking
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Contributor License Agreement
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Copilot Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Cross Compiling for Debian Based Linux
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Custom eslint rules
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Dealing with Test Flakiness
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+December Pre Release
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+December Test Plan
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Design Goals
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Development Process
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Differences between the repository and Visual Studio Code
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Editor decorations & colors
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Endgame testing and verification
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Explain extension causes high cpu load
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Extension API guidelines
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Extension API process
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Feature Areas
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Feedback Channels
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+File Watcher Internals
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+File Watcher Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Git & SCM Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+How to Contribute
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+IME Test
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Insiders Release Notes
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Interactive Window Documentation
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Inventory of performance marks
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Issue Grooming
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Issue Tracking
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Issues Triaging
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Iteration Plans
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Keybinding Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Known issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Lists And Trees
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Multi‐root Workspace support in Chat
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Native Crash Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Notebook documentation
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Notebook layout
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Notebook Smoke Test
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+November Plan
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Performance Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Performance Issues (old)
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Pointer Device & Touch support
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Publish vscode types
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Related Projects
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Release Process
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Removing Insiders
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Roadmap
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Roadmap 2017
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Roadmap 2018
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Roadmap 2019
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Roadmap 2020
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Roadmap‐2021‐2022
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Running the Endgame
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Runtime debugging
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Sanity Check
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Screen Reader Test
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Search Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Selfhosting on Windows WSL
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Semantic Highlighting Overview
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Setting Descriptions
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Smoke Test
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Source Code Organization
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Submitting Bugs and Suggestions
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Terminal Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+TypeScript Issues
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+UX
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Virtual Workspaces
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+VS Code Speech
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Working Copies
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Working with xterm.js
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Writing Test Plan Items
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Writing Tests
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Show 73 more pages…
+
+Project Management
+
+Roadmap
+
+Iteration Plans
+
+Development Process
+
+Issue Tracking
+
+Issues Triaging
+
+Community Issue Tracking
+
+Automated Issue Triaging
+
+Issue Grooming
+
+Build Champion
+
+Release Process
+
+Running the Endgame
+
+Writing Test Plan Items
+
+Endgame testing and verification
+
+Sanity Check
+
+Related Projects
+
+Contributing
+
+How to Contribute
+
+Submitting Bugs and Suggestions
+
+Performance Issues
+
+Keybinding Issues
+
+Native Crash Issues
+
+Search Issues
+
+Terminal Issues
+
+File Watcher Issues
+
+TypeScript Issues
+
+Copilot Issues
+
+Feedback Channels
+
+Source Code Organization
+
+Coding Guidelines
+
+Testing
+
+Writing Tests
+
+Smoke Test
+
+Dealing with Test Flakiness
+
+Contributor License Agreement
+
+Extension API Guidelines
+
+Accessibility Guidelines
+
+Custom ESLint rules
+
+Documentation
+
+Extensions
+
+API
+
+Visual Studio Code
+
+Document Repository
+
+Multi Root Workspace API
+
+Clone this wiki locally
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

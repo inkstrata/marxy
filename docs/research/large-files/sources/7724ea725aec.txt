@@ -1,0 +1,532 @@
+Demo
+
+Docs
+
+FAQ
+
+Papa Parse 5
+
+GitHub
+
+Help
+
+Documentation
+
+Convert CSV to JSON
+
+Parse string
+
+Parse local file
+
+Parse remote file
+
+Using jQuery to select files
+
+Convert JSON to CSV
+
+Config
+
+Results
+
+Data
+
+Errors
+
+Meta
+
+Extras
+
+Convert CSV to JSON
+
+Delimited data can be parsed out of strings or files. Files that are parsed can be local or remote. Local files are opened with FileReader, and remote files are downloaded with XMLHttpRequest.
+
+Parse string
+
+Papa.parse(csvString[, config])
+
+csvString is a string of delimited text to be parsed.
+
+config is an optional config object.
+
+Returns a parse results object (if not streaming or using worker).
+
+Parse local files
+
+Papa.parse(file, config)
+
+file is a File object obtained from the DOM.
+
+config is a config object which contains a callback.
+
+Doesn't return anything. Results are provided asynchronously to a callback function.
+
+Parse remote file
+
+Papa.parse(url, {
+download: true,
+// rest of config ...
+})
+
+url is the path or URL to the file to download.
+
+The second argument is a config object where download: true is set.
+
+Doesn't return anything. Results are provided asynchronously to a callback function.
+
+Using jQuery to select files
+
+$('input[type=file]').parse({
+config: {
+// base config to use for each file
+},
+before: function(file, inputElem)
+{
+// executed before parsing each file begins;
+// what you return here controls the flow
+},
+error: function(err, file, inputElem, reason)
+{
+// executed if an error occurs while loading the file,
+// or if before callback aborted for some reason
+},
+complete: function()
+{
+// executed after all files are complete
+}
+});
+
+Select the file input elements with files you want to parse.
+
+before is an optional callback that lets you inspect each file before parsing begins. Return an object like:
+
+{
+action: "abort",
+reason: "Some reason",
+config: // altered config...
+}
+
+to alter the flow of parsing. Actions can be "abort" to skip this and all other files in the queue, "skip" to skip just this file, or "continue" to carry on (equivalent to returning nothing). reason can be a reason for aborting. config can be a modified configuration for parsing just this file.
+
+The complete callback shown here is executed after all files are finished and does not receive any data. Use the complete callback in config for per-file results.
+
+Convert JSON to CSV
+
+Papa's unparse utility writes out correct delimited text strings given an array of arrays or an array of objects.
+
+Unparse
+
+Papa.unparse(data[, config])
+
+Returns the resulting delimited text as a string.
+
+data can be one of:
+
+An array of arrays
+
+An array of objects
+
+An object explicitly defining fields and data
+
+config is an optional config object
+
+Default Unparse Config with all options
+
+{
+quotes: false, //or array of booleans
+quoteChar: '"',
+escapeChar: '"',
+delimiter: ",",
+header: true,
+newline: "\r\n",
+skipEmptyLines: false, //other option is 'greedy', meaning skip delimiters, quotes, and whitespace.
+columns: null //or array of strings
+}
+
+Unparse Config Options
+
+Option
+Explanation
+
+quotes
+
+If true, forces all fields to be enclosed in quotes. If an array of true/false values, specifies which fields should be force-quoted (first boolean is for the first column, second boolean for the second column, ...). A function that returns a boolean values can be used to determine the quotes value of a cell. This function accepts the cell value and column index as parameters.
+
+Note that this option is ignored for undefined, null and date-object values. The option escapeFormulae also takes precedence over this.
+
+quoteChar
+
+The character used to quote fields.
+
+escapeChar
+
+The character used to escape quoteChar inside field values.
+
+delimiter
+
+The delimiting character. Multi-character delimiters are supported. It must not be found in Papa.BAD_DELIMITERS.
+
+header
+
+If false, will omit the header row. If data is an array of arrays this option is ignored. If data is an array of objects the keys of the first object are the header row. If data is an object with the keys fields and data the fields are the header row.
+
+newline
+
+The character used to determine newline sequence. It defaults to "\r\n".
+
+skipEmptyLines
+
+If true, lines that are completely empty (those which evaluate to an empty string) will be skipped. If set to 'greedy', lines that don't have any content (those which have only whitespace after parsing) will also be skipped.
+
+columns
+
+If data is an array of objects this option can be used to manually specify the keys (columns) you expect in the objects. If not set the keys of the first objects are used as column.
+
+escapeFormulae
+
+If true, field values that begin with =, +, -, @, \t, or \r, will be prepended with a ' to defend against injection attacks, because Excel and LibreOffice will automatically parse such cells as formulae. You can override those values by setting this option to a regular expression
+
+Examples
+
+// Two-line, comma-delimited file
+var csv = Papa.unparse([
+["1-1", "1-2", "1-3"],
+["2-1", "2-2", "2-3"]
+]);
+
+// With implicit header row
+// (keys of first object populate header row)
+var csv = Papa.unparse([
+{
+"Column 1": "foo",
+"Column 2": "bar"
+},
+{
+"Column 1": "abc",
+"Column 2": "def"
+}
+]);
+
+// Specifying fields and data explicitly
+var csv = Papa.unparse({
+"fields": ["Column 1", "Column 2"],
+"data": [
+["foo", "bar"],
+["abc", "def"]
+]
+});
+
+The Parse Config Object
+
+The parse function may be passed a configuration object. It defines settings, behavior, and callbacks used during parsing. Any properties left unspecified will resort to their default values.
+
+Default Config With All Options
+
+{
+delimiter: "", // auto-detect
+newline: "", // auto-detect
+quoteChar: '"',
+escapeChar: '"',
+header: false,
+transformHeader: undefined,
+dynamicTyping: false,
+preview: 0,
+encoding: "",
+worker: false,
+comments: false,
+step: undefined,
+complete: undefined,
+error: undefined,
+download: false,
+downloadRequestHeaders: undefined,
+downloadRequestBody: undefined,
+downloadTimeout: undefined,
+skipEmptyLines: false,
+chunk: undefined,
+chunkSize: undefined,
+fastMode: undefined,
+beforeFirstChunk: undefined,
+withCredentials: undefined,
+transform: undefined,
+delimitersToGuess: [',', '\t', '|', ';', Papa.RECORD_SEP, Papa.UNIT_SEP],
+skipFirstNLines: 0
+}
+
+Config Options
+
+Option
+Explanation
+
+delimiter
+
+The delimiting character. Leave blank to auto-detect from a list of most common delimiters, or any values passed in through delimitersToGuess. It can be a string or a function. If a string, it can be of any length (so multi-character delimiters are supported). If a function, it must accept the input as first parameter and it must return a string which will be used as delimiter. In both cases it cannot be found in Papa.BAD_DELIMITERS.
+
+newline
+
+The newline sequence. Leave blank to auto-detect. Must be one of \r, \n, or \r\n.
+
+quoteChar
+
+The character used to quote fields. The quoting of all fields is not mandatory. Any field which is not quoted will correctly read.
+
+escapeChar
+
+The character used to escape the quote character within a field. If not set, this option will default to the value of quoteChar, meaning that the default escaping of quote character within a quoted field is using the quote character two times. (e.g. "column with ""quotes"" in text")
+
+header
+
+If true, the first row of parsed data will be interpreted as field names. An array of field names will be returned in meta, and each row of data will be an object of values keyed by field name instead of a simple array. Rows with a different number of fields from the header row will produce an error.
+Warning: Duplicated field names will be automatically renamed to avoid values in previous fields having the same name to be overwritten. Renamed fields with original (or transformed by transformHeader) are stored in ParseResult.meta.renamedHeaders
+
+transformHeader
+
+A function to apply on each header. Requires header to be true. The function receives the header as its first argument and the index as second.
+
+Only available starting with version 5.0.
+
+dynamicTyping
+
+If true, numeric and boolean data will be converted to their type instead of remaining strings. Numeric data must conform to the definition of a decimal literal. Numerical values greater than 2^53 or less than -2^53 will not be converted to numbers to preserve precision. European-formatted numbers must have commas and dots swapped. It also accepts an object or a function. If it's an object, its values should be a boolean to indicate if dynamic typing should be applied for each column number (or header name if using headers). If it's a function, it should return a boolean value for each field number (or name if using headers) which will be passed as first argument.
+
+preview
+
+If > 0, limits the number of rows returned in the parse results. This does not limit the sample used for automatic delimiter detection, which may examine rows beyond the preview. If the delimiter is known, set it explicitly, for example: Papa.parse(csv, { preview: 1, delimiter: ";" }).
+
+encoding
+
+The encoding to use when opening local files. If specified, it must be a value supported by the FileReader API.
+
+worker
+
+Whether or not to use a worker thread. Using a worker will keep your page reactive, but may be slightly slower.
+
+comments
+
+A string that indicates a comment (for example, "#" or "//"). When Papa encounters a line starting with this string, it will skip the line.
+
+step
+
+To stream the input, define a callback function:
+
+step: function(results, parser) {
+console.log("Row data:", results.data);
+console.log("Row errors:", results.errors);
+}
+
+Streaming is necessary for large files which would otherwise crash the browser. You can call parser.abort() to abort parsing. And, except when using a Web Worker, you can call parser.pause() to pause it, and parser.resume() to resume.
+
+complete
+
+The callback to execute when parsing is complete. It receives the parse results. If parsing a local file, the File is passed in, too:
+
+complete: function(results, file) {
+console.log("Parsing complete:", results, file);
+}
+
+When streaming, parse results are not available in this callback.
+
+error
+
+A callback to execute if FileReader encounters an error. The function is passed two arguments: the error and the File.
+
+download
+
+If true, this indicates that the string you passed as the first argument to parse() is actually a URL from which to download a file and parse its contents.
+
+downloadRequestHeaders
+
+If defined, should be an object that describes the headers, example:
+
+downloadRequestHeaders: {
+'Authorization': 'token 123345678901234567890',
+}
+
+downloadRequestBody
+
+Use POST request on the URL of the download option. The value passed will be set as the body of the request.
+
+downloadTimeout
+
+Number of milliseconds after which the download of a remote file is aborted with a timeout error, if it hasn't finished yet. If not set (or 0), no timeout is applied. Only used together with download: true.
+
+skipEmptyLines
+
+If true, lines that are completely empty (those which evaluate to an empty string) will be skipped. If set to 'greedy', lines that don't have any content (those which have only whitespace after parsing) will also be skipped.
+
+chunk
+
+A callback function, identical to step, which activates streaming. However, this function is executed after every chunk of the file is loaded and parsed rather than every row. Works only with local and remote files. Do not use both chunk and step callbacks together. For the function signature, see the documentation for the step function.
+
+chunkSize
+
+Overrides Papa.LocalChunkSize and Papa.RemoteChunkSize. See configurable section to know the usage of both parameters.
+
+fastMode
+
+Fast mode speeds up parsing significantly for large inputs. However, it only works when the input has no quoted fields. Fast mode will automatically be enabled if no " characters appear in the input. You can force fast mode either way by setting it to true or false.
+
+beforeFirstChunk
+
+A function to execute before parsing the first chunk. Can be used with chunk or step streaming modes. The function receives as an argument the chunk about to be parsed, and it may return a modified chunk to parse. This is useful for stripping header lines (as long as the header fits in a single chunk).
+
+withCredentials
+
+A boolean value passed directly into XMLHttpRequest's "withCredentials" property.
+
+transform
+
+A function to apply on each value. The function receives the value as its first argument and the column number or header name when enabled as its second argument. The return value of the function will replace the value it received. The transform function is applied before dynamicTyping.
+
+delimitersToGuess
+
+An array of delimiters to guess from if the delimiter option is not set.
+
+skipFirstNLines
+
+To skip first N number of lines when converting a CSV file to JSON
+
+The Parse Result Object
+
+A parse result always contains three objects: data, errors, and meta. Data and errors are arrays, and meta is an object. In the step callback, the data array will only contain one element.
+
+Result Structure
+
+{
+data: // array of parsed data
+errors: // array of errors
+meta: // object with extra info
+}
+
+data is an array of rows. If header is false, rows are arrays; otherwise they are objects of data keyed by the field name.
+
+errors is an array of errors.
+
+meta contains extra information about the parse, such as delimiter used, the newline sequence, whether the process was aborted, etc. Properties in this object are not guaranteed to exist in all situations.
+
+Data
+
+// Example (header: false)
+[
+["Column 1", "Column 2"],
+["foo", "bar"],
+["abc", "def"]
+]
+
+// Example (header: true)
+[
+{
+"Column 1": "foo",
+"Column 2": "bar",
+},
+{
+"Column 1": "abc",
+"Column 2": "def",
+}
+]
+
+If header row is enabled and more fields are found on a row of data than in the header row, an extra field will appear in that row called __parsed_extra. It contains an array of all data parsed from that row that extended beyond the header row.
+
+Errors
+
+// Error structure
+{
+type: "", // A generalization of the error
+code: "", // Standardized error code
+message: "", // Human-readable details
+row: 0, // Row index of parsed data where error is
+
+}
+
+The error type will be one of "Quotes", "Delimiter", or "FieldMismatch".
+
+The code may be "MissingQuotes", "UndetectableDelimiter", "TooFewFields", or "TooManyFields" (depending on the error type).
+
+Just because errors are generated does not necessarily mean that parsing failed. The worst error you can get is probably MissingQuotes.
+
+Meta
+
+{
+delimiter: // Delimiter used
+linebreak: // Line break sequence used
+aborted: // Whether process was aborted
+fields: // Array of field names
+truncated: // Whether preview consumed all input
+renamedHeaders: // Headers that are automatically renamed by the library to avoid duplication. {Column 1_1: 'Column 1' // the later header 'Column 1' was renamed to 'Column 1_1'}
+}
+
+Not all meta properties will always be available. For instance, fields is only given when header row is enabled.
+
+Extras
+
+There's a few other things that Papa exposes to you that weren't explained above.
+
+Read-Only
+
+Read-Only Property
+Explanation
+
+Papa.BAD_DELIMITERS
+
+An array of characters that are not allowed as delimiters (\r, \n, ", \ufeff).
+
+Papa.BYTE_ORDER_MARK
+
+The unicode Byte Order Mark (\ufeff).
+
+Papa.RECORD_SEP
+
+The true delimiter. Invisible. ASCII code 30. Should be doing the job we strangely rely upon commas and tabs for.
+
+Papa.UNIT_SEP
+
+Also sometimes used as a delimiting character. ASCII code 31.
+
+Papa.WORKERS_SUPPORTED
+
+Whether or not the browser supports HTML5 Web Workers. If false, worker: true will have no effect.
+
+Configurable
+
+Configurable Property
+Explanation
+
+Papa.LocalChunkSize
+
+The size in bytes of each file chunk. Used when streaming files obtained from the DOM that exist on the local computer. Default 10 MB.
+
+Papa.RemoteChunkSize
+
+Same as LocalChunkSize, but for downloading files from remote locations. Default 5 MB.
+
+Papa.DefaultDelimiter
+
+The delimiter used when it is left unspecified and cannot be detected automatically. Default is comma.
+
+P
+
+Papa Parse by Matt Holt
+
+© 2013-2019
+
+Learn
+
+Demo
+Documentation
+FAQ
+
+Project
+
+Donate
+GitHub
+Share
+
+Download
+
+Latest (master)
+
+Lil' Papa
+Fat Papa
+
+Community
+
+Twitter
+Stack Overflow

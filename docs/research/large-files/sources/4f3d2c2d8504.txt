@@ -1,0 +1,569 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+tauri-apps
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+Tauri
+
+Overview
+
+Repositories
+
+Discussions
+
+Projects
+
+Packages
+
+People
+
+More
+
+Overview
+
+Repositories
+
+Discussions
+
+Projects
+
+Packages
+
+People
+
+IPC Improvements
+
+#5690
+
+wusyong
+
+started this conversation in
+Ideas
+
+IPC Improvements
+
+#5690
+
+wusyong
+
+Nov 25, 2022
+·
+5 comments
+·
+5 replies
+
+Return to top
+
+Discussion options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+wusyong
+
+Nov 25, 2022
+
+While @JonasKruckenberg working on tauri-bindgen, I feel like we should have a place gather the summary on our current status. I'll try to use this discussion as experiement.
+
+Tauri's invoke and command feature have a main bottleneck which is parameters and return values are serialized around strings. This is the restriction from webview libraries on different platforms. I wrote down the summary in tauri-apps/wry#767. In that issue, I also brought up some possible improvements we could make in the near future.
+
+For now, if you really want to maximize the performance, I think you can register a custom protocol by register_uri_scheme_protocol. Read headers from the request as parameters and return what javascript in the browser wants. Note that on Linux, this requires webkit2gtk 2.36 which is not supported by ubuntu 18.04. Part of reasons we can't offer certain API around it in v1.
+
+7
+You must be logged in to vote
+
+🚀
+6
+
+All reactions
+
+🚀
+6
+
+Replies:
+
+5 comments
+
+·
+
+5 replies
+
+Oldest
+
+Newest
+
+Top
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+Beanow
+
+Nov 25, 2022
+
+Maintainer
+
+Types of bottleneck, use-cases
+
+For reference, testing, reproducing. If you have / know of a particular use-case and which type of bottleneck you're running up against, do share here. Some ideas:
+
+Data volume / bandwidth
+
+Backend generated images?
+
+Throughput / large number of messages
+
+@jbolda's color picker example?
+
+Latency
+
+Terminal emulator
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+JonasKruckenberg
+
+Nov 25, 2022
+
+Note that on Linux, this requires webkit2gtk 2.36 which is not supported by ubuntu 18.04. Part of reason we can offer certain API around it in v1.
+
+A small note here: I strongly believe that addressing the IPC performance bottleneck is too important to wait for wider adoption on Linux, and, additionally, WebView2 might soon support zero-copy messaging, something we would be stupid not to take advantage of. This means going forward, Tauri will have to have a number of strategies, falling back to the current slow implementation on systems that are still stuck on old webkitgtk versions. The current feature matrix would then look a bit like this:
+
+Linux: ipc.postMessage or custom protocol as appropriate
+
+macOS: custom protocol
+
+Window: custom protocol or sharedBuffer (the zero copy binary messaging)
+
+We should keep this in mind when designing the new IPC API, and abstract these strategies in a way where we can phase out the use of ipc.postMessage gradually as adoption on Linux grows, importantly without introducing a breaking change.
+
+PS: The story on linux might even be more complicated than this, as support for the new IPC features not only requires Headers, but the request Body too (which afaik has not received any work yet right?)
+
+So depending on how important we deem IPC performance on Linux, it might be worth implementing an version "0.5" of the custom protocol solution that doesn't support bi-directional streaming as the Body fix would probably take over a year to be meaningfully available on Linux distros
+
+8
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+M1cha
+
+Mar 14, 2023
+
+@JonasKruckenberg to cite from your tauri-bindgen readme:
+
+We're planning a big rework of the IPC bridge in the coming months and tauri-bindgen has been designed with some of the early design-work in mind.
+
+Who's "we"?
+
+Were does that rework happen? I can't find any public information on this(issues, discussions, ...)
+
+In case it's non-public: Can we change that? Where can I follow the current progress?
+
+15
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+jthoward64
+
+Dec 12, 2023
+
+@JonasKruckenberg to cite from your tauri-bindgen readme:
+
+We're planning a big rework of the IPC bridge in the coming months and tauri-bindgen has been designed with some of the early design-work in mind.
+
+Who's "we"?
+
+Were does that rework happen? I can't find any public information on this(issues, discussions, ...)
+
+In case it's non-public: Can we change that? Where can I follow the current progress?
+
+I feel like 'the coming months' have come and gone, any info on this?
+
+1
+You must be logged in to vote
+
+All reactions
+
+2 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+FabianLars
+
+Dec 12, 2023
+
+Maintainer
+
+the new ipc is part of v2 which is in alpha for a while now. tauri-bindgen was not (yet?) part of that change.
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+jthoward64
+
+Dec 12, 2023
+
+Gotcha, thanks!
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+samkearney
+
+Jun 24, 2024
+
+For now, if you really want to maximize the performance, I think you can register a custom protocol by register_uri_scheme_protocol. Read headers from the request as parameters and return what javascript in the browser wants.
+
+Just a curiosity about this. Documentation about these custom protocol handlers seems to be centered around an HTTP-style single-request-to-single-response pattern. What if I want to do something like streaming raw binary data continuously from my backend to a webview, for an extended time (i.e. the lifetime of the app), in the style of WebSockets? Is there any workaround you can think of for this in Tauri v2?
+
+Right now I am looking at using the raw Windows SharedBuffer APIs directly, but I am hoping that there is an easier solution than that because it looks daunting 😄 (and is not cross-platform)
+
+2
+You must be logged in to vote
+
+All reactions
+
+3 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+JonasKruckenberg
+
+Jun 25, 2024
+
+Yes! With tauri v2 we added an async counterpart to the register_uri_scheme system that allows you to call a callback as many times as you want with additional data. This lets you do streaming long-lived connections
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+samkearney
+
+Jun 25, 2024
+
+Hi @JonasKruckenberg,
+
+Thank you for the response! I'm assuming you're referring to register_asynchronous_uri_scheme_protocol(). Maybe I am missing something, but I had already looked at this API, and it seems like it only allows responding once to a request via the UriSchemeResponder. The method respond() says "Resolves the request with the given response", and it takes a complete HTTP response structure and consumes self. So, to me it seems like the only difference is that it just allows you to respond once, later, instead of once, right now. I am not immediately seeing an API that will let me do something like, for example, chunked transfer encoding which enables using the streams API on the client side, or something similar. Could you please advise?
+
+👍
+2
+
+All reactions
+
+👍
+2
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+samkearney
+
+Jun 26, 2024
+
+I found this which seems to indicate that this streaming feature is not supported by WebView2 on Windows. So at least on the Windows side, it seems very unlikely that this pattern is supported by custom protocol APIs in Tauri.
+
+👍
+1
+
+All reactions
+
+👍
+1
+
+Sign up for free
+to join this conversation on GitHub.
+Already have an account?
+Sign in to comment
+
+Category
+
+💡
+
+Ideas
+
+Labels
+
+None yet
+
+7 participants
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

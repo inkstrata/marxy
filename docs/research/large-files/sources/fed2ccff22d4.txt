@@ -1,0 +1,145 @@
+Home
+
+Release notes
+
+About
+
+Features
+
+Newly available
+
+Widely available
+
+Limited availability
+
+Discouraged
+
+Opposed
+
+Most wanted
+
+All features
+
+Missing only in
+
+Chromium
+
+Firefox
+
+Safari
+
+Implemented only in
+
+Chromium
+
+Firefox
+
+Safari
+
+Features in latest releases
+
+Chrome
+
+158
+
+Chrome Android
+
+158
+
+Edge
+
+158
+
+Firefox
+
+161
+
+Firefox for Android
+
+161
+
+Safari
+
+27.2
+
+Safari on iOS
+
+27.2
+
+content-visibility
+
+Newly Available (since 2025-09-15)
+
+Expected to be Widely Available on 2028-03-15
+
+Copy ID
+
+The content-visibility CSS property delays rendering an element, including layout and painting, until it is needed.
+
+Browser support (view on caniuse.com)
+
+Chrome
+
+108
+Released on 2022-11-29
+
+Chrome Android
+
+108
+Released on 2022-11-29
+
+Edge
+
+108
+Released on 2022-12-05
+
+Firefox
+
+130
+Released on 2024-09-03
+
+Firefox for Android
+
+130
+Released on 2024-09-03
+
+Safari
+
+26
+Released on 2025-09-15
+
+Safari on iOS
+
+26
+Released on 2025-09-15
+
+MDN documentation
+
+content-visibility CSS property
+
+Specifications
+
+CSS Containment Module Level 2 (#content-visibility),
+from Cascading Style Sheets (CSS) Working Group (W3C).
+
+Usage (according to Chrome Platform Status)
+
+~12.069% of page loads. More data at chromestatus.com.
+
+Web Platform Tests (WPT)
+
+View the latest WPT test results for this feature
+
+Interop
+
+Included in Interop 2023
+
+View as JSON
+|
+Edit this feature
+|
+Report an issue
+|
+Web-features entry:
+source,
+dist

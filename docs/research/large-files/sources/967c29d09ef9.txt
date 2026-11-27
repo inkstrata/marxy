@@ -1,0 +1,370 @@
+Skip to content
+
+Read the Tea Leaves
+
+Software and other dark arts, by Nolan Lawson
+
+Search this blog Search
+
+home
+
+apps
+
+code
+
+talks
+
+about
+
+Previous post: « The continuing tragedy of emoji on the webNext post: Web components are okay »
+
+18Sep
+
+Improving rendering performance with CSS content-visibility
+
+Posted September 18, 2024 by Nolan Lawson in performance, Web. 7 Comments
+
+Recently I got an interesting performance bug on emoji-picker-element:
+
+I’m on a fedi instance with 19k custom emojis […] and when I open the emoji picker […], the page freezes for like a full second at least and overall performance stutters for a while after that.
+
+If you’re not familiar with Mastodon or the Fediverse, different servers can have their own custom emoji, similar to Slack, Discord, etc. Having 19k (really closer to 20k in this case) is highly unusual, but not unheard of.
+
+So I booted up their repro, and holy moly, it was slow:
+
+There were multiple things wrong here:
+
+20k custom emoji meant 40k elements, since each one used a <button> and an <img>.
+
+No virtualization was used, so all these elements were just shoved into the DOM.
+
+Now, to my credit, I was using <img loading="lazy">, so those 20k images were not all being downloaded at once. But no matter what, it’s going to be achingly slow to render 40k elements – Lighthouse recommends no more than 1,400!
+
+My first thought, of course, was, “Who the heck has 20k custom emoji?” My second thought was, “*Sigh* I guess I’m going to need to do virtualization.”
+
+I had studiously avoided virtualization in emoji-picker-element, namely because 1) it’s complex, 2) I didn’t think I needed it, and 3) it has implications for accessibility.
+
+I’ve been down this road before: Pinafore is basically one big virtual list. I used the ARIA feed role, did all the calculations myself, and added an option to disable “infinite scroll,” since some people don’t like it. This is not my first rodeo! I was just grimacing at all the code I’d have to write, and wondering about the size impact on my “tiny” ~12kB emoji picker.
+
+After a few days, though, the thought popped into my head: what about CSS content-visibility? I saw from the trace that lots of time is spent in layout and paint, and plus this might help the “stuttering.” This could be a much simpler solution than full-on virtualization.
+
+If you’re not familiar, content-visibility is a new-ish CSS feature that allows you to “hide” certain parts of the DOM from the perspective of layout and paint. It largely doesn’t affect the accessibility tree (since the DOM nodes are still there), it doesn’t affect find-in-page (⌘+F/Ctrl+F), and it doesn’t require virtualization. All it needs is a size estimate of off-screen elements, so that the browser can reserve space there instead.
+
+Luckily for me, I had a good atomic unit for sizing: the emoji categories. Custom emoji on the Fediverse tend to be divided into bite-sized categories: “blobs,” “cats,” etc.
+
+Custom emoji on mastodon.social.
+
+For each category, I already knew the emoji size and the number of rows and columns, so calculating the expected size could be done with CSS custom properties:
+
+.category {
+content-visibility: auto;
+contain-intrinsic-size:
+/* width */
+calc(var(--num-columns) * var(--total-emoji-size))
+/* height */
+calc(var(--num-rows) * var(--total-emoji-size));
+}
+
+These placeholders take up exactly as much space as the finished product, so nothing is going to jump around while scrolling.
+
+The next thing I did was write a Tachometer benchmark to track my progress. (I love Tachometer.) This helped validate that I was actually improving performance, and by how much.
+
+My first stab was really easy to write, and the perf gains were there… They were just a little disappointing.
+
+For the initial load, I got a roughly 15% improvement in Chrome and 5% in Firefox. (Safari only has content-visibility in Technology Preview, so I can’t test it in Tachometer.) This is nothing to sneeze at, but I knew a virtual list could do a lot better!
+
+So I dug a bit deeper. The layout costs were nearly gone, but there were still other costs that I couldn’t explain. For instance, what’s with this big undifferentiated blob in the Chrome trace?
+
+Whenever I feel like Chrome is “hiding” some perf information from me, I do one of two things: bust out chrome:tracing, or (more recently) enable the experimental “show all events” option in DevTools.
+
+This gives you a bit more low-level information than a standard Chrome trace, but without needing to fiddle with a completely different UI. I find it’s a pretty good compromise between the Performance panel and chrome:tracing.
+
+And in this case, I immediately saw something that made the gears turn in my head:
+
+What the heck is ResourceFetcher::requestResource? Well, even without searching the Chromium source code, I had a hunch – could it be all those <img>s? It couldn’t be, right…? I’m using <img loading="lazy">!
+
+Well, I followed my gut and simply commented out the src from each <img>, and what do you know – all those mystery costs went away!
+
+I tested in Firefox as well, and this was also a massive improvement. So this led me to believe that loading="lazy" was not the free lunch I assumed it to be.
+
+Update: I filed a bug on Chromium for this issue. After more testing, it seems I was mistaken about Firefox – this looks like a Chromium-only issue.
+
+At this point, I figured that if I was going to get rid of loading="lazy", I may as well go whole-hog and turn those 40k DOM elements into 20k. After all, if I don’t need an <img>, then I can use CSS to just set the background-image on an ::after pseudo-element on the <button>, cutting the time to create those elements in half.
+
+.onscreen .custom-emoji::after {
+background-image: var(--custom-emoji-background);
+}
+
+At this point, it was just a simple IntersectionObserver to add the onscreen class when the category scrolled into view, and I had a custom-made loading="lazy" that was much more performant. This time around, Tachometer reported a ~40% improvement in Chrome and ~35% improvement in Firefox. Now that’s more like it!
+
+Note: I could have used the contentvisibilityautostatechange event instead of IntersectionObserver, but I found cross-browser differences, and plus it would have penalized Safari by forcing it to download all the images eagerly. Once browser support improves, though, I’d definitely use it!
+
+I felt good about this solution and shipped it. All told, the benchmark clocked a ~45% improvement in both Chrome and Firefox, and the original repro went from ~3 seconds to ~1.3 seconds. The person who reported the bug even thanked me and said that the emoji picker was much more usable now.
+
+Something still doesn’t sit right with me about this, though. Looking at the traces, I can see that rendering 20k DOM nodes is just never going to be as fast as a virtualized list. And if I wanted to support even bigger Fediverse instances with even more emoji, this solution would not scale.
+
+I am impressed, though, with how much you get “for free” with content-visibility. The fact that I didn’t need to change my ARIA strategy at all, or worry about find-in-page, was a godsend. But the perfectionist in me is still irritated by the thought that, for maximum perf, a virtual list is the way to go.
+
+Maybe eventually the web platform will get a real virtual list as a built-in primitive? There were some efforts at this a few years ago, but they seem to have stalled.
+
+I look forward to that day, but for now, I’ll admit that content-visibility is a good rough-and-ready alternative to a virtual list. It’s simple to implement, gives a decent perf boost, and has essentially no accessibility footguns. Just don’t ask me to support 100k custom emoji!
+
+7 responses to this post.
+
+Posted by Sébastien Lorber on September 24, 2024 at 1:58 AM
+
+Cool use-case, these emoji pickers are always slow to display, now I know why.
+
+FYI Safari 18 has content-visibility support, it’s widely available now!https://web-platform-dx.github.io/web-features-explorer/features/content-visibility/
+
+Shared your post here: https://x.com/sebastienlorber/status/1838502690319417710
+
+Posted by imkevdev on September 25, 2024 at 7:23 AM
+
+That’s a great optimization. 🙌 Why does the browser spend a lot of time on `ResourceFetcher::requestResource` when those images are lazy loaded and not be requested at all? Is it expected?
+
+Posted by Nolan Lawson on September 25, 2024 at 7:39 AM
+
+I should really file a browser bug. I’m not sure that there’s a good reason for those costs.
+
+Posted by Nolan Lawson on October 12, 2024 at 5:30 PM
+
+Update: I finally got around to filing a bug on Chromium.
+
+Posted by vmpstr on September 25, 2024 at 2:48 PM
+
+Could you also wrap sets of `content-visibility` marked sections into its own `content-visibility` sections, essentially constructing a tree of them.
+
+Sizing may get a little trickier, but you get more coarse grained divisions for content that is far away and more fine grained for closer content, improving performance
+
+Posted by Nolan Lawson on September 25, 2024 at 8:35 PM
+
+In this case, each category is just a list of <button>s, formatted by CSS grid. And each button has a fixed width/height, so I’m not sure I’d gain anything by using content-visibility on them.
+
+Pingback from CSS content-visibility | 12 Days of Web on January 3, 2025 at 1:15 PM
+
+[…] “Improving rendering performance with CSS content-visibility” by Nolan Lawson […]
+
+Comments are closed.
+
+Recent Posts
+
+The AI cost of JavaScript frameworks
+
+Do web components have a future if nobody is writing them?
+
+Why don’t more developers “use the platform”?
+
+Goodbye WordPress
+
+On not becoming a cyborg
+
+About Me
+
+I'm Nolan, a programmer from Seattle working at Socket. All opinions are my own. Photo by Cătălin Mariș.
+
+Archives
+
+October 2026 (3)
+
+September 2026 (1)
+
+August 2026 (3)
+
+May 2026 (1)
+
+March 2026 (1)
+
+February 2026 (4)
+
+January 2026 (2)
+
+December 2025 (4)
+
+November 2025 (1)
+
+August 2025 (1)
+
+June 2025 (1)
+
+April 2025 (1)
+
+January 2025 (1)
+
+December 2024 (2)
+
+October 2024 (2)
+
+September 2024 (3)
+
+August 2024 (1)
+
+July 2024 (1)
+
+March 2024 (1)
+
+January 2024 (1)
+
+December 2023 (4)
+
+August 2023 (2)
+
+January 2023 (2)
+
+December 2022 (1)
+
+November 2022 (2)
+
+October 2022 (2)
+
+June 2022 (4)
+
+May 2022 (3)
+
+April 2022 (1)
+
+February 2022 (1)
+
+January 2022 (1)
+
+December 2021 (3)
+
+September 2021 (1)
+
+August 2021 (6)
+
+February 2021 (2)
+
+January 2021 (2)
+
+December 2020 (1)
+
+July 2020 (1)
+
+June 2020 (1)
+
+May 2020 (2)
+
+February 2020 (1)
+
+December 2019 (1)
+
+November 2019 (1)
+
+September 2019 (1)
+
+August 2019 (2)
+
+June 2019 (4)
+
+May 2019 (3)
+
+February 2019 (2)
+
+January 2019 (1)
+
+November 2018 (1)
+
+September 2018 (5)
+
+August 2018 (1)
+
+May 2018 (1)
+
+April 2018 (1)
+
+March 2018 (1)
+
+January 2018 (1)
+
+December 2017 (1)
+
+November 2017 (2)
+
+October 2017 (1)
+
+August 2017 (1)
+
+May 2017 (1)
+
+March 2017 (1)
+
+January 2017 (1)
+
+October 2016 (1)
+
+August 2016 (1)
+
+June 2016 (1)
+
+April 2016 (1)
+
+February 2016 (2)
+
+December 2015 (1)
+
+October 2015 (1)
+
+September 2015 (1)
+
+July 2015 (1)
+
+June 2015 (2)
+
+October 2014 (1)
+
+September 2014 (1)
+
+April 2014 (1)
+
+March 2014 (1)
+
+December 2013 (2)
+
+November 2013 (3)
+
+August 2013 (1)
+
+May 2013 (3)
+
+January 2013 (1)
+
+December 2012 (1)
+
+November 2012 (1)
+
+October 2012 (1)
+
+September 2012 (3)
+
+June 2012 (2)
+
+March 2012 (3)
+
+February 2012 (1)
+
+January 2012 (1)
+
+November 2011 (1)
+
+August 2011 (1)
+
+July 2011 (1)
+
+June 2011 (3)
+
+May 2011 (2)
+
+April 2011 (4)
+
+March 2011 (1)
+
+Links
+
+Mastodon
+
+GitHub
+
+npm
+
+© 2011–2026 Nolan Lawson. RSS feed.

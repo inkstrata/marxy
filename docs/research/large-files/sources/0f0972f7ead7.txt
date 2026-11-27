@@ -1,0 +1,356 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+tauri-apps
+
+wry
+
+Repository navigation
+
+Code
+
+Issues152 ( 152 )
+
+Pull requests52 ( 52 )
+
+Discussions
+
+Actions
+
+Projects
+
+Security and quality
+
+Insights
+
+More items
+
+IPC summary and evaluation for improvement #767
+
+New issue
+Copy link
+
+New issue
+Copy link
+
+Closed
+
+Closed
+
+IPC summary and evaluation for improvement#767
+
+Copy link
+
+Labels
+
+platform: Allpriority: mediumGreat to havetype: feature requestor "type: enhancement"
+
+Description
+
+wusyong
+
+opened on Nov 24, 2022
+
+Issue body actions
+
+I would like to create this issue to list current IPC techniques so we don't have to search in the codebase back and forth. And at the same time looking for possible improvement. Because some are blocked by upstream, some are platform-specific solutions, and some could be done already since it's just caused by serialization overhead.
+
+evaluate_script
+
+evaluate_script is an API to run a javascript code for the page. #474 demonstrates current implementation and possible improvement pretty well already.
+
+We could add the callback closure to do some stuff after javascript result. But this still has to serialize into strings. So it remains as a good-to-have feature for me, and I didn't have much time to implement this before.
+
+ipc_handler / postMessage
+
+ipc_handler takes a closure that can be called when javascript call window.ipc.postMessage("insert_message_here");. This only accepts string as parameter. We usually use evaluate_script to return the value but this is also string only.
+
+For parameters, mac and Linux can take different JSValue rather than only strings. But windows can only work receive as string.
+
+For return values, please see the first comment of #454. Mac and Windows have some API to add native objects. We can treat these as return values. Linux doesn't provide such functionality, but in the generated wrapper, run_javascript's callback is called after run_javascript_finish. Perhaps we can write another one with callback first and it creates a JS value, then we call run_javascript_finish with that result value.
+
+custom_protocol / custom URL scheme
+
+custom_protocol is a customized URL handler that work like HTTP. It can receive an HTTP request and return an HTTP response without any remote server. The problem is it's still a little different from ordinary HTTP and sometimes it has subtle issues like secure cookie doesn't work on some platforms etc.
+
+In #667, @JonasKruckenberg tried to evaluate streaming possibility, but on Linux, it's blocked by #666. On Linux, the request of custom protocol can't access body for now.
+
+Others
+
+Webview2 has a specific API for shared buffer. But this seems like webview2 only.
+
+👍React with 👍6Reacted by Robin van Boven, keiya sasaki, 生命赞歌, Ivan Li, James Moynihan and muwoo
+
+Activity
+
+wusyong
+added
+type: enhancement
+
+type: feature requestor "type: enhancement"
+
+platform: All
+
+priority: mediumGreat to have
+on Nov 24, 2022
+
+franz-fletcher commented on Feb 14, 2023
+
+franz-fletcher
+
+on Feb 14, 2023
+
+More actions
+
+Re: SharedBuffer support across platforms see tauri-apps/tauri#6269 (comment) discussing upcoming compatibility for WebKit and WKWebView variants.
+
+wusyong commented on Mar 10, 2023
+
+wusyong
+
+on Mar 10, 2023
+
+ContributorAuthor
+
+More actions
+
+Adrián Pérez wrote a great post about IPC approach around WPE which also apply to WebkitGTK.
+
+Nothing new method for us, but I feel like there are a few further ideas worth exploring.
+
+https://wpewebkit.org/blog/06-integrating-wpe.html
+
+wusyong commented on Mar 22, 2023
+
+wusyong
+
+on Mar 22, 2023
+
+ContributorAuthor
+
+More actions
+
+I'll close this because we have some breakthrough in #454. And that issue is specific and it's also the feature I would imagine.
+
+wusyong
+closed this as completedon Mar 22, 2023
+
+FabianLars
+removed
+type: enhancement
+on May 22, 2026
+
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+
+Metadata
+
+Metadata
+
+Assignees
+
+No one assigned
+
+Labels
+
+platform: Allpriority: mediumGreat to havetype: feature requestor "type: enhancement"
+
+Type
+
+No type
+
+Projects
+
+No projects
+
+Milestone
+
+No milestone
+
+Relationships
+
+None yet
+
+Development
+
+No branches or pull requests
+
+Issue actions
+
+Open in GitHub Copilot app
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

@@ -1,0 +1,1727 @@
+LWN
+.net
+News from the source
+
+Content
+
+Weekly Edition
+
+Archives
+
+Search
+
+Kernel
+
+Security
+
+Events calendar
+
+Unread comments
+
+LWN FAQ
+
+Write for us
+
+Edition
+
+Return to the Kernel page
+
+User:
+Password: |
+
+|
+
+Log in /
+Subscribe /
+Register
+
+ext4 and data loss
+
+By Jonathan Corbet
+March 11, 2009
+
+The ext4 filesystem offers a number of useful features. It has been
+stabilizing quickly, but that does not mean that it will work perfectly for
+everybody. Consider this example:
+Ubuntu's bug tracker contains an
+entry titled "ext4 data loss", wherein a luckless ext4 user reports:
+
+Today, I was experimenting with some BIOS settings that made the
+system crash right after loading the desktop. After a clean reboot
+pretty much any file written to by any application (during the
+previous boot) was 0 bytes.
+
+Your editor had not intended to write (yet) about this issue, but quite a
+few readers have suggested that we take a look at it. Since there is
+clearly interest, here is a quick look at what is going on.
+
+Early Unix (and Linux) systems were known for losing data on a system
+crash. The buffering of filesystem writes within the kernel, while being
+very good for performance, causes the buffered data to be lost should the
+system go down unexpectedly. Users of Unix systems used to be quite aware
+of this possibility; they worried about it, but the performance loss
+associated with synchronous writes was generally not seen to be worth it.
+So application writers took great pains to ensure that any data which
+really needed to be on the physical media got there quickly.
+
+$ sudo subscribe today
+
+Subscribe today and elevate your LWN privileges. You’ll have
+access to all of LWN’s high-quality articles as soon as they’re
+published, and help support LWN in the process. Act now and you can start with a free trial subscription.
+
+More recent Linux users may be forgiven for thinking that this problem has
+been entirely solved; with the ext3 filesystem, system crashes are far less
+likely to result in lost data. This outcome is almost an accident
+resulting from some decisions made in the design of ext3. What's happening
+is this:
+
+By default, ext3 will commit changes to its journal every five
+seconds. What that means is that any filesystem metadata
+changes will be saved, and will persist even if the system
+subsequently crashes.
+
+Ext3 does not (by default) save data written to files in the journal.
+But, in the (default) data=ordered mode, any modified data
+blocks are forced out to disk before the metadata changes are
+committed to the journal. This forcing of data is done to ensure
+that, should the system crash, a user will not be able to read the
+previous contents of the affected blocks - it's a security feature.
+
+The end result is that data=ordered pretty much guarantees
+that data written to files will actually be on disk five seconds
+later. So, in general, only five seconds worth of writes might be
+lost as the result of a crash.
+
+In other words, ext3 provides a relatively high level of crash resistance,
+even though the filesystem's authors never guaranteed that behavior, and
+POSIX certainly does not require it. As Ted put it in his
+excruciatingly clear and understandable explanation of the situation:
+
+Since ext3 became the dominant filesystem for Linux, application
+writers and users have started depending on this, and so they
+become shocked and angry when their system locks up and they lose
+data --- even though POSIX never really made any such guarantee.
+
+Accidental or not, the avoidance data loss in a crash seems like a nice
+feature for a filesystem to have. So one might well wonder just what would
+have inspired the ext4 developers to take it away. The answer, of course,
+is performance - and delayed allocation in particular.
+
+"Delayed allocation" means that the filesystem tries to delay the
+allocation of physical disk blocks for written data for as long as
+possible. This policy brings some important performance benefits. Many
+files are short-lived; delayed allocation can keep the system from writing
+fleeting temporary files to disk at all. And, for longer-lived files,
+delayed allocation allows the kernel to accumulate more data and to
+allocate the blocks for data contiguously, speeding up both the write and
+any subsequent reads of that data. It's an important optimization which is
+found in most contemporary filesystems.
+
+But, if blocks have not been allocated for a file, there is no need to
+write them quickly as a security measure. Since the blocks do not yet
+exist, it is not possible to read somebody else's data from them. So ext4
+will not (cannot) write out unallocated blocks as part of the next journal
+commit cycle. Those blocks will, instead, wait until the kernel decides to
+flush them out; at that point, physical blocks will be allocated on disk
+and the data will be made persistent. The kernel doesn't like to let file
+data sit unwritten for too long, but it can still take a minute or so (with
+the default settings) for that data to be flushed - far longer than
+the five seconds normally seen with ext3. And that is why a crash can
+cause the loss of quite a bit more data when ext4 is being used.
+
+The real solution to this problem is to fix the applications which are
+expecting the filesystem to provide more guarantees than it really is.
+Applications which frequently rewrite numerous small files seem to be
+especially vulnerable to this kind of problem; they should use a smarter
+on-disk format. Applications which want to be sure that their files have
+been committed to the media can use the fsync() or
+fdatasync() system calls; indeed, that's exactly what those system
+calls are for. Bringing the applications back into line with what the
+system is really providing is a better solution than trying to fix things up
+at other levels.
+
+That said, it would be nice to improve the robustness of the system while
+we're waiting for application developers to notice that they have some work
+to do. One possible solution is, of course, to just run ext3. Another is
+to shorten the system's writeback time,
+which is stored in a couple of sysctl variables:
+
+/proc/sys/vm/dirty_expire_centisecs
+/proc/sys/vm/dirty_writeback_centisecs
+
+The first of these variables (dirty_expire_centiseconds) controls
+how long written data can sit in the page cache before it's considered
+"expired" and queued to be written to disk; it defaults to
+30 seconds. The value of dirty_writeback_centiseconds
+(5 seconds, default) controls how often the pdflush process wakes
+up to actually flush expired data to disk. Lowering these values will
+cause the system to flush data to disk more aggressively, with a cost in
+the form of reduced performance.
+
+A third, partial solution exists in a set of patches queued for 2.6.30; they add a
+set of heuristics which attempt to protect users from being badly burned in
+certain situations. They are:
+
+A
+patch adding a new EXT4_IOC_ALLOC_DA_BLKS
+ioctl() command. When issued on a file, it will force ext4
+to allocate any delayed-allocation blocks for that file. That will
+have the effect of getting the file's data to disk relatively quickly
+while avoiding the full cost of the (heavyweight) fsync()
+call.
+
+The
+second patch sets a special flag on any file which has been
+truncated; when that file is closed, any delayed allocations will be
+forced. That should help to prevent the "zero-length
+files" problem reported at the beginning.
+
+Finally, this
+patch forces block allocation when one file is renamed on top of
+another. This, too, is aimed at the problem of frequently-rewritten
+small files.
+
+Together, these patches should mitigate the worst of the data loss problems
+while preserving the performance benefits that come with delayed
+allocation. They have not been proposed for merging at this late stage in
+the 2.6.29 release cycle, though; they are big enough that they will have
+to wait for 2.6.30. Distributors shipping earlier kernels can, of course,
+backport the patches, and some may do so. But they should also note the
+lesson from this whole episode: ext4, despite its apparent stability,
+remains a very young filesystem. There may yet be a surprise or two
+waiting to be discovered by its early users.
+
+Index entries for this article
+
+Kernel Filesystems/ext4
+
+to post comments
+
+ext4 and data loss
+
+Posted Mar 12, 2009 1:24 UTC (Thu)
+by JoeBuck (subscriber, #2330)
+[Link] (18 responses)
+
+So, with ext3 we should avoid fsync because it can cause seconds of delay for the whole system (because of data ordering constraints), but with ext4 we should fsync because otherwise data are not saved. Hmm.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 2:56 UTC (Thu)
+by bojan (subscriber, #14302)
+[Link] (17 responses)
+
+That really sucks, doesn't it. I think Ted addressed that with:
+
+> If you really care about making sure something is on disk, you have to use fsync or fdatasync. If you are about the performance overhead of fsync(), fdatasync() is much less heavyweight, if you can arrange to make sure that the size of the file doesn't change often. You can do that via a binary database, that is grown in chunks, and rarely truncated.
+
+Linux, meet the Registry
+
+Posted Mar 12, 2009 13:37 UTC (Thu)
+by eru (subscriber, #2753)
+[Link] (10 responses)
+
+You can do that via a binary database, that is grown in chunks, and rarely truncated.
+
+So does this mean the Linux desktops should now start using something like the Windows registry database?
+
+Linux, meet the Registry
+
+Posted Mar 12, 2009 23:17 UTC (Thu)
+by rahulsundaram (subscriber, #21946)
+[Link] (9 responses)
+
+Ted mentioned in the FOSDEM talk this year (video available online), that many developers ( GNOME and KDE included) tends to use hundreds of small files with very small amounts of data and that isn't really a bright idea compared to a centralized registry. Something to consider.
+
+Linux, meet the Registry
+
+Posted Mar 13, 2009 0:02 UTC (Fri)
+by bojan (subscriber, #14302)
+[Link] (7 responses)
+
+When this central registry gets stuffed, the whole lot is stuffed (see: Windows). Small files that are merged together into a tree are not _that_ stupid. And, you can remove directories that contain them in order to remove parts of the tree - simple.
+
+Maybe the real solution is to not write them out unless absolutely necessary.
+
+Linux, meet the Registry
+
+Posted Mar 13, 2009 2:00 UTC (Fri)
+by rahulsundaram (subscriber, #21946)
+[Link] (6 responses)
+
+Centralized doesn't mean binary. Even assuming it is, Firefox is using sqlite databases instead of inventing their own binary format. Binary is not necessarily evil as people seem to think. I don't see how your solution would work. When you don't write them out, you stand a higher chance of losing that data which is exactly the problem
+
+Linux, meet the Registry
+
+Posted Mar 13, 2009 2:46 UTC (Fri)
+by quotemstr (subscriber, #45331)
+[Link]
+
+The filesystem is already a hierarchical database. Putting a hierarchical database on top of the filesystem is redundant. Fix bugs instead of working around them!
+
+Linux, meet the Registry
+
+Posted Mar 13, 2009 3:37 UTC (Fri)
+by bojan (subscriber, #14302)
+[Link] (4 responses)
+
+> Centralized doesn't mean binary.
+
+Say you want to fix a corrupt gconf XML file that is 20 lines long. The easy fix is to delete it and recreate the settings using preferences or gconf editor.
+
+Say you want to fix a corrupt gconf XML file that is 200,000 lines long. Well, good luck not mucking it up in vi so it still parses.
+
+> Even assuming it is, Firefox is using sqlite databases instead of inventing their own binary format.
+
+Which, as we've seen, comes with its own set of problems on ext3. And, once again, if the DB file gets screwed, you are completely out of luck - _all_ your settings are gone. Eggs in one basket and all that.
+
+> Binary is not necessarily evil as people seem to think.
+
+Yeah, tell that to people with corrupt Windows registry.
+
+> I don't see how your solution would work. When you don't write them out, you stand a higher chance of losing that data which is exactly the problem.
+
+Nobody said anything about not writing them out. The problem is that it appears they are being written out even when _not_ required and in large numbers.
+
+When users make changes to configuration, these are localised changes. Users don't normally change 200 settings at once. So, this will touch a very limited number of files that need to be persisted to disk using fsync. The problem is the currently hundreds of files are being persisted to disk often.
+
+Linux, meet the Registry
+
+Posted Mar 13, 2009 5:32 UTC (Fri)
+by eru (subscriber, #2753)
+[Link] (3 responses)
+
+> Binary is not necessarily evil as people seem to think.
+
+Yeah, tell that to people with corrupt Windows registry.
+
+The binary/text distinction is rather illusory. Text is simply a binary
+file that uses a subset of byte values to represent data, and
+certain values as delimiters. What really matters is how a file format is
+structured. A binary file can be organized so that recovering data from
+it is possible (what does fsck(8) really do? Fix corruption in a complex
+binary file, with the constraint that the operation must be done
+in-place).
+
+Linux, meet the Registry
+
+Posted Mar 13, 2009 5:56 UTC (Fri)
+by bojan (subscriber, #14302)
+[Link]
+
+> The binary/text distinction is rather illusory.
+
+Yeah. I edit SQLite files in vi all the time ;-)
+
+Illusory?
+
+Posted Mar 13, 2009 13:14 UTC (Fri)
+by man_ls (guest, #15091)
+[Link]
+
+The binary/text distinction is not illusory; it is a cognitive issue. Limiting file contents to printable characters (not just byte values since you can use multi-byte characters) makes people be able to edit them. Text files do not usually contain just random characters; they contain readable words that can be understood and documented rather easily.
+
+The machine doesn't care, true, but to people there is a big difference between a sequence of random byte values and a sequence of written words. Just as, to me personally, there is a big difference between a text in Spanish and a set of cyrillic Russian words.
+
+Linux, meet the Registry
+
+Posted Mar 19, 2009 9:31 UTC (Thu)
+by renox (guest, #23785)
+[Link]
+
+[[ The binary/text distinction is rather illusory. ]]
+
+For computers yes, for human this is very different, that's the point!
+
+If you have a corrupted binary, it's very, very difficult for an human to fix it (unless there's a tool which fix it "auto-magically"), whereas for a text there is still the possibility for the human to fix it.
+
+A FS is a database, fsck is the tool to fix it (up to a point), if you add other databases in a FS this add the possibility of additional errors fixable only by the tools, with structured text files (JSON is nice: easy to read and to parse) you have the best of both worlds.
+
+Linux, meet the Registry
+
+Posted Sep 9, 2009 22:02 UTC (Wed)
+by BrucePerens (guest, #2510)
+[Link]
+
+The Namesys paradigm of file-per-atom is a good idea, it's just that filesystems aren't up to the task. Too bad its creator went on to worse ideas.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 20:04 UTC (Thu)
+by samroberts (subscriber, #46749)
+[Link] (5 responses)
+
+"If you really care to make sure something is on disk".
+
+There is no class of applications that write data to a file and don't
+
+expect it to be written to disk.
+
+For a long time fsync/O_SYNC were essentially no-ops on linux, the
+
+attitude of the kernel developers being "apps call write(), the kernel
+
+will put it on disk when its efficient to do so" and "linux is not a
+
+real-time OS". Now Ted is calling such applications "badly written"? B.S.
+
+That said, I sympathize with him about user's whining that data is lost
+
+when their OS crashes. If your operating sytem crashes, you lose all
+
+guarantees that it worked. Such is life. Either use an OS that doesn't
+
+crash, or run filesystems in real-time modes that write data to disk as
+
+soon as possible after the app does the file write, and live with the
+
+performance loss.
+
+It seemed to work fine
+
+Posted Mar 12, 2009 22:46 UTC (Thu)
+by man_ls (guest, #15091)
+[Link] (1 responses)
+
+Or... stay with ext3?
+
+It seemed to work fine
+
+Posted Mar 12, 2009 22:54 UTC (Thu)
+by man_ls (guest, #15091)
+[Link]
+
+... which is of course your second option. Sorry, not having enough coffee these days.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 14:45 UTC (Fri)
+by jbailey (guest, #16890)
+[Link]
+
+It's not a matter of expect to be written to disk or not, it's the performance tradeoff versus data security should it not be written to disk. An MTA must make sure that it's committed to disk because it's irretrievable if it's not. A word processor autosave, not so much. Non-error log files, same thing.
+
+My machine has certainly been writing things to disk all while I'm reading lwn here (logs, browser cache. If I were at home, it could be bittorrent, etc). My life wouldn't be any poorer if the system were to crash right now and none of that were recoverable.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 22:47 UTC (Fri)
+by bojan (subscriber, #14302)
+[Link]
+
+> There is no class of applications that write data to a file and don't expect it to be written to disk.
+
+Any application that uses temporary files is OK with data not hitting the disk.
+
+ext4 and data loss
+
+Posted Mar 17, 2009 21:56 UTC (Tue)
+by pphaneuf (guest, #23480)
+[Link]
+
+"No class of applications", you say?
+
+/var/run being on a tmpfs makes sense (if we crash, then it's okay, they're not running anymore).
+
+Another more practical one is my browser cache. If it got blown away on every reboot, I wouldn't really mind, and I would actually be pretty angry if my browser started doing fsync on every little thing (hmm, where have I heard this?).
+
+ext4 and data loss
+
+Posted Mar 12, 2009 1:45 UTC (Thu)
+by jimparis (guest, #38647)
+[Link] (21 responses)
+
+I read the bug discussion but don't fully understand what's going on here.
+Assume the code is
+
+fd = open("file.new",O_TRUNC|O_WRONLY|O_CREAT);
+write(fd, "hi", 2);
+close(fd);
+rename("file.new", "file");
+
+Are we saying that in ext4, the rename can happen many tens-of-seconds before the data "hi" is actually allocated and written?
+
+That's concerning. I'd expect that if I do that sequence of commands, the write would happen before the rename, and a crash would lead to:
+
+(1) Nothing gets changed (ie. the old contents are still there),
+if it's been less than 30 seconds
+
+(2) The new contents are there, if the crash happens after 30 seconds.
+
+Anything else might be POSIX-correct but that's going to break a lot of assumptions in existing code, I think.
+
+Or am I misunderstanding things here?
+
+ext4 and data loss
+
+Posted Mar 12, 2009 6:55 UTC (Thu)
+by jamesh (guest, #1159)
+[Link] (19 responses)
+
+The problem only exists when you're journalling metadata but not the actual file metadata.
+
+Due to the behaviour of ext3, to write the metadata changes to disk (creation of "file.new" and rename of "file.new" to "file"), it was necessary for the file's blocks to be written out to disk so the previous contents won't be available. This is almost but not quite the same as journalling data too (it won't protect against partial writes if you cut power at the wrong time).
+
+With ext4's delayed allocation, the metadata changes can be journalled without writing out the blocks. So in case of a crash, the metadata changes (that were journalled) get replayed, but the data changes don't.
+
+If you journal data changes, presumably this won't happen on either ext3 or ext4. That is likely to give a performance hit though.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 8:49 UTC (Thu)
+by job (guest, #670)
+[Link]
+
+Most people (by which I mean me) would probably want metadata changes that hasn't yet had it's corresponding blocks written out yet to be dropped instead of replayed. That is, see the old file rather than empty new one.
+
+When we see these patches instead of the behaviour we expect, we're confused. Is the behaviour hard to implement for some reason, or are we wrong in expecting it?
+
+Delayed allocation is fine but I think most people expect metadata to be delayed accordingly.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 16:14 UTC (Thu)
+by nye (guest, #51576)
+[Link] (2 responses)
+
+This seems both very clear, and so obviously wrong that I must have misunderstood.
+
+Are we really saying that ext4 commits metadata changes to disk (potentially a long time) before committing the corresponding data change?
+
+That surely can't be right. Why on earth would you write metadata describing something which you know doesn't exist yet - and may never exist? Especially when the existing metadata describes something that does.
+
+Perhaps what we're really saying is that ext4 does them in the correct order, but doesn't use barriers by default and hence they sometimes get written by the device in the wrong order? That would make more sense at least.
+
+This is really confusing me.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:31 UTC (Fri)
+by nix (subscriber, #2304)
+[Link] (1 responses)
+
+That's exactly what it does. Patches recently committed to the mainline
+
+cause the blocks to be aggressively flushed if the file is closed and was
+
+originally opened via O_TRUNC, or if the file is renamed on top of another
+
+one.
+
+(I'd prefer it to delay the metadata operation as well, but apparently
+
+that's really hard. Knowing what a nightmare it is to get rename() right,
+
+I can understand that doing it lazily might not be anyone's cup of tea.)
+
+ext4 and data loss
+
+Posted Mar 22, 2009 22:01 UTC (Sun)
+by muwlgr (guest, #35359)
+[Link]
+
+I would not say "aggressively flushed". As I understand, blocks of these files (created/truncated, then closed, or renamed to replace previous file) are just explicitly allocated (triggering all necessary metadata updates to be then written in the correct order).
+
+ext4 and data loss
+
+Posted Mar 12, 2009 17:58 UTC (Thu)
+by cpeterso (guest, #305)
+[Link] (14 responses)
+
+With ext4's delayed allocation, the metadata changes can be journalled without writing out the blocks. So in case of a crash, the metadata changes (that were journalled) get replayed, but the data changes don't.
+
+This is so broken. How can anyone think this is a good idea? Or an "upgrade" from ext3?
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:24 UTC (Fri)
+by giraffedata (guest, #1954)
+[Link] (13 responses)
+
+With ext4's delayed allocation, the metadata changes can be journalled without writing out the blocks. So in case of a crash, the metadata changes (that were journalled) get replayed, but the data changes don't.
+
+This is so broken. How can anyone think this is a good idea? Or an "upgrade" from ext3?
+
+Because of the speedup. Since the beginning of Unix, people have sacrificed crash survivability for speed. An Ext2 filesystem after a crash can be in much worse state than this (because it doesn't journal even the metadata).
+
+Even given user-level options to make the choice, the vast majority choose speed. So if delayed allocation makes access even faster, I can understand someone trading a higher probability of corrupting files.
+
+As has been noted, applications that are affected are the ones that already accept a fair amount of corruption risk, so this is just a quantitative increase in risk, not qualitative.
+
+The ext3 behavior that some people prefer is just an accident, by the way. The reason data=ordered is the default with ext3 is security, not crash resistance. The crash resistance is a by-product. Had ext3 originally done what ext4 does, people wouldn't have called it wrong.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 1:07 UTC (Fri)
+by dododge (guest, #2870)
+[Link] (12 responses)
+
+And as noted in Ted's message linked in the article, this potential disconnect between data and metadata has been used by other high-performance filesystems on Linux for years. ext3 is the odd man out, due to an unintentional quirk in its design.
+
+For example if you shut down an XFS filesystem improperly, when it comes back up it may claim that recent files exist and even have the expected size -- but when you try to read them you might get zero blocks instead of real data. I believe JFS does the same thing.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 1:26 UTC (Fri)
+by quotemstr (subscriber, #45331)
+[Link] (11 responses)
+
+If you shut down an XFS filesystem improperly, when it comes back up it may claim that recent files exist and even have the expected size -- but when you try to read them you might get zero blocks instead of real data. I believe JFS does the same thing.
+Is it any wonder, then, that XFS and JFS are seldom used despite their otherwise-wonderful characteristics?
+
+ext4 and data loss
+
+Posted Mar 13, 2009 10:44 UTC (Fri)
+by rahulsundaram (subscriber, #21946)
+[Link] (10 responses)
+
+The real reason why users don't use those filesystems much is because pretty much all the distributions have been sticking to the Ext* codebase as default. Distributions do that because of lack of cross vendor support for the other filesystems. If you are a vendor, you will want to have in-house filesystem experts before declaring support for a filesystem.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 13:26 UTC (Fri)
+by man_ls (guest, #15091)
+[Link] (5 responses)
+
+That sounds like a circular argument: distros don't have XFS or JFS experts because nobody cares about them anymore, and nobody cares about them because distros don't have experts. But the code to all these filesystems is open and has been there for a long while; why do distros have ext3 experts to begin with?
+
+The real reason ext3 is popular is (or so I contend) that it is stable and crash-resistant by default. Crash resistance may have been an design accident in the beginning, but it is what got it to be the most popular filesystem for Linux. It would seem that people are not so willing to trade robustness for speed. After all the mission of a filesystem is to keep your data until you ask for it; is it any wonder that people like it when it does just that, no matter what?
+
+ext4 and data loss
+
+Posted Mar 15, 2009 19:32 UTC (Sun)
+by rahulsundaram (subscriber, #21946)
+[Link]
+
+It isn't a circular argument. Ext2 already existed before these other filesystems and Ext3 being the only filesystem backward compatible with it and using a very similar codebase meant that it had a leg up with distributions and users trusting it more and adopting it far more quickly. Also while Ext* has been a cross vendor effort, other filesytems like JFS and XFS were developed by a single company like SGI or IBM and never grew out of it. Btrfs made a deliberate effort to avoid this problem and has succeeded in doing so.
+
+ext4 and data loss
+
+Posted Mar 17, 2009 22:01 UTC (Tue)
+by pphaneuf (guest, #23480)
+[Link] (3 responses)
+
+My favourite characteristic of the extX family of filesystem is the ability to fsck while it being mounted. Often overlooked, but wow, do you ever miss that when you have to work with another filesystem for a period of time...
+
+ext4 and data loss
+
+Posted Mar 17, 2009 22:37 UTC (Tue)
+by nix (subscriber, #2304)
+[Link] (2 responses)
+
+*Why* do you miss the bizarre and dangerous ability to fsck a mounted
+
+filesystem, often with umount-or-reboot-pleeze following it? Because your
+
+early userspace is too deficient to fsck / before mounting it?
+
+ext4 and data loss
+
+Posted Mar 17, 2009 22:59 UTC (Tue)
+by quotemstr (subscriber, #45331)
+[Link] (1 responses)
+
+I assume he's talking about a read-only fsck. Any decent fsck should refuse to modify a mounted filesystem.
+
+I agree, though, that even a read-only fsck of a filesystem mounted read-write doesn't seem that useful --- the on-disk state of a mounted filesystem is going to be slightly inconsistent anyway: it's likely that not everything has been flushed to disk yet.
+
+Now a full (read and fix) fsck of a filesystem mounted read-only may be useful, and tolerably dangerous if followed immediately by a reboot.
+
+ext4 and data loss
+
+Posted Mar 17, 2009 23:45 UTC (Tue)
+by nix (subscriber, #2304)
+[Link]
+
+Indeed fsck.ext[234] is perfectly happy to modify a read-only-mounted /.
+
+It even has special behaviour (messages and exit codes) to tell you when
+
+you have to reboot because it just modified a mounted filesystem.
+
+I still think it's a disgusting cheap hack sanctified only because that's
+
+the only way Unix systems have traditionally been able to fsck /. Now
+
+Linux has early userspace, there is no excuse for it at all other than
+
+back-compatibility with people who don't have an initramfs or initrd (how
+
+many of them are there? Not many, I'd wager).
+
+ext4 and data loss
+
+Posted Mar 14, 2009 15:13 UTC (Sat)
+by jschrod (subscriber, #1646)
+[Link] (3 responses)
+
+Well, I don't use XFS exactly for that reason, having been bitten by the "my whole file consists of 0x00" behaviour one time too often. And my argument is as anecdotical [sp?] as yours.
+
+Joachim
+
+ext4 and data loss
+
+Posted Mar 19, 2009 1:26 UTC (Thu)
+by xoddam (subscriber, #2322)
+[Link] (2 responses)
+
+anecdotal.
+
+ext4 and data loss
+
+Posted Mar 19, 2009 1:51 UTC (Thu)
+by jschrod (subscriber, #1646)
+[Link] (1 responses)
+
+Thanks for the info. (I'm not a native English speaker, btw.)
+
+non-native speakers
+
+Posted Mar 19, 2009 2:23 UTC (Thu)
+by xoddam (subscriber, #2322)
+[Link]
+
+Schon verstanden :-)
+
+ext4 and data loss
+
+Posted Mar 12, 2009 18:12 UTC (Thu)
+by davecb (subscriber, #1574)
+[Link]
+
+On a system that predates POSIX and/or logging filesystems, you will get the behavior you
+expect: this is exactly the Unix V6 behavior. The
+data blocks will be written out, then the inode's length field will be updated, then the (atomic) rename will compete and the file will be replaced.
+
+POSIX doesn't guarantee that: it allows people experimenting with delaying or reordering for performance reasons to weaken the guarantees.
+
+Research filesystems tried both, and found that
+one could get considerable performance advantages by
+reordering the writes to be in elevator order, and
+delaying them until there was enough data to coalesce adhacent writes. Some of this is now
+broadly available SCSI's "tag queueing".
+Alas, if a write failed, the on-disk
+data was now inconsistent, and one could end up with a disk of garbage.
+
+A former colleague, then at UofT, found he
+could reorder and coalesce with great benefit, so long as he inserted "barriers" into the sequence where there were correctness-critical orderings.
+Those has to remain, but most of the performance
+could be kept, with a write cache and a delay of
+a few seconds.
+
+Now we're working with journaled filesystems,
+which reduce the cost of preserving order even more, but have separated metadata from data updates. This introduced an new opportunity to inadvertently
+order updates that broke the older, but
+unpublished, correctness criteria.
+
+Some journaled filesystems guarantee that
+the sequence you (and I) use is correctness-preserving. ZFS is one of these. Others, including ext3 and 4, leave a window in which a crash will will render the filesystem inconsistent. Ext3 has a small window, and for
+unknown reasons, ext4 has one as wide as the
+delay period.
+
+I'm of the opinion both could have arbitrarily small risk periods, and with a persistent write cache or journal, both can avoid all risk.
+However, changing the algorithm to one which
+is correctness-preserving would arguably be a better answer.
+
+--dave
+
+ext4 and data loss
+
+Posted Mar 12, 2009 1:51 UTC (Thu)
+by aigarius (guest, #7329)
+[Link] (33 responses)
+
+POSIX is really irrelevant here. There is an expectation of filesystem crash resistance set by ext3. If ext4 is supposed to be a successor of ext3, then these expectations must be upheld. The current behaviour is a bug in _ext4_.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 2:52 UTC (Thu)
+by bojan (subscriber, #14302)
+[Link] (32 responses)
+
+But this would then mean that we _should_ write applications that work with extX file system only, instead of POSIX, which is exactly what seem to have (unfortunately) happened. If an extX user changes the filesystem to non-extX (of which there are many), then these apps may break again. I don't think that's a very good deal.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 8:21 UTC (Thu)
+by quotemstr (subscriber, #45331)
+[Link] (31 responses)
+
+That's rubbish. How many applications do you use that will work on a bare-bones POSIX system? It's perfectly legitimate to rely on facilities that aren't in POSIX.
+
+POSIX is a set of bare minimum requirements, not a bible for a usable system. It's perfectly legitimate to give guarantees beyond the ones POSIX dictates. A working atomic rename -- file data and all --- is one such constraint that adds to the usefulness and reliability of the system as a whole.
+
+Applications that rename() without fsync() are *not* broken. They're merely requesting transaction atomicity without transaction durability, which is a perfectly sane thing to do in many circumstances. Teaching application developers to just fsync() after every rename() is *harmful*, dammit, both to system performance and to their understanding of how the filesystem works.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 11:48 UTC (Thu)
+by epa (subscriber, #39769)
+[Link] (2 responses)
+
+POSIX is a set of bare minimum requirements, not a bible for a usable system. It's perfectly legitimate to give guarantees beyond the ones POSIX dictates. A working atomic rename -- file data and all --- is one such constraint that adds to the usefulness and reliability of the system as a whole.
+That's all very well, but such a guarantee has never in fact been made. (If you can find something in the ext3 documentation that makes such a promise, I will eat my words.)
+
+ext4 and data loss
+
+Posted Mar 12, 2009 14:43 UTC (Thu)
+by quotemstr (subscriber, #45331)
+[Link] (1 responses)
+
+Well first, that's the way it's worked in practice for years, documentation be damned. Second, these semantics are implied by the description of data=ordered.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 15:01 UTC (Thu)
+by epa (subscriber, #39769)
+[Link]
+
+Second, these semantics are implied by the description of data=ordered.
+You could be right: I always thought of data=ordered as promising 'no garbage blocks in files that were enlarged just before a crash' but it could be taken as promising more.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 20:35 UTC (Thu)
+by bojan (subscriber, #14302)
+[Link] (27 responses)
+
+I think emacs programmers may disagree with you on this.
+
+The question still remains the same. If an application that worked on ext3 is placed into an environment that is not ext3, will it still work OK?
+
+PS. Apps that rely on the ext3 behaviour can always demand they run only on ext3, of course ;-)
+
+ext4 and data loss
+
+Posted Mar 12, 2009 20:40 UTC (Thu)
+by quotemstr (subscriber, #45331)
+[Link] (26 responses)
+
+I don't think Emacs is wrong here, actually. In an interactive editor, I want durability and atomicity. I'm simply pointing out that sometimes it's appropriate to want atomicity without durability, and under those circumstances, using rename without fsync is the right thing to do.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:06 UTC (Fri)
+by bojan (subscriber, #14302)
+[Link] (25 responses)
+
+I was under the impressions that you do get atomicity. The zero length file (i.e. the one that has not been made durable yet, because fsync was not called) gets renamed to the other file just fine. No?
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:16 UTC (Fri)
+by quotemstr (subscriber, #45331)
+[Link] (24 responses)
+
+That's from the filesystem's perspective.
+
+From the application's perspective, the entire sequence of "atomically replace the content of file A" failed -- file A was left in an indeterminate state. The application has no way of stating that it wants that replacement to occur in the future, but be atomic, except to use open-write-close-rename. The filesystem should ensure that the entire operation happens atomically, which means flushing the file-to-be-renamed's data blocks before the rename record is written.
+
+What the application obviously meant to happen is for the filesystem to commit both the data blocks and the rename as some point in the future, but to always do it in that order. Atomic rename without that guarantee is far less useful, and explicit syncing all the time will kill performance.
+
+These semantics are safe and useful! They don't impact performance much because the applications that need the fastest block allocated -- databases and such -- already turn off as much caching as possible and do that work internally.
+
+Atomic-in-the-future commits may go beyond a narrow reading of POSIX, but that's not a bad thing. Are you saying that we cannot improve on POSIX?
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:27 UTC (Fri)
+by dlang (guest, #313)
+[Link] (20 responses)
+
+what's needed is the ability for the code to insert a barrier, saying 'I want everything before this point done before you do anything after this point'
+
+anything else is guesswork by the OS.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:46 UTC (Fri)
+by nix (subscriber, #2304)
+[Link] (2 responses)
+
+I didn't think POSIX filesystem operations were allowed to be executed out
+
+of order. I've never read any code, no matter how old, that took any
+
+measures to allow for this.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:49 UTC (Fri)
+by quotemstr (subscriber, #45331)
+[Link] (1 responses)
+
+They're only out of order from the point of view of a system recovering from a crash. Otherwise, there'd be an even larger furor. :-) I think the way rename is used, it was always intended to have barrier semantics, and sane filesystems should respect that intent.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 7:58 UTC (Fri)
+by nix (subscriber, #2304)
+[Link]
+
+Strongly seconded. I suppose nothing is ever really *guaranteed* about
+
+post-crash state, so this is merely a QoI, but an important one.
+
+(Memories of the Algol 68 standard, I think it was, going to some lengths
+
+to define the behaviour of the system under unspecified circumstances in
+
+which the power was cut, which were meant to include things like
+
+earthquakes.)
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:47 UTC (Fri)
+by quotemstr (subscriber, #45331)
+[Link] (16 responses)
+
+I agree. An explicit barrier interface would be nice. Right now, however, rename-onto-an-existing-file almost always expresses the intent to create such a barrier, and the filesystem should respect that intent. In practice, it's nearly always worked that way. UFS with soft-updates guarantees data blocks are flushed before metadata ones. ZFS goes well beyond that and guarantees the relative ordering of every write. And the vast majority of the time, on ext3, an atomic rename without an fsync has the same effect as it does on these other filesystems.
+
+Other filesystems work like ext4 does, yes. Consider XFS, which has a much smaller user base than it should, given its quality. Why is that the case? It has a reputation for data loss --- and for good reason. IMHO, it's ignoring an implied barriers created by atomic renames!
+
+Forcing a commit of data before rename-onto-an-existing-file not only allows applications running today to work correctly, but creating an implied barrier on rename provides a very elegant way to detect the barrier the application developer almost certainly meant to write, but couldn't.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 4:12 UTC (Fri)
+by flewellyn (subscriber, #5047)
+[Link] (15 responses)
+
+POSIX defines an explicit barrier. It's called fsync().
+
+ext4 and data loss
+
+Posted Mar 13, 2009 7:57 UTC (Fri)
+by nix (subscriber, #2304)
+[Link] (13 responses)
+
+And how often have you seen applications that do cross-directory rename()s
+
+combine it with an fsync() of both the source and target directories,
+
+without which you are risking data loss?
+
+I've never seen anyone do it. Even coreutils 7.1 doesn't do it.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 8:29 UTC (Fri)
+by flewellyn (subscriber, #5047)
+[Link] (12 responses)
+
+If you just rename(), then the file will continue to exist at either the old or the new location, even if there's a crash. That's guaranteed by rename() semantics. You can't cross filesystems with it, either, so there's no I/O of the actual data.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 14:50 UTC (Fri)
+by foom (subscriber, #14868)
+[Link] (11 responses)
+
+> If you just rename(), then the file will continue to exist at either the old or the new location, even
+
+> if there's a crash. That's guaranteed by rename() semantics.
+
+Is it? If you rename from /A/file to /B/file (both on the same filesystem), what happens if the OS
+
+decides to write out the new directory metadata for /A immediately, but delay writing /B until an
+
+hour from now? (for performance, don't-cha-know) And then the machine crashes. So now you're
+
+left with no file at all.
+
+While I admit not having looked, I'll bet three cookies that's perfectly allowed by POSIX.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 15:06 UTC (Fri)
+by quotemstr (subscriber, #45331)
+[Link] (9 responses)
+
+While I admit not having looked, I'll bet three cookies that's perfectly allowed by POSIX.
+You know what else is also allowed by POSIX?
+
+Rejecting filenames longer than 14 characters, or that begin with a hyphen
+
+Refusing to create more than 8 hard links to a file
+
+Not having job control
+
+Copying a process's entire address space on fork
+
+Making all IO synchronous
+
+Come on. Adhering to POSIX is no excuse for a poor implementation! Even Windows adheres to POSIX, and you'd have to be loony to claim it's a good Unix. Look: the bare minimum durability requirements that POSIX specifies are just not sufficient for a good and reliable system. rename must introduce a write barrier with respect to the data blocks for the file involved or we will lose. Not only will you not get every programmer and his dog to insert a gratuitous fsync in the write sequence, but doing so would actually be harmful to system performance.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 18:05 UTC (Fri)
+by nix (subscriber, #2304)
+[Link]
+
+rename must introduce a write barrier with respect to the data blocks for the file involved or we will lose.
+
+But this is exactly the behaviour that ext4 isn't currently implementing (although it will be, by default).
+
+Perhaps we're in vociferous agreement, I don't know.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 22:54 UTC (Fri)
+by bojan (subscriber, #14302)
+[Link] (7 responses)
+
+> Not only will you not get every programmer and his dog to insert a gratuitous fsync in the write sequence, but doing so would actually be harmful to system performance.
+
+fsync is not gratuitous. It is the D in ACID. As you mentioned yourself, rename requires only A form ACID - and that is exactly what you get.
+
+But, Ted being a pragmatic man, reverted this to the old behaviour, simply because he knows there is a lot of broken software out there.
+
+The fact that good applications that never lose data are already using the correct behaviour is case in point that this is how all applications should do it.
+
+Performance implications of this approach are different than that of the old approach from ext3. In some cases ext4 will be faster. In others, it won't. But the main performance problem is bad applications that gratuitously write hundreds of small files to the file system. This is what is causing the real performance problem and should be fixed.
+
+XFS received a lot of criticism, for what seem to be application problems. I wonder how many people lost files they were editing in emacs on that file system. I would venture a guess, not many.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 23:10 UTC (Fri)
+by quotemstr (subscriber, #45331)
+[Link] (6 responses)
+
+It is the D in ACID. As you mentioned yourself, rename requires only A form ACID - and that is exactly what you get.
+That's my whole point: sometimes you want atomicity without durability. rename without fsync is how you express that. Except on certain recent filesystems, it's always worked that way. ext4 not putting a write barrier before rename is a regression.
+
+But the main performance problem is bad applications that gratuitously write hundreds of small files to the file system.
+And why, pray tell, is writing files to a filesystem a bad thing? Writing plenty of small files is a perfectly legitimate use of the filesystem. If a filesystem buckles in that scenario, it's the fault of the filesystem, not the application. Blaming the application is blaming the victim.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 23:46 UTC (Fri)
+by bojan (subscriber, #14302)
+[Link] (5 responses)
+
+> That's my whole point: sometimes you want atomicity without durability. rename without fsync is how you express that. Except on certain recent filesystems, it's always worked that way. ext4 not putting a write barrier before rename is a regression.
+
+Just because something worked one way in one mode of one file system, doesn't mean it is the only way it can work, nor that applications should rely on it. If you want atomicity without durability, you get it on ext4, even without Ted's most recent patches (i.e. you get the empty file). If you want durability as well, you call fsync.
+
+> And why, pray tell, is writing files to a filesystem a bad thing?
+
+Writing out files that have _not_ changed is a bad thing. Or are you telling me that KDE changes all of its configuration files every few minutes?
+
+BTW, the only reason fsync is slow on ext3, is because it does sync of all files. That's something that must be fixed, because it's nonsense.
+
+ext4 and data loss
+
+Posted Mar 14, 2009 1:58 UTC (Sat)
+by quotemstr (subscriber, #45331)
+[Link] (2 responses)
+
+Just because something worked one way in one mode of one file system...
+There's plenty of precedent. The original Unix filesystem worked that way. UFS works that way with soft-updates. ZFS works that way. There are plenty of decent filesystems that will provide atomic replace with rename.
+
+...you get it on ext4, even without Ted's most recent patches (i.e. you get the empty file).
+Not from the perspective of the whole operation you don't. You set out trying to replace the contents of the file called /foo/bar, atomically. If /foo/bar ends up being a zero-length file, the intended operation wasn't atomic. That's like saying you don't need any synchronization for a linked list because the individual pointer modifications are atomic. Atomic replacement of a file without forcing an immediate disk sync is something a decent filesystem should provide. Creating a write barrier on rename is an elegant way to do that.
+
+ext4 and data loss
+
+Posted Mar 15, 2009 6:01 UTC (Sun)
+by bojan (subscriber, #14302)
+[Link] (1 responses)
+
+> Creating a write barrier on rename is an elegant way to do that.
+
+Except that rename(s), as specified, never actually guarantees that.
+
+ext4 and data loss
+
+Posted Mar 15, 2009 6:04 UTC (Sun)
+by bojan (subscriber, #14302)
+[Link]
+
+That should have been rename(2), of course.
+
+ext4 and data loss
+
+Posted Mar 14, 2009 12:53 UTC (Sat)
+by nix (subscriber, #2304)
+[Link] (1 responses)
+
+Sure. Fixing fsync() being sync() on ext3 is easy, as long as you don't
+
+mind someone else's data showing up in your partially-synced files after
+
+reboot. Oh, wait, that's a security hole.
+
+ext4 and data loss
+
+Posted Mar 15, 2009 6:03 UTC (Sun)
+by bojan (subscriber, #14302)
+[Link]
+
+Actually, in ordered mode it should be made a no-op by default. The fact that it locks the machine up is a major regression.
+
+ext4 and data loss
+
+Posted Mar 14, 2009 1:23 UTC (Sat)
+by flewellyn (subscriber, #5047)
+[Link]
+
+No, because rename() is only changing the metadata. The data of the file itself has not been changed by that call.
+
+If you were to write new data to the file and THEN call rename, a crash right afterwards might mean that the updates were not saved. But the only way you could lose the file's original data here is if you opened it with O_TRUNC, which is really stupid if you don't fsync() immediately after closing.
+
+ext4 and data loss
+
+Posted Mar 17, 2009 7:12 UTC (Tue)
+by jzbiciak (guest, #5246)
+[Link]
+
+That's a bit heavy for a barrier though. A barrier just needs to ensure ordering, not actually ensure the data is on the disk. Those are distinct needs.
+
+For example, if I use mb(), I'm assured that other CPUs will see that every memory access before mb() completed before every memory access after mb(). That's it. The call to mb() doesn't ensure that the data gets written out of the cache to its final endpoint though. So, if I'm caching, say, a portion of the video display buffer, there's no guarantee I'll see the writes I made before the call to mb() appear on the screen. Typically, though, all that's needed and desired is a mechanism to guarantee things happen in a particular order so that you move from one consistent state to the next.
+
+The atomic-replace-by-rename carries this sort of implicit barrier in many peoples' minds, it seems. Delaying the rename until the data actually gets allocated and committed is all this application requires. It doesn't actually require the data to be on the disk.
+
+In other words, fsync() is too big a hammer. It's like flushing the CPU cache to implement mb().
+
+Is there an existing API that just says "keep these things in this order" without actually also spinning up the hard drive? With the move to more battery powered machines and media that wears out the more it's written to, it seems like a bad idea to ask developers to force the filesystem to do more writes.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:32 UTC (Fri)
+by bojan (subscriber, #14302)
+[Link] (2 responses)
+
+What I'm trying to say is that there already are file systems out there that work the way ext4 works. And, it seems to me from this bug report that there are applications out there that already figured out the only real way of making things both durable and atomic using POSIX calls.
+
+As for performance, I'm not really sure why an implicit fsync that ext3 does would be faster than an explicit one done from the application, if they end up in exactly the same thing (i.e. both data and metadata being written to permanent storage). Unless this implicit fsync in ext3 is not actually the equivalent of fsync, but instead just something that works most of the time (i.e. is done in 5 second intervals, as per Ted's explanation).
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:58 UTC (Fri)
+by quotemstr (subscriber, #45331)
+[Link] (1 responses)
+
+Data-before-rename isn't just an fsync when rename is called. That's one way of implement a barrier, but far from the best. Far better would be to keep track of all outstanding rename requests, and flush the data blocks for the renamed file before the rename record is written out. The actual write can happen far in the future, and these writes can be coalesced.
+
+Say you're updating a few hundred small files. (And before you tell me that's bad design: I disagree. A file system is meant to manage files.) If you were to fsync before renaming each one, the whole operation would proceed slowly. You'd need to wait for the disk to finish writing each file before moving on to the next, creating a very stop-and-go dynamic and slowing everything down.
+
+On the other hand, if you write and rename all these files without an fsync, when the commit interval expires, the filesystem can pick up all these pending renames and flush all their data blocks at once. Then it can write all the rename records, at once, much improving the overall running time of the operation.
+
+The whole thing is still safe because if the system dies at any point, each of the 200 configuration files will either refer to the complete old file or the complete new file, never some NULL-filled or zero-length strangelet.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 1:16 UTC (Fri)
+by bojan (subscriber, #14302)
+[Link]
+
+> And before you tell me that's bad design: I disagree. A file system is meant to manage files.
+
+I don't think that's bad design either. It is very useful to build an XML tree from many small files (e.g. gconf), instead of putting everything into one big one, which, if corrupted, will bring everything down.
+
+> The whole thing is still safe because if the system dies at any point, each of the 200 configuration files will either refer to the complete old file or the complete new file, never some NULL-filled or zero-length strangelet.
+
+I think that's the bit Ted was complaining about. It is unusual that changes to hundreds of configuration files would have to be done all at once. Users usually change a few things at a time (which would then be OK with fsync), so this must be some kind of automated thing doing it.
+
+But, yeah, I understand what you're getting at in terms of performance of many fsync calls in a row.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 2:00 UTC (Thu)
+by qg6te2 (guest, #52587)
+[Link] (5 responses)
+
+"... POSIX never really made any such guarantee"
+
+Perhaps the POSIX standard should be rewritten then. The overall philosophy of Unix is to abstract away mundane things such as how data is stored on disk. The user has a moral right to expect that as little data as possible was wiped out if a machine crashes (especially if caused by an OS fault and not hardware).
+
+Applications which want to be sure that their files have been committed to the media can use the fsync() or fdatasync() system calls
+
+I vehemently disagree with this. It will simply cause everybody to use fsync() all the time as a blunt but simple solution to the "state of disk" problem. Which in turn will lead to lower performance, until it is taken as "common knowledge" that calls to fsync() are more hints rather than real requests. Which would of course make fsync() useless.
+
+/proc/sys/vm/dirty_expire_centiseconds
+
+/proc/sys/vm/dirty_writeback_centiseconds
+
+Perhaps the above two settings can be managed automatically as a way of going around the fsync() issue. For example, the more data there is waiting to be dumped to disk, the higher the risk of loss, and hence the shorter the disk commit intervals should be. This will of course reduce the effectiveness of delayed allocation, but performance without safety is not performance at all, especially if the user has to regenerate the lost data.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 5:53 UTC (Thu)
+by quotemstr (subscriber, #45331)
+[Link]
+
+The fundamental problem is that there are two similar but different operations an application developer can request:
+
+open(A)-write(A,data)-close(A)-rename(A,B): replace the contents of B with data, atomically. I don't care when or even if you make the change, but whenever you get around to it, make sure either the old or the new version is in place.
+
+open(A)-write(A,data)-fsync(A)-close(A)-rename(A,B): replace the contents of B with data, and do it now.
+
+In practice, operation 1 has worked as described on ext2, ext3, and UFS with soft-updates, but fails on XFS and unpatched ext4. Operation 1 is perfectly sane: it's asking for atomicity without durability. KDE's configuration is a perfect candiate. Browser history is another. For a mail server or an interactive editor, of course, you'd want operation 2.
+
+Some people suggest simply replacing operation 1 with operation 2. That's stupid. While operation 2 satisfies all the constraints of operation 1, it incurs a drastic and unnecessary performance penalty. By claiming operation 1 is simply operation 2 spelled incorrectly, you remove an important word from an application programmer's vocabulary. How else is an he supposed to request atomicity without durability?
+
+(And using a "real database" isn't a good enough answer: then you've just punted the same problem to a far heavier system, and for no good reason.)
+
+The last patch mentioned in the article seems to make operation 1 work correctly, and that's good enough for me. Still, people need to realize that the filesystem is a database, albeit not a relational one, and that we can use database terminology to describe it.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 19:19 UTC (Thu)
+by SLi (subscriber, #53131)
+[Link] (3 responses)
+
+Well, you can always mount your filesystem with the "sync" option if you
+
+want the behavior you describe.
+
+The problem is, then you cannot talk about performance. Disks are slow,
+
+slower than you think because your system has been caching for years.
+
+While it's in a sense unfortunate that in ext4 this happening is more
+
+likely than in ext3 (and it's exactly that, it's still very possible in
+
+ext3), applications relying in that not happening are broken even in
+
+ext3-land, because it does happen (if your system crashes, which shouldn't
+
+happen very often - get a UPS and hardware that does not need binary
+
+drivers).
+
+The solution of applications fsync()ing their critical data is not only
+
+the best solution - it's virtually also the only solution, if you want to
+
+combine any guarantee about data integrity with any performance that isn't
+
+from 1995.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 5:19 UTC (Fri)
+by qg6te2 (guest, #52587)
+[Link] (2 responses)
+
+While it's in a sense unfortunate that in ext4 this happening is more
+likely than in ext3 (and it's exactly that, it's still very possible in
+ext3), applications relying in that not happening are broken even in
+ext3-land
+
+An appeal can be made to have better written applications, or more practically, an acceptance can be made that in the real world apps are never perfect. A file system needs to deal with that (no matter what is guaranteed by POSIX) and provide a reasonable trade-off between speed and safety.
+
+In the case of ext3, whether by side effect or design, this trade-off is at a good point. Mounting with the "sync" option sacrifices too much speed, while in the current version of ext4 the trade-off is too aggressively in the direction of speed. Not everybody can afford a UPS, nor should a UPS be required to have a disk with sane contents after a crash.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 13:17 UTC (Fri)
+by jwarnica (subscriber, #27492)
+[Link]
+
+Not everyone can afford a computer, either. List price for the smallest APC UPS that includes software is $59.99. Which is pretty cheep. Given the other benefits of UPSs, providing some surge and brownout protection, not having one is just stupid.
+
+General purpose distros assume that you have what, a gig or two of memory. Not everyone can afford memory, either. And there are special case systems which would never have that kind of memory. So if you have a shitty computer, you run either older versions, or specially targeted distros. And if you are building an embedded system, you make choices appropriately.
+
+In 2009, if you choose to have a crippled system that doesn't have a UPS, then choose your filesystem carefully.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 16:43 UTC (Fri)
+by SLi (subscriber, #53131)
+[Link]
+
+I think ext4's tradeoff is a very sane one. I don't expect my machine to
+
+crash all the time (in fact I can't remember when it last did, must have
+
+been in something like 2005). If it gives a speedup measured in tens of
+
+percents, it's the only sane thing to do.
+
+And for the case when it's not sane, there's f(data)sync().
+
+ext4 and data loss
+
+Posted Mar 12, 2009 8:46 UTC (Thu)
+by mjthayer (guest, #39183)
+[Link] (5 responses)
+
+I'm no filesystem expert, so (disclaimer...) the following suggestion may well just be plain stupid. Why not just have a journal (metadata and data lumped together) with fixed blocks for data which does not yet have its own blocks? Certainly performance would be worse than if there were no such journal, but probably still better than having to allocate blocks for short-lived files. The journal could be moved from time to time if block wear is an issue, although I presume that these days that is nearly always worked around at a lower level.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 11:03 UTC (Thu)
+by eru (subscriber, #2753)
+[Link] (4 responses)
+
+Why not just have a journal (metadata and data lumped together) with fixed blocks for data which does not yet have its own blocks?
+
+I believe this is more or less how a log-structured file system works:
+
+http://en.wikipedia.org/wiki/Log-structured_file_system.
+For some reason the idea is not in very common use.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 11:11 UTC (Thu)
+by mjthayer (guest, #39183)
+[Link] (1 responses)
+
+Indeed. Except of course that I was thinking more of a very short-lived log for data which would not otherwise be written back, rather than a full-blown log-structured file system.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 8:54 UTC (Fri)
+by mjthayer (guest, #39183)
+[Link]
+
+In fact, one could sum up the idea as a mini-log filesystem on top of the normal filesystem, acting as a cache for things that can't immediately be written out to the real filesystem. Actually, I could imagine something like that existing outside of the actual filesystem code, but handled separately by the kernel, with the log either a pre-allocated file on the filesystem or a set of pre-allocated blocks on a swap device.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:23 UTC (Fri)
+by nix (subscriber, #2304)
+[Link] (1 responses)
+
+Log-structured filesystems aren't in use for media on which seeks are
+
+non-zero cost because they lead to fragmentation hell in short order. You
+
+don't always want to access your files in the same order in which you
+
+wrote them; they should be clustered differently. LFSes make that
+
+distinctly nontrivial to do.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 10:18 UTC (Fri)
+by job (guest, #670)
+[Link]
+
+Perhaps LFSes will make a comeback with the SSDs, then?
+
+ext4 and data loss
+
+Posted Mar 12, 2009 14:03 UTC (Thu)
+by ricwheeler (subscriber, #4980)
+[Link] (11 responses)
+
+I think that we are overstating the data integrity promises of ext3 to a degree, which makes the ext4 behaviour seem less desirable. No enterprise application I know of is built around the assumption that every 5 seconds or so you will probably survive a power outage.
+
+Applications that needs to insure data integrity should take specific steps, including:
+
+* use fsync() when you hit state that you would like to survive a crash
+
+* when using rename, you need to fsync() both the source and target directories
+
+* make sure that barriers are enabled if not using a battery backed storage device or disable the write cache on your disk
+
+It is pretty trivial to get data loss in any file system if you misconfigure and use sloppy assumptions.
+
+If you have a boat load of apps which fail, you can easily configure your box (write cache disabled, nodelalloc for ext4, etc) to take the safe (and slow!) path.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 16:06 UTC (Thu)
+by JoeBuck (subscriber, #2330)
+[Link] (3 responses)
+
+Try doing that on an ext3 system, and the performance of your system will go down significantly, to the point where users reject it. The fsync calls will cost you, big time. Firefox tried doing this and the Linux users nearly killed them.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 18:05 UTC (Thu)
+by cpeterso (guest, #305)
+[Link] (1 responses)
+
+Why is fsync() on ext3 slower than fsync() on a non-journaled file system? Because fsync() has to update the journal on disk in addition to writing data and metadata?
+
+ext3's slow fsync()
+
+Posted Mar 19, 2009 2:19 UTC (Thu)
+by xoddam (subscriber, #2322)
+[Link]
+
+In default data=ordered mode, fsync(file) on ext3 is more-or-less equivalent to a sync of the entire filesystem. It forces all dirty file blocks to be flushed even those belonging to unrelated tasks, and the caller has to wait for the entire operation to complete. There is no clean way to flush the dirty blocks of only the desired file.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 20:27 UTC (Thu)
+by ricwheeler (subscriber, #4980)
+[Link]
+
+You clearly don't want to blindly call fsync or use SYNC mode for normal operation.
+
+Most applications have reasonable points where an fsync would make sense. If I remember correctly, firefox went a bit over the top trying to keep it internal database crash resistant.
+
+For apps that really care about performance and data integrity both, you can try to batch operations - just like databases batch multiple transactions into a single commit.
+
+File system equivalents would be when writing a bunch of files you can write them all without fsync, then go back and reopen/fsync them as a batch - try it, it will give you close to non-fsynced performance and give you a clear sense of when data is on disk safely.
+
+ext4 and data loss
+
+Posted Mar 12, 2009 16:15 UTC (Thu)
+by iabervon (subscriber, #722)
+[Link] (5 responses)
+
+I think there are plenty of applications that expect that rename() will atomically replace an old file with a new file, so that there is no point at which a system crash and restart will cause another process attempting to access the path to find it missing or with contents other than one or the other. POSIX doesn't specify anything about system crashes, but it does specify that any concurrently-running process can't see anything other than the state where the rename hasn't happened or the state where the rename has happened after the data is written. I'm not sure that POSIX even specifies that fsync() or fdatasync() will be particularly useful in a system crash; it does specify that your data will have been written when the system call returns, but that doesn't mean that the system crash won't completely or even selectively destroy your filesystem.
+
+So the sensible thing to do is to treat rename as dependent on the data write. Now, any program that truncates a file and then writes to it will tend to lead to 0-length files in a system crash, but that also tends to lead to 0-length files in an application crash or in a race with other code, or at least be a case where it's okay and expected to not find any particular file contents. If your desktop software actually erases all of your files and then hopes to be able to write new contents into them before anybody notices, that is an application bug, but using ext3 won't change the fact that it's failure-prone even aside from filesystem robustness.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:11 UTC (Fri)
+by giraffedata (guest, #1954)
+[Link] (4 responses)
+
+I'm not sure that POSIX even specifies that fsync() or fdatasync() will be particularly useful in a system crash; it does specify that your data will have been written when the system call returns, but that doesn't mean that the system crash won't completely or even selectively destroy your filesystem.
+
+It doesn't talk about system crashes (it wouldn't be practical to specify what a system does when it's broken), but it heavily implies crash-related function. It also does not specify that data will have been written after fsync -- POSIX is more abstract than that. The POSIX user doesn't know what a cache is; he doesn't know there's a disk drive holding his files. In POSIX, write() writes to a file. It doesn't schedule a write for later, it writes it immediately. But it allows (by implication) that certain kinds of system failures can cause previously written data to disappear from a file. It then goes on to introduce the concept of "stable storage" -- fsync() causes previously written data to be stored that way. fsync() isn't about specific I/O operations; what it does is harden previously written data so that these certain kinds of system failures can't destroy it.
+
+POSIX is, incidentally, notoriously silent on just how stable stable is, leaving it up to the designer's imagination which system failures it hardens against. And there is a great spectrum of stability. For example, I know of no implementation where fsync hardens data against a disk drive head crash. I do know of implementations where it doesn't harden it against a data center power outage.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 2:14 UTC (Fri)
+by iabervon (subscriber, #722)
+[Link] (3 responses)
+
+Beyond POSIX, I think that users of a modern enterprise-quality *nix OS writing to a good-reliability filesystem expect is that operations which POSIX says are atomic with respect to other processes are usually atomic with respect to processes after a crash (mostly of the unexpected halt variety), and that fsync() forces the other processes to see the operation having happened.
+
+That is, you can think of "stable storage" as a process that reads the filesystem sometimes, and, after a crash, repopulates it with what it read last, and that fsync will only return after one of these reads after when you call it. You don't know what "stable storage" read, and it can have all of the same sorts of race conditions and time skew that any other concurrent process can. If the filesystem matches some such snapshot, it's the user or application's carelessness if anything is lost; if the filesystem doesn't match any such snapshot, it's crash-related filesystem damage.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 2:51 UTC (Fri)
+by quotemstr (subscriber, #45331)
+[Link] (2 responses)
+
+Beyond POSIX, I think that users of a modern enterprise-quality *nix OS writing to a good-reliability filesystem expect is that operations which POSIX says are atomic with respect to other processes are usually atomic with respect to processes after a crash (mostly of the unexpected halt variety)
+In an ideal world, that would be exactly what you'd see: after a cold restart, the system would come up in some state the system was in at a time close to the crash, not some made-up non-existent state the filesystem cobbles together from bits of wreckage. Most filesystems weaken this guarantee somewhat, but leaving NULL-filled and zero-length files that never actually existed on the running system is just unacceptable.
+
+fsync() forces the other processes to see the operation having happened
+Huh? fsync has nothing to do with what other processes see. fsync only forces a write to stable storage; it has no effect on the filesystem as seen from a running system. In your terminology, it just forces the conceptual "filesystem" process to take a snapshot at that instant.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 15:26 UTC (Fri)
+by iabervon (subscriber, #722)
+[Link]
+
+In an ideal world, that would be exactly what you'd see: after a cold restart, the system would come up in some state the system was in at a time close to the crash, not some made-up non-existent state the filesystem cobbles together from bits of wreckage.
+
+The model works if you include the fact that, in a system crash, unintended things are, by definition, happening. Any failure of the filesystem to make up a possible state afterwards appears as fallout from the crash. Maybe some memory corruption changed your file descriptors, and your successful writes and successful close were some other file (but the subsequent rename found the original names). Maybe something managed to write zeros over your file lengths. It's not a matter of standards how often undefined behavior leads to noticeable problems, but it is a matter of quality.
+
+fsync has nothing to do with what other processes see. fsync only forces a write to stable storage; it has no effect on the filesystem as seen from a running system. In your terminology, it just forces the conceptual "filesystem" process to take a snapshot at that instant.
+
+That's what I meant to say: it makes the "filesystem" process see everything that had already happened. (And, by extension, processes that run after the system restarts, looking at the filesystem recovered from stable storage)
+
+ext4 and data loss
+
+Posted Mar 13, 2009 16:04 UTC (Fri)
+by giraffedata (guest, #1954)
+[Link]
+
+In an ideal world, that would be exactly what you'd see: after a cold restart, the system would come up in some state the system was in at a time close to the crash, not some made-up non-existent state the filesystem cobbles together from bits of wreckage. Most filesystems weaken this guarantee somewhat, but leaving NULL-filled and zero-length files that never actually existed on the running system is just unacceptable.
+
+You mean undesirable. It's obviously acceptable because you and most your peers accept it every day. Even ext3 comes back after a crash with the filesystem in a state it was not in at any instant before the crash. The article points out that it does so to a lesser degree than some other filesystem types because of the 5 second flush interval instead of the more normal 30 (I think) and because two particular kinds of updates are serialized with respect to each other.
+
+And since you said "system" instead of "filesystem", you have to admit that gigabytes of state are different after every reboot. All the processes have lost their stack variables, for instance. Knowing this, applications write their main memory to files occasionally. Knowing that even that data isn't perfectly stable, some of them also fsync now and then. Knowing that even that isn't perfectly stable, some go further and take backups and such.
+
+It's all a matter of where you draw the line -- what you're willing to trade.
+
+ext4 and data loss
+
+Posted Mar 13, 2009 0:25 UTC (Fri)
+by nix (subscriber, #2304)
+[Link]
+
+'Enterprise applications' can afford to assume UPSes, and reliable
+
+hardware. People's desktops, and consumer systems more generally, cannot.
+
+ext4 is the new XFS
+
+Posted Mar 12, 2009 18:19 UTC (Thu)
+by anton (subscriber, #25547)
+[Link] (3 responses)
+
+The problem has nothing to do with delayed allocation, nor with the
+commit interval. It has to do with the classic mistake
+of writing metadata without writing the corresponding data. A
+file system can easily delay allocation of file data for a minute and
+still preserve the data during crashes: It just needs to write the
+metadata for the new file after the data; and of course the rename
+metadata and the corresponding deletion of the old file data should be
+written even later. And of course the file system needs to ensure
+with barriers that this is written in the right order to disk.
+
+The real solution to this problem is to fix the applications which are
+expecting the filesystem to provide more guarantees than it really is.
+
+Why should it be "the real solution" to change thousands of
+applications to deal with crash-vulnerable file systems? Even if all
+the application authors all agreed with this idea, how would they know
+that their applications are not expecting more than the file system
+guarantees?
+
+IMO the real solution is to keep the applications the same, and fix
+the file system; we need to fix just one file system, and can relegate
+all the others that don't give the guarantees to special-purpose
+niches where data integrity is unimportant.
+
+What guarantee should the file system give? A good one would be
+this: If the application leaves consistent data if it is terminated
+unexpectedly without a system crash (e.g. with SIGKILL), the data
+should also be consistent in case of a system crash (although possibly
+old without fsync()). One way to give this guarantee is to implement in-order
+semantics.
+
+Bringing the applications back into line with what the system is
+really providing is a better solution than trying to fix things up at
+other levels.
+
+That's just wrong. But more importantly, it won't happen. So better
+bring the system in line with what the applications are expecting; for
+now, ext3 looks like the good-enough solution (despite Linux doing the
+wrong thing (no barriers) by default), and hopefully we will have file
+systems that actually give data consistency guarantees in the future.
+
+I would welcome an article about the consistency guarantees that
+Btrfs gives (maybe in a comparison with other file systems). Judging from the lack of
+documentation of the guarantees (at least in prominent places), there
+seems to be little interest from file system developers in this area
+yet, but an article focusing on that topic may improve that state of
+affairs.
+
+Concerning the subject of my comment: Whenever someone mentions XFS, someone else
+reports a story about data loss, and that's why he's no longer using
+XFS. It seems that ext4 aspires to the same ideals as XFS: high
+performance, large data handling capabilities, and it does not care
+much for the user's data in the case of a crash. I guess ext4 will
+then play a similar role among Linux users as XFS has.
+
+ext4 is the new XFS
+
+Posted Mar 12, 2009 20:27 UTC (Thu)
+by droundy (guest, #4559)
+[Link]
+
+Absolutely.
+
+ext4 is the new XFS
+
+Posted Mar 13, 2009 3:31 UTC (Fri)
+by dgc (subscriber, #6611)
+[Link] (1 responses)
+
+Concerning XFS - most of the "data not written" (not "data loss") problems
+
+in this scenario have been fixed. XFS is now much more careful to
+
+correctly order data and metadata updates and so the "XFS ate my files"
+
+problems have pretty much disappeared.
+
+Indeed, the tricks being played to close the reported holes in ext4
+
+would appear to be copied from XFS. e.g. the flush-after-truncate
+
+trick went into XFS back in June 2006:
+
+http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-...
+
+Concerning the subject title, ext4 has been replicating XFS features
+
+without paying attention to the fixes that had been made to those
+
+features in the past couple of years. Hence ext4 introduced the bugs
+
+that everyone (incorrectly) continues to flame XFS for. Now ext4 is
+
+replicating the XFS fixes to said bugs. ext4 is still going to be
+
+playing catchup for some time.... ;)
+
+ext4 is the new XFS
+
+Posted Mar 16, 2009 11:01 UTC (Mon)
+by nye (guest, #51576)
+[Link]
+
+>Concerning XFS - most of the "data not written" (not "data loss") problems
+
+>in this scenario have been fixed. XFS is now much more careful to
+
+>correctly order data and metadata updates and so the "XFS ate my files"
+
+>problems have pretty much disappeared.
+
+Don't forget the "files not modified in months are now inexplicably filled with nulls" problems that it had :P.
+
+An interesting link
+
+Posted Mar 13, 2009 2:52 UTC (Fri)
+by bojan (subscriber, #14302)
+[Link] (6 responses)
+
+Trying to find out if F-11 is going to have Ted's patches, I was pointed here:
+
+http://flamingspork.com/talks/2007/06/eat_my_data.odp
+
+Interesting.
+
+An interesting link
+
+Posted Mar 13, 2009 5:46 UTC (Fri)
+by qg6te2 (guest, #52587)
+[Link] (5 responses)
+
+On slide 84 the following idealistic assertion is made:
+
+data=ordered mode on ext3
+
+writes data before metadata
+
+other file systems are different
+
+ext3 ordered mode is an exception, not the rule
+
+applications relying on this are not portable and depend on file system behaviour. the applications are buggy.
+
+Perhaps the applications are buggy to people living in ivory towers. The ext3 ordered mode should be the rule as how filesystem should behave, not the exception. Practicality suggests that fixing the underlying filesystem is more time and cost efficient than fixing 100,000 apps.
+
+An interesting link
+
+Posted Mar 13, 2009 6:08 UTC (Fri)
+by bojan (subscriber, #14302)
+[Link] (4 responses)
+
+> The ext3 ordered mode should be the rule as how filesystem should behave, not the exception.
+
+It's not even the rule for ext3. You can easily switch to writeback and get:
+
+> Data ordering is not preserved - data may be written into the main file system after its metadata has been committed to the journal. This is rumoured to be the highest-throughput option. It guarantees internal file system integrity, however it can allow old data to appear in files after a crash and journal recovery.
+
+There must be dozens of other file systems in all sorts of POSIX compatible OSes that don't behave that way (i.e. data=ordered). So, fixing one file system isn't going to be good enough solution, I think.
+
+What's wrong with applying correct idioms in applications, the way emacs (and vim?) do?
+
+An interesting link
+
+Posted Mar 13, 2009 6:57 UTC (Fri)
+by qg6te2 (guest, #52587)
+[Link] (3 responses)
+
+What's wrong with applying correct idioms in applications, the way emacs (and vim?) do?
+
+A simple "write data to disk" operation would have unnecessary complexity, as the slides show (a collection #ifdefs and run-time ifs). This is insane. The operating system (and hence by extension, the underlying filesystem) is supposed to abstract things away, not make things harder.
+
+A sane filesystem should have the previous version of a file available intact, no matter when the crash occurred. To put it another way, why replicate the "safe save" functionality in each app when it can be done once in the filesystem ?
+
+An interesting link
+
+Posted Mar 13, 2009 10:41 UTC (Fri)
+by bojan (subscriber, #14302)
+[Link] (2 responses)
+
+> A simple "write data to disk" operation would have unnecessary complexity, as the slides show (a collection #ifdefs and run-time ifs). This is insane. The operating system (and hence by extension, the underlying filesystem) is supposed to abstract things away, not make things harder.
+
+Unfortunately, that's the status of POSIX right now. And the complexity can be put into a library for everyone to share.
+
+> A sane filesystem should have the previous version of a file available intact, no matter when the crash occurred. To put it another way, why replicate the "safe save" functionality in each app when it can be done once in the filesystem ?
+
+Because the reality is that right now POSIX doesn't demand it, so your app is bound to bump into a file system here and there that requires exactly that. An app written safely will work with both types of file system semantics. The opposite is not true.
+
+An interesting link
+
+Posted Mar 15, 2009 13:53 UTC (Sun)
+by kleptog (subscriber, #1183)
+[Link] (1 responses)
+
+ISTM that the choice for the application writer is straightforward:
+
+1. I care that my application works correctly in the face of crashes on Linux on the default filesystem, in which case the above fixes will do it.
+
+2. I care that my application works correctly in the face of crashes on any POSIX compliant OS, in which case you need to fix the app.
+
+Unfortunately I come across a lot of code where the writer didn't even consider the problem, leaving bogus state even if you just kill the application at the wrong moment. I sincerely hope this brouhaha will at least cause more people to pay attention to the issue.
+
+An interesting link
+
+Posted Mar 15, 2009 18:08 UTC (Sun)
+by skybrian (guest, #365)
+[Link]
+
+Agreed that carefully written, standards-compliant apps that go the extra mile to avoid data loss regardless of operating system will have a portability advantage over most. But unless there are lots of users out there running on filesystems with weaker semantics than ext3, the advantage isn't that big.
+
+Also, what the most carefully written apps do isn't particularly relevant to what the filesystem should do. The choice for filesystem writers is:
+
+a) implement just the bare standards, and most people won't use your filesystem because their apps lose data, even if it's faster.
+
+b) implement nicer semantics so that people will actually prefer your filesystem over others. Decreased data loss after a system crash, even for poorly written apps, is such a feature.
+
+It's the same tradeoff that exists for people who write web browsers. When the standards are too weak to achieve compatibility with most apps, you have to go beyond them. You need both good performance and good compatibility.
+
+Without this patch, ext4 would not be competitive with ext3.
+
+Name of sysctl paths
+
+Posted Mar 16, 2009 9:30 UTC (Mon)
+by tarvin (guest, #4412)
+[Link] (1 responses)
+
+On my Fedora 10 system, the involved sysctl paths are:
+
+/proc/sys/vm/dirty_writeback_centisecs
+
+and
+
+/proc/sys/vm/dirty_expire_centisecs
+
+I suppose there is a slight error in the article. Or is Fedora 10 nonstandard regarding this?
+
+Name of sysctl paths
+
+Posted Mar 16, 2009 13:55 UTC (Mon)
+by corbet (editor, #1)
+[Link]
+
+There was a slight error in the article, yes. Sorry for any confusion...
+
+Why wait, if the disk is idle?
+
+Posted Sep 9, 2009 22:30 UTC (Wed)
+by Richard_J_Neill (subscriber, #23093)
+[Link] (1 responses)
+
+I understand why the optimisations are a good idea on very heavily loaded system. Likewise on a laptop-mode machine which spins down the HDD.
+
+But in all other cases, if the disk is idle, surely the OS should flush as soon as it possibly can? What benefit occurs from waiting 30 seconds (to have more efficient writes) if the disk isn't running flat-out at this instant?
+
+Why wait, if the disk is idle?
+
+Posted Sep 11, 2009 15:48 UTC (Fri)
+by nix (subscriber, #2304)
+[Link]
+
+Even some non-laptop systems (e.g. WD GreenPower drives) can spin
+
+themselves down a bit to save power.
+
+Copyright © 2009, Eklektix, Inc.
+
+This article may be redistributed under the terms of the
+Creative
+Commons CC BY-SA 4.0 license
+
+Comments and public postings are copyrighted by their creators.
+
+Linux is a registered trademark of Linus Torvalds

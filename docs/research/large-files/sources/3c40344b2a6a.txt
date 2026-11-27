@@ -1,0 +1,199 @@
+Skip to content
+
+Powered by Algolia
+
+Log in
+
+Create account
+
+DEV Community
+
+Add reaction
+
+Like
+
+Unicorn
+
+Exploding Head
+
+Raised Hands
+
+Fire
+
+Jump to Comments
+
+Save
+
+Boost
+
+Pick as gem
+
+Copy link
+
+Copied to Clipboard
+
+Share to X
+
+Share to LinkedIn
+
+Share to Facebook
+
+Share to Mastodon
+
+Report Abuse
+
+l1u7
+
+Posted on Jul 14, 2025
+
+Fixing “The file is too large to render in Typora” by Increasing the File Size Limit
+
+#typora
+#sizefile
+#javascript
+#vscode
+
+Typora imposes a default file size limit of approximately 2 MB when opening Markdown files. This safeguard exists to prevent excessive memory usage and potential freezes when rendering large documents.
+
+For use cases requiring larger files, the limit can be adjusted by editing Typora’s source file where the restriction is defined. The following outlines the process to raise the limit to 3 MB, which remains a cautious increase without severely impacting performance.
+
+Tools Required
+
+A text editor such as Visual Studio Code (VS Code).
+
+Administrator privileges are not required since the file resides within the user profile.
+
+File Location
+
+The file to edit is located in the Typora installation directory. On Windows, the path typically looks like:
+
+C:\Users\<USERNAME>\AppData\Local\Programs\Typora\resources\appsrc\window\frame.js
+
+Replace <USERNAME> with the current Windows user name.
+
+What to Modify
+
+Open frame.js in a text editor and search for the following line:
+
+MAX_FILE_SIZE: 2e6,
+
+This defines the limit as 2e6, which is scientific notation for 2,000,000 bytes (~2 MB).
+
+How to Change the Limit
+
+To increase the limit to approximately 3 MB, change the value to 3e6:
+
+MAX_FILE_SIZE: 3e6,
+
+Save the file and restart Typora for the change to take effect.
+
+Performance Considerations
+
+Raising the file size limit affects Typora’s performance, especially as file sizes grow. The rendering algorithm may exhibit non-linear performance characteristics (potentially closer to O(n²) in complexity), meaning that doubling the file size may result in more than double the rendering time and memory consumption.
+
+For this reason, it is advisable to make incremental adjustments and test performance with typical workloads.
+
+Summary
+
+Default Value
+New Value
+
+MAX_FILE_SIZE: 2e6,
+MAX_FILE_SIZE: 3e6,
+
+File path:
+
+C:\Users\<USERNAME>\AppData\Local\Programs\Typora\resources\appsrc\window\frame.js
+
+This modification allows Typora to open Markdown files up to approximately 3 MB while maintaining acceptable responsiveness for most use cases.
+
+Top comments (0)
+
+Subscribe
+
+Submit
+Preview
+Dismiss
+
+Code of Conduct
+&bull;
+Report abuse
+
+l1u7
+
+Follow
+
+Hola
+
+Location
+
+Lima - Peru
+
+Joined
+
+Feb 23, 2020
+
+Trending on DEV Community
+
+`npm ci` Doesn't Fix the .npmrc Override. It Just Hides It Better.
+
+#npm
+#javascript
+#node
+#webdev
+
+I Haven't Written a Line of Code in Months. And I Don't Know How to Feel About It.
+
+#ai
+#watercooler
+#programming
+#productivity
+
+Our Proxy Refused Chromium but Waved Firefox Through
+
+#discuss
+#webdev
+#mcp
+#automation
+
+DEV Community — A space to discuss and keep up software development and manage your software career
+
+Home
+
+DEV Challenges
+
+DEV++
+
+Videos
+
+DEV Help
+
+Advertise on DEV
+
+Organization Accounts
+
+DEV Showcase
+
+About
+
+Contact
+
+DEV Shop
+
+MLH
+
+Code of Conduct
+
+Privacy Policy
+
+Terms of Use
+
+Built on Forem — the open source software that powers DEV and other inclusive communities.
+
+Made with love and Ruby on Rails. DEV Community © 2016 - 2026.
+
+We're a place where coders share, stay up-to-date and grow their careers.
+
+Log in
+
+Create account

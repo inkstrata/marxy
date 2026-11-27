@@ -1,0 +1,363 @@
+Products
+Buy
+
+News
+Forum
+
+Sublime Forum
+
+Sublime Text performance with very large files
+
+General Discussion
+
+djspiewak
+
+November 3, 2016, 6:58pm
+
+#17
+
+One of the things I’ve seen in other editors is a “fallback mode” paired with clever windowing on syntax highlighting. Procedurally, the editor starts by using the fallback mode to highlight the file. Fallback modes are not allowed to have context, their regular expressions must be free of all backtracking, and everything has to be line-bounded. Basically, it’s simple tokenization and nothing more (note that this will mishandle tons of common constructs, including multi-line strings).
+
+Then the editor attempts to refine the fallback mode with the main mode, but bounding as much as possible within the active view subset of the file (plus/minus some reasonable expected scrolling). With modes that have neatly-closing contexts, this actually works out fairly well. For example, imagine the active view is in the middle of a class body, with the class starting just above the view and ending just below. The class body will pop most of the active contexts off the stack, and you’ll end up with just source.whatever. You can defer applying the full highlighting to the text above and below the view. There are clever ways to extend this to certain forms of contexts as well (e.g. situations where you don’t have things neatly popped off above and below), but you get the idea.
+
+The main thing you lose here is symbol indexing, since you can’t ever fully-contextualize the entire file. I don’t think that would be a surprising loss for most people, especially if it is accompanied by a warning (e.g. a banner at the top of the view, indicating that limited highlighting is in effect, with an option to turn on full highlighting at the cost of performance). You do get to keep the minimap, which is sort of fun, though it will have limited accuracy outside the current view (and for that reason, it might be better to disable it on such files).
+
+Obviously, this is certainly a significant amount of work that may not have value, and might even (depending on implementation) require backward-compatible changes to modes to work optimally. But it does allow for opening and editing enormously large files.
+
+1 Like
+
+FichteFoll
+
+November 4, 2016, 11:32pm
+
+#18
+
+djspiewak:
+
+Fallback modes are not allowed to have context, their regular expressions must be free of all backtracking, and everything has to be line-bounded.
+
+We already have most of this by default. Granted, syntax definitions may still use backtracking, but it’s much slower and there are tests to ensure your syntax definition does not contain backtracking expressions.
+
+Although contexts may span multiple lines, I doubt it impacts performance much since the overall work done is still very similar and the entire file is almost never re-tokenized entirely after it has been once due to smart caching.
+
+Edit: The one thing ST wouldn’t be able to do currently is start lexing in the middle of the file for the first time. It must load and tokenize the entire file first before caching can help.
+
+2 Likes
+
+qgates
+
+November 4, 2016, 3:47pm
+
+#19
+
+There is a progress bar when loading, but anything that may be time consuming to the point of locking up Sublime has neither progress indication nor the facility to abort.
+
+I have worked on editor codebases in the past (most of my development life is C/C++) so I understand the complexities involved generally. Obviously, I can’t comment on Sublime as I have no knowledge of its design or implementation. I can’t be the only programmer / technical user that needs to work on large files or files with long lines, and the fact is I can’t use Sublime for many of these tasks. Moreover, I can work on same with almost any other half decent editor. Falling back to another editor isn’t the end of the world, but is nonetheless frustrating.
+
+Apart from anything else, it just doesn’t look good. Sublime is sold as a general purpose, high performance editor, but starts to feel flaky when you throw something substantial at it. I don’t share your view that addressing such issues would be a waste of time: making the editor robust under all circumstances shores up its reputation as the first choice in high performance, powerful editors for all tasks. Case in point: Photoshop. It doesn’t break when you load up huge images. It feels robust. It warns you when something’s going to take time and doesn’t lock up. It’s UI rarely falters or gets ‘slow’. Ergo, the go-to tool for pretty much anyone needing to edit images professionally.
+
+Don’t misunderstand me, this isn’t a rant: I love Sublime and continue to use it daily. But the value proposition is problematic for some when they have to switch between numerous editors for no good reason. We all want Sublime to improve and I see this as one of its limitations. Admittedly one that may not be the most straightforward to fix.
+
+2 Likes
+
+wbond
+
+November 4, 2016, 5:34pm
+
+#20
+
+I think this issue needs some more specification. Right now what I am hearing is that large file handling is completely broken, whereas that feels to me (based on my experience) like a little bit of hyperbole. Certainly there are areas that could be improved, but let’s identify some specifics so we can move the conversation forward.
+
+I should note I am using a 2.3GHz rMBP from 2013 with 16GB of ram and an SSD.
+
+I just opened a 5GB PostgreSQL dump with 45M lines. It took a while to load and tokenize from disk. There was a progress bar and a way to abort.
+
+Hangs I experienced:
+
+After the file was loaded from disk (1-2 min?) Sublime Text became unresponsive for about 20s
+
+When changing from word wrap mode to non-word wrap mode there was a hang
+
+Trying to apply the SQL syntax (my machine paused Sublime Text after memory was exhausted)
+
+Otherwise (with Plain Text syntax) I was able to scroll effortlessly through all 45M lines and move the cursor around without any lag whatsoever. This was true with word wrap on, also. Sublime Text was using around 10GB of memory.
+
+Perhaps the solution is:
+
+Figure out the lag after the file is loaded
+
+Prevent anything but Plain Text syntax for 100MB+ files, and disallow word wrap (just to prevent the lag of switching it)
+
+Currently there isn’t a way to detach the display of the file with the in-memory representation. When a syntax is applied, the file must be retokenized and have scopes applied. It would probably make sense to trigger a progress bar here. Without doubling memory usage, it wouldn’t really be possible to keep the old tokenization in-memory, so canceling would have to retokenize with the Plain Text syntax.
+
+Are there other situations where you see Sublime Text hanging that aren’t caused by a third-party package? I’ve seen mention of ST being unresponsive navigating a SQL dump. Perhaps someone has some SQL dumps they are experiencing lag with that I can look at? Are you moving the cursor around, or typing? Are you typing a character such as a double or single quote when you experience the lag?
+
+For a 24MB SQL file loading happened in < 1s and applying the SQL syntax happened in under 2s (with a hang). There were 84k lines, with many over 1000 chars long. Editing was perfectly fluid.
+
+4 Likes
+
+Open Source Sublime Text
+
+Sublime runs very slow after reading large file
+
+barth
+
+November 4, 2016, 6:35pm
+
+#21
+
+IMHO, I think this is an issue but not one that too much time and effort should be spent on. ST is aimed squarely at devs and coders and most source files are small. The huge files we are talking about are likely logs or data dumps. It’s mainly the inconvience of having to open another editor, or accidentally opening a huge file and have it hang ST.
+
+With that in mind, I think it’s enough for ST to fall back into some “safe” mode, no syntax coloring or word wrap, and perhaps no packages outside of the defaults. You can add a view.is_safe_mode() method to let plugins know if safe mode is active and decide whether they want to run, or perhaps you can require plugins to declare themselves okay to run in safe mode somehow, meaning plugins are not safe by default.
+
+And of course user can set a size threshold to trigger safe mode, and manually force normal mode when needed.
+
+4 Likes
+
+wbond
+
+November 4, 2016, 6:49pm
+
+#22
+
+barth:
+
+perhaps no packages outside of the defaults
+
+Packages are loaded into the plugin host, so it won’t be possible to disable them for a specific view. It would require either another sheet type where various API features were not available, or some sort of opt-in system where plugins would choose not to operate on large files. The later option likely wouldn’t do much, and the former would require a bunch of work to interact with the current API in a way that didn’t lead to lots of Python errors.
+
+1 Like
+
+qgates
+
+November 11, 2016, 2:53am
+
+#23
+
+Ok, so “hyperbole” aside - no offense taken - there are really two issues here:
+
+Big files
+
+Long lines
+
+SQL files have a habit of fitting into both categories, but there are any number of file types, which may or may not be used by programmers, sysadmins, researchers etc. that could be either or both.
+
+Considering long lines, easier to demonstrate and the more pressing issue personally, we really don’t need a 500M file as @wbond put it to see usability going south (although, 500M really isn’t all that big these days?!) A 1M file will suffice for the purpose of illustration…
+
+So creating a 1M ‘lorem ipsum’ on 1 line, Sublime text 3 portable build 3083, no plugins. I observe the following:
+
+A. Word wrap off, ‘Plain text’ syntax mode, Find ‘highlight matches’ disabled:
+
+‘Phase’ cursor pulsing animation is jerky and not smooth
+
+CPU is at 25% on my quad-core system running at 3.5Ghz when idling
+
+All UI interaction with the keyboard is laggy and slow, even interacting with popups. Cursoring right a 0.5-1 second pause before the cursor reacts.
+
+Highlighting ‘sit’ and pressing Alt+F3 to highlight all copies (3000) freezes sublime for 5 seconds. Trying to move or type with these multicursors takes 5-7 seconds per keystroke. Phase cursor animation has almost completely stopped.
+
+B. Word wrap on, ‘Plain text’ syntax mode, Find ‘highlight matches’ disabled:
+
+Cursor pulsing as expected
+
+CPU is 1-2% when idling
+
+UI interaction within acceptable parameters (no noticeable delays)
+
+Highlighting ‘sit’ and pressing Alt+F3 takes 2 seconds. Once all copies are highlighted cursor pulsing animation has almost completely stopped. CPU use is at 25% while idling. Cursoring right takes 2s before the UI reacts
+
+Just viewing, scrolling and cursoring, let along performing edits in scenario (A) above is painful. And in many cases, when trying to do more sophisticated operations, Sublime will crash completely. Scenario (B) is more usable, but the moment we do anything with multicursors things get similarly bad.
+
+Curiously, the situation with word wrap off seems much worse; Given that most of what’s going on is outside the viewport rendering area (even for the minimap) it appears that either Sublime is rendering everything all the time (without optimising for things that aren’t visible like cursors) or the data representation of editing objects could use some tuning. The irony being that with word wrap on, there is more visible rendering, especially with the minimap enabled. In both A/B cases, it feels like there’s room for improvement and optimisation.
+
+In real world files, we may have many lines which are 100K+ in addition to many more short lines, and the situation is worse. Even with syntax colouring switched off, such files are a real PITA to view and edit with Sublime and your fingers are nervously hovering the keyboard in case something you do is going to hang or crash Sublime. By contrast, Crisp, Notepad++, Codewright, UltraEdit, VIM, gedit and have no such issues, and only start to feel the strain when files/lines get huge by today’s standards.
+
+1 Like
+
+wbond
+
+November 10, 2016, 7:52pm
+
+#24
+
+Build 3083 is a pretty old build, is there a reason you picked that over 3126?
+
+I’m not seeing the issues your are describing in situation A with build 3126 when I have a single line file with 1M characters on a single line. Cursors movement is ever-so-sightly slower than a source code file, but CPU usage is 4% on my 2.3GHz laptop. I also able to use multiple cursors.
+
+For me it starts getting laggy when I have a 4MB file with 50kb lines. It seems that long lines are truly the issue here.
+
+1 Like
+
+qgates
+
+November 11, 2016, 2:54am
+
+#25
+
+Build 3083 is just what I had to hand. I just tried a portable 3126 Win x64 and although the performance is slightly better in broad brush it’s much the same. The whole UI becomes unresponsive, UI responses to keystrokes measureable in seconds and seems to use a core’s worth of CPU in situation A pretty much all the time.
+
+Must confess that my 1M file is actually 1.3M. I didn’t realise but I’d pasted a few extra ‘lorem ipsums’ in my haste But I don’t see anything like the performance you’re seeing, neither on my Q9xx overclocked desktop, nor on my i5 3.4Ghz Lenovo T530 laptop.
+
+And you are right, whether it’s one long line (1.3M in this case) or lots of long-ish lines as you suggest, performance degrades about the same. A big file with lots of 20kb lines (say, with the long lines totalling 1M+) exhibits the same behaviour, with the performance degrading linearly to the point of being unusable as the file includes more long lines.
+
+Though I haven’t done any deeper tests yet, performance in scenario B seems to be better in terms of idling, scrolling, and simple cursor movement/inserts. But for deeper edits it gets just as bad as (A). For example, selecting ‘sit’ and Alt+F3 (selecting around 3000 copies), cursoring right and typing 1 letter caused Sublime to crash. Repeating the exercise, Sublime hung for 2 minutes and finally came back with the inserted letter.
+
+1 Like
+
+mstein
+
+December 14, 2016, 6:28pm
+
+#26
+
+Hi,
+
+so any news about this? Tried latest 3126 and tried to open a 500 mb log file. It took very long to open. Suggestion would be here to read only the first X MB and already show the contents. Then load more on demand when the user scrolls down or scrolls down implicitly by searching.
+
+That would be a good improvement (at least for me).
+
+Performance improvement when editing/searching in the whole file (auto select found positions) - I would see in a second step. I wonder how others solved this (i.e. UltraEdit)
+
+1 Like
+
+wbond
+
+December 14, 2016, 9:15pm
+
+#27
+
+mstein:
+
+so any news about this?
+
+No, not currently.
+
+From my understanding of the codebase (which is still relatively shallow due to the sheer size), the ideas that have been suggested about partial loading go against the grain of the current implementation. Many of the existing features and built-in implementation assumptions were developed with the entire token list being in memory.
+
+Generally using the Plain Text syntax and turning word wrapping off helps since it causes there less work to do.
+
+Right now I think this (using Sublime Text as a log viewer) is just lower priority that many of the bug fixes and tweaks that are outstanding for code and prose usage.
+
+2 Likes
+
+Acecool
+
+May 14, 2018, 8:12am
+
+#29
+
+This thread was started 5 years ago… The last post was a year and a half ago.
+
+But, it seems to still be an issue - and I agree with the original authors friend - opening a large SQL file for editing is a very valid use case scenario. I myself have had to open sql files 40MB and larger in the past because website hosts didn’t allow uploading all at once so I had to copy 2mb chunks and do the queries manually ( also because mysql commands or command line wasn’t available ) do run it through a php script… That was until I wrote an AJAX technology enabled Database Loader which did in a minute or a few minutes what took up to 24 hours by hand ( while performing other tasks in the business ) or 2 to 3 days…
+
+I still have the tool - the downside is that it requires single line queries to be used and it can scan ahead, and so on… I have been meaning to update the tool to allow huge 1 line entries ie queries with multiple value strings added and split them up… I never got around to it because of college, and everything beyond but the original tool still works - it requires you to upload it and the php permissions to change the max file size to read from the same dir it is in ( and I force this in the script )… Developed using E_ALL warnings output and clean…
+
+Anyway - I have a lot of issues with txt files too - even if I use plain text as my highlighter… Editing files can take minutes… I type in a large paragraph and have to wait minutes until it actually shows up…
+
+This is because of an addon though because typing at the start works fine but as soon as addons finish loading the slowdown occurs so I need to find out which addon is actually causing it…
+
+Are you sure this isn’t the reason on your end?
+
+Can you provide a list of addons you have activated?
+
+0 Likes
+
+nigels
+
+September 11, 2018, 3:31am
+
+#30
+
+One of the reasons I chose Sublime Text was that it seemed to be handling big XML blobs quite well. Perhaps what I tried at the times were tens of MiB.
+
+Today I have a 1.3GiB XML blob (yeah, crazy I know) and would seriously like to have a convenient way to disable all the “nice things” such as syntax highlighting that we’d ordinarily be happy to indulge at smaller scale. Even a search and replace seems needlessly slow and tedious.
+
+0 Likes
+
+rwols
+
+September 11, 2018, 9:37am
+
+#31
+
+With such large files, just using grep works for me.
+
+0 Likes
+
+Very large files loading
+
+norey
+
+August 27, 2019, 1:38pm
+
+#32
+
+I just faced this issue. Trying to read and edit a 23MB .sql file with really long lines (output of mysqldump). Sublime was so unresponsive that it became unusable. The only thing that fixed it was enabling “word wrap”, this made it normal again. This is on v 3.2.1 on Win 10 Pro.
+
+0 Likes
+
+jfcherng
+
+August 27, 2019, 6:40pm
+
+#33
+
+ST seems to be not good at rendering long lines
+
+0 Likes
+
+djspiewak
+
+August 27, 2019, 7:22pm
+
+#34
+
+It isn’t that surprising. Almost all of the buffer optimizations revolve around line-level caching.
+
+1 Like
+
+knudvaneeden
+
+May 24, 2020, 7:28pm
+
+#35
+
+FYI only:
+
+I just loaded 6 files x 1 gigabytes per file or thus 6 gigabytes into SubLime version 2.0.2 build 3126 and it handled and loaded that without issues.
+
+Only when trying to go to 7 gigabytes it was probably too much.
+
+Tested on a 32 gigabytes RAM computer.
+
+1 Like
+
+sindhujit
+
+November 1, 2022, 5:20pm
+
+#36
+
+Issue happens with sublime text 4 as well. Using build 4126.
+
+Lines in python .py file - approx 20000
+
+0 Likes
+
+sindhujit
+
+November 1, 2022, 5:49pm
+
+#37
+
+Issue was resolved for me after I uninstalled some unwanted packages.
+
+0 Likes
+
+Home
+Categories
+FAQ/Guidelines
+Terms of Service
+Privacy Policy
+
+Powered by Discourse, best viewed with JavaScript enabled

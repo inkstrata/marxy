@@ -1,0 +1,107 @@
+⚠ Archived content — this site is no longer maintained.
+Current WebKit documentation is at
+docs.webkit.org.
+
+Search:
+
+Login
+
+Preferences
+
+Forgot your password?
+
+Wiki
+
+Timeline
+
+Browse Source
+
+Search
+
+wiki:CSSContainIntrinsicSize
+
+Context Navigation
+
+Start Page
+
+Index
+
+History
+
+contain-intrinsic-size
+
+Per [1],
+
+These properties allow elements with size containment to specify an explicit intrinsic inner size, causing the box to size as if its in-flow content totals to a width and height matching the specified explicit intrinsic inner size (rather than sizing as if it were empty).
+
+The implementation is roughly split into two parts:
+
+Get the size from the contain-intrinsic-* properties as an explicit intrinsic inner size.
+
+Make the sizecontainment box sizing as if its content is the explicit intrinsic inner size.
+
+The explicit intrinsic inner size
+
+The part has landed in [2].
+
+Added explicitIntrinsicInnerLogicalWidth/Height() to RenderBox.h, it gets the value of contain-intrinsic-* from RenderStyle.
+
+To handle the logicalWidth, in computeIntrinsicLogicalWidths, the intrinsic size of sizeContainment was zero, now it is explicitIntrinsicInnerLogicalWidth() if existing. We need to handle every computeIntrinsicLogicalWidths() in the code.
+
+To handle the logicalWidth, in updateLogicalHeight(), sizeContainment was treated as if there is no content, now it added explicitIntrinsicInnerLogicalHeight() if existing.
+
+The size from the contain-intrinsic-* properties
+
+Value none and value length
+
+These two values are simple, for none, there is nothing to do, for length, we need to set the value to RenderStyle.
+
+Value auto length
+
+The explicit intrinsic inner size is its last remembered size if any, if no, then it is the value of length.
+
+The last remembered size
+
+Per [3], the last remembered size is the size when the element is not size-contained. The value is determined when ResizeObserver events are determined and delivered.
+
+The last remembered size is related to Element, we add RefPtr<ResizeObserverSize> m_lastRememberedSize to ElementRareData. See the implementation in [4].
+
+Create a ResizeObserver to handle the last remembered size. See the implementation in [5].
+
+To create a specific ResizeObserver, we need to create a callback to handle the last remembered size, it is CallbackForContainIntrinsicSize, which removes or saves LastRememberedSize to the target.
+
+Document will create and own m_resizeObserverForContainIntrinsicSize if there is an element with contain-intrinsic-size: auto length.
+
+In RenderTreeUpdater::updateElementRenderer, it will observe the element if it is with contain-intrinsic-size: auto length, if not unobserve it.
+
+When deliverResizeObservations, the LastRememberedSize will be saved.
+
+[1] ​https://w3c.github.io/csswg-drafts/css-sizing-4/#intrinsic-size-override
+
+[2] ​https://github.com/WebKit/WebKit/pull/1799
+
+[3] ​https://w3c.github.io/csswg-drafts/css-sizing-4/#last-remembered
+
+[4] ​https://github.com/WebKit/WebKit/pull/7375
+
+[5] ​https://github.com/WebKit/WebKit/pull/7829
+
+Last modified
+4 years ago
+
+Last modified on 12/20/22 13:50:25
+
+Note:
+See TracWiki
+for help on using the wiki.
+
+Download in other formats:
+
+Plain Text
+
+Powered by Trac 1.6
+
+By Edgewall Software
+.
+
+Hosted by Apple
