@@ -1,0 +1,16 @@
+$ node scripts/shots.mjs --browser chromium /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/NAV/freeze.mjs
+== mode line-grep
+ok alive0 2 ms 2
+ok open line 2076 ms 
+ok alive after 3 ms 2
+== mode line-find
+ok alive0 4 ms 2
+ok open line 2056 ms 
+ok alive after 6 ms 2
+== mode panel
+ok alive0 30 ms 2
+ok open search panel 4 ms 
+ok Line #regex then Tab 1634 ms 
+FAIL alive after STALL >10000ms
+PAGE FROZEN in panel
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0849

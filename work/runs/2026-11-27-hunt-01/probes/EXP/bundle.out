@@ -1,0 +1,6 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/EXP/bundle.mjs --browser chromium
+zip pages=false known=0 102ms Exported bd-out-zipfalse to /demo · nothing is sent anywhere
+zip pages=true known=0 551ms Exported bd-out-ziptrue to /demo · nothing is sent anywhere
+html1 pages=false known=0 527ms Exported bd-out-html1false to /demo · nothing is sent anywhere
+md1 pages=false known=0 102ms Exported bd-out-md1false to /demo · nothing is sent anywhere
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0857

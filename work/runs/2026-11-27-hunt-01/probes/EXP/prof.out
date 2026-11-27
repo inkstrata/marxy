@@ -1,0 +1,5 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/EXP/prof.mjs --browser chromium
+150 {"cc":0,"blocks":600,"all":750,"tops":300,"tb":0,"ph":242,"len":22729}
+300 {"cc":0,"blocks":1200,"all":1500,"tops":600,"tb":0,"ph":1411,"len":45679}
+600 {"cc":0,"blocks":2400,"all":3000,"tops":1200,"tb":0,"ph":10431,"len":91579}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0853

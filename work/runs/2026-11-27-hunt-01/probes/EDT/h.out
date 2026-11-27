@@ -1,0 +1,6 @@
+notices after close request ["Needs youh.md has changes that are not saved, and no pane shows it.Save and closeClose without savingDismiss"]
+buttons 1
+notices after Save and close (save should fail: file changed on disk) []
+disk "# H\n\nchanged elsewhere\n" store dirty 1 methods ["writeFileAtomic","writeFileAtomic","writeFileAtomic","writeFileAtomic"]
+window closed? false
+0 pictures in /tmp/edtshots

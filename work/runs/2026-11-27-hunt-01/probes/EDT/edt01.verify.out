@@ -1,0 +1,8 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/EDT/edt01.verify.mjs --browser chromium --out /private/tmp/claude-501/edtshots
+staged {"dirty":false,"held":0}
+notices after close request ["Needs youh.md has changes that are not saved, and no pane shows it.Save and closeClose without savingDismiss"]
+buttons 1
+notices after Save and close (save should fail: file changed on disk) []
+disk "# H\n\nchanged elsewhere\n" store dirty 1 methods ["writeFileAtomic","writeFileAtomic","writeFileAtomic","writeFileAtomic"]
+window closed? false
+0 pictures in /private/tmp/claude-501/edtshots

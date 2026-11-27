@@ -20,6 +20,7 @@ history; see `README.md`.
 | 2026-11-25 | wave 3 | `b0d9cb52` | undo, redo and Source commit replace only the changed blocks (195 KB: 2,513 to 3 blocks, 2.8 s to 0.35 s); shared block cache; content search on up to 8 threads (386 to 44 ms) | 17/18, `split-narrow` load (`runs/2026-11-25-wave-03/logs/wave3-full-verify.log`) |
 | 2026-11-26 | wave 4 | `663a7f7f` | footnoted and small pages update in place (195 KB reload 3.0 s to 0.48 s); tab back reuses the kept store (598 to 349 ms); the tree watch skips ignored folders | 18/18, browser 2536/0 (`runs/2026-11-26-wave-04/logs/wave4-full-verify-2.log`) |
 | 2026-11-26 | import | restructure PR | the reader architecture adopted wholesale at `663a7f7f`, onto `main`; the earlier code archived at `archive/pre-reader-2026-11-26`; first macOS build, with fixes to checks that had only run on Windows | macOS: every step but the browser suite (`runs/2026-11-26-import/README.md`); browser suite on Windows CI |
+| 2026-11-27 | hunt 01 | this pull request | the app is unchanged; the first bug hunt: 25 findings across six domains, 16 tracker rows (B1 to B16), three of them S1 freezes (export as a web page, a backtracking regex in the Search panel, one long unbroken run) | `pnpm verify --tier changed` 8/8 (check 10/10, browser 59/59) |
 
 Not landed: round 16 (integration `1f141eb1`, verified 16/17, waiting on the owner) and wave 5 (integration
 `0a9eeb68`, full verify red). Their branches stayed on the Windows checkout; see `STATE.md`, "Open work".
