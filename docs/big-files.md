@@ -60,7 +60,8 @@ cells.push(...row); // scale: one table row, at most 100 cells (readings cut the
 
 The comment is the point: whoever writes the code says, where the next reader will see it, what keeps the input small.
 `node scripts/check-scale.mjs --list` prints every unbounded hit in the tree; `--write` records the counts after some
-are removed.
+are removed, and refuses to raise one unless given `--allow-raise`, which is for a change to a rule that finds shapes
+already in the tree. An empty `// scale:` bounds nothing.
 
 ## For coding agents
 

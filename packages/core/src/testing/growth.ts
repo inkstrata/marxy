@@ -6,13 +6,15 @@
 //
 // The clock is this thread's CPU time (testing/cpu-clock.ts), not the wall clock: on a machine busy with other work
 // the wall clock made linear work look quadratic, because the bigger input's runs met more of the contention. A run
-// shorter than the clock can resolve (Windows charges CPU time in ticks of about 15.6 ms) is repeated until it is
-// not, and each size keeps its fastest time, interleaved with the other size's runs.
+// is repeated until the clock has moved well past its step, and each size keeps its fastest time, interleaved with the
+// other size's runs. Windows charges CPU time in ticks of about 15.6 ms, so there a timing of 40 ms could be off by
+// 40%, which is an error of about 0.3 in the exponent, all the headroom a bound of 1.45 leaves linear work; twelve
+// ticks (about 190 ms) bring it under 0.1.
 
-import { cpuNow } from './cpu-clock.ts';
+import { CPU_TICK_MS, cpuNow } from './cpu-clock.ts';
 
 /** The CPU time one run takes, repeating it until at least this much has passed, so short runs are resolved. */
-const RESOLVE_MS = 40;
+const RESOLVE_MS = Math.max(40, 12 * CPU_TICK_MS);
 
 export interface Growth {
   /** Bytes (or items) of the small and the large input, as `make` was asked for them. */

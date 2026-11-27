@@ -24,7 +24,8 @@
     },
     "apps/desktop/src/find/view.ts": {
       "layout-in-loop": 10,
-      "query-in-loop": 1
+      "query-in-loop": 1,
+      "spread-call": 1
     },
     "apps/desktop/src/frame/address.ts": {
       "queue-in-loop": 1
@@ -78,7 +79,8 @@
       "queue-in-loop": 2
     },
     "apps/desktop/src/kinds/quiet-dates.ts": {
-      "query-in-loop": 1
+      "query-in-loop": 1,
+      "spread-call": 1
     },
     "apps/desktop/src/kinds/table-lens.ts": {
       "spread-call": 3
@@ -151,6 +153,9 @@
     "apps/desktop/src/palette/view.ts": {
       "queue-in-loop": 1,
       "spread-call": 1
+    },
+    "apps/desktop/src/parts/commands.ts": {
+      "layout-in-loop": 1
     },
     "apps/desktop/src/parts/cursor.ts": {
       "layout-in-loop": 2
@@ -305,7 +310,8 @@
       "query-in-loop": 1
     },
     "apps/desktop/src/view/reading-lines.ts": {
-      "layout-in-loop": 3
+      "layout-in-loop": 3,
+      "spread-call": 1
     },
     "apps/desktop/src/view/reading-rows.ts": {
       "layout-in-loop": 3,
@@ -331,9 +337,6 @@
       "layout-in-loop": 3
     },
     "apps/desktop/src/viewers/card.ts": {
-      "spread-call": 2
-    },
-    "apps/desktop/src/viewers/cards.ts": {
       "spread-call": 1
     },
     "apps/desktop/src/viewers/font.ts": {
@@ -363,21 +366,23 @@
       "spread-call": 1
     },
     "apps/desktop/src/viewers/page-find.ts": {
-      "layout-in-loop": 1
+      "layout-in-loop": 1,
+      "spread-call": 1
     },
     "apps/desktop/src/viewers/pdf-blocks.ts": {
       "spread-call": 4
     },
     "apps/desktop/src/viewers/pdf.ts": {
       "query-in-loop": 1,
-      "queue-in-loop": 1
+      "queue-in-loop": 1,
+      "spread-call": 2
     },
     "apps/desktop/src/viewers/sandbox.ts": {
       "layout-in-loop": 1,
       "spread-call": 1
     },
     "apps/desktop/src/viewers/sheet.ts": {
-      "layout-in-loop": 1
+      "layout-in-loop": 2
     },
     "apps/desktop/src/viewers/sqlite.ts": {
       "layout-in-loop": 1,

@@ -32,7 +32,7 @@ Settings, Privacy and Security, and choose Open Anyway, or run
 
 ## Quick start
 
-Building from source requires Node 24, pnpm 11, Rust (stable) and, on Windows, the Visual Studio C++
+Building from source requires Node 24.2 or later, pnpm 11, Rust (stable) and, on Windows, the Visual Studio C++
 build tools.
 
 ```bash

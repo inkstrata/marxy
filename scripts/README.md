@@ -45,7 +45,7 @@ What each guards is in [docs/testing.md](../docs/testing.md#repository-checks-pn
 | `check-csp.mjs` | the release CSP and every runtime stylesheet |
 | `check-commonplace.mjs` | the bundled reading pieces under `apps/desktop/src/commonplace/` |
 | `check-listeners.mjs` | window and document listeners in the app added with no signal and no remove, per folder, against `allowlists/listeners.json`; fails only when a count grows |
-| `check-scale.mjs` | code shapes that grow faster than the file or fail on a big one (array spreads into calls, DOM queries and layout reads in loops, queue operations in loops, whole-text line splits, run-time patterns), per file, against `allowlists/scale.json`; fails only when a count grows; `--hook` is the Claude Code hook that runs it after an edit |
+| `check-scale.mjs` | code shapes that grow faster than the file or fail on a big one (array spreads into calls, DOM queries and layout reads in loops, queue operations in loops, whole-text line splits, run-time patterns), per file, against `allowlists/scale.json`; fails only when a count grows; `--write` records lower counts (a raise needs `--allow-raise`); `--hook` is the Claude Code hook that runs it after an edit |
 | `gate-font-attrs.mjs` | git attributes under `fonts/` |
 | `gate-contrast.mjs` | every bundled theme's colours against their contrast floors |
 

@@ -2,13 +2,14 @@
 // packages; the count may not grow. A file of 1 to 5 MB is ordinary for Marxy (docs/big-files.md), and these shapes are
 // how a feature that is instant on a 30 KB fixture freezes the window on it:
 //
-//   spread-call       an array spread into a call's arguments (`push(...xs)`, `append(...nodes)`, `Math.max(...xs)`,
-//                     `String.fromCharCode(...codes)`): every element is a stack slot, so a big array throws
-//                     "Maximum call stack size exceeded"
-//   layout-in-loop    a layout read (`getBoundingClientRect`, `offsetHeight`, `getComputedStyle`, …) inside a loop or
-//                     an iteration callback: one forced layout per item, over a page of thousands of blocks
-//   query-in-loop     a DOM query (`querySelectorAll`, `querySelector`, `closest`, `getElementsBy…`) inside a loop: a
-//                     walk of the page per item
+//   spread-call       an array spread into a call's arguments (`push(...xs)`, `append(...nodes)`, `concat(...xs)`,
+//                     `Math.max(...xs)`, `String.fromCharCode(...codes)`, `new X(...xs)`), or `f.apply(that, xs)`:
+//                     every element is a stack slot, so a big array throws "Maximum call stack size exceeded"
+//   layout-in-loop    a layout read (`getBoundingClientRect`, `offsetHeight`, `getComputedStyle`, …) on every pass of a
+//                     loop (its body, condition or incrementor) or in an iteration callback: one forced layout per
+//                     item, over a page of thousands of blocks
+//   query-in-loop     a DOM query (`querySelectorAll`, `querySelector`, `getElementsBy…`) on every pass of a loop: a
+//                     walk of the page per item (`closest` walks only ancestors, and is left out)
 //   queue-in-loop     `shift()`, `unshift()`, `concat()` or a sort inside a loop: each call copies or reorders the
 //                     whole array, so the loop is quadratic
 //   line-split        a text split into all its lines (`split('\n')`, `split(/\r?\n/)`): an array of every line of
@@ -20,9 +21,10 @@
 // A hit is allowed when a comment on its line or the line above says why it is bounded, starting `scale:`
 // (`// scale: a heading's text, at most one line`). Hits without one are counted per file and rule against
 // `scripts/allowlists/scale.json`, a ratchet: a count may fall (`--write` records it), never rise, and a file with no
-// record has none. So a new feature either avoids the shape or says, in the code, why its input is small.
+// record has none. `--write` refuses to raise a count unless `--allow-raise` is given, for a rule that changed and
+// found shapes already there. So a new feature either avoids the shape or says, in the code, why its input is small.
 //
-// usage: node scripts/check-scale.mjs [--write] [--list] [files...]
+// usage: node scripts/check-scale.mjs [--write [--allow-raise]] [--list] [files...]
 //        node scripts/check-scale.mjs --hook        (a Claude Code PostToolUse hook: reads the hook's JSON on stdin)
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -43,7 +45,7 @@ export const RULES = {
   'dynamic-regexp': 'a run-time pattern can backtrack for minutes on a big input; escape it, bound the input, or run it where it can be stopped',
 };
 
-const SPREAD_SINKS = new Set(['push', 'unshift', 'append', 'prepend', 'replaceChildren', 'before', 'after', 'replaceWith', 'splice']);
+const SPREAD_SINKS = new Set(['push', 'unshift', 'append', 'prepend', 'replaceChildren', 'before', 'after', 'replaceWith', 'splice', 'concat']);
 const ITERATION = new Set(['forEach', 'map', 'flatMap', 'filter', 'reduce', 'reduceRight', 'some', 'every', 'find', 'findIndex', 'findLast', 'findLastIndex']);
 const LAYOUT_CALLS = new Set(['getBoundingClientRect', 'getClientRects', 'getComputedStyle', 'getBBox', 'scrollIntoView', 'checkVisibility']);
 const LAYOUT_PROPS = new Set(['offsetTop', 'offsetLeft', 'offsetWidth', 'offsetHeight', 'offsetParent', 'clientTop', 'clientLeft', 'clientWidth', 'clientHeight', 'scrollWidth', 'scrollHeight', 'innerText']);
@@ -54,6 +56,9 @@ const QUEUE_CALLS = new Set(['shift', 'unshift', 'concat', 'sort', 'toSorted']);
 const kindFor = (f) => (/\.tsx$/.test(f) ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
 const nameOf = (expr) => (ts.isPropertyAccessExpression(expr) ? expr.name.text : ts.isIdentifier(expr) ? expr.text : null);
 const receiverName = (expr) => (ts.isPropertyAccessExpression(expr) && ts.isIdentifier(expr.expression) ? expr.expression.text : null);
+/** A list written out in the code, so its length is fixed: `[a, b]`, or `cond ? [a] : []`. */
+const literalList = (e) => ts.isArrayLiteralExpression(e) || (ts.isParenthesizedExpression(e) && literalList(e.expression))
+  || (ts.isConditionalExpression(e) && literalList(e.whenTrue) && literalList(e.whenFalse));
 const isLoop = (n) => ts.isForStatement(n) || ts.isForOfStatement(n) || ts.isForInStatement(n) || ts.isWhileStatement(n) || ts.isDoStatement(n);
 const isLineSeparator = (arg) => {
   if (ts.isStringLiteral(arg) || ts.isNoSubstitutionTemplateLiteral(arg)) return arg.text === '\n' || arg.text === '\r\n';
@@ -75,10 +80,15 @@ const constantExpr = (e) => ts.isNumericLiteral(e) || ts.isStringLiteral(e) || (
   || (ts.isPropertyAccessExpression(e) && e.name.text === 'source') || (ts.isBinaryExpression(e) && constantExpr(e.left) && constantExpr(e.right))
   || (ts.isParenthesizedExpression(e) && constantExpr(e.expression));
 
-/** True when `node` sits in the body of a loop, or of a callback passed to an iteration method, within its own function. */
+/** The parts of a loop that run on every pass: its body, a `for`'s condition and incrementor, a `while`'s condition. */
+const runsEachPass = (loop, child) => child === loop.statement
+  || (ts.isForStatement(loop) && (child === loop.condition || child === loop.incrementor))
+  || ((ts.isWhileStatement(loop) || ts.isDoStatement(loop)) && child === loop.expression);
+
+/** True when `node` runs on every pass of a loop, or in a callback passed to an iteration method, within its own function. */
 function inLoop(node) {
   for (let child = node, p = node.parent; p; child = p, p = p.parent) {
-    if (isLoop(p) && child === p.statement) return true;
+    if (isLoop(p) && runsEachPass(p, child)) return true;
     if (ts.isFunctionLike(p)) {
       const call = p.parent;
       if (call && ts.isCallExpression(call) && call.arguments.includes(p) && ITERATION.has(nameOf(call.expression) ?? '')) return true;
@@ -92,12 +102,14 @@ function inLoop(node) {
 export function hitsIn(text, fileName = 'file.ts') {
   const sf = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, kindFor(fileName));
   const lines = text.split('\n'); // scale: one source file of this repository
+  // A reason must follow: an empty `// scale:` bounds nothing.
+  const SAYS = /\bscale:\s*[^\s*/]/;
   const bounded = (line) => {
-    if (/\bscale:/.test(lines[line - 1] ?? '')) return true;
+    if (SAYS.test(lines[line - 1] ?? '')) return true;
     for (let i = line - 2; i >= 0 && i >= line - 4; i--) {
       const l = (lines[i] ?? '').trim();
       if (!l.startsWith('//') && !l.startsWith('*') && !l.startsWith('/*')) break;
-      if (/\bscale:/.test(l)) return true;
+      if (SAYS.test(l)) return true;
     }
     return false;
   };
@@ -115,8 +127,18 @@ export function hitsIn(text, fileName = 'file.ts') {
     if (ts.isCallExpression(node)) {
       const name = nameOf(node.expression);
       const recv = receiverName(node.expression);
-      const spread = node.arguments.some((a) => ts.isSpreadElement(a) && !ts.isArrayLiteralExpression(a.expression));
+      const spread = node.arguments.some((a) => ts.isSpreadElement(a) && !literalList(a.expression));
       if (spread && name && ((SPREAD_SINKS.has(name) && ts.isPropertyAccessExpression(node.expression)) || ((name === 'max' || name === 'min') && recv === 'Math') || ((name === 'fromCharCode' || name === 'fromCodePoint') && recv === 'String'))) add('spread-call', node);
+      // `f.apply(that, list)` puts every item of the list on the call, as a spread does; `arguments` is already a call's.
+      // Only a function's own `apply` counts: `this`, `null` or `undefined` as `that`, or a known sink applied
+      // (`Math.max.apply`, `out.push.apply`), so a method of the app that happens to be named `apply` is not taken for it.
+      if (name === 'apply' && ts.isPropertyAccessExpression(node.expression) && node.arguments.length === 2) {
+        const [that, list] = node.arguments;
+        const fn = node.expression.expression;
+        const own = that.kind === ts.SyntaxKind.NullKeyword || that.kind === ts.SyntaxKind.ThisKeyword || (ts.isIdentifier(that) && that.text === 'undefined')
+          || (ts.isPropertyAccessExpression(fn) && (SPREAD_SINKS.has(fn.name.text) || /^(max|min|fromCharCode|fromCodePoint)$/.test(fn.name.text)));
+        if (own && !literalList(list) && !(ts.isIdentifier(list) && list.text === 'arguments')) add('spread-call', node);
+      }
       if (name && LAYOUT_CALLS.has(name) && inLoop(node)) add('layout-in-loop', node);
       if (name && QUERY_CALLS.has(name) && ts.isPropertyAccessExpression(node.expression) && inLoop(node)) add('query-in-loop', node);
       if (name && QUEUE_CALLS.has(name) && ts.isPropertyAccessExpression(node.expression) && inLoop(node)) add('queue-in-loop', node);
@@ -126,7 +148,10 @@ export function hitsIn(text, fileName = 'file.ts') {
       const p = node.parent;
       const written = p && ts.isBinaryExpression(p) && p.left === node && p.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && p.operatorToken.kind <= ts.SyntaxKind.LastAssignment;
       if (!written && !ts.isCallExpression(p) && inLoop(node)) add('layout-in-loop', node);
-    } else if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'RegExp') {
+    } else if (ts.isNewExpression(node) && node.arguments?.some((a) => ts.isSpreadElement(a) && !literalList(a.expression))) {
+      add('spread-call', node);
+    }
+    if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'RegExp') {
       const a = node.arguments?.[0];
       if (a && !inWorker && !fixedPattern(a)) add('dynamic-regexp', node);
     }
@@ -147,6 +172,16 @@ export function countHits(files) {
     }
   }
   return Object.fromEntries(Object.keys(counts).sort().map((p) => [p, Object.fromEntries(Object.entries(counts[p]).sort())]));
+}
+
+/**
+ * Whether `--write` may record these counts: always when it only lowers them, and when one rises only with
+ * `--allow-raise` (a new rule, or a change to one, that finds shapes already there). Otherwise a regression could be
+ * written into the record and pass from then on.
+ */
+export function mayRecord(counts, baseline, allowRaise) {
+  const raised = grown(counts, baseline);
+  return { ok: allowRaise || raised.length === 0, raised };
 }
 
 /** Files and rules over their record, as { path, rule, count, recorded }. A file or rule with no record has a count of 0. */
@@ -240,6 +275,12 @@ if (import.meta.main) {
   const total = Object.values(counts).reduce((a, r) => a + Object.values(r).reduce((x, y) => x + y, 0), 0);
   if (argv.includes('--write')) {
     if (named.length) { console.error('check-scale: --write records the whole tree; run it with no files'); process.exit(2); }
+    const { ok, raised } = mayRecord(counts, readBaseline(), argv.includes('--allow-raise'));
+    if (!ok) {
+      const text = new Map(files.map((f) => [f.path, f.text]));
+      fail([`check-scale: --write would raise the record, which lets these through:\n  ${raised.map((g) => explain(g, text.get(g.path))).join('\n  ')}${fix('remove or bound them first; pass --allow-raise only when a rule changed and found shapes already there')}`]);
+      process.exit(1);
+    }
     writeFileSync(BASELINE, `${JSON.stringify({ about: 'Shapes that grow with the file or fail on a big one, with no `scale:` comment, per file and rule of the app and the packages: may shrink, never grow (scripts/check-scale.mjs, docs/big-files.md).', files: counts }, null, 2)}\n`);
     console.log(`check-scale: recorded ${total} in ${Object.keys(counts).length} files`);
     process.exit(0);
