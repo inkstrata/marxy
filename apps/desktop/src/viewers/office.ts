@@ -31,6 +31,7 @@ import { pageFind } from './page-find.ts';
 import { nextViewerId, viewerChanged } from './signal.ts';
 import { tablesReadingCard } from './table-cards.ts';
 import type { PaneViewer, PartUnit, ViewerExport, ViewerFind, ViewMode } from './types.ts';
+import { appendAll } from '@marxy/core/src/util/spread.ts';
 
 /** A picture larger than this shows its alt text: the page is for reading, not for a scan's full resolution. */
 export const PICTURE_MAX = 8 * 1024 * 1024;
@@ -348,7 +349,7 @@ export function createOfficeViewer(o: OfficeOptions): PaneViewer {
     if (rtf) mapToFile(holder);
     // A run with no space in it (a long URL, base64, an unspaced script) gets places to break, as a Markdown page's does.
     guardLongRuns(holder);
-    article.append(...holder.childNodes);
+    appendAll(article, holder.childNodes);
     article.addEventListener('click', (e) => {
       const a = (e.target as Element | null)?.closest?.('a[href]');
       if (!a || !article.contains(a) || a.closest('.marxy-account')) return;

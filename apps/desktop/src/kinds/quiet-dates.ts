@@ -4,6 +4,7 @@
 // there. Nothing is wrapped, nothing is inserted and no text moves, so a copy or a selection reads the file's own words, and
 // where the engine has no CSS.highlights the date simply keeps the heading's colour. Pure helpers first; the page half after.
 import type { AppHandle } from '../app.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 /** The highlight's name; the theme styles it. */
 export const QUIET_DATE = 'marxy-quiet-date';
@@ -85,7 +86,7 @@ export function installQuietDates(handle: AppHandle): () => void {
     const ranges: Range[] = [];
     for (const section of main.querySelectorAll('[data-marxy-kind="changelog"], [data-marxy-kind="notes"]')) {
       const article = section.querySelector('.marxy-article');
-      if (article) ranges.push(...quietRanges(article, section.getAttribute('data-marxy-kind') ?? ''));
+      if (article) pushAll(ranges, quietRanges(article, section.getAttribute('data-marxy-kind') ?? ''));
     }
     if (ranges.length === 0) registry.delete(QUIET_DATE);
     else registry.set(QUIET_DATE, new ctor(...ranges));

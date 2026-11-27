@@ -12,6 +12,7 @@
 // dispatches an outcome (`runFormat`) loads CodeMirror when it runs.
 
 import { formatsPath } from './formats-path.ts';
+import { maxOf } from '@marxy/core/src/util/spread.ts';
 
 /** The wraps: palette and keys name them by these. */
 export type WrapKind = 'bold' | 'italic' | 'code' | 'strike' | 'link';
@@ -258,7 +259,7 @@ function unwrapSpan(text: string, span: { from: number; to: number }): FormatOut
 
 /** Wraps in a backtick run longer than any run in the text, padded with a space when the text starts or ends with a backtick, so the span renders exactly the text. */
 function wrapCode(body: string, from: number, to: number): FormatOutcome {
-  const longest = Math.max(0, ...(body.match(/`+/g) ?? []).map((r) => r.length));
+  const longest = maxOf((body.match(/`+/g) ?? []).map((r) => r.length), 0);
   const run = '`'.repeat(longest + 1);
   const pad = body.startsWith('`') || body.endsWith('`') ? ' ' : '';
   const open = run + pad;

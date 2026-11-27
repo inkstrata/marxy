@@ -5,6 +5,7 @@
 // the page set again (a reload, a relayout) drops it.
 import type { AppHandle } from '../app-types.ts';
 import { onProposals, proposalOn } from './state.ts';
+import { appendAll } from '@marxy/core/src/util/spread.ts';
 
 const OPEN = 'marxy-note-here';
 const MARGIN = 'marxy-note-margin';
@@ -186,7 +187,7 @@ function layOut(article: HTMLElement): void {
     takeOut(article);
     state.boxes = wanted.map((w) => copyOf(MARGIN, w.id, w.label, w.note));
     for (const [i, box] of state.boxes.entries()) copies.set(box, wanted[i]!.note.innerHTML);
-    if (state.boxes.length > 0) article.append(...state.boxes);
+    if (state.boxes.length > 0) appendAll(article, state.boxes);
   }
   if (state.boxes.length === 0) return;
   for (const box of state.boxes) if (box.style.width !== `${width}px`) box.style.width = `${width}px`;
