@@ -11,7 +11,7 @@ earlier architecture is archived at the tag `archive/pre-reader-2026-11-26`. On 
 verify of 18 of 18 steps, the real-window check included. On 2026-11-26 it was built and verified on macOS for
 the first time. That took fixes to checks and tests that had only ever run on Windows; the app code was not
 changed. On macOS, 14 browser test files still fail (`todo.md`, M4).
-Linux has never been built. Two runs never landed: round 16 and wave 5. Their branches exist only on the Windows
+Linux is built and tested in CI (`linux` job) but nobody has run it on a desktop. Two runs never landed: round 16 and wave 5. Their branches exist only on the Windows
 machine (`todo.md`, row M1).
 
 ## What the app does
@@ -37,7 +37,7 @@ A desktop reader for local files (`README.md` at the root and `docs/using-marxy.
 | --- | --- | --- | --- |
 | Windows (WebView2) | every run, rounds 9 to wave 5; an installer of round 9 (`ee56607d`) | full verify 18/18 at `663a7f7f`, with `check:tauri` driving the real window (117 cases) | rounds up to 6; nothing installed after round 9 has been tried (`todo.md`, W5 to W9) |
 | macOS (WKWebView) | 2026-11-26, the release binary, on an Apple-silicon laptop | every verify step but the browser suite, 2026-11-26 (see Verification); no real-window check exists for macOS | not yet (`todo.md`, M2) |
-| Linux (WebKitGTK) | never | `atomic_write.rs` alone was type-checked for x86_64 Linux in round 13 | never (`todo.md`, M3) |
+| Linux (WebKitGTK) | 2026-11-27, the release binary, on a hosted `ubuntu-latest` runner (CI `linux`) | unit suites, `check`, gates, `lint-rust`, `cargo test` (656) and the smoke launch under Xvfb; no browser suite | never (`todo.md`, M3) |
 
 Symlink cases skip on Windows without Developer Mode. On macOS they run.
 
@@ -108,7 +108,7 @@ All of it is in `todo.md`.
 - **Carry over:**
   - M1: the Windows checkout's unlanded branches are lost; their rows are rebuilt on `main`.
   - M2: use the app on macOS.
-  - M3: build it on Linux.
+  - M3: use it on a Linux desktop.
   - M4: the 14 browser test files that fail on macOS.
   - M5: the 14 browser test files that fail on a hosted Windows runner.
 - **Next:**
@@ -133,8 +133,8 @@ Lost with the Windows checkout (M1), and what survives of each:
 ## Risks and loose ends
 
 - **Only Windows has had a person at the window.** On macOS the checks pass, but nobody has used the app
-  there. On Linux nothing has run, so `cfg(unix)` paths, such as the save sweep's move-aside and unlink by
-  name, have run only in unit tests on macOS.
+  there. On Linux the unit tests and the smoke launch pass on a CI runner, but no person has run the app, so
+  the `cfg(unix)` paths, such as the save sweep's move-aside and unlink by name, are covered by unit tests only.
 - **The browser suite is load-sensitive.** A real regression can hide among the usual load reds; run
   suspects alone.
 - **Warm store.** It is lost after a same-tab link and Back, and after a cross-file replace.
