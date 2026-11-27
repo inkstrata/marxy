@@ -1,17 +1,18 @@
 name: ci
 # `pnpm verify` is the one definition of what checks a tree (scripts/verify.mjs, docs/testing.md); CI runs it and
-# nothing of its own, on the two platforms the code is known on.
+# nothing of its own, on the two platforms the code is known on, and keeps a pull request lean:
 #
-# - macOS (a product target): every step that passes there — typecheck, lint, `pnpm check`, the gates, every unit
-#   suite, the Rust lint and tests, and the release build with its smoke launch. The browser suite is left out:
-#   14 of its files still fail on macOS WebKit (work/todo.md, M4). When they pass, add `browser` here.
-# - Windows: the same steps on a pull request and on main, but the release build. The browser suite is left out here
-#   too: it is green on a Windows desktop (2536/0), but 14 of its files fail on a hosted runner, mostly timing budgets
-#   that a slow machine misses (work/todo.md, M5); it takes two hours there as well. A run by hand takes the tier it is
-#   given, browser suite included. Only `full` runs `check:tauri` (the real-window check); whether a hosted runner can
-#   drive WebView2 for it is untried, so a run's integrator still runs it and the browser suite on a Windows desktop.
+# - A pull request runs the `changed` tier: the gates, and only the suites the diff touches (a docs-only change runs
+#   none). A push to main runs `full`, so every suite still runs once per merge. `--skip` takes steps out of the tier
+#   without losing that change mapping (`--only` would run its steps whatever changed).
+# - Left out on both: `browser` (two hours on a hosted runner, and 14 files fail there; work/todo.md, M4/M5) and
+#   `tauri` (the real-window check). A run's integrator runs those on a desktop.
+# - macOS also leaves out `unit-desktop-browser`: its first WebKit boot misses the 90 s budget on a hosted macOS runner
+#   about half the time (8 s on a laptop), and it passes on Windows, which runs it. `build` (the release build and its
+#   smoke launch) runs on macOS on a push to main only; release.yml builds every tag.
+# - A run by hand takes the tier it is given on Windows, browser suite included.
 #
-# The repository is public, so the minutes are free.
+# The repository is public, so the minutes are free; the time is not.
 on:
   pull_request:
   push:
@@ -33,7 +34,7 @@ env:
 jobs:
   macos:
     runs-on: macos-latest
-    timeout-minutes: 60
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,12 +49,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: WebKit for the desktop unit files that start it
         run: pnpm exec playwright install webkit
-      - name: Verify (every step that passes on macOS)
+      - name: Verify
         env:
+          TIER: ${{ github.event_name == 'pull_request' && 'changed' || 'full' }}
           BASE: origin/${{ github.base_ref || 'main' }}
         run: >-
-          node scripts/verify.mjs --tier full --base "$BASE" --no-lock --logs "$RUNNER_TEMP/verify"
-          --only install,typecheck,lint,check,golden,fidelity,licences,unit-core,unit-theme,unit-typeset,unit-scripts,unit-desktop,unit-desktop-browser,lint-rust,cargo,build
+          node scripts/verify.mjs --tier "$TIER" --base "$BASE" --no-lock --logs "$RUNNER_TEMP/verify"
+          --skip unit-desktop-browser,browser
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -63,7 +65,7 @@ jobs:
 
   windows:
     runs-on: windows-latest
-    timeout-minutes: 180 # a run by hand at `full` takes the browser suite, about two hours
+    timeout-minutes: 180 # only a run by hand at `full` takes the browser suite, about two hours
     defaults:
       run:
         shell: bash
@@ -83,12 +85,12 @@ jobs:
         run: pnpm exec playwright install webkit
       - name: Verify
         env:
-          TIER: ${{ inputs.tier || 'changed' }}
+          TIER: ${{ inputs.tier || (github.event_name == 'pull_request' && 'changed' || 'full') }}
           BASE: origin/${{ github.base_ref || 'main' }}
           MARXY_BROWSER_TESTS_REQUIRED: "1"
           # Empty on a run by hand, which then runs its tier's steps.
-          ONLY: ${{ github.event_name != 'workflow_dispatch' && 'install,typecheck,lint,check,golden,fidelity,licences,unit-core,unit-theme,unit-typeset,unit-scripts,unit-desktop,unit-desktop-browser,lint-rust,cargo' || '' }}
-        run: node scripts/verify.mjs --tier "$TIER" --base "$BASE" --logs "$RUNNER_TEMP/verify" --no-lock ${ONLY:+--only "$ONLY"}
+          SKIP: ${{ github.event_name != 'workflow_dispatch' && 'browser,build,tauri' || '' }}
+        run: node scripts/verify.mjs --tier "$TIER" --base "$BASE" --logs "$RUNNER_TEMP/verify" --no-lock ${SKIP:+--skip "$SKIP"}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -3,7 +3,7 @@
 //   changed  quick, plus the browser tests covering the changed folders (scripts/verify-map.json) and cargo test
 //   full     everything: every unit suite, Rust lint and tests, the browser tests, the build and check:tauri
 // usage: node scripts/verify.mjs [--tier quick|changed|full] [--base <ref>] [--root <dir>] [--logs <dir>]
-//   [--from <step>] [--only a,b] [--list] [--check-map] [--jobs <n>] [--unit-jobs <n>] [--lock-wait <sec>] [--no-lock] [--timeout-scale <x>]
+//   [--from <step>] [--only a,b] [--skip a,b] [--list] [--check-map] [--jobs <n>] [--unit-jobs <n>] [--lock-wait <sec>] [--no-lock] [--timeout-scale <x>]
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { availableParallelism, tmpdir } from 'node:os';
@@ -58,11 +58,11 @@ export function heavySpan(steps) {
 
 const ROOT_FILES_ALL = ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'biome.json', 'mise.toml'];
 
-const USAGE = 'usage: node scripts/verify.mjs [--tier quick|changed|full] [--base <ref>] [--root <dir>] [--logs <dir>] [--from <step>] [--only a,b] [--list] [--check-map] [--jobs <n>] [--unit-jobs <n>] [--lock-wait <sec>] [--no-lock] [--timeout-scale <x>]';
+const USAGE = 'usage: node scripts/verify.mjs [--tier quick|changed|full] [--base <ref>] [--root <dir>] [--logs <dir>] [--from <step>] [--only a,b] [--skip a,b] [--list] [--check-map] [--jobs <n>] [--unit-jobs <n>] [--lock-wait <sec>] [--no-lock] [--timeout-scale <x>]';
 
 /** Parsed command line; throws an Error with a message for a bad one. */
 export function parseArgs(argv) {
-  const o = { tier: 'quick', base: 'main', root: null, logs: null, from: null, only: null, list: false, checkMap: false, jobs: null, unitJobs: null, lockWait: 900, noLock: false, timeoutScale: 1, help: false };
+  const o = { tier: 'quick', base: 'main', root: null, logs: null, from: null, only: null, skip: null, list: false, checkMap: false, jobs: null, unitJobs: null, lockWait: 900, noLock: false, timeoutScale: 1, help: false };
   const value = (i, flag) => {
     const v = argv[i + 1];
     if (v === undefined || v.startsWith('--')) throw new Error(`${flag} needs a value`);
@@ -84,6 +84,7 @@ export function parseArgs(argv) {
       case '--logs': o.logs = take(); break;
       case '--from': o.from = take(); break;
       case '--only': o.only = take().split(',').map(s => s.trim()).filter(Boolean); break;
+      case '--skip': o.skip = take().split(',').map(s => s.trim()).filter(Boolean); break;
       case '--jobs': o.jobs = Number(take()); break;
       case '--unit-jobs': o.unitJobs = Number(take()); break;
       case '--lock-wait': o.lockWait = Number(take()); break;
@@ -103,6 +104,7 @@ export function parseArgs(argv) {
   if (!(o.lockWait >= 0)) throw new Error('--lock-wait must be seconds, 0 or more');
   if (!(o.timeoutScale > 0)) throw new Error('--timeout-scale must be above 0');
   if (o.only && !o.only.length) throw new Error('--only needs at least one step name');
+  if (o.only && o.skip) throw new Error('--only and --skip do not go together');
   return o;
 }
 
@@ -272,12 +274,12 @@ export function catalog(ctx) {
   ];
 }
 
-/** The steps a run executes: the tier's (with `when` applied), or the named ones, from `from` on. */
-export function plan(ctx, { only, from }) {
+/** The steps a run executes: the tier's (with `when` applied) less `skip`, or the named ones, from `from` on. */
+export function plan(ctx, { only, skip, from }) {
   const cat = catalog(ctx);
   const names = cat.map(s => s.name);
-  for (const n of [...(only ?? []), ...(from ? [from] : [])]) if (!names.includes(n)) throw new Error(`unknown step ${n}; the steps are ${names.join(', ')}`);
-  let steps = only ? cat.filter(s => only.includes(s.name)) : cat.filter(s => s.tiers.includes(ctx.tier) && (!s.when || s.when(ctx)));
+  for (const n of [...(only ?? []), ...(skip ?? []), ...(from ? [from] : [])]) if (!names.includes(n)) throw new Error(`unknown step ${n}; the steps are ${names.join(', ')}`);
+  let steps = only ? cat.filter(s => only.includes(s.name)) : cat.filter(s => s.tiers.includes(ctx.tier) && (!s.when || s.when(ctx)) && !skip?.includes(s.name));
   if (only) steps = steps.filter(s => s.name !== 'browser' || s.args.some(a => a.startsWith('test/')));
   if (from) {
     const i = steps.findIndex(s => s.name === from);

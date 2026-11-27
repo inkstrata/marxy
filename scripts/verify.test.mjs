@@ -180,6 +180,9 @@ test('plan: tiers add steps; only and from select', () => {
   assert.deepEqual(plan(ctx, { only: ['lint', 'check'] }).map(s => s.name), ['lint', 'check']);
   assert.deepEqual(plan(ctx, { from: 'golden' }).map(s => s.name), ['golden', 'fidelity', 'licences', 'unit-desktop', 'unit-desktop-browser']);
   assert.throws(() => plan(ctx, { only: ['nope'] }), /unknown step nope/);
+  assert.deepEqual(names('quick').filter(n => n !== 'unit-desktop-browser'), plan(ctx, { skip: ['unit-desktop-browser'] }).map(s => s.name), 'skip takes steps out of the tier and keeps its change gating');
+  assert.ok(!plan({ ...ctx, tier: 'changed' }, { skip: ['browser'] }).some(s => s.name === 'browser' || s.name === 'cargo'));
+  assert.throws(() => plan(ctx, { skip: ['nope'] }), /unknown step nope/);
   assert.throws(() => plan(ctx, { from: 'cargo' }), /not in this run/);
   const rust = plan({ ...ctx, tier: 'changed', change: { ...change, rust: true } }, {}).map(s => s.name);
   assert.ok(rust.includes('cargo') && rust.includes('lint-rust'));
