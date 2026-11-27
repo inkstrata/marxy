@@ -49,10 +49,12 @@ test('after destroy no pane document or change subscription is left, and nothing
   assert.equal(heard, 1);
   p.split();
   assert.equal(p.live.docs, 2);
+  // The pane callbacks as they were before destroy: a pane still holding one must reach nobody.
+  const stale = [...p.docCbs, ...p.changeCbs];
   signal.destroy();
   assert.deepEqual(p.live, { docs: 0, changes: 0 });
   heard = 0;
-  for (const cb of [...p.docCbs, ...p.changeCbs]) cb();
+  for (const cb of stale) cb();
   assert.equal(heard, 0);
 });
 

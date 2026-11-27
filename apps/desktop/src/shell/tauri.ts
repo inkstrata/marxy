@@ -759,7 +759,8 @@ export const shell: Pick<
       const batches: string[][] = [];
       try {
         await hear<string[]>('marxy:open-files', heard);
-        // A boot that is gone by now takes nothing: what is held stays for the next.
+        // A boot that is gone by now takes nothing: calling take_pending_opens is what makes Rust emit live, so a dead boot
+        // must not (the next boot's own take does), and what is held stays for the next.
         if (!signal.aborted) {
           pushAll(batches, unclaimedOpens.splice(0));
           pushAll(batches, await invoke<string[][]>('take_pending_opens'));

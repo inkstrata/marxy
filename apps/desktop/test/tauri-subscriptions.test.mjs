@@ -221,3 +221,20 @@ test('a throwing menu or close callback is logged and does not escape the event'
   }
   assert.equal(logged.length, 2);
 });
+
+test('a live open waits for the last boot still taking the queue', async () => {
+  const heard = [];
+  let answer;
+  hooks.pendingOpens = () => new Promise((resolve) => (answer = resolve));
+  try {
+    shell.onOpenFiles((paths) => heard.push(`first ${paths}`));
+    shell.onOpenFiles((paths) => heard.push(`second ${paths}`));
+    emit('marxy:open-files', ['/r/live.md']);
+    await settle();
+    answer([['/r/old.md']]);
+    await settle();
+  } finally {
+    hooks.pendingOpens = null;
+  }
+  assert.deepEqual(heard, ['second /r/old.md', 'second /r/live.md']);
+});
