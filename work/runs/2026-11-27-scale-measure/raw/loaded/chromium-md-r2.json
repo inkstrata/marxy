@@ -1,0 +1,198 @@
+[
+ {
+  "kind": "md-prose",
+  "bytes": 250945,
+  "steps": {
+   "open": {
+    "wallMs": 5394,
+    "taskMs": 2959,
+    "scriptMs": 878,
+    "layoutMs": 349,
+    "styleMs": 372,
+    "layouts": 320,
+    "longestMs": 311,
+    "nodes": 25772
+   },
+   "key": {
+    "wallMs": 1104,
+    "taskMs": 24,
+    "scriptMs": 9,
+    "layoutMs": 1,
+    "styleMs": 6,
+    "layouts": 4,
+    "longestMs": 0,
+    "nodes": 26131
+   },
+   "scrollMid": {
+    "wallMs": 919,
+    "taskMs": 11,
+    "scriptMs": 2,
+    "layoutMs": 0,
+    "styleMs": 1,
+    "layouts": 2,
+    "longestMs": 0,
+    "nodes": 26333
+   },
+   "scrollEnd": {
+    "wallMs": 925,
+    "taskMs": 11,
+    "scriptMs": 2,
+    "layoutMs": 0,
+    "styleMs": 1,
+    "layouts": 2,
+    "longestMs": 0,
+    "nodes": 26337
+   },
+   "toSource": {
+    "wallMs": 2806,
+    "taskMs": 517,
+    "scriptMs": 70,
+    "layoutMs": 11,
+    "styleMs": 41,
+    "layouts": 17,
+    "longestMs": 0,
+    "nodes": 19237
+   },
+   "toRead": {
+    "wallMs": 1359,
+    "taskMs": 186,
+    "scriptMs": 10,
+    "layoutMs": 54,
+    "styleMs": 69,
+    "layouts": 14,
+    "longestMs": 124,
+    "nodes": 21960
+   },
+   "editUndo": {
+    "wallMs": 5171,
+    "taskMs": 1072,
+    "scriptMs": 48,
+    "layoutMs": 16,
+    "styleMs": 148,
+    "layouts": 31,
+    "longestMs": 125,
+    "nodes": 22016,
+    "editMs": 677,
+    "undoMs": 395
+   },
+   "reload": {
+    "wallMs": 2504,
+    "taskMs": 356,
+    "scriptMs": 17,
+    "layoutMs": 5,
+    "styleMs": 15,
+    "layouts": 13,
+    "longestMs": 0,
+    "nodes": 24060
+   },
+   "find": {
+    "wallMs": 1643,
+    "taskMs": 430,
+    "scriptMs": 57,
+    "layoutMs": 45,
+    "styleMs": 245,
+    "layouts": 28,
+    "longestMs": 169,
+    "nodes": 30464
+   }
+  }
+ },
+ {
+  "kind": "md-prose",
+  "bytes": 502027,
+  "steps": {
+   "open": {
+    "wallMs": 15010,
+    "taskMs": 10322,
+    "scriptMs": 2540,
+    "layoutMs": 1325,
+    "styleMs": 1379,
+    "layouts": 878,
+    "longestMs": 90,
+    "nodes": 41264
+   },
+   "key": {
+    "wallMs": 1108,
+    "taskMs": 33,
+    "scriptMs": 11,
+    "layoutMs": 1,
+    "styleMs": 7,
+    "layouts": 4,
+    "longestMs": 0,
+    "nodes": 41863
+   },
+   "scrollMid": {
+    "wallMs": 1241,
+    "taskMs": 23,
+    "scriptMs": 5,
+    "layoutMs": 0,
+    "styleMs": 2,
+    "layouts": 2,
+    "longestMs": 0,
+    "nodes": 42185
+   },
+   "scrollEnd": {
+    "wallMs": 1223,
+    "taskMs": 17,
+    "scriptMs": 4,
+    "layoutMs": 0,
+    "styleMs": 1,
+    "layouts": 2,
+    "longestMs": 0,
+    "nodes": 42189
+   },
+   "toSource": {
+    "wallMs": 3796,
+    "taskMs": 855,
+    "scriptMs": 110,
+    "layoutMs": 14,
+    "styleMs": 72,
+    "layouts": 20,
+    "longestMs": 57,
+    "nodes": 34912
+   },
+   "toRead": {
+    "wallMs": 1477,
+    "taskMs": 312,
+    "scriptMs": 14,
+    "layoutMs": 106,
+    "styleMs": 127,
+    "layouts": 14,
+    "longestMs": 229,
+    "nodes": 41956
+   },
+   "editUndo": {
+    "wallMs": 7652,
+    "taskMs": 2034,
+    "scriptMs": 76,
+    "layoutMs": 33,
+    "styleMs": 281,
+    "layouts": 37,
+    "longestMs": 217,
+    "nodes": 42914,
+    "editMs": 1273,
+    "undoMs": 761
+   },
+   "reload": {
+    "wallMs": 3478,
+    "taskMs": 649,
+    "scriptMs": 21,
+    "layoutMs": 6,
+    "styleMs": 23,
+    "layouts": 13,
+    "longestMs": 62,
+    "nodes": 45156
+   },
+   "find": {
+    "wallMs": 2036,
+    "taskMs": 897,
+    "scriptMs": 116,
+    "layoutMs": 53,
+    "styleMs": 574,
+    "layouts": 28,
+    "longestMs": 439,
+    "nodes": 51860
+   }
+  }
+ }
+]

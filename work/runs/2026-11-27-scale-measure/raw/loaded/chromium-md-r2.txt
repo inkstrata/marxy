@@ -1,0 +1,6 @@
+| kind | size | open ms (×/2) | key ms (×/2) | scrollMid ms (×/2) | scrollEnd ms (×/2) | toSource ms (×/2) | toRead ms (×/2) | editUndo ms (×/2) | reload ms (×/2) | find ms (×/2) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| md-prose | 0.3 MB | 2959 | 24 | 11 | 11 | 517 | 186 | 1072 | 356 | 430 |
+| md-prose | 0.5 MB | 10322 (3.5 !) | 33 (1.4) | 23 (2.1) | 17 (1.5) | 855 (1.7) | 312 (1.7) | 2034 (1.9) | 649 (1.8) | 897 (2.1) |
+
+ms: main-thread task time (this machine; webkit: timer lag); + still busy at the cap, so the real figure is higher. ×/2: growth per doubling from the size above; 2 is linear, over 2.5 is marked !.

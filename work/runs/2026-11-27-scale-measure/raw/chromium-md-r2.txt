@@ -1,0 +1,6 @@
+| kind | size | open ms (×/2) | key ms (×/2) | toSource ms (×/2) | find ms (×/2) |
+| --- | --- | --- | --- | --- | --- |
+| md-prose | 0.3 MB | 2108 | 16 | 656 | 171 |
+| md-prose | 0.5 MB | 15244 (7.2 !) | 32 (2.0) | 856 (1.3) | 205 (1.2) |
+
+ms: main-thread task time (this machine; webkit: timer lag); + still busy at the cap, so the real figure is higher. ×/2: growth per doubling from the size above; 2 is linear, over 2.5 is marked !.
