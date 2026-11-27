@@ -41,7 +41,7 @@ A theme's `theme.css`, a commit message and a rebase list keep landing in Source
 an unknown name). A `[[kind]]` rule's `read` wins. A *show as* kind lands in Read, drawn as that kind. A code file the
 reader switched to Source (kept in `readings.json` as `source`) opens there again until they switch it back; a file
 never switched lands in Read. Code from 1 MB lands in Source as it always did: from there Read's first screen comes two to
-three times later than Source's (Read is Lines from 5 MB).
+three times later than Source's (Read is Lines from 5 MiB).
 
 ### What the rows cover
 
@@ -191,7 +191,7 @@ or code page:
 | Verse | plain text of short lines in stanzas | stanzas, a number every fifth line |
 | Prose | plain text of wrapped paragraphs | paragraphs, a wrap undone |
 | Written | anything else, and a data file or notebook that does not parse (under 256 KB; from there it is shown as Lines, with why it is not a tree in its head) | every line numbered, as written |
-| Lines | a log, plain text, code or Markdown from 5 MB | every line numbered, as written, only the lines on screen drawn; a log's time in the comment colour, a warning or error level in bold, ANSI colour drawn in the theme's tones; find, the level filter and the Outline read every line; Markdown's headings listed from a scan, and Show rendered (`g r`) draws its page |
+| Lines | a log, plain text, code or Markdown from 5 MiB | every line numbered, as written, only the lines on screen drawn; a log's time in the comment colour, a warning or error level in bold, ANSI colour drawn in the theme's tones; find, the level filter and the Outline read every line; Markdown's headings listed from a scan, and Show rendered (`g r`) draws its page |
 | Notebook | `.ipynb` | Markdown cells rendered, code cells as fences, text, HTML and image outputs; scripts named, never run |
 | Conversation | JSON Lines agent sessions | turns of text, thinking and tool calls with results; a result that names no id answers the turn's first call that named none, whether it is a block in a prompt, a `tool_result` line of its own or a `role: tool` line |
 
@@ -206,7 +206,7 @@ a CR alone or an LF, as the parse reads it. Verse and the written reading draw e
 bytes, its line ending outside the range; bytes that are not UTF-8 (UTF-16 or UTF-32 by their byte-order
 mark, or a legacy encoding) are decoded as the memory shell decodes a file, the ranges still the file's.
 
-From 5 MB a log, plain text or code in UTF-8 is read as **Lines** whatever its shape (`linesTier`,
+From 5 MiB a log, plain text or code in UTF-8 is read as **Lines** whatever its shape (`linesTier`,
 `packages/core/src/reading/lines.ts`). The file is indexed once by where each line begins and ends in its
 bytes, and a line is decoded from its bytes only when it is drawn: Read keeps the lines on screen and a
 screen either side on the page, between two gaps that stand for the rest, and draws others as the page
@@ -222,7 +222,7 @@ The refusal is the store's, decided once when the file opens, so it holds in eit
 sheet is refused from Source too. A log at that size shown another way (Source, Read as…) has its panels
 read from a line index in slices as well.
 
-Markdown in UTF-8 from 5 MB opens as Lines too, not as its page: the page is the parse of the whole file, which
+Markdown in UTF-8 from 5 MiB opens as Lines too, not as its page: the page is the parse of the whole file, which
 took 35 seconds before a 50 MB file showed its title. Its Outline lists headings found by a scan of the line
 index (`scanHeadings`, `packages/core/src/reading/heading-scan.ts`), started after the first lines paint and
 run a slice at a time: ATX headings and setext underlines at the top level, with fenced code (backticks or
@@ -461,7 +461,7 @@ draws an `.eml`, the HTML part through the same sanitiser, remote images held ba
 | What | Limit |
 | --- | --- |
 | Open a file | 256 MB (larger files open as a card with the hex view) |
-| Lines | a log, plain text, code or Markdown from 5 MB is read as lines (Markdown is rendered on request); from 32 MB Read does not edit it (Source does); the heading scan keeps 20,000 headings |
+| Lines | a log, plain text, code or Markdown from 5 MiB is read as lines (Markdown is rendered on request); from 32 MB Read does not edit it (Source does); the heading scan keeps 20,000 headings |
 | Outline | 20,000 headings of a rendered Markdown file, the first in document order; the panel says it lists the first 20,000 (the address and the Line read every heading) |
 | Colour a whole file | 2 MB with no line over 10,000 characters; past that, plain text unless the reader chooses "colour anyway" |
 | Colour a block | 200,000 characters; lines up to 1,000 characters (400 for C and C++, 500 for Go and shell) |

@@ -15,7 +15,7 @@
 // usage: node scripts/measure-scale.mjs [--kinds md-prose,txt,...] [--sizes 1m,2m,4m] [--steps open,key,...]
 //                                       [--browser chromium|chrome|msedge] [--cap <seconds>] [--json <path>]
 //   --kinds    shapes from scripts/lib/big-files.mjs (default md-prose,md-transcript,txt,json-pretty,csv,log)
-//   --sizes    sizes, `k` or `m` suffixed (default 1m,2m,4m); 4.9m is the biggest whole page, 5.1m the smallest lines reading
+//   --sizes    sizes, `k` or `m` suffixed (default 1m,2m,4m); 5.2m is about the biggest whole page, 5.3m the smallest lines reading (the threshold is 5 MiB)
 //   --steps    a subset of the steps above (default all)
 //   --cap      seconds before a step is called stalled (default 120)
 //   --json     also write every number as JSON

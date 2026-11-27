@@ -10,12 +10,12 @@ sources) is [research/large-files](research/large-files/SYNTHESIS.md).
 
 | Size | Markdown | Text, code, logs | Tables, records | JSON |
 | --- | --- | --- | --- | --- |
-| under 5 MB | parsed (in slices), rendered and sanitised whole; mounted two screens first and the rest in idle slices; every paragraph typeset in an idle queue | code and text in pieces of 200 lines; colour for files up to 2 MB with no line over 10,000 characters | row-indexed from the bytes; the rows near the screen drawn | a data tree up to 1.5 MB, then streamed |
-| from 5 MB | read as lines: a line index over the bytes, the lines near the screen drawn; the Outline from a heading scan; "Show rendered" parses it as a page | read as lines the same way | the same | the same |
+| under 5 MiB | parsed (in slices), rendered and sanitised whole; mounted two screens first and the rest in idle slices; every paragraph typeset in an idle queue | code and text in pieces of 200 lines; colour for files up to 2 MB with no line over 10,000 characters | row-indexed from the bytes; the rows near the screen drawn | a data tree up to 1.5 MB, then streamed |
+| from 5 MiB (5,242,880 bytes) | read as lines: a line index over the bytes, the lines near the screen drawn; the Outline from a heading scan; "Show rendered" parses it as a page | read as lines the same way | the same | the same |
 | from 32 MB | Read does not edit; Source does | the same | | |
 | from 256 MB | opens as a card with the hex view | | | |
 
-So below 5 MB a Markdown file costs work that grows with the whole file at every stage: the parse, the HTML string,
+So below 5 MiB a Markdown file costs work that grows with the whole file at every stage: the parse, the HTML string,
 the sanitiser, the DOM and the typesetting. Work in the panels, find and export that walks the page or the tree does
 too. That range is where big files hurt, and where the rules below matter most.
 

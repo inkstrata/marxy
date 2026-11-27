@@ -56,7 +56,7 @@ path ─ shell.detectFiles (head) ─ shell.readFile ─ decode if not UTF-8 ─
    `readingOf` (`packages/core/src/reading/`) as escaped HTML whose elements carry their byte ranges. A table's or
    records' rows are indexed from the bytes a slice at a time (`reading/rows.ts`); Read keeps the rows near the screen
    on the page and draws the rest from the index as it scrolls, and sorts, filters and finds over every row
-   (`view/reading-rows.ts`). A log, plain text, code or Markdown from 5 MB is read as lines the same way: indexed by
+   (`view/reading-rows.ts`). A log, plain text, code or Markdown from 5 MiB is read as lines the same way: indexed by
    where each line begins and ends in the bytes (`reading/lines.ts`), the lines on screen drawn and the rest
    drawn as the page scrolls (`view/reading-lines.ts`). Markdown read so is not parsed: its Outline comes from a
    scan of the line index (`reading/heading-scan.ts`), and Show rendered (`read-as/show-rendered.ts`) opens it
@@ -160,7 +160,7 @@ linear.
   match, and the store's `append` splices the new bytes on at the end (a `reload` transition with `appended`).
   A file that shrank, was rotated or rewritten, is held in another encoding or has unsaved edits takes the
   whole read above; the first and last 64 KB held are both checked, only logs are followed (a big edited text
-  file is read whole), and from 5 MB a followed file keeps no "compare since reload" copy (`previousDisk`).
+  file is read whole), and from 5 MiB a followed file keeps no "compare since reload" copy (`previousDisk`).
   The view stays at the end when it was at the end (`atEnd`, `followEnd`).
 - **Closing** (`apps/desktop/src/close.ts`): unsaved work is asked about by a notice in its pane, never a
   modal; quitting walks every unsaved document.

@@ -8,8 +8,9 @@
 //
 //   node scripts/lib/big-files.mjs <out dir> <bytes> [kind,kind]   writes the files (keep them out of the repository)
 //
-// The 5 MB line matters: from 5,000,000 bytes Markdown, text, code and logs are read as lines, so 4.9 MB is the
-// biggest whole page and 5.1 MB the smallest lines reading.
+// The lines threshold matters: from 5 MiB (5,242,880 bytes, `LINES_FROM` in packages/core/src/reading/lines.ts) Markdown,
+// text, code and logs are read as lines, so 5.2m (5,200,000 bytes) is about the biggest whole page and 5.3m the smallest
+// lines reading.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { generateProse, generateTranscript, generateLarge } from '../perf-harness.mjs';
