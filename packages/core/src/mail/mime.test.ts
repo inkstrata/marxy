@@ -139,7 +139,8 @@ test('a message of millions of parts stops looking once the parts it reads are f
   // The last part read ends where the next one starts, not at the end of the file.
   assert.equal(m.parts.at(-1)!.text(), 'x');
   // Finding every delimiter in the file took half a second and nine million records; the parts read are a few hundred.
-  assert.ok(ms < 100, `${Math.round(ms)} ms`);
+  // The bound is half of that old cost, not a target: a hosted Windows runner spends about 110 ms of CPU on the parts.
+  assert.ok(ms < 250, `${Math.round(ms)} ms`);
 });
 
 test('a part with no close delimiter runs to the end; a missing Content-Type is plain text', () => {
