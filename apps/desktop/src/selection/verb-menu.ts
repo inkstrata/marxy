@@ -6,6 +6,7 @@
 import type { AppContext, Command } from '../commands/registry.ts';
 import { keyLabel } from '../palette/commands.ts';
 import { BAR_VERBS, copyDefault, menuVerbs, verbKindIn } from './verbs.ts';
+import { isMac } from '../platform.ts';
 
 /** At most this many verb rows; "All actions…" follows when more apply. */
 export const MENU_VERB_LIMIT = 7;
@@ -50,10 +51,6 @@ export interface VerbMenuRow {
   readonly detail?: string;
   /** `data-row-key` for a row with no command. */
   readonly key?: string;
-}
-
-function isMac(): boolean {
-  return typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 }
 
 /** A verb of the bar and the operation of the menu that does the same thing. */

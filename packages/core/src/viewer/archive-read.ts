@@ -6,6 +6,8 @@
 // Untrusted input: every read is bounds-checked and a malformed file is null, a partial listing or an `ArchiveError`,
 // never another throw. Pure: no DOM, no I/O; deflate and gzip are unpacked by the caller's `inflate`.
 
+import { utf8Length } from '../util/count.ts';
+
 /** shell-api's `ArchiveEntry`, restated here so core imports nothing. */
 export interface ArchiveEntryLike {
   readonly index: number;
@@ -110,7 +112,6 @@ const lossy = new TextDecoder('utf-8', { ignoreBOM: true });
 const strict = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 const encoder = new TextEncoder();
 
-const utf8Length = (s: string): number => encoder.encode(s).length;
 
 function strictUtf8(b: Uint8Array): string | null {
   try {
@@ -480,7 +481,7 @@ const hostName = (madeBy: number): string => HOSTS[madeBy >> 8] ?? `system ${mad
 function describeZip(rec: ZipRec, index: number, base: number, limits: ArchiveLimits): ArchiveEntryLike | null {
   if (rec.name.length > limits.nameBytes) return null;
   // The Info-ZIP Unicode path stands in for the name, so the cap holds for it too (as in archive/zip.rs).
-  if (rec.unicode !== null && new TextEncoder().encode(rec.unicode).length > limits.nameBytes) return null;
+  if (rec.unicode !== null && utf8Length(rec.unicode) > limits.nameBytes) return null;
   const decoded = rec.unicode ?? decodeZipName(rec.name, rec.flags);
   const mode = rec.madeBy >> 8 === 3 ? (rec.extAttr >>> 16) & 0o170000 : null;
   const dir = /[/\\]$/.test(decoded) || (rec.extAttr & 0x10) !== 0 || mode === 0o040000;

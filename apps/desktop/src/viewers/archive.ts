@@ -33,7 +33,7 @@ import { basename } from '@marxy/core/src/index-model/paths.ts';
 import type { ArchiveEntry, ArchiveListing } from '@marxy/shell-api';
 import type { AppShell } from '../app-types.ts';
 import { appHandle } from '../commands/app-handle.ts';
-import { el, factRow } from '../frame/dom.ts';
+import { el, factRow, plural } from '../frame/dom.ts';
 import { intend } from '../frame/intent.ts';
 import { setMarked, spokenText } from '../frame/model/metadata-marks.ts';
 import type { CardDef } from '../frame/cards/types.ts';
@@ -55,7 +55,6 @@ import { treeParts } from '../parts/moves.ts';
 import { appendAll } from '@marxy/core/src/util/spread.ts';
 
 const n2 = (n: number): string => n.toLocaleString('en-GB');
-const plural = (n: number, one: string, many = `${one}s`): string => `${n2(n)} ${n === 1 ? one : many}`;
 const cap1 = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** A row's height, as frame.css draws it: the window of rows is placed by it. */

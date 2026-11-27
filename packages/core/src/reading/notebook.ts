@@ -12,6 +12,7 @@ import { cleanOutputHtml, leftOutWords } from './notebook-html.ts';
 import { parseJson, TreeError } from './tree.ts';
 import type { Reading, ReadingItem } from './index.ts';
 import { atxHeading, own } from '../util/text.ts';
+import { plural, utf8Length } from '../util/count.ts';
 
 /** Past this a notebook is not set as cells: the JSON is shown as code, as a data file past its tree's cap is. */
 export const NOTEBOOK_MAX_BYTES = 64 * 1024 * 1024;
@@ -31,7 +32,6 @@ export const NOTEBOOK_MAX_CELLS = 1000;
 export const NOTEBOOK_MAX_HTML = 1536 * 1024;
 
 const esc = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const plural = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString('en-GB')} ${n === 1 ? one : many}`;
 const sizeWords = (n: number): string => (n >= 1024 * 1024 ? `${(n / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 // ---- where each value sits in the text ------------------------------------------------------------------------------
@@ -181,7 +181,7 @@ function mapped(text: string, value: unknown, loc: Loc, prefix = ''): Mapped {
 
 /** The code unit at each UTF-8 byte boundary of `text`, so a render's byte offsets can be followed back. */
 function unitsOfBytes(text: string): Int32Array {
-  const bytes = new TextEncoder().encode(text).length;
+  const bytes = utf8Length(text);
   const units = new Int32Array(bytes + 1).fill(-1);
   let b = 0;
   for (let k = 0; k < text.length; k++) {

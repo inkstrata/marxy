@@ -5,7 +5,8 @@
 // A note says what it saw in words, at a place; it never says what to do and never changes a byte. It is not prose lint:
 // nothing here reads the words of a paragraph.
 import type { CodeBlock, Document, Heading } from '../contracts/ast.ts';
-import { nodesOf, parseText, utf8Length } from '../transforms/prose.ts';
+import { nodesOf, parseText } from '../transforms/prose.ts';
+import { utf8Length } from '../util/count.ts';
 import { lineOfOffset, lineStartsOf, trimEndOf } from '../util/text.ts';
 
 export type NoteKind = 'fence' | 'heading' | 'path';

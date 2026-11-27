@@ -35,8 +35,8 @@ look for its owner. If there is none, make one, and do not add a second.
 | Which chord runs what | the command registry (`commands/registry.ts`: a command's `key` and `keys`); palette and keyboard share one list | about ten `document` and `window` keydown dispatchers, ordered by capture phase and `stopPropagation` |
 | Whether a modal owns the keyboard | `pageModalOpen` (`pane/keys.ts`) | other places test their own selectors; `inEditable` is defined twice |
 | A work limit on untrusted input | `budget()` (`packages/core/src/util/budget.ts`) | some readers carry their own (`XmlBudget` in `office/xml.ts`) |
-| Text helpers in core | `packages/core/src/util/text.ts` (line starts, offsets, trimming) | several readers split lines and count UTF-8 bytes themselves |
-| Counted words the reader sees | `plural` in `frame/dom.ts` (numbers grouped: 1,234 files) | about 25 other definitions, most printing the bare number (1234 files) |
+| Text helpers in core | `packages/core/src/util/text.ts` (line starts, offsets, trimming); `utf8Length` in `util/count.ts` (a string's length in UTF-8 bytes, exported from `@marxy/core`) | several readers split lines themselves; `office/markdown.ts` counts UTF-8 bytes itself |
+| Counted words the reader sees | `plural` in `frame/dom.ts` in the app; `plural` in `packages/core/src/util/count.ts` for the text core writes, since core cannot import the app (both group the digits: 1,234 files) | 18 other definitions print the bare number (1234 files); 5 more group the digits (`book/index.ts`, `reading/index.ts`, `reading/rows.ts`, `left/panels/metadata.ts`, `line/scopes-rows.ts`) |
 | Errors from Rust commands | `ShellError` (`src-tauri/src/error.rs`) | `commands/os.rs` defines a second one; many commands return `Result<_, String>` |
 | Limits and failures of a binary reader | `Limits` and `Fault`, as in `archive/`, `tables/`, `outlook/` and `legacy_office/` | none |
 
@@ -86,8 +86,9 @@ to one goes into the other in the same change. Anything else exists once.
 ## Platform code at the edges
 
 In Rust, `cfg(windows)`, `cfg(unix)` and `cfg(target_os = …)` go in small platform functions. They do not go
-inline in logic: `atomic_write.rs` and `main.rs` show how that reads. In TypeScript, reuse an existing platform
-check rather than writing another `isMac`.
+inline in logic: `atomic_write.rs` and `main.rs` show how that reads. In TypeScript, whether this is a Mac is
+`isMac()` in `apps/desktop/src/platform.ts`; do not write another. The shells name the platform for themselves
+(`shell/memory.ts`, `shell/tauri.ts`), and `frame/branch-info.ts`'s `MAC` also matches iPhone and iPad.
 
 ## Tests wait for conditions, not time
 

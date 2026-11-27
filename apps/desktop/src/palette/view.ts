@@ -78,6 +78,7 @@ import {
   togglePin,
   type PaletteSession,
 } from './session.ts';
+import { isMac } from '../platform.ts';
 
 export type PaletteListSection = 'documents' | 'headings' | 'operations';
 /** `scope`: one of the Line's scopes past Go, `>` and `#`, whose rows are `LineRow`s. */
@@ -199,13 +200,8 @@ export interface PaletteController {
   forward(): boolean;
 }
 
-function isMacPlatform(): boolean {
-  return typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
-}
-
 function isMod(event: KeyboardEvent | PaletteKey): boolean {
-  const mac =
-    typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+  const mac = isMac();
   return mac ? event.metaKey : event.ctrlKey;
 }
 
@@ -711,7 +707,7 @@ function ensurePaletteStructure(
   dialog.setAttribute('role', 'dialog');
   dialog.setAttribute('aria-label', 'The Line');
   dialog.dataset.marxyScope = 'go';
-  const mac = isMacPlatform();
+  const mac = isMac();
   const field = owner.createElement('div') as HTMLDivElement;
   field.className = 'marxy-palette-field';
   // The scope the first character picked: the field's own label, so a screen reader hears it with the query.
@@ -863,7 +859,7 @@ function commandRow(doc: Document, cmd: Command, selected: boolean, copyId: stri
   } else if (spec !== undefined) {
     const key = doc.createElement('span') as HTMLSpanElement;
     key.className = 'marxy-palette-key marxy-menu-key';
-    key.textContent = keyLabel(spec, isMacPlatform());
+    key.textContent = keyLabel(spec, isMac());
     row.appendChild(key);
   } else if (drillText(cmd.id) !== undefined) {
     const more = doc.createElement('span') as HTMLSpanElement;
@@ -1131,7 +1127,7 @@ function lineRowElement(doc: Document, row: LineRow, selected: boolean): HTMLLIE
   } else if (row.key2 !== undefined) {
     const key = doc.createElement('span') as HTMLSpanElement;
     key.className = 'marxy-palette-key marxy-menu-key';
-    key.textContent = keyLabel(row.key2, isMacPlatform());
+    key.textContent = keyLabel(row.key2, isMac());
     li.append(key);
   }
   li.setAttribute('aria-label', [row.ex ? `${row.ex.before}${row.ex.match}${row.ex.after}` : row.title.trim(), row.detail, row.why].filter(Boolean).join(', '));
@@ -1495,7 +1491,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
   const loadCommand = async (cmd: Command): Promise<PreviewData> => {
     const { copyId } = selectionChords();
     const spec = cmd.key ?? (cmd.id === copyId ? 'Mod+C' : undefined);
-    const plain = commandPreview(cmd, paletteGroupOf(cmd), spec === undefined ? undefined : keyLabel(spec, isMacPlatform()));
+    const plain = commandPreview(cmd, paletteGroupOf(cmd), spec === undefined ? undefined : keyLabel(spec, isMac()));
     const prefix = 'transform.run.';
     if (cmd.id.startsWith(prefix) && deps.transformInput !== undefined) {
       const input = await deps.transformInput().catch(() => null);
@@ -1580,7 +1576,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     const foot = deps.dialog.querySelector('.marxy-palette-foot');
     if (scope !== footScope && foot instanceof HTMLElement) {
       footScope = scope;
-      fillFooter(foot, document, isMacPlatform(), scope);
+      fillFooter(foot, document, isMac(), scope);
     }
   };
   let section: PaletteListSection = 'documents';
@@ -1739,7 +1735,7 @@ export function mountPaletteApp(deps: PaletteDeps): PaletteController {
     const index = Array.prototype.indexOf.call(list.querySelectorAll('.marxy-palette-row'), row);
     if (index < 0) return;
     const mouse = event as MouseEvent;
-    choose(index, { beside: target === 'split' || (isMacPlatform() ? mouse.metaKey : mouse.ctrlKey) === true, alt: mouse.altKey === true });
+    choose(index, { beside: target === 'split' || (isMac() ? mouse.metaKey : mouse.ctrlKey) === true, alt: mouse.altKey === true });
   }, { signal: life.signal });
 
   esc.addEventListener('click', () => dismiss(), { signal: life.signal });

@@ -3,7 +3,7 @@
 // file's markup back; the Metadata panel lists them all.
 
 import type { Frontmatter, Source } from '../contracts/ast.ts';
-import { utf8Length } from '../diff/lines.ts';
+import { utf8Length } from '../util/count.ts';
 import type { ProvenanceNames } from '../sanitize/policy.ts';
 import { escapeAttribute, escapeText } from '../sanitize/escape.ts';
 
