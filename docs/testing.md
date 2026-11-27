@@ -38,12 +38,13 @@ checks another one).
 | `changed` | `quick`, plus the browser test files that cover the changed folders, `lint:rust` and `cargo test` when `apps/desktop/src-tauri` changed |
 | `full` | every unit suite, `lint:rust`, `cargo test`, every browser test file, `pnpm --filter @marxy/desktop build`, and on Windows `check:tauri` |
 
-CI (`.github/workflows/ci.yml`) runs this tool and nothing of its own, in two jobs, and a third, `ci` (the check branch protection requires), passes when both do. On macOS it runs every step
-that passes there (all but `browser` and `tauri`), with `--tier full --only`. On Windows it runs the same steps but the
-release build, on a pull request and on a push to `main`, and any tier, browser suite included, on a manual run. The
-browser suite runs on neither: it is green on a Windows desktop but not on a hosted runner (`work/todo.md`, M5). Each job uploads its step logs as an
-artifact. The browser suite is not yet green on macOS WebKit; the files that fail there are listed in
-`work/todo.md`.
+CI (`.github/workflows/ci.yml`) runs this tool and nothing of its own, in two jobs, and a third, `ci` (the check branch
+protection requires), passes when both do. A pull request runs `--tier changed`, so it pays only for the suites its diff
+touches; a push to `main` runs `--tier full`. Both leave out `browser` and `tauri` with `--skip` (the browser suite takes
+two hours on a hosted runner and 14 of its files fail there; `work/todo.md`, M4/M5). macOS also skips
+`unit-desktop-browser`, whose first WebKit boot misses its budget on a hosted macOS runner (Windows runs it), and runs
+the release build on `main` only; Windows skips the build. A manual run takes any tier on Windows, browser suite
+included. Each job uploads its step logs as an artifact.
 
 "Changed" means changed since the merge base with `--base` (default `main`): commits, staged and unstaged edits, and
 untracked files. A changed path decides the suites: `packages/core`, `packages/theme`, `packages/typeset`, `scripts/`
@@ -67,7 +68,8 @@ pnpm verify --only lint,check --list         # show the plan without running it
 | `--tier quick\|changed\|full` | the tier |
 | `--base <ref>` | the ref changes are measured against |
 | `--logs <dir>` | where each step's log (`NN-step.log`) and `summary.json` go; default `marxy-verify/<worktree>-<time>` under the OS temp folder |
-| `--from <step>`, `--only a,b` | resume at a step; run only the named steps (any step, whatever the tier) |
+| `--from <step>`, `--only a,b` | resume at a step; run only the named steps (any step, whatever the tier or the change) |
+| `--skip a,b` | the tier's steps, change gating kept, less the named ones (CI's form) |
 | `--list` | print the changes and the steps, run nothing |
 | `--jobs <n>` | browser test files at a time (default 2 in the `changed` tier and 3 in `full`; see below) |
 | `--unit-jobs <n>` | Node-only desktop unit files at a time (default the cores less one, at most 4) |
