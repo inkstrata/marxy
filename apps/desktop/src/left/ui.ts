@@ -110,7 +110,7 @@ export function fld(o: FieldOptions): HTMLElement {
   input.spellcheck = false;
   input.autocomplete = 'off';
   input.placeholder = o.placeholder ?? '';
-  input.setAttribute('aria-label', o.placeholder ?? o.name);
+  input.setAttribute('aria-label', o.placeholder || o.lb || o.name);
   input.dataset.marxyLeftField = o.name;
   input.value = o.value ?? '';
   if (o.oninput) input.addEventListener('input', () => o.oninput?.(input.value));
