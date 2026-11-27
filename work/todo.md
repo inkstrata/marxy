@@ -44,8 +44,6 @@ investigation behind these rows are in `reports/2026-11-26-release-readiness/`. 
 | E22 | Geometry table: one record per top-level block (element, byte range, top, height, measured or estimated), kept current by size notifications; position, spine, holdPlace and Source return stop reading the whole page | The DOM stops being asked block by block; near-typeset builds on it | L | `geometry-table` |
 | E23 | Near-typeset: bound the idle typesetting queue to what is near the reader; `done` means nothing near is unset; `setAll()` for export, print and the rag gate; the page held still by keepPlace during scroll (cut from `geometry-table`) | A long page is at rest about as fast as a short one | M | `near-typeset` |
 | F24 | Teardown, what is still left: an open emitted live by Rust while no boot is subscribed (after the first take) is dropped; `createDocumentSignal` keeps its pane subscriptions after destroy until the panes go; if a boot's open callback throws, the held batches after it are lost | In-page reboots only, so latent | S | `teardown-2` |
-| B4 | Opened from Finder or the Dock on a Mac, a `[[command]]` program or the external editor installed by Homebrew or mise is "not a program on the PATH" | S2, macOS; nothing in `src-tauri` sets `PATH`, and launchd's default holds neither `/opt/homebrew/bin` nor mise's shims; hunt-01 SHL-01, probe `probes/SHL/shl-01-02.verify.rs` | S | |
-| B5 | Saving a file locked in Finder fails with "Operation not permitted" on a hidden temp name, and leaves that hidden file behind, undeletable | S2, macOS; the atomic write's staged copy carries the `uchg` flag, so writing, cleaning up and renaming all fail; the target is unchanged; hunt-01 SHL-04, probe `probes/SHL/uchg-save.verify.rs` | S | |
 
 ## Structure
 
