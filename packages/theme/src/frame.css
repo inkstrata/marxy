@@ -420,8 +420,13 @@ body[data-marxy-panel="over"] .marxy-panel, body[data-marxy-frame="folded"][data
 .marxy-enc-sample { margin-left: auto; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--marxy-font-mono); font-size: calc(11.5 * var(--marxy-c)); font-weight: 400; color: var(--marxy-color-text-secondary); }
 .marxy-head .marxy-guess-encoding { margin-left: 2px; }
 .marxy-fact { display: grid; grid-template-columns: 60px minmax(0, 1fr); gap: 4px 14px; line-height: 1.4; font-size: calc(12 * var(--marxy-c)); }
-/* A card's facts share one key column, as wide as its longest key (19's kv list). */
-:is(.marxy-panel, .marxy-drawer) :has(> .marxy-fact) { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 4px; }
+/* A card's facts share one key column, as wide as its longest key (19's kv list). The panel and drawer are named inside
+   the box's own compound, ahead of the :has(): Chromium checks a compound before its ancestors and its simple selectors
+   in order, so a box that only named them as ancestors (`:is(.marxy-panel, .marxy-drawer) :has(> .marxy-fact)`) had its
+   :has() tried on every element of the page. That marked each of them as hanging on a :has(), and then every element a
+   typesetting slice inserted into a paragraph restyled all of the paragraph's siblings: 6-9 ms at 250 KB of technical
+   Markdown, paid once a paragraph while a big file opens. */
+:is(.marxy-panel *, .marxy-drawer *):has(> .marxy-fact) { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 4px; }
 /* Every child of such a box spans both columns, picked by its fact siblings: `:has(> .marxy-fact) > *` (a :has() above a
    subject that names nothing) made Chromium restyle the whole document at every element inserted anywhere. The panel and
    drawer are named as plain ancestors, not in an :is(), so the engines reject an element of the page (a long run of
@@ -431,7 +436,8 @@ body[data-marxy-panel="over"] .marxy-panel, body[data-marxy-frame="folded"][data
 .marxy-panel * > .marxy-fact, .marxy-drawer * > .marxy-fact,
 .marxy-panel * > .marxy-fact ~ :not(.marxy-l-row), .marxy-drawer * > .marxy-fact ~ :not(.marxy-l-row),
 .marxy-panel * > :not(.marxy-l-row):has(~ .marxy-fact), .marxy-drawer * > :not(.marxy-l-row):has(~ .marxy-fact) { grid-column: 1 / -1; }
-:is(.marxy-panel, .marxy-drawer) :has(> .marxy-fact) > .marxy-fact { grid-template-columns: subgrid; }
+/* A fact in a panel or drawer always sits in such a box (the rule above), so it is found by its parent alone. */
+:is(.marxy-panel, .marxy-drawer) * > .marxy-fact { grid-template-columns: subgrid; }
 .marxy-fact-k { color: var(--marxy-color-text-faint); white-space: nowrap; }
 .marxy-fact-v { color: var(--marxy-color-text); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .marxy-fact-v.marxy-fact-one { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
