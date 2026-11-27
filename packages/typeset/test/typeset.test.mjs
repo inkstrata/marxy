@@ -1156,6 +1156,57 @@ test('blocks that follow one another are one window, and a pass over them lays o
   await page.close();
 });
 
+test('blocks apart from one another are passed over together: as few layouts for forty windows as for one, and the padding of a pass per window', async () => {
+  const html = groupsHtml(80);
+  // Every other code block grows: forty windows, each apart from the next.
+  const positions = Array.from({ length: 40 }, (_, i) => i * 2);
+  const counted = async (page) =>
+    page.evaluate((positions) => {
+      const doc = document.getElementById('doc');
+      const pres = [...doc.querySelectorAll(':scope > pre')];
+      const read = Element.prototype.getBoundingClientRect;
+      const style = window.getComputedStyle;
+      const write = CSSStyleDeclaration.prototype.setProperty;
+      const remove = CSSStyleDeclaration.prototype.removeProperty;
+      let dirty = true;
+      let count = 0;
+      const reading = () => { if (dirty) count++; dirty = false; };
+      Element.prototype.getBoundingClientRect = function () { reading(); return read.call(this); };
+      window.getComputedStyle = (...a) => { reading(); return style(...a); };
+      CSSStyleDeclaration.prototype.setProperty = function (...a) { dirty = true; return write.apply(this, a); };
+      CSSStyleDeclaration.prototype.removeProperty = function (...a) { dirty = true; return remove.apply(this, a); };
+      try {
+        window.typeset.snapBlocks(doc, window.lineBox, positions.map((at) => pres[at]));
+      } finally {
+        Element.prototype.getBoundingClientRect = read;
+        window.getComputedStyle = style;
+        CSSStyleDeclaration.prototype.setProperty = write;
+        CSSStyleDeclaration.prototype.removeProperty = remove;
+      }
+      return count;
+    }, positions);
+  const a = await harness.open(html, { extraCss: ODD_CSS });
+  await grow(a, positions);
+  const reads = await counted(a);
+  assert.ok(reads <= 8, `${reads} reads after a write for forty windows`);
+  const together = await paddings(a);
+  // The same windows one pass at a time.
+  const b = await harness.open(html, { extraCss: ODD_CSS });
+  await grow(b, positions);
+  await b.evaluate((positions) => {
+    const doc = document.getElementById('doc');
+    const pres = [...doc.querySelectorAll(':scope > pre')];
+    for (const at of positions) window.typeset.snapBlocks(doc, window.lineBox, [pres[at]]);
+  }, positions);
+  const apart = await paddings(b);
+  assert.equal(together.length, apart.length);
+  const differ = together.flatMap(([t, bt], i) => (Math.abs(t - apart[i][0]) > 0.01 || Math.abs(bt - apart[i][1]) > 0.01 ? [`#${i}: ${t}/${bt} vs ${apart[i]}`] : []));
+  assert.deepEqual(differ, [], 'the same padding as a pass per window');
+  assert.ok(together.some(([t, bt]) => t > 0 || bt > 0), 'the pass had padding to make');
+  await a.close();
+  await b.close();
+});
+
 test('a whole pass in windows pads exactly what a whole pass pads, and gives the event loop back between them', async () => {
   const html = groupsHtml(40);
   const positions = Array.from({ length: 40 }, (_, i) => i);
