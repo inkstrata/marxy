@@ -130,3 +130,55 @@ test('select all then Copy on a page still mounting copies the whole document, a
     assert.ok(early === whole, 'the same text as a copy of the finished page');
   });
 });
+
+test('a query found only in blocks not yet appended is mounted through and shown at once', async () => {
+  await withPage(async (page, mod) => {
+    assert.equal(await page.evaluate(() => document.getElementById('doc').textContent.includes('last paragraph of all')), false, 'the match is not drawn yet');
+    await page.keyboard.press(`${mod}+KeyF`);
+    await page.keyboard.type('last paragraph of all');
+    // Waited on the current match, not the count: a prefix of the query typed so far ("las") is also one match.
+    await page.waitForFunction(
+      () => document.querySelector('.marxy-find-count')?.textContent === '1 of 1' && [...(CSS.highlights.get('marxy-find-current') ?? [])][0]?.toString() === 'last paragraph of all',
+      null,
+      { timeout: 30_000 },
+    );
+    const shown = await page.evaluate(() => {
+      const range = [...(CSS.highlights.get('marxy-find-current') ?? [])][0];
+      const box = range?.getClientRects()[0];
+      return range ? { text: range.toString(), inPage: document.getElementById('doc').contains(range.startContainer), top: box?.top ?? -1, height: innerHeight } : null;
+    });
+    assert.equal(shown?.text, 'last paragraph of all');
+    assert.ok(shown.inPage, 'the match was mounted');
+    assert.ok(shown.top >= 0 && shown.top < shown.height, `on screen: top ${shown.top}`);
+  });
+});
+
+test('a selection from the start to the last drawn character copies that passage only, not the blocks still to come', async () => {
+  await withPage(async (page, mod) => {
+    assert.ok(await stillMounting(page), 'the page is still mounting at the copy');
+    const before = await page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWriteItem').length);
+    // As a click at the top and a Shift-click at the end of the last drawn line make it: both ends in the text.
+    const drawn = await page.evaluate(() => {
+      const doc = document.getElementById('doc');
+      const walker = document.createTreeWalker(doc, NodeFilter.SHOW_TEXT);
+      const texts = [];
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.data.trim() !== '') texts.push(n);
+      const first = texts[0];
+      const last = texts[texts.length - 1];
+      const range = document.createRange();
+      range.setStart(first, first.data.search(/\S/));
+      range.setEnd(last, last.data.trimEnd().length);
+      getSelection().removeAllRanges();
+      getSelection().addRange(range);
+      return doc.textContent.length;
+    });
+    await page.keyboard.press(`${mod}+KeyC`);
+    const copied = await page.waitForFunction((n) => {
+      const writes = window.__marxyHandle.shell.calls.filter((c) => c.method === 'clipboardWriteItem');
+      if (writes.length <= n) return null;
+      return new TextDecoder().decode(writes[n].args[0].find((r) => /plain/.test(r.type)).bytes);
+    }, before, { timeout: 30_000 }).then((h) => h.jsonValue());
+    assert.ok(copied.length > 0 && copied.length <= drawn, `the copy (${copied.length} characters) is within what was drawn (${drawn})`);
+    assert.ok(!copied.includes('last paragraph of all'), 'and holds none of the blocks still to come');
+  });
+});

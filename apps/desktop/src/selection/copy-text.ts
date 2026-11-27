@@ -68,24 +68,12 @@ export function cloneRangeInert(range: Range): DocumentFragment {
   return out;
 }
 
-/** Whether `range` holds the first (`'first'`) or the last character of `article`'s text. */
-function holdsEnd(range: Range, article: HTMLElement, which: 'first' | 'last'): boolean {
+/** Whether `range` holds the first character of `article`'s text. */
+function holdsStart(range: Range, article: HTMLElement): boolean {
   const walker = article.ownerDocument.createTreeWalker(article, NodeFilter.SHOW_TEXT);
-  const blank = (n: Node | null): boolean => n !== null && (n as Text).data.trim() === '';
-  let node: Node | null;
-  if (which === 'first') {
-    node = walker.nextNode();
-    while (blank(node)) node = walker.nextNode();
-  } else {
-    let deepest: Node = article;
-    while (deepest.lastChild) deepest = deepest.lastChild;
-    walker.currentNode = deepest;
-    node = deepest.nodeType === Node.TEXT_NODE ? deepest : walker.previousNode();
-    while (blank(node)) node = walker.previousNode();
-  }
-  if (!node) return false;
-  const text = node as Text;
-  return range.comparePoint(text, which === 'first' ? text.data.search(/\S/) : text.data.trimEnd().length) === 0;
+  let node = walker.nextNode() as Text | null;
+  while (node !== null && node.data.trim() === '') node = walker.nextNode() as Text | null;
+  return node !== null && range.comparePoint(node, node.data.search(/\S/)) === 0;
 }
 
 /**
@@ -103,7 +91,10 @@ function appendRest(range: Range, root: Node, out: DocumentFragment, target: Doc
   const toPageEnd = endContainer === article;
   const grown = toPageEnd && endOffset < article.childNodes.length;
   if (!pending && !grown) return;
-  if (!holdsEnd(range, article, 'first') || !(toPageEnd || holdsEnd(range, article, 'last'))) return;
+  // Select all ends at the article itself; a drag or Shift-click that ends in its text, even on its last drawn
+  // character, is the passage the reader chose and takes nothing more. (The offset is not checked: blocks appended
+  // since the selection was made leave it short of the article's present count.)
+  if (!toPageEnd || !holdsStart(range, article)) return;
   if (grown) for (let i = endOffset; i < article.childNodes.length; i += 1) out.appendChild(target.importNode(article.childNodes[i]!, true));
   if (!pending) return;
   // A reading set in runs appends its runs inside its root: they go inside the root's copy.
