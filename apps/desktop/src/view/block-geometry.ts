@@ -219,7 +219,7 @@ export function createBlockGeometry(article: HTMLElement, opts: BlockGeometryOpt
     // A child with no range that sits out of flow (a note in the margin) is not a block of the page.
     for (const e of dirty) {
       if (e.el.hasAttribute('data-marxy-s')) continue;
-      const position = getComputedStyle(e.el).position;
+      const position = getComputedStyle(e.el).position; // scale: in a ResizeObserver callback, layout clean; only rangeless children that reported
       if (position === 'absolute' || position === 'fixed') {
         byEl.delete(e.el);
         dirty.delete(e);
@@ -231,7 +231,7 @@ export function createBlockGeometry(article: HTMLElement, opts: BlockGeometryOpt
     if (classifyLater.size > 0) {
       let back = false;
       for (const el of classifyLater) {
-        const position = getComputedStyle(el).position;
+        const position = getComputedStyle(el).position; // scale: in a ResizeObserver callback, layout clean; only children out of flow that reported
         if (position !== 'absolute' && position !== 'fixed') {
           outside.delete(el);
           resize.unobserve(el);
@@ -298,7 +298,7 @@ export function createBlockGeometry(article: HTMLElement, opts: BlockGeometryOpt
     stats.innerMeasured += 1;
     const top = e.el.getBoundingClientRect().top;
     const inner = els.map((el) => {
-      const rect = el.getBoundingClientRect();
+      const rect = el.getBoundingClientRect(); // scale: the inner blocks of one top-level block, once until it changes; one layout at most
       return { el, dy: rect.top - top, height: rect.height };
     });
     e.inner = inner;

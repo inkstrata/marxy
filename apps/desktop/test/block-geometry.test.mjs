@@ -4,17 +4,12 @@
 // page. The table shadows the page here; nothing in the view reads it yet. Counted reads, not times. WebKit, over the
 // shipped skeleton and the memory shell.
 import { strict as assert } from 'node:assert';
-import { existsSync, readFileSync } from 'node:fs';
-import { after, test as nodeTest } from 'node:test';
-import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { closeHarness, harnessBase, routeSkeleton } from './support/two-pane.mjs';
+import { readFileSync } from 'node:fs';
+import { test as nodeTest } from 'node:test';
+import { frames, openBrowser, quiet as stillFor, skip } from './support/kit.mjs';
+import { harnessBase, routeSkeleton } from './support/two-pane.mjs';
 
-const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
-  ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
-  : false;
 const test = (name, fn) => nodeTest(name, { skip, timeout: 400_000 }, fn);
-after(() => closeHarness());
 
 const sentence = (n) => `Sentence ${n} of the reader keeps a place on the page while paragraphs are set line by line and the rag is balanced.`;
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="317"><rect width="300" height="317" fill="#888"/></svg>';
@@ -37,11 +32,6 @@ function mixed(count = 700) {
   }
   return `${out.join('\n\n')}\n`;
 }
-
-const frames = (page, n = 3) => page.evaluate((n) => new Promise((res) => {
-  const step = (k) => (k === 0 ? res() : requestAnimationFrame(() => step(k - 1)));
-  step(n);
-}), n);
 
 async function boot(page, files, first) {
   const base = await harnessBase();
@@ -134,10 +124,7 @@ async function scrollThrough(page, steps = 30) {
 
 /** Until the typesetter has gone quiet again and two frames have painted: when the table must equal the page. */
 async function quiet(page) {
-  await page.waitForFunction(() => {
-    const done = window.__typesetDone;
-    return new Promise((res) => setTimeout(() => res(window.__typesetDone === done), 400));
-  }, null, { timeout: 120_000, polling: 100 });
+  await stillFor(page);
   await frames(page, 3);
 }
 
@@ -148,7 +135,7 @@ async function agrees(page, step) {
 }
 
 test('the table equals the page after opening, chunks, typesetting, colour, images, a splice, width changes, a theme change, a margin-only change and Source and back', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     const errors = [];
@@ -232,7 +219,7 @@ test('the table equals the page after opening, chunks, typesetting, colour, imag
 });
 
 test('notes in the margin are kept out of the table, and the place on a long reference with notes is the place a whole list gives', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 2200, height: 1000 } });
     const ref = readFileSync(new URL('../../../fixtures/corpus/32-long-reference.md', import.meta.url), 'utf8');
@@ -252,7 +239,7 @@ test('notes in the margin are kept out of the table, and the place on a long ref
 });
 
 test('one block that grows is read alone: the table reads a handful of boxes, not one per block', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     const parts = Array.from({ length: 1200 }, (_, n) => (n % 30 === 0 ? `## Part ${n}` : `${sentence(n)} ${sentence(n + 1)}`));
@@ -287,7 +274,7 @@ test('one block that grows is read alone: the table reads a handful of boxes, no
 });
 
 test('an item that grows inside a list padded back to the size it had: positions in the list follow the item', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     const parts = Array.from({ length: 200 }, (_, n) => (n === 100
@@ -337,7 +324,7 @@ test('an item that grows inside a list padded back to the size it had: positions
 });
 
 test('a reader who read the table in the frame before it heard of a change is told the next frame, and only then', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     const parts = Array.from({ length: 300 }, (_, n) => (n % 30 === 0 ? `## Part ${n}` : `${sentence(n)} ${sentence(n + 1)}`));
