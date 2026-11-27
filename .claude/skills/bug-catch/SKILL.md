@@ -81,6 +81,8 @@ While they run, do not edit the hunt's worktree yourself: the catchers serve its
   Nobody fixes anything in a hunt; fixes are the tracker rows that triage writes.
 - Findings already in `work/todo.md` are not new findings. New evidence for a row is appended as a
   finding that says "Adds to todo row <id>".
-- Every committed log replaces `/Users/<name>` with `/Users/<user>` (the repository is public).
+- Every committed log replaces `/Users/<name>` with `/Users/<user>` (the repository is public). Scrub a
+  domain's `probes/` once its agents are done, and `findings.md` or `verification.md` only when no agent is
+  writing to it: an in-place rewrite (`sed -i`) during an append can drop the appended block.
 - The orchestrator never appends findings of its own beyond the owner's reports, and never verifies a
   finding it wrote down.
