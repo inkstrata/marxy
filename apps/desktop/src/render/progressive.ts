@@ -69,10 +69,17 @@ export interface ProgressiveOptions {
 
 export const DEFAULT_THRESHOLD = 65_536;
 const DEFAULT_SCREENS = 2;
-/** Nodes moved between height reads while the first screens fill: one layout per batch, not per node. */
+/** Blocks moved between height reads while the first screens fill: one layout per batch, not per block. */
 const FILL_BATCH = 16;
-/** Each idle chunk's budget, its moves and the layout they cost together. */
+/** Each idle chunk's budget for its moves (the layout they cost is paid in the frame after, and bounded by CHUNK_NODES). */
 const CHUNK_MS = 8;
+/**
+ * Elements an idle chunk brings in at most: a frame's style and layout of what it added. A chunk always brings one block,
+ * however large.
+ */
+export const CHUNK_NODES = 3_000;
+/** The longest a chunk waits for the next frame: a window that draws no frames (minimised) still gets its page whole. */
+const FRAME_WAIT_MS = 100;
 /** How often a held mount (`ProgressiveOptions.hold`) looks again. */
 const HOLD_POLL_MS = 250;
 
@@ -113,11 +120,25 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
     resolveComplete();
   };
 
-  /** Moves the next node into the article; returns it when it is an element. */
-  const moveOne = (): HTMLElement | null => {
-    const node = from.firstChild!;
-    into.appendChild(node);
-    return node instanceof HTMLElement ? node : null;
+  /**
+   * Moves nodes into the article in one insertion, from the next one on, until `more` (asked after each element) says
+   * stop or none is left; returns the elements moved. One insertion for many blocks: WebKit checks the theme's `:has()`
+   * rules at each insertion into the article's long row of blocks, in time that grows with the row (0.1 ms a block at six
+   * thousand), and does it once for a fragment.
+   */
+  const moveWhile = (more: (el: HTMLElement) => boolean): HTMLElement[] => {
+    const batch = from.ownerDocument.createDocumentFragment();
+    const added: HTMLElement[] = [];
+    while (from.firstChild !== null) {
+      const node = from.firstChild;
+      batch.appendChild(node);
+      if (node instanceof HTMLElement) {
+        added.push(node);
+        if (!more(node)) break;
+      }
+    }
+    into.appendChild(batch);
+    return added;
   };
 
   /** The top-level element holding `byte`: the first whose range ends past it (a gap lands on the next). */
@@ -141,11 +162,10 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
           break;
         }
       }
-      while (target === null && from.firstChild !== null) {
-        const el = moveOne();
-        if (el === null) continue;
-        added.push(el);
-        if (reaches(el, byte)) target = el;
+      if (target === null) {
+        added.push(...moveWhile((el) => !reaches(el, byte)));
+        const last = added[added.length - 1];
+        if (last !== undefined && reaches(last, byte)) target = last;
       }
     }
     const need = screens * window.innerHeight;
@@ -155,10 +175,8 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
         const top = (target ?? article).getBoundingClientRect().top;
         if (last.getBoundingClientRect().bottom - top >= need) break;
       }
-      for (let i = 0; i < FILL_BATCH && from.firstChild !== null; i++) {
-        const el = moveOne();
-        if (el !== null) added.push(el);
-      }
+      let n = 0;
+      added.push(...moveWhile(() => ++n < FILL_BATCH));
     }
     return added;
   };
@@ -166,7 +184,10 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
   fill(opts.landing);
   if (from.firstChild === null) finish();
 
-  let perChunk = 32;
+  // Each chunk is cut by the elements it brings, which is what its style and layout cost, and by the time its moves take;
+  // nothing in it reads the layout. A chunk sized by a layout read after it paid for the whole article's layout, which
+  // grows with every chunk already in: the chunks shrank to a few blocks as the page grew, so there were ever more of
+  // them, each dearer than the last. One chunk a frame, so the frame's style and layout is one chunk's.
   const step = (): void => {
     if (cancelled || done) return;
     if (opts.hold?.() === true) {
@@ -174,19 +195,20 @@ export function mountProgressively(article: HTMLElement, html: string, opts: Pro
       return;
     }
     const t0 = performance.now();
-    const added: HTMLElement[] = [];
-    for (let i = 0; i < perChunk && from.firstChild !== null; i++) {
-      const el = moveOne();
-      if (el !== null) added.push(el);
-    }
-    // The layout of what was moved is paid here, inside the chunk's budget, not in the next frame.
-    void into.lastElementChild?.getBoundingClientRect();
-    const spent = performance.now() - t0;
-    // Size the next chunk so moving and laying it out take about the budget.
-    perChunk = Math.max(4, Math.min(4096, Math.round(perChunk * (CHUNK_MS / Math.max(spent, 0.5)))));
+    // The elements in, and in the block that would come next: a chunk takes no block that would carry it past the budget,
+    // and always takes one.
+    let nodes = 0;
+    let next = -1;
+    const added = moveWhile((el) => {
+      nodes += next >= 0 ? next : sizeOf(el);
+      const following = from.firstElementChild;
+      if (following === null) return false;
+      next = sizeOf(following);
+      return nodes + next <= CHUNK_NODES && performance.now() - t0 < CHUNK_MS;
+    });
     if (added.length > 0) opts.onChunk?.(added);
     if (from.firstChild === null) finish();
-    else void whenIdle(step);
+    else void nextFrame().then(() => whenIdle(step));
   };
   if (!done) void Promise.resolve(opts.start).then(() => whenIdle(step), () => whenIdle(step));
 
@@ -242,6 +264,24 @@ export async function parseInertInSlices(
     }
   }
   return parsed;
+}
+
+/** A block and the elements inside it. */
+const sizeOf = (el: Element): number => 1 + el.getElementsByTagName('*').length;
+
+/** Resolves at the next frame, or after FRAME_WAIT_MS when none comes. */
+function nextFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const go = (): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(go, FRAME_WAIT_MS);
+    requestAnimationFrame(go);
+  });
 }
 
 /** The whole document is already in: nothing to append. */

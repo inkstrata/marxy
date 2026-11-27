@@ -185,6 +185,12 @@ function byteChange(bytes: Uint8Array, next: Uint8Array): { start: number; end: 
 
 /** A document of at least this many bytes is read in slices while another pane is on screen; below it the work is a frame or less. */
 const SLICED_BYTES = 64 * 1024;
+/**
+ * A document of at least this many bytes is read in slices even alone on screen. Its bytes say little of what its page
+ * costs: a megabyte of short blocks (lists, quotes, tables) is half a million elements, and made whole it held the window
+ * for seconds before its first text.
+ */
+const SLICED_ALONE_BYTES = 256 * 1024;
 
 /**
  * The file's size and times when its store was kept warm. A return compares them with the file's now: a change whose
@@ -604,14 +610,14 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
     }
     landing = typeof lands === 'number' ? lands : lands?.byteOffset;
     // A large file says so in the head while its page is made, and that is given the frame back between its slices so the
-    // words paint and the window answers. Another pane on screen: any document past SLICED_BYTES is parsed in slices,
-    // before this pane's page is touched.
+    // words paint and the window answers. Any document past SLICED_ALONE_BYTES is parsed, rendered and put in the page in
+    // slices, and past SLICED_BYTES when another pane is on screen, before this pane's page is touched.
     const large = bytes.length >= LARGE_OPEN_BYTES;
     if (large) {
       paneHostOf().setAttribute(WORKING, readingWords(bytes.length));
       await paintThenGo();
     }
-    const slices = bytes.length >= SLICED_BYTES && (large || deps.sliced?.() === true);
+    const slices = bytes.length >= SLICED_BYTES && (bytes.length >= SLICED_ALONE_BYTES || deps.sliced?.() === true);
     openedInSlices = slices;
     let preparsed: Preparsed | undefined;
     let cut = 0;

@@ -11,7 +11,7 @@ import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { createServer } from './support/shared-vite.mjs';
 import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
-import { generateLarge } from '../../../scripts/perf-harness.mjs';
+import { generateDense, generateLarge } from '../../../scripts/perf-harness.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -28,6 +28,10 @@ const CORPUS = readFileSync(join(repoRoot, 'fixtures', 'corpus', '01-long-techni
 const ISLANDS = Buffer.concat(
   Array.from({ length: 30 }, () => [CORPUS, Buffer.from('\n\n'), readFileSync(join(repoRoot, 'fixtures', 'corpus', '05-pathological-table-and-nesting.md')), Buffer.from('\n\n')]).flat(),
 );
+/** Short blocks (lists, quotes, tables, fences, maths): many elements per byte. About 300 KB, under the size that says "large". */
+const DENSE = Buffer.from(await generateDense(300 * 1024));
+/** The same shape at 100 KB, for the mount alone. */
+const DENSE_SMALL = Buffer.from(await generateDense(100 * 1024));
 const SMALL = Buffer.from('# Small\n\nA short document, wholly in the article at once.\n');
 const b64 = (bytes) => Buffer.from(bytes).toString('base64');
 
@@ -276,6 +280,94 @@ test('a corpus document goes in whole: first_screen names all of its blocks and 
     assert.equal(seen.atFirstText, whole.children);
     assert.equal(seen.race, 'complete');
     assert.equal(seen.contentCompleteMark, false, 'nothing was chunked');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('idle chunks are cut by the elements they bring, read no layout, and leave the page whole and in order', async () => {
+  // A chunk sized by a layout read after it paid for the layout of everything already in, which grows with every chunk:
+  // the chunks shrank to a few blocks and each cost more than the last. Here every chunk is held to its share of
+  // elements, nothing in a chunk reads the layout, and the article ends exactly as the whole page.
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await boot(page, { '/docs/small.md': b64(SMALL), '/docs/dense.md': b64(DENSE_SMALL) }, ['/docs/small.md']);
+    const r = await page.evaluate(async () => {
+      const { mountProgressively, CHUNK_NODES } = await import('/src/render/progressive.ts');
+      await window.__h.open('/docs/dense.md');
+      await window.__h.contentComplete();
+      const html = window.__h.state.document.html;
+      const host = document.createElement('article');
+      host.className = 'marxy-article';
+      document.body.appendChild(host);
+      let release;
+      const start = new Promise((resolve) => { release = resolve; });
+      const chunks = [];
+      let reads = 0;
+      const rect = Element.prototype.getBoundingClientRect;
+      const mount = mountProgressively(host, html, {
+        start,
+        onChunk: (added) => chunks.push({ blocks: added.length, nodes: added.reduce((n, el) => n + 1 + el.getElementsByTagName('*').length, 0) }),
+      });
+      const first = host.childElementCount;
+      // Reads of the mount's own article only: the app's page goes on with its own passes meanwhile.
+      Element.prototype.getBoundingClientRect = function (...args) {
+        if (host.contains(this)) reads += 1;
+        return rect.apply(this, args);
+      };
+      try {
+        release();
+        await mount.complete;
+      } finally {
+        Element.prototype.getBoundingClientRect = rect;
+      }
+      const whole = document.createElement('article');
+      mountProgressively(whole, html, { thresholdBytes: Infinity });
+      const same = host.innerHTML === whole.innerHTML;
+      host.remove();
+      return { first, children: whole.childElementCount, chunks, reads, same, limit: CHUNK_NODES };
+    });
+    assert.ok(r.first > 0 && r.first < r.children, `first screens ${r.first} of ${r.children} blocks`);
+    assert.ok(r.chunks.length > 1, `${r.chunks.length} chunks`);
+    assert.equal(r.reads, 0, 'no chunk read the layout');
+    const over = r.chunks.filter((c) => c.nodes > r.limit && c.blocks > 1);
+    assert.deepEqual(over, [], `chunks over ${r.limit} elements`);
+    // Held to the element budget, not shrunk below it: all but the last chunk carry at least half of it.
+    const small = r.chunks.slice(0, -1).filter((c) => c.nodes < r.limit / 2);
+    assert.ok(small.length <= r.chunks.length / 4, `${small.length} of ${r.chunks.length} chunks under half the budget: ${JSON.stringify(small.slice(0, 5))}`);
+    assert.ok(r.same, 'the article, complete, is the whole page, block for block');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('a dense Markdown file under a megabyte opened alone is read in slices: first text with the first screens, then the whole page', async () => {
+  // Bytes say little of what a page costs: 400 KB of short blocks is a quarter of a million elements, and made whole in
+  // one task it held the window for seconds before first text. Such a file is parsed, rendered and put in the page in
+  // slices even with no other pane on screen.
+  const browser = await launchWebkit();
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await boot(page, { '/docs/dense.md': b64(DENSE) }, ['/docs/dense.md']);
+    const seen = await page.evaluate(async () => {
+      await window.__h.contentComplete();
+      const parsed = window.__h.shell.calls.find((c) => c.method === 'mark' && c.args[0] === 'parsed');
+      const doc = document.getElementById('doc');
+      // The page's own passes after it is whole (maths, colour) change what is inside a block; the blocks and their
+      // ranges, in order, are the mount's.
+      const ranges = [...doc.children].map((el) => `${el.tagName}:${el.getAttribute('data-marxy-s')}`).join(' ');
+      const { mountProgressively } = await import('/src/render/progressive.ts');
+      const article = document.createElement('article');
+      mountProgressively(article, window.__h.state.document.html, { thresholdBytes: Infinity });
+      const wholeRanges = [...article.children].map((el) => `${el.tagName}:${el.getAttribute('data-marxy-s')}`).join(' ');
+      return { parsed: parsed?.args[2] ?? null, atFirstText: window.__atFirstText, same: ranges === wholeRanges, children: article.childElementCount };
+    });
+    const whole = { children: seen.children };
+    const slices = Number(/slices=(\d+)/.exec(seen.parsed ?? '')?.[1] ?? 0);
+    assert.ok(slices > 1, `the parse was made in slices: ${seen.parsed}`);
+    assert.ok(seen.atFirstText > 0 && seen.atFirstText < whole.children, `first text with ${seen.atFirstText} of ${whole.children} blocks`);
+    assert.ok(seen.same, 'the article, complete, holds every block of the whole page, in order');
   } finally {
     await browser.close();
   }
