@@ -1,8 +1,8 @@
 // A fold from a Source pane does not rebuild a page nobody can see. Folding Source text into the
 // store used to set the hidden Rendered article of every view of the document from the new bytes (seconds
 // per view at 1 MB); now a view in Source marks its page stale and sets it when Rendered next shows. The
-// page that then shows must be the whole render of the store's current bytes. Booted on the shipped
-// skeleton over the memory shell (test/support/two-pane.mjs).
+// page that then shows must be the whole render of the store's current bytes, and so must a page whose column
+// changed width while Source showed. Booted on the shipped skeleton over the memory shell (test/support/two-pane.mjs).
 import { strict as assert } from 'node:assert';
 import { existsSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
@@ -82,7 +82,9 @@ async function wholeRender(page, slot) {
   return markup(page, slot);
 }
 
-const markup = (page, slot) => page.evaluate((slot) => window.__marxyHandle.panes().panes[slot].article.innerHTML, slot);
+// Hanging punctuation's margins are measured, and two measurements of one glyph can differ in the sixth decimal.
+const rounded = (html) => html.replace(/(margin-inline-start: )(-?[\d.]+)px/g, (_, k, n) => `${k}${Number(n).toFixed(2)}px`);
+const markup = async (page, slot) => rounded(await page.evaluate((slot) => window.__marxyHandle.panes().panes[slot].article.innerHTML, slot));
 
 test('folds with both panes in Source set no page; each pane then shows the whole render of the current bytes', async () => {
   await withPanes(['/r/A.md', '/r/A.md'], async (page, mod) => {
@@ -139,5 +141,35 @@ test('a fold from the Source pane reaches the other pane showing Rendered, and n
     await settle(page);
     const shown = await markup(page, 0);
     assert.equal(await wholeRender(page, 0), shown);
+  });
+});
+
+test('a narrower column that settles while Source shows is not lost: Rendered shows the page set for the new width', async () => {
+  await withPanes(['/r/A.md'], async (page, mod) => {
+    // Source once first, so its editor is loaded and showing it again takes a task, not a module load.
+    await page.keyboard.press(`${mod}+e`);
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].view.mode === 'source');
+    await page.keyboard.press(`${mod}+e`);
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].view.mode === 'rendered');
+    await settle(page);
+    // The column narrows (as when a second pane opens), and Source shows inside the resize burst's quiet time: the
+    // burst ends with the page out of sight.
+    const narrowed = await page.evaluate(async () => {
+      const pane = window.__marxyHandle.panes().panes[0];
+      const wide = pane.article.clientWidth;
+      pane.article.style.maxWidth = `${wide - 120}px`;
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      await pane.view.setMode('source');
+      return { wide, hidden: pane.article.clientWidth === 0 };
+    });
+    assert.equal(narrowed.hidden, true, 'Source showed inside the burst');
+    await new Promise((r) => setTimeout(r, 300));
+    await page.keyboard.press(`${mod}+e`);
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].view.mode === 'rendered');
+    await settle(page);
+    const width = await page.evaluate(() => window.__marxyHandle.panes().panes[0].article.clientWidth);
+    assert.ok(width < narrowed.wide, `the column narrowed (${narrowed.wide} to ${width})`);
+    const shown = await markup(page, 0);
+    assert.equal(await wholeRender(page, 0), shown, 'the page that showed is set for the width it shows at');
   });
 });

@@ -1854,6 +1854,14 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       before = null;
       rebreak = false;
       if (!laidOut()) {
+        // The width changed, but the page went out of sight before the burst ended (Source was shown in it): its
+        // paragraphs still hold the breaks of the old width, and the width the observer compares against is already
+        // the new one, so showing the page again would not re-break them. Behind Source the page is set whole when
+        // Read next shows; hidden any other way, the next resize it sees re-breaks it.
+        if (relayout) {
+          if (shown && viewMode === 'source') markStale();
+          else width = 0;
+        }
         endResizeHold(position);
         return;
       }
