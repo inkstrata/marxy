@@ -1,6 +1,6 @@
 name: ci
 # `pnpm verify` is the one definition of what checks a tree (scripts/verify.mjs, docs/testing.md); CI runs it and
-# nothing of its own, on the two platforms the code is known on, and keeps a pull request lean:
+# nothing of its own, on the three platforms the code builds on, and keeps a pull request lean:
 #
 # - A pull request runs the `changed` tier: the gates, and only the suites the diff touches (a docs-only change runs
 #   none). A push to main runs `full`, so every suite still runs once per merge. `--skip` takes steps out of the tier
@@ -99,6 +99,44 @@ jobs:
           path: ${{ runner.temp }}/verify
           if-no-files-found: ignore
 
+  # Linux: the release build, the unit suites and the Rust tests on a hosted runner, no browser suite (work/todo.md, M3).
+  # Green on two runs in a row before it joined `ci`.
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - name: Tauri's Linux packages, and a virtual display for the smoke launch
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev \
+            libssl-dev libxdo-dev build-essential pkg-config patchelf xvfb dbus
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          cache-on-failure: true
+      - run: pnpm install --frozen-lockfile
+      - name: Verify
+        env:
+          TIER: ${{ inputs.tier || (github.event_name == 'pull_request' && 'changed' || 'full') }}
+          BASE: origin/${{ github.base_ref || 'main' }}
+        run: >-
+          node scripts/verify.mjs --tier "$TIER" --base "$BASE" --no-lock --logs "$RUNNER_TEMP/verify"
+          --skip unit-desktop-browser,browser,aesthetics,tauri
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-logs-linux
+          path: ${{ runner.temp }}/verify
+          if-no-files-found: ignore
+
+
   # The core reading paths in WebKit on a hosted macOS runner: the files of scripts/browser-smoke.json, which wait for
   # conditions and not for time. A pull request only; a push to main has the full suite by hand (see the header).
   browser-smoke:
@@ -125,18 +163,19 @@ jobs:
           path: ${{ runner.temp }}/browser-timings.jsonl
           if-no-files-found: ignore
 
-  # Branch protection on main requires the one check `ci`; it passes only when both platforms did, and the browser
+  # Branch protection on main requires the one check `ci`; it passes only when all three platforms did, and the browser
   # smoke too on a pull request (it is skipped on a push to main).
   ci:
     if: always()
-    needs: [macos, windows, browser-smoke]
+    needs: [macos, windows, linux, browser-smoke]
     runs-on: ubuntu-latest
     steps:
-      - name: Both platforms passed
+      - name: All three platforms passed
         env:
           MACOS: ${{ needs.macos.result }}
           WINDOWS: ${{ needs.windows.result }}
+          LINUX: ${{ needs.linux.result }}
           SMOKE: ${{ needs.browser-smoke.result }}
         run: |
-          echo "macos: $MACOS, windows: $WINDOWS, browser-smoke: $SMOKE"
-          test "$MACOS" = success && test "$WINDOWS" = success && { test "$SMOKE" = success || test "$SMOKE" = skipped; }
+          echo "macos: $MACOS, windows: $WINDOWS, linux: $LINUX, browser-smoke: $SMOKE"
+          test "$MACOS" = success && test "$WINDOWS" = success && test "$LINUX" = success && { test "$SMOKE" = success || test "$SMOKE" = skipped; }
