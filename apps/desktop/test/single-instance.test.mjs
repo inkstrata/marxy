@@ -44,6 +44,18 @@ nodeTest('tauri.conf.json lets Finder offer Marxy for source and text files', ()
   assert.ok(exts.includes('py'));
 });
 
+nodeTest('tauri.conf.json ranks Markdown Default and everything else Alternate, with a Markdown type', () => {
+  const conf = JSON.parse(readFileSync(join(desktopRoot, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  const [markdown, ...others] = conf.bundle.fileAssociations;
+  assert.equal(markdown.rank, 'Default');
+  assert.equal(markdown.exportedType.identifier, 'net.daringfireball.markdown');
+  assert.deepEqual(markdown.exportedType.conformsTo, ['public.plain-text']);
+  assert.deepEqual(others.map((row) => row.name), ['Source and text', 'PDF document', 'Image']);
+  for (const row of others) assert.equal(row.rank, 'Alternate', `${row.name} must not take the double-click`);
+  const exts = others.flatMap((row) => row.ext);
+  for (const e of ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'tiff', 'bmp', 'svg']) assert.ok(exts.includes(e), e);
+});
+
 nodeTest('main.rs queues Finder opens until take_pending_opens', () => {
   const main = readFileSync(join(desktopRoot, 'src-tauri', 'src', 'main.rs'), 'utf8');
   assert.match(main, /take_pending_opens/);

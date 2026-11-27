@@ -94,10 +94,14 @@ test('exact names and the extension-less text family', () => {
 
 test('the Tauri file associations list what the table calls markdown, text and source', () => {
   const conf = JSON.parse(readFileSync(new URL('../../../../apps/desktop/src-tauri/tauri.conf.json', import.meta.url), 'utf8'));
-  const assoc = conf.bundle.fileAssociations as { ext: string[] }[];
-  const listed = assoc.flatMap((a) => a.ext).sort();
+  const assoc = conf.bundle.fileAssociations as { name: string; ext: string[] }[];
+  const listed = assoc.filter((a) => a.name !== 'PDF document' && a.name !== 'Image').flatMap((a) => a.ext).sort();
   const wanted = tableExtensions().sort();
   assert.deepEqual(listed, wanted);
+  // The PDF and image groups are offered in Open With: every extension in them is one the registry opens in a page viewer.
+  for (const a of assoc.filter((x) => x.name === 'PDF document' || x.name === 'Image')) {
+    for (const e of a.ext) assert.equal(fileTypeOf(`/r/sample.${e}`)?.viewer, a.name === 'Image' ? 'image' : 'pdf', e);
+  }
 });
 
 // Windows hands Markdown to Tauri's own association (it takes the default) and offers every other type Marxy has a page
