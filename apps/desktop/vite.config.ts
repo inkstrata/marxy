@@ -153,6 +153,11 @@ export default defineConfig({
   },
   // The highlight worker lazy-loads grammars with dynamic import, which needs an ES-module worker.
   worker: { format: 'es', plugins: () => [onlyAllowedGrammars()] },
+  // The dev server pre-bundles what it finds from these files before the first page loads. Its scan does not follow
+  // `new Worker(...)`, so without the highlight worker the grammars were found only when a page first coloured code,
+  // and the re-bundle that followed broke every page still loading (the browser tests run with HMR off, so those
+  // pages never reload): a cold cache, as on CI, failed whichever test was booting at that moment.
+  optimizeDeps: { entries: ['index.html', 'app.html', 'src/render/highlight.worker.ts'] },
   clearScreen: false,
   server: { strictPort: true, port: 1420 },
 });
