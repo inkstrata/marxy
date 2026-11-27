@@ -75,7 +75,10 @@ fn login_shell() -> PathBuf {
         if entry.is_null() || (*entry).pw_shell.is_null() {
             None
         } else {
-            CStr::from_ptr((*entry).pw_shell).to_str().ok().map(PathBuf::from)
+            CStr::from_ptr((*entry).pw_shell)
+                .to_str()
+                .ok()
+                .map(PathBuf::from)
         }
     };
     from_passwd
@@ -158,11 +161,7 @@ fn usual_places(
     ];
     let mise = mise_data
         .filter(|p| p.is_absolute())
-        .or_else(|| {
-            xdg_data
-                .filter(|p| p.is_absolute())
-                .map(|p| p.join("mise"))
-        })
+        .or_else(|| xdg_data.filter(|p| p.is_absolute()).map(|p| p.join("mise")))
         .or_else(|| home.map(|h| h.join(".local/share/mise")));
     if let Some(mise) = mise {
         usual.push(mise.join("shims"));
@@ -287,7 +286,11 @@ mod tests {
         let home = Some(Path::new("/Users/x"));
         let shims = |d: Vec<PathBuf>| d.last().cloned().unwrap();
         assert_eq!(
-            shims(usual_places(home, Some("/data/mise".into()), Some("/xdg".into()))),
+            shims(usual_places(
+                home,
+                Some("/data/mise".into()),
+                Some("/xdg".into())
+            )),
             PathBuf::from("/data/mise/shims")
         );
         assert_eq!(
@@ -314,13 +317,19 @@ mod tests {
         assert_eq!(dirs, ["/usr/bin", "/opt/ok"].map(PathBuf::from));
         // The same for the PATH the app inherited, when the shell gave none.
         let path = complete(None, Some(":/bin:.".into()), &[], &|_| false);
-        assert_eq!(std::env::split_paths(&path).collect::<Vec<_>>(), [PathBuf::from("/bin")]);
+        assert_eq!(
+            std::env::split_paths(&path).collect::<Vec<_>>(),
+            [PathBuf::from("/bin")]
+        );
 
         // A program planted in the working directory does not run through the completed PATH.
         let dir = scratch("planted");
         script(&dir, "marxy-planted", "echo planted");
         let mut command = Command::new("marxy-planted");
-        command.current_dir(&dir).env("PATH", complete(Some("/usr/bin:".into()), None, &[], &|_| false));
+        command.current_dir(&dir).env(
+            "PATH",
+            complete(Some("/usr/bin:".into()), None, &[], &|_| false),
+        );
         assert!(command.output().is_err());
     }
 
@@ -335,7 +344,11 @@ mod tests {
         let started = Instant::now();
         let asked = login_shell_path(&shell, Duration::from_secs(5));
         assert_eq!(asked.as_deref(), Some("/usr/bin:/opt/x"));
-        assert!(started.elapsed() < Duration::from_secs(3), "{:?}", started.elapsed());
+        assert!(
+            started.elapsed() < Duration::from_secs(3),
+            "{:?}",
+            started.elapsed()
+        );
     }
 
     #[test]
@@ -348,9 +361,17 @@ mod tests {
             &format!("sleep 30 &\necho $! > {}\nsleep 30", pidfile.display()),
         );
         assert_eq!(login_shell_path(&shell, Duration::from_millis(500)), None);
-        let pid: i32 = std::fs::read_to_string(&pidfile).unwrap().trim().parse().unwrap();
+        let pid: i32 = std::fs::read_to_string(&pidfile)
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
         std::thread::sleep(Duration::from_millis(200));
         // SAFETY: signal 0 only tests that the process is there.
-        assert_ne!(unsafe { libc::kill(pid, 0) }, 0, "the shell's child is still running");
+        assert_ne!(
+            unsafe { libc::kill(pid, 0) },
+            0,
+            "the shell's child is still running"
+        );
     }
 }

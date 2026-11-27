@@ -338,7 +338,9 @@ fn short_and_mixed_legacy_text_is_not_taken_for_utf8() {
         assert!(!looks_like_utf8(&bytes), "{label}: {text}");
     }
     // A UTF-8 file with one corrupt byte stays UTF-8, bytes kept.
-    let mut bytes = "日本語のテキスト、これは普通のファイルです。\n".repeat(4).into_bytes();
+    let mut bytes = "日本語のテキスト、これは普通のファイルです。\n"
+        .repeat(4)
+        .into_bytes();
     bytes[30] = 0xff;
     assert!(looks_like_utf8(&bytes));
     let d = decode(&bytes, None).unwrap();

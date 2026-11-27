@@ -2434,7 +2434,11 @@ mod tests {
             fs::metadata(&target).expect("meta").st_flags()
         };
         chflags("nouchg", &target);
-        assert_ne!(flags & macos_flags::UF_IMMUTABLE, 0, "the target was unlocked");
+        assert_ne!(
+            flags & macos_flags::UF_IMMUTABLE,
+            0,
+            "the target was unlocked"
+        );
         assert_eq!(fs::read(&target).expect("read"), b"old");
     }
 
