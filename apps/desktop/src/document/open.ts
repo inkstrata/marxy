@@ -4,7 +4,7 @@
 // `createOpenPath` returns, never module state, so a second app instance in one page starts clean.
 // Every edit, save and fold of the open document goes through its store here.
 import { keepBeforeOverwrite } from '../versions/recorder.ts';
-import { KIND_HEAD_BYTES, lastChunkedParse, parseMarkdownChunked, type Buffer, type DetectResult, type KindRule, readsAsPage } from '@marxy/core';
+import { KIND_HEAD_BYTES, lastChunkedParse, parseMarkdownChunked, slicesWithin, type Buffer, type DetectResult, type KindRule, readsAsPage } from '@marxy/core';
 import { detectFileKind, emptyKindsEnvelope, ruleReadFor, type KindsEnvelope } from '@marxy/core/src/kind/show-as.ts';
 import { fileTypeFor, nameTypeOf, noteContent, noteSniffed, type ContentSignals } from '@marxy/core/src/kind/registry.ts';
 import { setsPlainReading } from '@marxy/core/src/reading/index.ts';
@@ -185,6 +185,8 @@ function byteChange(bytes: Uint8Array, next: Uint8Array): { start: number; end: 
 
 /** A document of at least this many bytes is read in slices while another pane is on screen; below it the work is a frame or less. */
 const SLICED_BYTES = 64 * 1024;
+/** The longest stretch of a text that is parsed behind its page without a place to cut it. */
+const UNCUT_SLICE_BYTES = 256 * 1024;
 
 /**
  * The file's size and times when its store was kept warm. A return compares them with the file's now: a change whose
@@ -750,6 +752,9 @@ export function createOpenPath(deps: OpenPathDeps): OpenPath {
   async function parseBehind(store: DocumentStore, file: string): Promise<void> {
     const bytes = store.snapshot().buffer.bytes;
     const stale = (): boolean => closed || current !== store || store.parsed() || store.snapshot().buffer.bytes !== bytes;
+    // A text the slices cannot cut (no blank line: one paragraph, a long task of its own) is not parsed behind its page:
+    // the store makes the parse if something asks for it.
+    if (!slicesWithin(bytes, UNCUT_SLICE_BYTES)) return;
     try {
       // After the page's own idle mount, which the slices would otherwise starve.
       await view.contentComplete();
