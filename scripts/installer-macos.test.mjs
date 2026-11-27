@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { buildFolderName, parseInstallerArgs, pickCliDir, pickDest, SHIM_MARK, shimIsOurs, shimText } from './installer-macos.mjs';
+import { buildFolderName, otherRegistrations, parseInstallerArgs, pickCliDir, pickDest, SHIM_MARK, shimIsOurs, shimText } from './installer-macos.mjs';
 
 test('arguments: defaults, flags, values inline or apart, and the Windows spellings', () => {
   const d = parseInstallerArgs([]);
@@ -57,4 +57,17 @@ test('the command opens through Launch Services, quotes the app path, and is the
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('other registrations: every copy of the bundle id but the installed one, gone paths included', () => {
+  const rec = (path, id) => `--------------------------------------------------------------------------------\nbundle id:                  1\npath:                       ${path} (0x2ec4)\nname:                       Marxy\nidentifier:                 ${id}\n`;
+  const dump = [
+    rec('/Applications/Marxy.app', 'dev.marxy.app'),
+    rec('/Users/r/marxy-wt/app/target/release/bundle/macos/Marxy.app', 'dev.marxy.app'),
+    rec('/Volumes/dmg.abc/Marxy.app', 'dev.marxy.app'),
+    rec('/Volumes/dmg.abc/Marxy.app', 'dev.marxy.app'),
+    rec('/Applications/Other.app', 'com.example.other'),
+    'identifier:                 dev.marxy.app\n',
+  ].join('');
+  assert.deepEqual(otherRegistrations(dump, '/Applications/Marxy.app'), ['/Users/r/marxy-wt/app/target/release/bundle/macos/Marxy.app', '/Volumes/dmg.abc/Marxy.app']);
 });

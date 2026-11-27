@@ -94,6 +94,26 @@ export function shimIsOurs(path, read = p => readFileSync(p, 'utf8')) {
   }
 }
 
+/**
+ * Bundle paths that `lsregister -dump` lists for `id`, other than `keep`: build folders, old worktrees, mounted DMGs
+ * and paths long gone. Any of them can answer Finder's Open With in place of the installed copy.
+ */
+export function otherRegistrations(dump, keep, id = BUNDLE_ID) {
+  const found = new Set();
+  let path = null;
+  for (const line of dump.split('\n')) {
+    if (/^-{10,}/.test(line)) path = null;
+    const p = /^path:\s+(.*?)(?: \(0x[0-9a-f]+\))?\s*$/.exec(line);
+    if (p) path = p[1];
+    const i = /^identifier:\s+(\S+)/.exec(line);
+    if (!i || !path) continue;
+    // Only a record's own first identifier names its bundle; later ones belong to records nested in it.
+    if (i[1] === id && resolve(path) !== resolve(keep)) found.add(path);
+    path = null;
+  }
+  return [...found].sort();
+}
+
 function isWritable(dir) {
   try {
     accessSync(dir, constants.W_OK);
@@ -220,8 +240,6 @@ export function installerMain(argv) {
 
   step('Checking the bundle');
   const { version, signature } = checkBundle(built);
-  // The copy in the build folder must not answer Finder's "Open With" in place of the installed one.
-  spawnSync(LSREGISTER, ['-u', built], { stdio: 'ignore' });
 
   // --- keep a copy (zipped, so Launch Services never registers it) --------------------------------------------------
   const kept = join(outRoot, buildFolderName(new Date(), buildSha));
@@ -262,8 +280,13 @@ export function installerMain(argv) {
   rmSync(old, { recursive: true, force: true });
   spawnSync('xattr', ['-dr', 'com.apple.quarantine', installed], { stdio: 'ignore' });
   checkBundle(installed);
-  // Register the installed copy now, so Finder's Open With and the file-type defaults see this build at once.
+  // Register the installed copy now, so Finder's Open With and the file-type defaults see this build at once, and
+  // forget every other copy: the build folder (registered by the system shortly after it is written), old
+  // worktrees and DMGs once mounted.
   run(LSREGISTER, ['-f', installed]);
+  const others = otherRegistrations(out(LSREGISTER, ['-dump'], { maxBuffer: 1 << 30 }), installed);
+  for (const p of others) spawnSync(LSREGISTER, ['-u', p], { stdio: 'ignore' });
+  if (others.length) console.log(`unregistered ${others.length} other ${APP} cop${others.length === 1 ? 'y' : 'ies'} from Launch Services`);
 
   if (o.cli) {
     const cliDir = pickCliDir(o.cliDir);

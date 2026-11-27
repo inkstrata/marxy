@@ -145,14 +145,14 @@ pnpm work installer --no-install --dmg               # build and keep the app an
    `--dmg`; the DMG step drives Finder to lay out its window, so it is off by default).
 3. Checks the bundle: `codesign --verify --deep --strict`, sealed resources (`signingIdentity: "-"`
    in `tauri.conf.json`; Apple silicon kills an unsealed bundle at launch), the bundle id and its
-   document types. The copy in the build folder is unregistered from Launch Services, so Finder's
-   Open With never offers it in place of the installed one.
+   document types.
 4. Keeps `Marxy.app.zip` (zipped, so Launch Services never registers it), the DMG if made and a
    `BUILD.txt` in `builds/<date>-<time>-<commit>/` in the main checkout.
 5. Unless `--no-install`: asks a running installed Marxy to quit (builds run from `target` folders are
    left alone), swaps the new bundle into `/Applications` (`~/Applications` when that is not
    writable; `--dest` to choose), checks it again, registers it with Launch Services so its file types
-   take effect at once, and writes a `marxy` command to `~/.local/bin` when that is on the PATH
+   take effect at once and unregisters every other copy of the bundle id (the build folder, old
+   worktrees, DMGs once mounted), so Finder's Open With offers only the installed one, and writes a `marxy` command to `~/.local/bin` when that is on the PATH
    (`--cli-dir`, `--no-cli`). `marxy <files>` opens them in the installed app the way Finder would; a
    file of that name the script did not write is left alone. Then opens the app unless `--no-launch`.
 
