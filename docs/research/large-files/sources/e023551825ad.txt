@@ -1,0 +1,61 @@
+discuss.CodeMirror
+
+Possible performance enhancement for very long rows
+
+v5
+
+jacz
+
+August 18, 2022, 5:22pm
+
+1
+
+I have found quite a few CodeMirror V5 adopters who are facing the same issue:
+
+Very long lines with many special characters - making it almost impossible to use the editor.
+
+I know this is a fairly specific use case, but: Who am I to say that an editor should not work with long lines?
+
+There are a fair amount of working solutions, to tackle this problem.
+
+For instance, there is this React (I know) framework called React Virtualized (GitHub - bvaughn/react-virtualized: React components for efficiently rendering large lists and tabular data) which allows to display and smoothly scroll horizontally and vertically, effectively displaying huge amounts of data to be displayed, even wrapped in custom divs, with event handlers attached and so on.
+
+Currently Each line is wrapped in one div and special characters are replaced by a span with a middle dot inside.
+
+If one were to change this to use such a “windowing” solution to ultimately improve the performance, one would wrap every character into a div too. The one thing that makes this Codemirror such a perfect candidate for this solution is that it works with characters. Each character is roughly the same width (look at VS Code for instance) and height, and so calculations to achieve windowing would not be that expensive.
+
+Just saying, this way you could have 1 million columns and 1 million lines and it would still run fast.
+
+What do you think of this? Is something like this in Version 6? I have just used Version 5.
+
+BR James
+
+marijn
+
+August 18, 2022, 8:34pm
+
+2
+
+jacz:
+
+Is something like this in Version 6?
+
+Yes. And it’s not going to be implemented in version 5, since it would be complicated and invasive to retrofit.
+
+jacz
+
+August 19, 2022, 2:55pm
+
+3
+
+Thanks for the swift response That’s amazing, looking forward to it!
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Powered by Discourse, best viewed with JavaScript enabled

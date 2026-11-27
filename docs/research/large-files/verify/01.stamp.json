@@ -1,0 +1,79 @@
+{
+ "chapter": "01-code-editors.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "EDS-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "198c2af0808f"
+  },
+  "EDS-02": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "4707811403d2"
+  },
+  "EDS-03": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "86219a3b56bf"
+  },
+  "EDS-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "9b865a33d994"
+  },
+  "EDS-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "85065b34b9ab"
+  },
+  "EDS-06": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "4b749f40f4d3"
+  },
+  "EDS-07": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "457e28c226e1"
+  },
+  "EDS-08": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "78ea6d931208"
+  },
+  "EDS-09": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "cc7f78e71444"
+  },
+  "EDS-10": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "fb96f402e0b2"
+  },
+  "EDS-11": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "afedc008aa78"
+  },
+  "EDS-12": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "3dc300b5603b"
+  }
+ }
+}

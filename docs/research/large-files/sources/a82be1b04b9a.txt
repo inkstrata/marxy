@@ -1,0 +1,425 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+beijaflor
+
+wasm-markdown-bench
+
+Repository navigation
+
+Code
+
+Pull requests
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+wasm-markdown-bench
+Public
+
+NotificationsYou must be signed in to change notification settings
+
+Fork1 (1)
+
+Star8 (8)You must be signed in to star a repository
+
+About
+
+No description, website, or topics provided.
+
+Resources
+
+Readme
+
+Activity
+
+Stars
+
+8 stars
+
+Watchers
+
+1 watching
+
+Forks
+
+1 fork
+
+Report repository
+
+main
+
+Branches Tags
+
+Go to file
+
+Code
+Open more actions menu
+
+Latest commit
+
+History
+23 Commits
+
+23 Commits
+
+Folders and files
+
+Name Name
+Last commit message
+
+Last commit date
+
+bench
+
+bench
+
+public
+
+public
+
+src
+
+src
+
+tests/unit
+
+tests/unit
+
+wasm-markdown
+
+wasm-markdown
+
+.browserslistrc
+
+.browserslistrc
+
+.eslintignore
+
+.eslintignore
+
+.eslintrc.js
+
+.eslintrc.js
+
+.gitignore
+
+.gitignore
+
+.prettierrc
+
+.prettierrc
+
+README.md
+
+README.md
+
+babel.config.js
+
+babel.config.js
+
+jest.config.js
+
+jest.config.js
+
+package.json
+
+package.json
+
+tsconfig.json
+
+tsconfig.json
+
+vue.config.js
+
+vue.config.js
+
+yarn.lock
+
+yarn.lock
+
+View all files
+
+Repository files navigation
+
+README
+
+More items
+
+Benchmark of markdown converter in rust-wasm and v8
+
+https://beijaflor.github.io/wasm-markdown-bench/
+
+app
+
+method
+lang
+bench(ns)
+
+marked
+JS
+4.480000003241003
+
+pulldown_cmark
+Rust
+2.4299999931827188
+
+markdown_rs
+Rust
+41.44000000087544
+
+comrak
+Rust
+8.734999995795079
+
+native
+
+Rust
+
+method
+bench(ns)
+
+reverse
+286
+
+strait
+86
+
+node v8
+
+method
+bench(hz)
+
+reverse string
+9386
+
+strait string
+130814
+
+web app
+
+yarn install
+yarn wasm:build
+yarn serve
+
+and access to localhost:8080
+
+native bench
+
+yarn install
+yarn bench:wasm
+yarn bench:rust
+
+About
+
+No description, website, or topics provided.
+
+Resources
+
+Readme
+
+Activity
+
+Stars
+
+8 stars
+
+Watchers
+
+1 watching
+
+Forks
+
+1 fork
+
+Report repository
+
+Releases
+
+Packages
+
+Contributors
+
+Languages
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

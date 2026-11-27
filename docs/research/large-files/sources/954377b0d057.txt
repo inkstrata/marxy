@@ -1,0 +1,1045 @@
+Mozilla Home
+
+Privacy
+
+Cookies
+
+Legal
+
+Bugzilla
+
+Quick Search Tips
+Advanced Search
+
+Browse
+
+Advanced Search
+
+New Bug
+
+Reports
+
+Documentation
+
+Log In
+
+Log In with GitHub
+
+or
+
+Remember me
+
+Create an Account
+·
+Forgot Password
+
+Browse
+
+Advanced Search
+
+New Bug
+
+Reports
+
+Documentation
+
+Copy Summary
+▾
+
+Markdown
+
+Markdown (bug number)
+
+Plain Text
+
+HTML
+
+View ▾
+
+Reset Sections
+
+Expand All Sections
+
+Collapse All Sections
+
+History
+
+JSON
+
+XML
+
+Closed
+
+Bug 235022
+
+Opened 22 years ago
+Closed 3 years ago
+
+Pathologically slow rendering of extremely wide text file
+
+*
+Summary:
+
+Pathologically slow rendering of extremely wide text file
+
+Categories
+
+(Core :: Layout: Text and Fonts, defect)
+
+Product:
+
+Core
+▾
+
+Core
+
+Shared components used by Firefox and other Mozilla software, including handling of Web content; Gecko, HTML, CSS, layout, DOM, scripts, images, networking, etc. Issues with web page layout probably go here, while Firefox user interface issues belong in the Firefox product. (More info)
+
+See Open Bugs in This Product
+
+File New Bug in This Product
+
+Watch This Product
+
+Component:
+
+Layout: Text and Fonts
+▾
+
+Core :: Layout: Text and Fonts
+
+Issues with CSS font selection, font loading, text shaping and glyph selection, breaking, text decorations, bidirectional text processing, and white space processing. For issues with glyph rendering and font format support, see the Graphics: Text component.
+
+Example bugs:
+
+line-breaking code does not handle supplementary-plane characters properly
+
+double or wavy decoration lines are not repainted correctly if specified on floating first letter
+
+Specifications covered:
+
+CSS Fonts
+
+CSS Size Adjustment
+
+CSS Text
+
+CSS Text Decoration
+
+See Open Bugs in This Component
+
+Recently Fixed Bugs in This Component
+
+File New Bug in This Component
+
+Watch This Component
+
+Version:
+
+Trunk
+
+Platform:
+
+All
+
+All
+
+Type:
+
+defect
+
+Priority:
+
+Not set
+
+Severity:
+
+S3
+
+Points:
+
+---
+
+Tracking
+
+()
+
+Status:
+
+RESOLVED
+WORKSFORME
+
+Status:
+
+RESOLVED
+
+WORKSFORME
+
+Mark as Assigned
+
+Milestone:
+
+---
+
+Iteration:
+
+---
+
+Project Flags:
+
+a11y-review
+
+---
+
+Accessibility Severity
+
+---
+
+Performance Impact
+
+---
+
+Size Estimate
+
+---
+
+Webcompat Priority
+
+---
+
+Webcompat Score
+
+---
+
+Tracking Flags:
+
+Tracking
+Status
+
+relnote-firefox
+
+---
+
+thunderbird_esr115
+
+---
+
+---
+
+thunderbird_esr153
+
+---
+
+---
+
+firefox-esr115
+
+---
+
+---
+
+firefox-esr153
+
+---
+
+---
+
+firefox161
+
+---
+
+---
+
+firefox162
+
+---
+
+---
+
+firefox163
+
+---
+
+---
+
+People
+
+(Reporter: rlk, Unassigned)
+
+Assignee:
+
+Unassigned
+
+Assignee:
+
+Reset Assignee to default
+
+Mentors:
+
+---
+
+QA Contact:
+
+Reset QA Contact to default
+
+Reporter:
+
+rlk
+
+Triage Owner:
+
+jfkthame
+
+CC:
+
+24 people
+
+References
+
+(
+
+URL
+
+)
+
+Depends on:
+
+235255, 333659
+
+Blocks:
+
+72885
+
+Dependency tree
+/ graph
+
+Regressions:
+
+---
+
+Regressed by:
+
+---
+
+URL:
+
+web.mit.edu/bzbarsky/www/testcases/bu...
+
+See Also:
+
+---
+
+Details
+
+(Keywords: perf)
+
+Alias:
+
+---
+
+Keywords:
+
+perf
+
+Whiteboard:
+
+---
+
+QA Whiteboard:
+
+---
+
+Has STR:
+
+---
+
+Change Request:
+
+---
+
+Votes:
+
+5
+
+Bug Flags:
+
+behind-pref
+
+firefox-backlog
+
+sec-bounty
+
+?
+
+sec-bounty-hof
+
+in-qa-testsuite
+
+in-testsuite
+
+qe-verify
+
+Crash Data
+
+Signature:
+
+None
+
+Security
+
+(public)
+
+This bug is publicly visible.
+
+User Story
+
+Attachments
+
+(2 files)
+
+Full profile
+
+22 years ago
+
+Boris Zbarsky [:bzbarsky]
+
+171.77 KB,
+text/html
+
+Details
+
+testcase.zip
+
+3 years ago
+
+Gregory Pappas [:gregp]
+
+3.37 MB,
+application/zip
+
+Details
+
+Bottom &darr;
+
+Tags ▾
+
+Reset
+
+Timeline ▾
+
+Reset
+
+Collapse All
+
+Expand All
+
+Comments Only
+
+Robert Krawitz
+
+Reporter
+
+Description
+
+&bull;
+
+22 years ago
+
+User-Agent:
+Build Identifier: Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.6) Gecko/20040207 Firefox/0.8
+
+The URL above (which refers to a text file of a single line of about 11 MB)
+takes pathologically long to display. This happens with both Mozilla 1.6 and
+Firefox 0.8. It took about 17 minutes of CPU time on a 1 GHz processor to load.
+The file in question is plain ASCII text; it's a data file for a special
+purpose renderer (which incidentally is quite fun to watch, but that's
+irrelevant here).
+
+It doesn't matter if it's downloaded or loaded from a local file.
+
+Reproducible: Always
+Steps to Reproduce:
+1. Load the above URL, either as specified or from a local file, either
+compressed or not (i. e. downloading the file, gunzip'ing it, and then loading
+the file into the browser with a file: URL).
+Actual Results:
+The browser appeared to start loading the file normally, including displaying
+the start of the file. I could initially scroll over one page to the right with
+the mouse, but after that the browser did not respond at all until the page
+completed processing. The throbber (on Mozilla 1.6) advanced very slowly and
+continued to advance while the file was being processed.
+
+The browser did not consume an excessive amount of memory in the process. At
+the completion of processing, it had an address space of 61900 KB, compared to
+35804K at start (with no startup page). Upon starting to load the page, the
+address space immediately went up to 51 MB, and then slowly increased its memory
+consumption as time progressed. Most of the additional memory consumption
+happened in the first few minutes; the rate of memory growth slowed down over
+time. My system has ample memory (512 MB), and top indicates that it's using
+about 95% of the CPU. strace isn't reporting excessive activity:
+
+brk(0x9705000) = 0x9705000
+gettimeofday({1077291169, 845463}, NULL) = 0
+gettimeofday({1077291169, 848795}, NULL) = 0
+gettimeofday({1077291169, 851944}, NULL) = 0
+kill(2361, SIGRTMIN) = 0
+gettimeofday({1077291169, 857925}, NULL) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+brk(0x9708000) = 0x9708000
+kill(2362, SIGRTMIN) = 0
+kill(2362, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+kill(2371, SIGRTMIN) = 0
+gettimeofday({1077291169, 965478}, NULL) = 0
+gettimeofday({1077291169, 968685}, NULL) = 0
+gettimeofday({1077291169, 971893}, NULL) = 0
+gettimeofday({1077291169, 975042}, NULL) = 0
+brk(0x970a000) = 0x970a000
+gettimeofday({1077291169, 981098}, NULL) = 0
+gettimeofday({1077291169, 984207}, NULL) = 0
+brk(0x970c000) = 0x970c000
+gettimeofday({1077291169, 990723}, NULL) = 0
+gettimeofday({1077291169, 993856}, NULL) = 0
+brk(0x970e000) = 0x970e000
+gettimeofday({1077291169, 999988}, NULL) = 0
+gettimeofday({1077291170, 3116}, NULL) = 0
+brk(0x9710000) = 0x9710000
+gettimeofday({1077291170, 9598}, NULL) = 0
+gettimeofday({1077291170, 12742}, NULL) = 0
+brk(0x9712000) = 0x9712000
+gettimeofday({1077291170, 19061}, NULL) = 0
+gettimeofday({1077291170, 22168}, NULL) = 0
+brk(0x9714000) = 0x9714000
+gettimeofday({1077291170, 28325}, NULL) = 0
+gettimeofday({1077291170, 31732}, NULL) = 0
+brk(0x9716000) = 0x9716000
+gettimeofday({1077291170, 38021}, NULL) = 0
+gettimeofday({1077291170, 40740}, NULL) = 0
+gettimeofday({1077291170, 43846}, NULL) = 0
+kill(2361, SIGRTMIN) = 0
+gettimeofday({1077291170, 50095}, NULL) = 0
+gettimeofday({1077291170, 53387}, NULL) = 0
+gettimeofday({1077291170, 56556}, NULL) = 0
+kill(2361, SIGRTMIN) = 0
+write(6, "\372", 1) = 1
+write(3, "5\30\4\0\275\4@\2@\0\0\0\"\0\"\0Fe\5\0\275\4@\2M\1@\2\0"..., 452) = 452
+read(3, "\1\0016\233\0\0\0\0\16\0\240\2\0\0\0\0\0\0\0\0\0\0\0\0"..., 32) = 32
+write(3, "F\30\5\0\275\4@\2v\0@\2\377\377\377\377\"\0\"\0>\4\7\0"..., 516) = 516
+read(3, "\1\1P\233\0\0\0\0\16\0\240\2\0\0\0\0\0\0\0\0\0\0\0\0x+"..., 32) = 32
+write(3, ";\0\5\0\t\0@\2\0\0\0\0\2\0\2\0\v\0\v\0;\0\5\0\7\0@\2\0"..., 376) = 376
+read(3, "\1\1d\233\0\0\0\0\16\0\240\2\0\0\0\0\0\0\0\0\0\0\0\0x+"..., 32) = 32
+write(3, ";\0\5\0\t\0@\2\0\0\0\0\224\3\2\0\v\0\v\0;\0\5\0\7\0@\2"..., 360) = 360
+read(3, "\1\1x\233\0\0\0\0\16\0\240\2\0\0\0\0\0\0\0\0\0\0\0\0x+"..., 32) = 32
+write(3, ";\0\5\0\10\0@\2\0\0\0\0\r\0\2\0\7\0\v\0008\0\4\0\10\0@"..., 380) = 380
+read(3, "\1\1\214\233\0\0\0\0\16\0\240\2\0\0\0\0\0\0\0\0\0\0\0\0"..., 32) = 32
+brk(0x971b000) = 0x971b000
+write(3, ">\0\7\0\276\4@\2\371\3@\2\10\4@\2\0\0\0\0\0\0\266\2\242"..., 88) = 88
+write(3, "\376\000062a 853 853 -1 -1 1 1 1 1 Z25"..., 2048) = 2048
+write(3, "\376\000220 76 12 220 76 12 220 80 12 "..., 2048) = 2048
+gettimeofday({1077291170, 113256}, NULL) = 0
+write(3, " \0BnnBrrBqBhlBiBieBnnBrrBqqBlBih"..., 72) = 72
+ioctl(3, FIONREAD, [0]) = 0
+
+(the last write() appears to be writing data from the file). There are a few
+other mozilla threads, but none of them accumulate as much as 1 second of CPU time.
+
+I repeated this with a completely fresh browser, with the same results except
+that it took 9:25 of CPU time rather than about 17 minutes. The two differences
+were that in the first session I first tried to load a bogus URL, and then typed
+in the file:/// url directly, and attempted to scroll the file while it was
+being processed. The second time I used the Open File box (C-o) to open the
+file, and did not attempt to do anything to the browser while processing was
+taking place. The end memory consumption was the same.
+
+Expected Results:
+Render the page in a reasonable amount of time.
+
+No obvious reason to believe this is configuration related, but I will be happy
+to supply prefs.js upon request.
+
+Ian Graham
+
+Comment 1
+
+&bull;
+
+22 years ago
+
+There is no file at the referened URL:
+http://http://wso.williams.edu/~bchaffin/patersons_worms/worm_draw/hash061-2.3e18-draw.gz
+
+Marco Perez [:mpk]
+
+Comment 2
+
+&bull;
+
+22 years ago
+
+Stripped duplicate leading "http://" from test URL so it should work correctly.
+Experienced the same symptoms on Firefox (Build from 20040219), so setting OS to
+"all".
+
+URL: http://http://wso.williams.edu/~bchaf... &rarr; http://wso.williams.edu/~bchaffin/pat...
+
+OS: Linux &rarr; All
+
+Marco Perez [:mpk]
+
+Comment 3
+
+&bull;
+
+22 years ago
+
+Forgot to mention that it's Firefox on Win2K, thus the OS change to "all". Sorry
+for the spam.
+
+Robert Krawitz
+
+Reporter
+
+Comment 4
+
+&bull;
+
+22 years ago
+
+BTW, this file is not on my server so please don't hit it too hard. I tried to
+attach it but bugzilla doesn't allow such a big attachment.
+
+Max Alekseyev
+
+Comment 5
+
+&bull;
+
+22 years ago
+
+*** This bug has been marked as a duplicate of 72885 ***
+
+Status: UNCONFIRMED &rarr; RESOLVED
+
+Closed: 22 years ago
+
+Resolution: --- &rarr; DUPLICATE
+
+Boris Zbarsky [:bzbarsky]
+
+Comment 6
+
+&bull;
+
+22 years ago
+
+Max, please do not EVER mark a bug like this duplicate without actually checking
+whether it is (via a profile). If you can't do a profile, mark the bug qawanted
+and cc some people who can. This bug is nothing like bug 72885, and it would
+have gotten totally lost if I hadn't happened to glance at the bugs filed two
+days ago....
+
+Status: RESOLVED &rarr; UNCONFIRMED
+
+Resolution: DUPLICATE &rarr; ---
+
+Boris Zbarsky [:bzbarsky]
+
+Comment 7
+
+&bull;
+
+22 years ago
+
+So, here's what a profile shows:
+
+1) Of 20137 total hits, 19948 are under nsTextFrame::MeasureText (all called
+from nsTextFrame::Reflow)
+2) These are divided as follows:
+
+19948 nsTextFrame::MeasureText
+11005 nsTextFrame::ComputeTotalWordDimensions
+8539 nsRenderingContextGTK::GetTextDimensions
+395 nsTextTransformer::GetNextWord
+
+As Robert points out in bug 72885 comment 15 and bug 72885 comment, we have
+O(N^2) growth here.
+
+To be precise, the way we append text is using nsIDOMCharacterData::AppendData
+which _always_notifies_. So every time we append a chunk of text, if we're not
+creating a new textnode we actually notify and reflow the whole document. This
+could be part of what causes problems in bug, of course. In any case, since
+reflow of a long string of text means measuring it, which is O(N) in string
+length, we end up with O(N^2) layout time overall.
+
+So there are a few things we should look into doing here:
+
+1) Use an API that does _not_ notify when we append text in the content sink,
+and batch those notifications like we would any others.
+2) Have nsTextFrame cache the measured text width and just use it if some flag
+is set. The flag would be cleared by getting a new style context, by
+getting a new next-in-flow, maybe (linebreaking changed), by getting the
+"textnode data changed" notification. Any other cases? Would this be
+feasible?
+
+Assignee: general &rarr; nobody
+
+Blocks: 72885
+
+Status: UNCONFIRMED &rarr; NEW
+
+Component: Browser-General &rarr; Layout: Fonts and Text
+
+Ever confirmed: true
+
+QA Contact: general &rarr; core.layout.fonts-and-text
+
+Boris Zbarsky [:bzbarsky]
+
+Comment 8
+
+&bull;
+
+22 years ago
+
+Attached file
+
+Full profile
+— Details
+
+Boris Zbarsky [:bzbarsky]
+
+Comment 9
+
+&bull;
+
+22 years ago
+
+Actually, nsTextFrame already has a check like what I describe... Also, even if
+I force the content sink to not notify and the measureText boolean to true in
+the textframe, things are _still_ slow, though orders of magnitude faster. In
+that case, nsRenderingContextGTK::GetTextDimensions is gone but the other two
+callees of MeasureText are still alive and kicking.... Why are they being
+called, exactly? It looks like we're trying to line-break this text (!!!! it's
+not breakable to start with!), which shouldn't have to be repeated if nothing
+changed since last reflow, imo...
+
+So we seem to have three issues:
+
+1) We need to notify less
+2) We should make sure we don't measure any more than we need to
+3) Even when not measuring, we still have O(N^2) behavior because MeasureText
+still putters about with word fragments.
+
+jst, sicking, should I spin off #1 into a separate DOM bug? The other two
+issues should be dealt with together....
+
+Keywords: perf
+
+Roland Mainz
+
+Updated
+
+&bull;
+
+22 years ago
+
+Hardware: PC &rarr; All
+
+Jonas Sicking (:sicking) No longer reading bugmail consistently
+
+Comment 10
+
+&bull;
+
+22 years ago
+
+Yeah, please do spin off another bug for notifying less. I ran into this
+notification not long ago and thought it looked unneccesary but didn't think
+much of it since i figured it wouldn't happen very often. Didn't think of 11MB
+textdocuments though :)
+
+Boris Zbarsky [:bzbarsky]
+
+Comment 11
+
+&bull;
+
+22 years ago
+
+Bug 235255 filed.
+
+Depends on: 235255
+
+Max Alekseyev
+
+Comment 12
+
+&bull;
+
+22 years ago
+
+Sorry for unappropriate dupping.
+But I've got confused. Why did this bug get so much special attention while
+whole bunch of similar/related bugs like bug 52005, bug 72885, bug 155440, bug
+210946, bug 212358 etc. was abandoned?
+
+Boris Zbarsky [:bzbarsky]
+
+Comment 13
+
+&bull;
+
+22 years ago
+
+I don't read mailnews bugs. Of the browser bugs you mention, I've profiled most
+of them and didn't see anything obviously going wrong past "this is a really big
+page with lots of stuff in it". With the testcase here there _is_ something
+obviously wrong if you look at the profile. That's the difference. If I see
+something fixable, I can try to fix it. If I don't, then I can't.
+
+Boris Zbarsky [:bzbarsky]
+
+Comment 14
+
+&bull;
+
+22 years ago
+
+ccing roc in case he has ideas on the text-measurement issues here....
+
+Boris Zbarsky [:bzbarsky]
+
+Updated
+
+&bull;
+
+20 years ago
+
+Depends on: 351242
+
+Adam Guthrie
+
+Updated
+
+&bull;
+
+20 years ago
+
+No longer depends on: 351242
+
+Adam Guthrie
+
+Updated
+
+&bull;
+
+20 years ago
+
+Depends on: 333659
+
+Boris Zbarsky [:bzbarsky]
+
+Comment 15
+
+&bull;
+
+19 years ago
+
+Hmm... So the testcase seems to be gone. Is it still available somewhere?
+
+Robert Krawitz
+
+Reporter
+
+Comment 16
+
+&bull;
+
+18 years ago
+
+I spotted that last comment (a year later!) while searching my open bugs.
+
+I've placed a (bzip2'd copy) in ftp://66.92.65.9/pub/hash061-2.3e18-draw.bz2. Please download it, since it's on a 1500/600 DSL pipe.
+
+Wayne Mery (:wsmwk)
+
+Comment 17
+
+&bull;
+
+17 years ago
+
+bz, did you get ftp://66.92.65.9/pub/hash061-2.3e18-draw.bz2 ?
+it's too big to attach to the bug
+
+URL: http://wso.williams.edu/~bchaffin/pat... &rarr; NA http://wso.williams.edu/~bchaffin/...
+
+Boris Zbarsky [:bzbarsky]
+
+Comment 18
+
+&bull;
+
+17 years ago
+
+Hmm. I seem to have missed comment 16. Looking.
+
+Boris Zbarsky [:bzbarsky]
+
+Comment 19
+
+&bull;
+
+17 years ago
+
+OK, I put a copy of that file at http://web.mit.edu/bzbarsky/www/testcases/bugs/235022/hash061-2.3e18-draw.bz2
+
+Now to profile it.
+
+URL: NA http://wso.williams.edu/~bchaffin/... &rarr; http://web.mit.edu/bzbarsky/www/testc...
+
+Boris Zbarsky [:bzbarsky]
+
+Comment 20
+
+&bull;
+
+17 years ago
+
+OK. So as expected, 52% textrun construction, 23% BreakAndMeasureText, a bunch of kernel time in memory traffic (vm_fault and such).
+
+Wayne Mery (:wsmwk)
+
+Comment 21
+
+&bull;
+
+10 years ago
+
+> http://web.mit.edu/bzbarsky/www/testcases/bugs/235022/hash061-2.3e18-draw.bz2
+
+current nightly build with e10s enabled, windows 7, quad core, < 5 seconds
+
+Does anyone still see a problem?
+
+Wayne Mery (:wsmwk)
+
+Comment 22
+
+&bull;
+
+8 years ago
+
+Andre can you reproduce testcase in comment 19? If not, please close WFM as confirmation of my comment 21
+
+BMO Automation
+
+Updated
+
+&bull;
+
+4 years ago
+
+Severity: normal &rarr; S3
+
+Gregory Pappas [:gregp]
+
+Comment 23
+
+&bull;
+
+3 years ago
+
+Attached file
+
+testcase.zip
+— Details
+
+Gregory Pappas [:gregp]
+
+Comment 24
+
+&bull;
+
+3 years ago
+
+(I attached the testcase directly to the bug just in case mit.edu goes down in the future)
+
+Do you think it's safe to close this now?
+
+Flags: needinfo?(jfkthame)
+
+Jonathan Kew [:jfkthame]
+
+Comment 25
+
+&bull;
+
+3 years ago
+
+I think so; performance in a current version seems reasonable for the scale of the testcase here. It'd be best to have new bugs for any specific cases that still perform particularly badly.
+
+Status: NEW &rarr; RESOLVED
+
+Closed: 22 years ago &rarr; 3 years ago
+
+Flags: needinfo?(jfkthame)
+
+Resolution: --- &rarr; WORKSFORME
+
+You need to log in
+before you can comment on or make changes to this bug.
+
+Top &uarr;
+
+Attachment
+
+Hide Details
+
+General
+
+Creator:
+Boris Zbarsky [:bzbarsky]
+
+Created:
+
+Updated:
+
+Size:
+
+Description
+
+File Name
+
+Content Type
+
+Raw
+Diff
+Splinter Review

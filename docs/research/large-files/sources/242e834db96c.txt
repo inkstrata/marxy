@@ -1,0 +1,640 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+community
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+GitHub Community
+
+Overview
+
+Repositories
+
+Discussions
+
+Packages
+
+People
+
+More
+
+Overview
+
+Repositories
+
+Discussions
+
+Packages
+
+People
+
+Does README.md have max characters?
+
+#23920
+
+Answered
+
+by
+nethgato
+
+halfrost
+
+asked this question in
+New to GitHub
+
+Does README.md have max characters?
+
+#23920
+
+halfrost
+
+Aug 19, 2020
+·
+10 comments
+·
+1 reply
+
+Answered
+
+by
+nethgato
+
+Return to top
+
+Discussion options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+halfrost
+
+Aug 19, 2020
+
+In my repo (https://github.com/halfrost/LeetCode-Go) README doesn’t render complete.
+
+The last line is incomplete:
+
+image872×137 10.1 KB
+
+You can see this problem in this commit: https://github.com/halfrost/LeetCode-Go/tree/7989003450a23bf1c27a34201f124cb2745d7096, the last line of README.md.
+
+In my local, it looks correct.
+
+| Title | Solution | Difficulty | Time | Space | 收藏 |
+| ----- | :--------: | :----------: | :----: | :-----: |:-----: |
+|[973. K Closest Points to Origin](https://leetcode.com/problems/k-closest-points-to-origin/)| [Go](https://github.com/halfrost/LeetCode-Go/tree/master/leetcode/0973.K-Closest-Points-to-Origin)| Medium | O(n log n)| O(log n) ||
+|[976. Largest Perimeter Triangle](https://leetcode.com/problems/largest-perimeter-triangle/)| [Go](https://github.com/halfrost/LeetCode-Go/tree/master/leetcode/0976.Largest-Perimeter-Triangle)| Easy | O(n log n)| O(log n) ||
+|[1030. Matrix Cells in Distance Order](https://leetcode.com/problems/matrix-cells-in-distance-order/)| [Go](https://github.com/halfrost/LeetCode-Go/tree/master/leetcode/1030.Matrix-Cells-in-Distance-Order)| Easy | O(n^2)| O(1) ||
+|[1054. Distant Barcodes](https://leetcode.com/problems/distant-barcodes/)| [Go](https://github.com/halfrost/LeetCode-Go/tree/master/leetcode/1054.Distant-Barcodes)| Medium | O(n log n)| O(log n) |❤️|
+
+This file has no grammatical errors, but GitHub can not render it complete.
+
+Does this README.md trigger max characters? Why GitHub renders it incomplete? It’s a bug or not?
+
+7
+You must be logged in to vote
+
+All reactions
+
+Answered by
+
+nethgato
+
+Aug 20, 2020
+
+Hey @halfrost o/
+
+That is strange, and I wish I could say I have a substantial answer for you straight away, but I don’t =(
+
+I’ve scoured each our docs, internal ticket history, slack history, and even our own codebase. I’ve been unable to find any documented (or coded) character limits on markdown files; README or otherwise.
+
+I have seen some internal comments that suggest, no; we do not have a character limit. But because of the experience you see, there very well may be a limit. Since I’ve spent some time on this, I’m hesitant to keep digging before hearing from you.
+
+Since that README is so extensive, should we discuss the usability of the page? Is there functionality elsewhere that makes…
+
+View full answer
+
+Replies:
+
+10 comments
+
+·
+
+1 reply
+
+Oldest
+
+Newest
+
+Top
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+halfrost
+
+Aug 19, 2020
+
+Author
+
+In my local, it looks correct:
+
+image1566×434 51.1 KB
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+nethgato
+
+Aug 20, 2020
+
+Hey @halfrost o/
+
+That is strange, and I wish I could say I have a substantial answer for you straight away, but I don’t =(
+
+I’ve scoured each our docs, internal ticket history, slack history, and even our own codebase. I’ve been unable to find any documented (or coded) character limits on markdown files; README or otherwise.
+
+I have seen some internal comments that suggest, no; we do not have a character limit. But because of the experience you see, there very well may be a limit. Since I’ve spent some time on this, I’m hesitant to keep digging before hearing from you.
+
+Since that README is so extensive, should we discuss the usability of the page? Is there functionality elsewhere that makes navigating such a large page easy for your users?
+
+While I can definitely go back here and ping some folks, I would wonder why we’re not breaking these segments into their own files, or even into gists, to store that information. Rather than having it all live in the README.
+
+I can assume that just having that bit of knowledge as an official stance is valuable, but perhaps it may be best in your case to consider organizing the information in another way.
+
+Do please let me know what you think, and if any other users have run into this, curious to hear what people think and if I need to go hunt down that person potentially responsible for this unforeseen limit/bug.
+
+Cheers 🙇
+
+Marked as answer
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+halfrost
+
+Aug 21, 2020
+
+Author
+
+Hi, @nethgato
+
+Thanks for your reply. I try some solutions which contain different words in the README. I am sure this behavior, trimming some characters, is made by Github render.
+
+However, I support your opinions. If README is too long, this is really unfriendly to the readers. I have split it into different parts. In the latest commit, everything is fine.
+
+Finally, thank you for patiently answering this strange question of mine. Maybe I waste your time. 😅
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+nethgato
+
+Aug 21, 2020
+
+Hey @halfrost – absolutely not a waste of time! Thank you for replying back and being willing to rethink your approach to the layout of your README.
+
+It really would be great to have an official answer, but it was rather difficult to track down. I had hoped to avoid pinging too many folks in an attempt to find that answer. If there’s any more interest in finding it, I can re-engage with folks that may know better than myself. Surprisingly, it was more difficult than I thought it would be =D
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+lukasmasuch
+
+Dec 27, 2020
+
+Hey @nethgato ,
+
+I also run into some kind of README limitation as well. But it only seems to apply for the Readme displayed on the main repo page, and not if you open the same file directly. The readme rendering here is cut off: GitHub - ml-tooling/best-of-ml-python at 2020.12.27 while the rendering here for the same file is fine: best-of-ml-python/README.md at 2020.12.27 · ml-tooling/best-of-ml-python · GitHub . I did a few experiments and figured out that the limitation seems to be around 500k characters. However, this might be just a coincidence and maybe there is just a rendering timeout for the main repo page.
+
+Update: I think I figured out the limit. The readme on the main page only renders the first 512 KB of the README.md file. This is around 500k characters (+/- a few thousand).
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+lukasmasuch
+
+Dec 27, 2020
+
+Here is another example with just using lorem ipsum text: The text on the main repo page is cut off
+
+GitHub - LukasMasuch/readme-limit-test: Testing Github readme rendering limitations while the rendering for the file is fine: readme-limit-test/README.md at main · LukasMasuch/readme-limit-test · GitHub
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+kaiwensun
+
+Aug 6, 2021
+
+I experienced the same problem. GitHub - kaiwensun/leetcode at cd1f682e8e8bd17c1bb67ee0c8c260b4d4537d19 is the last healthy version of README. After I insert some more text in the middle of the readme, the tail of the readme is truncated as in GitHub - kaiwensun/leetcode at 6922b8e0521641f5b570fe83a77e2c5243473788 .
+
+Same as what @LukasMasuch mentioned,
+
+it only seems to apply for the Readme displayed on the main repo page, and not if you open the same file directly
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+kaiwensun
+
+Aug 16, 2021
+
+We’ve seen the complaints of this same issue from multiple users.
+
+I am new to GitHub community. What is the correct way to get attention from GitHub staff to get this fixed? If here is not the correct channel, can you point me to the correct one?
+
+Thank you.
+
+2
+You must be logged in to vote
+
+All reactions
+
+1 reply
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+Ebazhanov
+
+Dec 28, 2022
+
+Hello,
+
+the same happens here as well https://github.com/Ebazhanov/linkedin-skill-assessments-quizzes
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+kaiwensun
+
+Dec 29, 2022
+
+Hi all,
+
+I opened a private support ticket to GitHub support team in Sept 2021. The short answer is "GitHub currently limit blob displaying to around 500 KB of data" when the readme is displayed at the home page of the repo.
+
+The following is the full reply from the GitHub support team.
+
+Hey Kaiwen,
+
+I reached out to our engineering team to figure out what is going on and we have an explanation for the issue you're facing.
+
+We currently limit blob displaying to around 500 KB of data, anything more we truncate in the UI. You can view the raw by clicking through.
+
+Your README.md file is 513 KB and hence would be truncated on the UI. However, as you may have noticed, accessing the blob directly works just fine i.e https://github.com/kaiwensun/leetcode/blob/master/README.md
+
+I'm sorry this answer may not provide a resolution to your query, but please understand such system limits are put in place to enhance fast & seamless user experience on the UI.
+
+Please feel free to reach out to me if you have further questions about this request.
+
+All the best,
+
+Malcolm
+
+1
+You must be logged in to vote
+
+👍
+3
+😕
+1
+
+All reactions
+
+👍
+3
+
+😕
+1
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+kaiwensun
+
+May 14, 2023
+
+Looks like GitHub recently reduced the max limit even more! WITHOUT NOTICE! This is a BREAKING CHANGE!
+
+Also, the workaround "However, as you may have noticed, accessing the blob directly works just fine" does not work anymore.
+
+Cutting a new private support ticket to GitHub.
+
+3
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Sign up for free
+to join this conversation on GitHub.
+Already have an account?
+Sign in to comment
+
+Category
+
+🆕
+
+New to GitHub
+
+Labels
+
+None yet
+
+5 participants
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

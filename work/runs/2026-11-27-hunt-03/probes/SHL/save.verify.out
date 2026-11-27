@@ -1,0 +1,10 @@
+ 2:57  up 1 day,  6:15, 1 user, load averages: 52.93 45.03 50.68
+10 MB run 0: with expectation cpu 0.071s wall 470.138875ms ok=true; without cpu 0.009s wall 50.398166ms ok=true
+10 MB run 1: with expectation cpu 0.070s wall 915.142291ms ok=true; without cpu 0.006s wall 81.745584ms ok=true
+10 MB run 2: with expectation cpu 0.075s wall 965.800792ms ok=true; without cpu 0.006s wall 106.099958ms ok=true
+20 MB run 0: with expectation cpu 0.148s wall 1.409897416s ok=true; without cpu 0.012s wall 54.982ms ok=true
+20 MB run 1: with expectation cpu 0.141s wall 855.709833ms ok=true; without cpu 0.010s wall 64.547125ms ok=true
+20 MB run 2: with expectation cpu 0.149s wall 1.804552625s ok=true; without cpu 0.013s wall 120.867416ms ok=true
+40 MB run 0: with expectation cpu 0.298s wall 3.503342667s ok=true; without cpu 0.031s wall 223.428958ms ok=true
+40 MB run 1: with expectation cpu 0.287s wall 2.300976333s ok=true; without cpu 0.029s wall 190.417542ms ok=true
+40 MB run 2: with expectation cpu 0.297s wall 2.72381875s ok=true; without cpu 0.034s wall 123.356791ms ok=true

@@ -1,0 +1,30 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/linesat.mjs --browser chromium
+=== md-prose 5.4 MB headings 1289
+open: wall 5430ms task 201ms script 33ms layout 27ms(23) style#50 nodes 2730
+Ctrl+K: wall 472ms task 58ms script 34ms layout 3ms(2) style#4 nodes 2769
+type @: wall 6477ms task 5506ms script 5390ms layout 58ms(4) style#7 nodes 10499
+type a: wall 1088ms task 56ms script 33ms layout 18ms(2) style#2 nodes 10501
+type b: wall 1047ms task 27ms script 19ms layout 0ms(2) style#2 nodes 10503
+Esc, outline panel: wall 2002ms task 458ms script 81ms layout 84ms(15) style#20 nodes 21645
+=== md-prose 10.8 MB headings 2577
+open: wall 5616ms task 317ms script 45ms layout 27ms(23) style#50 nodes 3123
+Ctrl+K: wall 412ms task 41ms script 20ms layout 7ms(2) style#4 nodes 3162
+type @: wall 13610ms task 12559ms script 12337ms layout 94ms(4) style#7 nodes 19515
+type a: wall 1194ms task 108ms script 59ms layout 40ms(2) style#2 nodes 19517
+type b: wall 1168ms task 104ms script 49ms layout 1ms(2) style#2 nodes 19519
+Esc, outline panel: wall 1965ms task 390ms script 61ms layout 88ms(15) style#20 nodes 28087
+=== md-headings 5.4 MB headings 65674
+open: wall 5638ms task 403ms script 67ms layout 25ms(23) style#51 nodes 3416
+Ctrl+K: wall 368ms task 29ms script 14ms layout 3ms(2) style#4 nodes 3455
+type @: wall 16402ms task 17261ms script 11001ms layout 3352ms(4) style#7 nodes 461284
+type a: wall 15077ms task 16867ms script 2693ms layout 8696ms(3) style#3 nodes 1052460
+type b: wall 3708ms task 3716ms script 2331ms layout 4ms(2) style#2 nodes 1052462
+Esc, outline panel: wall 2292ms task 1162ms script 259ms layout 113ms(15) style#20 nodes 995250
+=== md-headings 10.8 MB headings 130837
+open: wall 5926ms task 697ms script 66ms layout 22ms(23) style#51 nodes 2068
+Ctrl+K: wall 413ms task 48ms script 26ms layout 4ms(2) style#4 nodes 2107
+type @: wall 30023ms task 31611ms script 21650ms layout 6402ms(3) style#6 nodes 917318 STALL>30000ms type @
+type a: wall 30028ms task 41695ms script 9212ms layout 26192ms(3) style#3 nodes 2094961 STALL>30000ms type a
+type b: wall 26814ms task 26773ms script 8902ms layout 10115ms(3) style#3 nodes 47592
+Esc, outline panel: wall 5525ms task 4043ms script 3594ms layout 105ms(15) style#20 nodes 9850
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1110

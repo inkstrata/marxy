@@ -1,0 +1,7 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/EDT/copy-all.verify.mjs --browser chromium
+500000 [{"nodes":9859,"chars":477676,"cloneWall":272,"textWall":260,"htmlWall":291,"textLen":463351,"taskCpuS":0.86},{"nodes":9902,"chars":477676,"cloneWall":251,"textWall":260,"htmlWall":299,"textLen":463351,"taskCpuS":0.84},{"nodes":9932,"chars":477676,"cloneWall":243,"textWall":261,"htmlWall":265,"textLen":463351,"taskCpuS":0.8}]
+1000000 [{"nodes":14019,"chars":955477,"cloneWall":956,"textWall":951,"htmlWall":1017,"textLen":926857,"taskCpuS":3},{"nodes":14019,"chars":955477,"cloneWall":930,"textWall":957,"htmlWall":1047,"textLen":926857,"taskCpuS":3.02},{"nodes":14038,"chars":955477,"cloneWall":916,"textWall":973,"htmlWall":1040,"textLen":926857,"taskCpuS":2.95}]
+2000000 [{"nodes":15671,"chars":1410365,"cloneWall":2227,"textWall":2293,"htmlWall":2133,"textLen":1410230,"taskCpuS":6.83},{"nodes":15709,"chars":1413815,"cloneWall":2018,"textWall":2054,"htmlWall":2203,"textLen":1413680,"taskCpuS":6.52},{"nodes":15737,"chars":1416559,"cloneWall":2093,"textWall":2151,"htmlWall":2134,"textLen":1416424,"taskCpuS":6.52}]
+4000000 STALL open
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1103
+ 3:05  up 1 day,  6:23, 1 user, load averages: 38.80 38.99 45.34

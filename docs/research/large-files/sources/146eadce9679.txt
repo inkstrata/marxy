@@ -1,0 +1,318 @@
+Obsidian Forum
+
+Obsidian freezes while indexing Markdown generated from a PDF with many raw HTML tables
+
+Bug reports
+
+macos,
+ui-ux
+
+ks23
+
+August 13, 2026, 5:55pm
+
+1
+
+Steps to reproduce
+
+The issue can be reproduced using a publicly available PDF and a public PDF-to-Markdown converter.
+
+Source PDF
+
+OpenPOWER Foundation Power ISA Version 3.1C (OPF_PowerISA_v3.1C.pdf)
+
+Can also be found on the RaptorCS wiki.
+
+The PDF has 1,495 pages.
+
+PDF-to-Markdown converter
+
+converted the PDF using:
+
+pdf-to-markdown from the PSPDFKit Github repo.
+
+using its pdf-to-markdown command.
+
+The resulting file is:
+
+OPF_PowerISA_v3.1C.md
+
+Reproduction
+
+Download OPF_PowerISA_v3.1C.pdf.
+
+Convert it to Markdown with pdf-to-markdown.
+
+Create a completely new Obsidian vault.
+
+Put only the resulting OPF_PowerISA_v3.1C.md into the vault.
+
+Open the vault in Obsidian.
+
+Obsidian starts indexing the file and becomes unresponsive.
+
+In some tests the Obsidian window becomes black. With GPU rendering disabled, the contents can remain visible, but the application still freezes.
+
+The problem is reproducible in a fresh vault containing only this one Markdown file.
+
+Expected result
+
+Obsidian should index and open the Markdown file without freezing the application.
+
+If the document exceeds an internal parser/rendering limit, Obsidian should at least handle this gracefully rather than making the entire UI unresponsive.
+
+Actual result
+
+Obsidian freezes while processing/indexing the Markdown file.
+
+The UI becomes unresponsive and Obsidian has to be terminated.
+
+Troubleshooting performed
+
+I isolated the problem extensively.
+
+The generated Markdown file has approximately:
+
+5,690,182 bytes
+
+285,579 lines
+
+3,460 Markdown headings
+
+1,566 raw HTML <table> elements
+
+16,505 <tr> elements
+
+93,396 <td> elements
+
+2 Markdown links
+
+0 images
+
+0 fenced code blocks
+
+maximum line length: approximately 3,020 characters
+
+PDFs are not the cause
+
+My original vault contains both the source PDFs and their generated Markdown versions.
+
+When all generated .md files in the reference directory were temporarily renamed to .txt, Obsidian opened normally without freezing, while the PDFs remained in place.
+
+Re-enabling the PowerISA Markdown files reproduced the freeze.
+
+The issue was eventually isolated to OPF_PowerISA_v3.1C.md.
+
+The original vault is not required
+
+I created a completely new vault under /tmp containing only:
+
+OPF_PowerISA_v3.1C.md
+
+The same freeze occurs.
+
+Therefore the original vault, its other files, its storage location, and its existing .obsidian configuration are not required to reproduce the problem.
+
+File size alone does not appear to be the cause
+
+The original Markdown file:
+
+285,579 lines
+
+5,690,182 bytes
+
+freezes Obsidian.
+
+I created another version of the complete document in which only raw HTML table-related tags were escaped:
+
+<table>
+
+<thead>
+
+<tbody>
+
+<tfoot>
+
+<tr>
+
+<th>
+
+<td>
+
+The resulting file still contains all 285,579 lines and is actually larger:
+
+7,116,472 bytes
+
+This version does not freeze Obsidian.
+
+This suggests that raw HTML table processing, rather than file size or line count alone, is involved.
+
+Splitting the document
+
+I tested both halves of the original document separately:
+
+first ~142,790 lines: no freeze
+
+second ~142,789 lines: no freeze
+
+complete document: freeze
+
+This suggests a cumulative complexity/resource issue rather than one obviously malformed location in the document.
+
+HTML-table isolation
+
+The original document contains:
+
+1,566 <table> elements
+
+16,505 <tr> elements
+
+93,396 <td> elements
+
+A table extracted from a region where earlier tests crossed from working to freezing does not freeze Obsidian when placed alone in a fresh vault.
+
+Further tests were performed by keeping only the first N real HTML tables active and escaping the remaining table tags.
+
+Every important comparison below was repeated using a newly created vault to avoid relying on an existing Obsidian index/cache state.
+
+Observed:
+
+first 788 real tables active: no freeze
+
+first 812 real tables active: no freeze
+
+first 824 real tables active: no freeze
+
+first 830 real tables active: no freeze
+
+first 832 real tables active: no freeze
+
+first 833 real tables active: freeze
+
+However, the original table #833 by itself does not freeze Obsidian.
+
+I then took the working first-832-tables version and appended only this minimal table:
+
+<table>
+<tr><td>x</td></tr>
+</table>
+
+Result:
+
+Freeze
+
+As a control, I appended ordinary text instead to the same 832-table document.
+
+Result:
+
+No freeze
+
+However, this does not appear to be a simple limit of 833 HTML tables.
+
+I created a completely synthetic Markdown document containing 833 minimal tables of the form:
+
+<table>
+<tr><td>1</td></tr>
+</table>
+
+Result:
+
+No freeze
+
+Therefore the problem appears to depend on cumulative HTML/DOM/Markdown parsing complexity of the real converted document rather than simply the number of <table> elements.
+
+Current conclusion
+
+The following observations appear reproducible:
+
+The complete generated Markdown freezes Obsidian.
+
+The same document with HTML table tags escaped does not freeze.
+
+Both halves of the document work separately.
+
+Individual tables tested separately work.
+
+A prefix containing 832 of the real tables works.
+
+Adding one minimal HTML table to that prefix is sufficient to trigger the freeze.
+
+Adding ordinary text instead does not trigger the freeze.
+
+833 trivial synthetic HTML tables by themselves do not trigger the freeze.
+
+This looks like a cumulative performance/resource issue in the handling of a large number of non-trivial raw HTML tables/DOM nodes in a single Markdown document.
+
+Reproducibility
+
+The original input PDF is publicly available, so the exact problematic Markdown can be regenerated without redistributing the converted document:
+
+Source PDF:
+
+OPF_PowerISA_v3.1C.pdf on the RaptorCS wiki.
+
+Converter:
+
+can provide additional statistics or perform further isolation tests if useful.
+
+Environment
+
+macOS: [Version 26.5.2 (25F84)]
+
+Obsidian: [Version 1.13.7]
+
+Installer version: [1.13.7]
+
+Hardware: Apple Silicon Mac mini M4
+
+Community plugins: none / not required for reproduction
+
+Test vault: fresh local vault under /tmp
+
+Obsidian debug information
+
+[n/a]
+
+ks23
+
+August 13, 2026, 6:46pm
+
+2
+
+Additional finding / workaround:
+
+I transformed the generated document to remove all raw HTML table markup while preserving the table contents. 302 structurally simple tables were converted to native Markdown tables and the remaining 1,264 complex tables to structured plain text. All 104,750 original table cells were accounted for and a semantic hash over the extracted cell contents matched before and after transformation. The resulting document remains approximately 5.7 MB and contains the same 3,460 headings.
+
+The transformed .md opens and indexes successfully in Obsidian without freezing.
+
+This provides additional evidence that the failure is related to processing the cumulative raw HTML table structure rather than the document’s overall byte size or textual content.
+
+WhiteNoise
+
+August 13, 2026, 9:16pm
+
+3
+
+Link here or dm me a copy of the markdown file. Thanks
+
+ks23
+
+August 13, 2026, 10:31pm
+
+4
+
+OPF_PowerISA_v3.1C.md (5.4 MB)
+
+I hope it’s okay to post it here. I couldn’t find a way to send you a DM.
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Privacy Policy
+
+Powered by Discourse, best viewed with JavaScript enabled

@@ -1,0 +1,4 @@
+20000 runs 120000 chars ok ms 401
+60000 runs 360000 chars ok ms 866
+130000 runs 780000 chars RangeError: Maximum call stack size exceeded 557 ms
+300000 runs 1800000 chars RangeError: Maximum call stack size exceeded 1406 ms

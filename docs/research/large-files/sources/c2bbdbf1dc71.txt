@@ -1,0 +1,268 @@
+Jump to content
+
+Main menu
+
+Main menu
+
+move to sidebar
+hide
+
+Navigation
+
+Main page
+
+Contents
+
+Current events
+
+Random article
+
+About Wikipedia
+
+Contact us
+
+Contribute
+
+Help
+
+Learn to edit
+
+Community portal
+
+Recent changes
+
+Upload file
+
+Special pages
+
+Search
+
+Search
+
+Appearance
+
+Donate
+
+Create account
+
+Log in
+
+Personal tools
+
+Donate
+
+Create account
+
+Log in
+
+Contents
+
+move to sidebar
+hide
+
+(Top)
+
+1
+Computational complexity
+
+2
+Simple example of minimum raggedness metric
+
+3
+References
+
+4
+External links
+
+Toggle the table of contents
+
+Knuth–Plass line-breaking algorithm
+
+1 language
+
+Deutsch
+
+Edit links
+
+Article
+
+Talk
+
+English
+
+Read
+
+Edit
+
+View history
+
+Save
+
+Tools
+
+Tools
+
+move to sidebar
+hide
+
+Actions
+
+Read
+
+Edit
+
+View history
+
+Save
+
+General
+
+What links here
+
+Related changes
+
+Upload file
+
+Permanent link
+
+Page information
+
+Cite this page
+
+Get shortened URL
+
+Switch to legacy parser
+
+Print/export
+
+Download as PDF
+
+Printable version
+
+In other projects
+
+Wikidata item
+
+Appearance
+
+move to sidebar
+hide
+
+From Wikipedia, the free encyclopedia
+
+Line-breaking algorithm used in the TeX typesetting package
+
+The Knuth–Plass algorithm is a line-breaking algorithm designed for use in Donald Knuth's typesetting program TeX. It integrates the problems of text justification and hyphenation into a single algorithm by using a discrete dynamic programming method to minimize a loss function that attempts to quantify the aesthetic qualities desired in the finished output.[1][2][3]
+
+The algorithm works by dividing the text into a stream of three kinds of objects: boxes, which are non-resizable chunks of content, glue, which are flexible, resizable elements, and penalties, which represent places where breaking is undesirable (or, if negative, desirable).[2] The loss function, known as "badness", is defined in terms of the deformation of the glue elements, and any extra penalties incurred through line breaking.[1]
+
+Making hyphenation decisions follows naturally from the algorithm, but the choice of possible hyphenation points within words, and optionally their preference weighting, must be performed first, and that information inserted into the text stream in advance. Knuth and Plass' original algorithm does not include page breaking, but may be modified to interface with a pagination algorithm, such as the algorithm designed by Plass in his PhD thesis.[3][4]
+
+Typically, the cost function for this technique should be modified so that it does not count the space left on the final line of a paragraph; this modification allows a paragraph to end in the middle of a line without penalty. The same technique can also be extended to take into account other factors such as the number of lines or costs for hyphenating long words.[2]
+
+Computational complexity
+[edit]
+
+A naive brute-force exhaustive search for the minimum badness by trying every possible combination of breakpoints would take an impractical O(2n) time. The classic Knuth-Plass dynamic programming approach to solving the minimization problem is a worst-case O(n2) algorithm but usually runs much faster, in close to linear time.[5]
+
+Solving for the Knuth-Plass optimum can be shown to be a special case of the convex least-weight subsequence problem, which can be solved in O(n) time.[6] Methods to do this include the SMAWK algorithm.[7][8]
+
+Simple example of minimum raggedness metric
+[edit]
+
+For the input text
+
+AAA BB CC DDDDD
+
+with line width 6, a greedy algorithm that puts as many words on a line as possible while preserving order before moving to the next line, would produce:
+
+------ Line width: 6
+AAA BB Remaining space: 0
+CC Remaining space: 4
+DDDDD Remaining space: 1
+
+The sum of squared space left over by this method is 02+42+12=17. However, the optimal solution achieves the smaller sum 32+12+12=11:
+
+------ Line width: 6
+AAA Remaining space: 3
+BB CC Remaining space: 1
+DDDDD Remaining space: 1
+
+The difference here is that the first line is broken before BB instead of after it, yielding a better right margin and a lower cost 11.
+
+References
+[edit]
+
+1 2 "The Knuth/Plass line-breaking Algorithm". defoe.sourceforge.net. The Folio Project. Retrieved 2024-03-30.
+
+1 2 3 Knuth, Donald E.; Plass, Michael F. (1981), "Breaking paragraphs into lines", Software: Practice and Experience, 11 (11): 1119–1184, doi:10.1002/spe.4380111102, S2CID 206508107.
+
+1 2 Jonathan, Fine (2000). "Line breaking and page breaking" (PDF). TUGboat.
+
+↑ Plass, Michael F. (1981). "Optimal Pagination Techniques for Automatic Typesetting Systems" (PDF).
+
+↑ "knuth-plass-thoughts/plass.md at master · jaroslov/knuth-plass-thoughts". GitHub. Retrieved 2024-03-30.
+
+↑ Wilber, Robert (1988-09-01). "The concave least-weight subsequence problem revisited". Journal of Algorithms. 9 (3): 418–425. doi:10.1016/0196-6774(88)90032-6. ISSN 0196-6774.
+
+↑ Wilber, Robert (1988), "The concave least-weight subsequence problem revisited", Journal of Algorithms, 9 (3): 418–425, doi:10.1016/0196-6774(88)90032-6, MR 0955150.
+
+↑ Galil, Zvi; Park, Kunsoo (1990), "A linear-time algorithm for concave one-dimensional dynamic programming", Information Processing Letters, 33 (6): 309–311, doi:10.1016/0020-0190(90)90215-J, MR 1045521.
+
+External links
+[edit]
+
+Breaking Paragraphs into Lines, the original paper by Knuth and Plass
+
+Retrieved from "https://en.wikipedia.org/w/index.php?title=Knuth–Plass_line-breaking_algorithm&oldid=1368329697"
+
+Categories:
+
+Algorithms
+
+Typography
+
+Hidden categories:
+
+Articles with short description
+
+Short description is different from Wikidata
+
+This page was last edited on 8 August 2026, at 12:11 (UTC).
+
+Page was rendered with Parsoid.
+
+Text is available under the Creative Commons Attribution-ShareAlike 4.0 License;
+additional terms may apply. By using this site, you agree to the Terms of Use and Privacy Policy. Wikipedia® is a registered trademark of the Wikimedia Foundation, Inc., a non-profit organization.
+
+Privacy policy
+
+About Wikipedia
+
+Disclaimers
+
+Contact Wikipedia
+
+Legal & safety contacts
+
+Code of Conduct
+
+Developers
+
+Statistics
+
+Cookie statement
+
+Mobile view
+
+Search
+
+Search
+
+Toggle the table of contents
+
+Knuth–Plass line-breaking algorithm
+
+1 language
+
+Add topic

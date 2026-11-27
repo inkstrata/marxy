@@ -1,0 +1,395 @@
+Skip to main content
+
+Docs
+
+Build with Chrome
+
+Learn how Chrome works, participate in origin trials, and build with Chrome everywhere.
+
+Web Platform
+
+Isolated Web Apps (IWA)
+
+Capabilities
+
+Automation and testing
+
+ChromeDriver
+
+Extensions
+
+Chrome Web Store
+
+Chromium
+
+Web on Android
+
+Origin trials
+
+Release notes
+
+Productivity
+
+Create the best experience for your users with the web's best tools.
+
+DevTools
+
+Lighthouse
+
+Chrome UX Report
+
+Accessibility
+
+Modern Web Guidance
+
+Get things done quicker and neater, with our ready-made libraries.
+
+Workbox
+
+Puppeteer
+
+Experience
+
+Design a beautiful and performant web with Chrome.
+
+AI
+
+Performance
+
+CSS and UI
+
+Identity
+
+Payments
+
+Privacy and security
+
+Ads
+
+Resources
+
+More from Chrome and Google.
+
+All documentation
+
+Baseline open_in_new
+
+web.dev open_in_new
+
+PageSpeed Insights audit open_in_new
+
+Case studies
+
+Blog
+
+New in Chrome
+
+/
+
+English
+
+Deutsch
+
+Español – América Latina
+
+Français
+
+Indonesia
+
+Italiano
+
+Nederlands
+
+Polski
+
+Português – Brasil
+
+Tiếng Việt
+
+Türkçe
+
+Русский
+
+עברית
+
+العربيّة
+
+فارسی
+
+हिंदी
+
+বাংলা
+
+ภาษาไทย
+
+中文 – 简体
+
+中文 – 繁體
+
+日本語
+
+한국어
+
+Sign in
+
+Docs
+
+Lighthouse
+
+Docs
+
+More
+
+Case studies
+
+Blog
+
+New in Chrome
+
+Build with Chrome
+
+Web Platform
+
+Isolated Web Apps (IWA)
+
+Capabilities
+
+Automation and testing
+
+ChromeDriver
+
+Extensions
+
+Chrome Web Store
+
+Chromium
+
+Web on Android
+
+Origin trials
+
+Release notes
+
+Productivity
+
+DevTools
+
+Lighthouse
+
+Chrome UX Report
+
+Accessibility
+
+Modern Web Guidance
+
+Workbox
+
+Puppeteer
+
+Experience
+
+AI
+
+Performance
+
+CSS and UI
+
+Identity
+
+Payments
+
+Privacy and security
+
+Ads
+
+Resources
+
+All documentation
+
+Baseline <span class="material-icons" style="font-size: 12px;" aria-hidden="true" translate="no">open_in_new</span>
+
+web.dev <span class="material-icons" style="font-size: 12px;" aria-hidden="true" translate="no">open_in_new</span>
+
+PageSpeed Insights audit <span class="material-icons" style="font-size: 12px;" aria-hidden="true" translate="no">open_in_new</span>
+
+Home
+
+Docs
+
+Lighthouse
+
+Avoid an excessive DOM size
+
+Stay organized with collections
+
+Save and categorize content based on your preferences.
+
+Warning: This audit has moved into the Optimize DOM size insight as of Lighthouse 13. For more information see What's new in Lighthouse 13.
+
+A large DOM tree can slow down your page performance in multiple ways:
+
+Network efficiency and load performance
+
+A large DOM tree often includes many nodes that aren't visible when the user
+first loads the page, which unnecessarily increases data costs for your users
+and slows down load time.
+
+Runtime performance
+
+As users and scripts interact with your page,
+the browser must constantly
+recompute the position and styling of nodes.
+A large DOM tree in combination with complicated style rules can severely slow down rendering and interactivity.
+
+Memory performance
+
+If your JavaScript uses general query selectors such as document.querySelectorAll('li'),
+you may be unknowingly storing references to a very large number of nodes,
+which can overwhelm the memory capabilities of your users' devices.
+
+How the Lighthouse DOM size audit fails
+
+Lighthouse
+reports the total DOM elements for a page, the page's maximum DOM depth,
+and its maximum child elements:
+
+Lighthouse highlights excessive DOM size details
+
+Lighthouse flags pages with DOM trees that:
+
+Warns when the body element has more than ~800 nodes.
+
+Errors when the body element has more than ~1,400 nodes.
+
+Note: See the
+Lighthouse performance scoring post to learn
+how your page's overall performance score is calculated.
+
+How to optimize the DOM size
+
+In general, look for ways to create DOM nodes only when needed,
+and destroy nodes when they're no longer needed.
+
+If you're shipping a large DOM tree,
+try loading your page and manually noting which nodes are displayed.
+Perhaps you can remove the undisplayed nodes from the initially loaded document
+and only create them after a relevant user interaction,
+such as a scroll or a button click.
+
+If you create DOM nodes at runtime,
+Subtree Modification DOM Change Breakpoints
+can help you pinpoint when nodes get created.
+
+If you can't avoid a large DOM tree,
+another approach for improving rendering performance is simplifying your CSS selectors.
+See Google's Reduce the Scope and Complexity of Style Calculations
+for more information.
+
+For more details see the How large DOM sizes affect interactivity, and what you can do about it article.
+
+Stack-specific guidance
+
+Angular
+
+If you're rendering large lists, use virtual scrolling with the Component Dev Kit (CDK).
+
+React
+
+Use a "windowing" library like
+react-window to minimize the number
+of DOM nodes created if you are rendering many repeated elements on the page.
+
+Minimize unnecessary re-renders using
+shouldComponentUpdate,
+PureComponent,
+or React.memo.
+
+Skip effects
+only until certain dependencies have changed if you are using the Effect
+hook to improve runtime performance.
+
+Resources
+
+Source code for Avoid an excessive DOM size audit
+
+Reduce the Scope and Complexity of Style Calculations
+
+Except as otherwise noted, the content of this page is licensed under the Creative Commons Attribution 4.0 License, and code samples are licensed under the Apache 2.0 License. For details, see the Google Developers Site Policies. Java is a registered trademark of Oracle and/or its affiliates.
+
+Last updated 2024-06-21 UTC.
+
+Contribute
+
+File a bug
+
+See open issues
+
+Related content
+
+Chromium updates
+
+Case studies
+
+Archive
+
+Podcasts & shows
+
+Follow
+
+@ChromiumDev on X
+
+YouTube
+
+Chrome for Developers on LinkedIn
+
+RSS
+
+Terms
+
+Privacy
+
+Manage cookies
+
+English
+
+Deutsch
+
+Español – América Latina
+
+Français
+
+Indonesia
+
+Italiano
+
+Nederlands
+
+Polski
+
+Português – Brasil
+
+Tiếng Việt
+
+Türkçe
+
+Русский
+
+עברית
+
+العربيّة
+
+فارسی
+
+हिंदी
+
+বাংলা
+
+ภาษาไทย
+
+中文 – 简体
+
+中文 – 繁體
+
+日本語
+
+한국어

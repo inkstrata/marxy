@@ -1,0 +1,143 @@
+Home
+
+Release notes
+
+About
+
+Features
+
+Newly available
+
+Widely available
+
+Limited availability
+
+Discouraged
+
+Opposed
+
+Most wanted
+
+All features
+
+Missing only in
+
+Chromium
+
+Firefox
+
+Safari
+
+Implemented only in
+
+Chromium
+
+Firefox
+
+Safari
+
+Features in latest releases
+
+Chrome
+
+158
+
+Chrome Android
+
+158
+
+Edge
+
+158
+
+Firefox
+
+161
+
+Firefox for Android
+
+161
+
+Safari
+
+27.2
+
+Safari on iOS
+
+27.2
+
+contain-intrinsic-size
+
+Widely Available (since 2026-03-18)
+
+Copy ID
+
+The contain-intrinsic-size CSS property sets the intrinsic size of an element. When using size containment, the browser will lay out the element as if it had a single child of this size.
+
+Browser support
+
+Chrome
+
+83
+Released on 2020-05-19
+
+Chrome Android
+
+83
+Released on 2020-05-19
+
+Edge
+
+83
+Released on 2020-05-21
+
+Firefox
+
+107
+Released on 2022-11-15
+
+Firefox for Android
+
+107
+Released on 2022-11-15
+
+Safari
+
+17
+Released on 2023-09-18
+
+Safari on iOS
+
+17
+Released on 2023-09-18
+
+MDN documentation
+
+contain-intrinsic-size CSS property
+
+Specifications
+
+CSS Box Sizing Module Level 4 (#intrinsic-size-override),
+from Cascading Style Sheets (CSS) Working Group (W3C).
+
+Usage (according to Chrome Platform Status)
+
+~10.729% of page loads. More data at chromestatus.com.
+
+Web Platform Tests (WPT)
+
+View the latest WPT test results for this feature
+
+Interop
+
+Included in Interop 2023
+
+View as JSON
+|
+Edit this feature
+|
+Report an issue
+|
+Web-features entry:
+source,
+dist

@@ -7,9 +7,9 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from './support/shared-vite.mjs';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { parseMarkdown } from '../../../packages/core/src/index.ts';
 import { fileURLToPath } from 'node:url';
+import { idle, openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -105,7 +105,7 @@ test('toggle then Mod+S writes only the marker range in 03-ai-plan.md', async ()
   const orig = readFileSync(join(corpusDir, file));
   const marker = firstTaskMarker(orig, file);
   assert.ok(marker);
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     const docPath = await boot(page, file);
@@ -139,7 +139,7 @@ test('toggle then Mod+S writes only the marker range in 03-ai-plan.md', async ()
 });
 
 test('Mod+S when clean records no write', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage();
     const docPath = await boot(page, '01-long-technical.md');
@@ -158,7 +158,7 @@ test('Mod+S when clean records no write', async () => {
 });
 
 test('watch echo after save does not show the disk-changed notice', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     const docPath = await boot(page, '03-ai-plan.md');
@@ -174,7 +174,7 @@ test('watch echo after save does not show the disk-changed notice', async () => 
       const bytes = new Uint8Array(await shell.readFile(path));
       shell.emit([{ kind: 'modified', path }]);
     }, docPath);
-    await page.waitForTimeout(200);
+    await idle(page);
     const notice = await page.evaluate(() => document.getElementById('marxy-notices')?.textContent ?? '');
     assert.ok(!notice.includes('changed on disk'));
   } finally {

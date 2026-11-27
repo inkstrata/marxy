@@ -7,8 +7,8 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from './support/shared-vite.mjs';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { fileURLToPath } from 'node:url';
+import { openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -68,7 +68,7 @@ async function leave(page) {
   await page.keyboard.press(`${mod}+e`);
 }
 async function withPage(fn) {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     await fn(await browser.newPage({ viewport: { width: 960, height: 900 } }));
   } finally {

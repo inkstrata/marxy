@@ -1,0 +1,623 @@
+Mozilla Home
+
+Privacy
+
+Cookies
+
+Legal
+
+Bugzilla
+
+Quick Search Tips
+Advanced Search
+
+Browse
+
+Advanced Search
+
+New Bug
+
+Reports
+
+Documentation
+
+Log In
+
+Log In with GitHub
+
+or
+
+Remember me
+
+Create an Account
+·
+Forgot Password
+
+Browse
+
+Advanced Search
+
+New Bug
+
+Reports
+
+Documentation
+
+Copy Summary
+▾
+
+Markdown
+
+Markdown (bug number)
+
+Plain Text
+
+HTML
+
+View ▾
+
+Reset Sections
+
+Expand All Sections
+
+Collapse All Sections
+
+History
+
+JSON
+
+XML
+
+Closed
+
+Bug 934770
+
+Opened 13 years ago
+Closed 4 years ago
+
+divide large text runs into smaller runs to avoid chrome hangs
+
+*
+Summary:
+
+divide large text runs into smaller runs to avoid chrome hangs
+
+Categories
+
+(Core :: Layout: Text and Fonts, defect, P3)
+
+Product:
+
+Core
+▾
+
+Core
+
+Shared components used by Firefox and other Mozilla software, including handling of Web content; Gecko, HTML, CSS, layout, DOM, scripts, images, networking, etc. Issues with web page layout probably go here, while Firefox user interface issues belong in the Firefox product. (More info)
+
+See Open Bugs in This Product
+
+File New Bug in This Product
+
+Watch This Product
+
+Component:
+
+Layout: Text and Fonts
+▾
+
+Core :: Layout: Text and Fonts
+
+Issues with CSS font selection, font loading, text shaping and glyph selection, breaking, text decorations, bidirectional text processing, and white space processing. For issues with glyph rendering and font format support, see the Graphics: Text component.
+
+Example bugs:
+
+line-breaking code does not handle supplementary-plane characters properly
+
+double or wavy decoration lines are not repainted correctly if specified on floating first letter
+
+Specifications covered:
+
+CSS Fonts
+
+CSS Size Adjustment
+
+CSS Text
+
+CSS Text Decoration
+
+See Open Bugs in This Component
+
+Recently Fixed Bugs in This Component
+
+File New Bug in This Component
+
+Watch This Component
+
+Version:
+
+Trunk
+
+Platform:
+
+All
+
+All
+
+Type:
+
+defect
+
+Priority:
+
+P3
+
+Severity:
+
+major
+
+Points:
+
+---
+
+Tracking
+
+()
+
+Status:
+
+RESOLVED
+INCOMPLETE
+
+Status:
+
+RESOLVED
+
+INCOMPLETE
+
+Mark as Assigned
+
+Milestone:
+
+---
+
+Iteration:
+
+---
+
+Project Flags:
+
+a11y-review
+
+---
+
+Accessibility Severity
+
+---
+
+Performance Impact
+
+---
+
+Size Estimate
+
+---
+
+Webcompat Priority
+
+---
+
+Webcompat Score
+
+---
+
+Tracking Flags:
+
+Tracking
+Status
+
+relnote-firefox
+
+---
+
+thunderbird_esr115
+
+---
+
+---
+
+thunderbird_esr153
+
+---
+
+---
+
+firefox-esr115
+
+---
+
+---
+
+firefox-esr153
+
+---
+
+---
+
+firefox161
+
+---
+
+---
+
+firefox162
+
+---
+
+---
+
+firefox163
+
+---
+
+---
+
+People
+
+(Reporter: jtd, Unassigned)
+
+Assignee:
+
+Unassigned
+
+Assignee:
+
+Reset Assignee to default
+
+Mentors:
+
+---
+
+QA Contact:
+
+Reset QA Contact to default
+
+Reporter:
+
+jtd
+
+Triage Owner:
+
+jfkthame
+
+CC:
+
+23 people
+
+References
+
+(Blocks 1 open bug)
+
+Depends on:
+
+---
+
+Blocks:
+
+515447, 860492, 942832, 950526
+
+962412
+
+Dependency tree
+/ graph
+
+Regressions:
+
+---
+
+Regressed by:
+
+---
+
+Duplicates:
+
+1228469, 1247080
+
+URL:
+
+See Also:
+
+---
+
+Details
+
+(Keywords: perf)
+
+Alias:
+
+---
+
+Keywords:
+
+perf
+
+Whiteboard:
+
+---
+
+QA Whiteboard:
+
+---
+
+Has STR:
+
+---
+
+Change Request:
+
+---
+
+Votes:
+
+1
+
+Bug Flags:
+
+behind-pref
+
+firefox-backlog
+
+sec-bounty
+
+?
+
+sec-bounty-hof
+
+in-qa-testsuite
+
+in-testsuite
+
+qe-verify
+
+Crash Data
+
+Signature:
+
+None
+
+Security
+
+(public)
+
+This bug is publicly visible.
+
+User Story
+
+Bottom &darr;
+
+Tags ▾
+
+Reset
+
+Timeline ▾
+
+Reset
+
+Collapse All
+
+Expand All
+
+Comments Only
+
+John Daggett (:jtd)
+
+Reporter
+
+Description
+
+&bull;
+
+13 years ago
+
+Tinderbox logfile with text perf logging enabled:
+
+(presshell) 122409000 begin load [https://tbpl.mozilla.org/php/getParsedLog.php?id=30024572&tree=Mozilla-Central&full=1]
+(textperf-reflow) 0x122409000 time-ms: 165.29 reflow: 1 content-textruns: 7 chrome-textruns: 0 chars: 218490 max-textrun-len: 218334 word-cache-lookups: 18254 word-cache-hit-ratio: 0.833 word-cache-space: 0 word-cache-long: 1448 pref-fallbacks: 0 system-fallbacks: 0
+(textperf-reflow) 0x122409000 time-ms: 478.03 reflow: 2 content-textruns: 190 chrome-textruns: 0 chars: 547790 max-textrun-len: 539400 word-cache-lookups: 48272 word-cache-hit-ratio: 0.945 word-cache-space: 0 word-cache-long: 3735 pref-fallbacks: 0 system-fallbacks: 0
+(textperf-reflow) 0x122409000 time-ms: 1003.27 reflow: 5 content-textruns: 3 chrome-textruns: 0 chars: 1004331 max-textrun-len: 1004058 word-cache-lookups: 87048 word-cache-hit-ratio: 0.920 word-cache-space: 0 word-cache-long: 7676 pref-fallbacks: 0 system-fallbacks: 0
+(textperf-reflow) 0x122409000 time-ms: 3063.15 reflow: 8 content-textruns: 4157 chrome-textruns: 0 chars: 3476958 max-textrun-len: 708855 word-cache-lookups: 319828 word-cache-hit-ratio: 0.927 word-cache-space: 1724 word-cache-long: 22847 pref-fallbacks: 3448 system-fallbacks: 0
+(textperf-reflow) 0x122409000 time-ms: 33517.60 reflow: 10 content-textruns: 74 chrome-textruns: 0 chars: 32171697 max-textrun-len: 20274371 word-cache-lookups: 2974573 word-cache-hit-ratio: 0.936 word-cache-space: 25 word-cache-long: 204409 pref-fallbacks: 50 system-fallbacks: 7
+(presshell) 122409000 end load time-ms: 39899.49 [https://tbpl.mozilla.org/php/getParsedLog.php?id=30024572&tree=Mozilla-Central&full=1]
+(textperf-loaddone) 0x122409000 reflow: 12 content-textruns: 4431 chrome-textruns: 0 chars: 37419266 max-textrun-len: 20274371 word-cache-lookups: 3447975 word-cache-hit-ratio: 0.934 word-cache-space: 1749 word-cache-long: 240115 pref-fallbacks: 3498 system-fallbacks: 7
+(textperf) 0x122409000 reflow: 12 content-textruns: 4431 chrome-textruns: 0 chars: 37419266 max-textrun-len: 20274371 word-cache-lookups: 3447975 word-cache-hit-ratio: 0.934 word-cache-space: 1749 word-cache-long: 240115 pref-fallbacks: 3498 system-fallbacks: 7
+
+The key item here is that one of the reflows is shaping a textrun 20,274,371 bytes long! This will definitely cause a chrome hang. It turns out pre elements and raw text files are both handled this way.
+
+We need to slice up text runs when they get too large and we need to do it in a way that can be cached efficiently to avoid reconstructing the same textrun multiple times.
+
+Boris Zbarsky [:bzbarsky]
+
+Comment 1
+
+&bull;
+
+13 years ago
+
+This sounds a lot like bug 386122. I guess there we made scrolling faster but the initial pageload was still allocating the giant textrun?
+
+Mats Palmgren (inactive)
+
+Updated
+
+&bull;
+
+13 years ago
+
+Keywords: perf
+
+Priority: -- &rarr; P3
+
+Robert O'Callahan (:roc) (email my personal email if necessary)
+
+Comment 2
+
+&bull;
+
+13 years ago
+
+Yes. I don't know why we're creating a giant textrun here, unless the log contains one incredibly long line somewhere.
+
+Mats Palmgren (inactive)
+
+Updated
+
+&bull;
+
+13 years ago
+
+Blocks: 942832
+
+John Daggett (:jtd)
+
+Reporter
+
+Updated
+
+&bull;
+
+13 years ago
+
+Blocks: 860492
+
+John Daggett (:jtd)
+
+Reporter
+
+Comment 3
+
+&bull;
+
+13 years ago
+
+Simple testcase for generating large text elements:
+
+generate 1000 character block
+http://people.mozilla.org/~jdaggett/tests/generatetext.html?size=1000
+
+generate 10mb character block
+http://people.mozilla.org/~jdaggett/tests/generatetext.html?size=10mb
+
+John Daggett (:jtd)
+
+Reporter
+
+Updated
+
+&bull;
+
+12 years ago
+
+Blocks: 950526
+
+John Daggett (:jtd)
+
+Reporter
+
+Updated
+
+&bull;
+
+12 years ago
+
+Blocks: 962412
+
+Wayne Mery (:wsmwk)
+
+Updated
+
+&bull;
+
+12 years ago
+
+Severity: normal &rarr; major
+
+Chris AtLee [:catlee]
+
+Comment 5
+
+&bull;
+
+10 years ago
+
+The log from bug 1228469 has one line that is 20k long. 1% of the lines are > 4k long.
+
+Mike Conley (:mconley) (:⚙️)
+
+Updated
+
+&bull;
+
+8 years ago
+
+Blocks: 515447
+
+Peter Magyari
+
+Comment 7
+
+&bull;
+
+4 years ago
+
+Hi John,
+
+Sorry for the old poke, I'm aware that this is an old report, but I'd like to close it if the issue no longer occurs.
+
+Have you by any chance seen this issue on the latest Firefox versions?
+
+Thank you!
+
+Flags: needinfo?(jd.bugzilla)
+
+BugBot [:suhaib / :marco]
+
+Comment 8
+
+&bull;
+
+4 years ago
+
+Redirect a needinfo that is pending on an inactive user to the triage owner.
+
+:jfkthame, since the bug has high severity and recent activity, could you have a look please?
+
+For more information, please visit auto_nag documentation.
+
+Flags: needinfo?(jd.bugzilla) &rarr; needinfo?(jfkthame)
+
+Jonathan Kew [:jfkthame]
+
+Comment 9
+
+&bull;
+
+4 years ago
+
+I think we should close this as incomplete at this point. The specific log files referenced here and in bug 1228469, for example, are long gone, so direct comparisons to current behavior are difficult.
+
+It's definitely still true that loading a huge log file can have noticeable delays; e.g. https://share.firefox.dev/3MoAQGD is a profile of loading https://firefoxci.taskcluster-artifacts.net/EOpL-WzTRC2Duw9EZJ2vqQ/0/public/logs/live_backing.log in Nightly on macOS, and shows a 5.5-second reflow. However, e10s means that this doesn't hang the entire browser UI (just the tab).
+
+If we want to look into this further I think it would be best to open a new bug with suitable test files (as attachments, so they don't go away!) and profiles etc.
+
+Status: NEW &rarr; RESOLVED
+
+Closed: 4 years ago
+
+Flags: needinfo?(jfkthame)
+
+Resolution: --- &rarr; INCOMPLETE
+
+You need to log in
+before you can comment on or make changes to this bug.
+
+Top &uarr;

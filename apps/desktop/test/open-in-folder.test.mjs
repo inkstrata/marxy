@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, test as nodeTest } from 'node:test';
 import { b64, closeHarness, harnessBase, routeSkeleton } from './support/two-pane.mjs';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { drawerShows, skip, withFrame } from './support/frame.mjs';
+import { openBrowser } from './support/kit.mjs';
 
 const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
 after(() => closeHarness());
@@ -86,7 +86,7 @@ test('closing the tab of a repository nothing else shows lets the index go of it
 });
 
 test('a folder that cannot be listed leaves the launched PDF shown and the layout restored', async () => {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     const errors = [];

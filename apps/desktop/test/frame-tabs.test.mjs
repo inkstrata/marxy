@@ -3,12 +3,11 @@
 // same tab takes its place and Back brings the last one back, and three of 19's proposals: Glance tabs (from
 // Places), Pairs across the two panes, and Drag a tab along the row and onto a pane. Playwright WebKit.
 import { strict as assert } from 'node:assert';
-import { after, test as nodeTest } from 'node:test';
-import { closeHarness } from './support/two-pane.mjs';
-import { drawerShows, dragTab, marksOf, pathsShown, rowOf, skip, tabsOf, withFrame } from './support/frame.mjs';
+import { test as nodeTest } from 'node:test';
+import { idle, skip, withApp } from './support/kit.mjs';
+import { drawerShows, dragTab, marksOf, pathsShown, rowOf, tabsOf } from './support/frame.mjs';
 
 const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
-after(() => closeHarness());
 
 const doc = (name) => `# ${name}\n\n${`The ${name} file has words enough to fill a few lines of the page. `.repeat(40)}\n`;
 const FILES = Object.fromEntries(['A', 'B', 'C', 'D'].map((n) => [`/r/${n}.md`, doc(n)]));
@@ -19,7 +18,7 @@ const tabSelector = (name) => `.marxy-tabbar .marxy-tab:has(.marxy-tab-name:text
 const notices = (page) => page.evaluate(() => [...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent));
 
 test('each open lands in a tab of its own; a press shows a tab, and its button, a middle click or Alt+W close it', async () => {
-  await withFrame({ files: FILES, open: ['/r/A.md'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/A.md'] }, async (page) => {
     assert.deepEqual(await rowOf(page), ['A.md*']);
     assert.equal(await page.isVisible(`${tabSelector('A.md')} .marxy-tab-close`), false, 'the one tab of the one pane has no close button');
     await openHere(page, '/r/B.md');
@@ -55,7 +54,7 @@ test('each open lands in a tab of its own; a press shows a tab, and its button, 
 });
 
 test('an open in the same tab joins its history: Back and Forward step through it in that tab', async () => {
-  await withFrame({ files: FILES, open: ['/r/A.md'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/A.md'] }, async (page) => {
     const steps = () => page.evaluate(() => [...document.querySelectorAll('[data-marxy-head="0"] .marxy-head-step')].map((b) => b.disabled));
     assert.deepEqual(await steps(), [true, true]);
     // What a "this tab" open asks for (frame/intent.ts), as an open from the page itself would.
@@ -79,7 +78,7 @@ test('an open in the same tab joins its history: Back and Forward step through i
 });
 
 test('Glance tabs: a click in Places shows a file in one glance tab, the next click replaces it, and a double click or a scroll keeps it', async () => {
-  await withFrame({ files: FILES, open: ['/r/A.md'], config: 'proposals = { glance = true }\n' }, async (page, { mod }) => {
+  await withApp({ files: FILES, open: ['/r/A.md'], config: 'proposals = { glance = true }\n' }, async (page, { mod }) => {
     await page.keyboard.press(`${mod}+Shift+E`);
     await drawerShows(page, 'places');
     const row = (path) => page.locator(`.marxy-drawer .marxy-l-prow[data-marxy-left-row="f:${path}"]`);
@@ -116,7 +115,7 @@ test('Glance tabs: a click in Places shows a file in one glance tab, the next cl
 });
 
 test('without Glance tabs a click in Places opens a kept tab', async () => {
-  await withFrame({ files: FILES, open: ['/r/A.md'] }, async (page, { mod }) => {
+  await withApp({ files: FILES, open: ['/r/A.md'] }, async (page, { mod }) => {
     await page.keyboard.press(`${mod}+Shift+E`);
     await drawerShows(page, 'places');
     await page.locator('.marxy-drawer .marxy-l-prow[data-marxy-left-row="f:/r/B.md"]').click();
@@ -128,7 +127,7 @@ test('without Glance tabs a click in Places opens a kept tab', async () => {
 });
 
 test('Pairs: a tab remembers what the other pane showed, and returning to it brings that back', async () => {
-  await withFrame({ files: FILES, open: ['/r/A.md', '/r/B.md'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/A.md', '/r/B.md'] }, async (page) => {
     assert.deepEqual(await tabsOf(page), [
       { name: 'A.md', active: true, glance: false, paired: true },
       { name: 'B.md', active: false, glance: false, paired: true },
@@ -150,7 +149,7 @@ test('Pairs: a tab remembers what the other pane showed, and returning to it bri
 });
 
 test('Drag a tab: along the row to reorder it, onto a pane to show it there', async () => {
-  await withFrame({ files: FILES, open: ['/r/A.md', '/r/D.md'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/A.md', '/r/D.md'] }, async (page) => {
     await openIn(page, 0, '/r/B.md');
     await openIn(page, 0, '/r/C.md');
     assert.deepEqual(await rowOf(page, 0), ['A.md', 'B.md', 'C.md*', 'D.md']);
@@ -181,7 +180,7 @@ test('Drag a tab: along the row to reorder it, onto a pane to show it there', as
 
 test('closing the current tab over unsaved edits: Dismiss keeps the tab, Open without saving closes it', async () => {
   const files = { ...FILES, '/r/T.md': '# T\n\n- [ ] one\n- [ ] two\n' };
-  await withFrame({ files, open: ['/r/A.md'] }, async (page) => {
+  await withApp({ files, open: ['/r/A.md'] }, async (page) => {
     await openHere(page, '/r/T.md');
     assert.deepEqual(await rowOf(page), ['A.md', 'T.md*']);
     await page.evaluate(() => {
@@ -193,7 +192,7 @@ test('closing the current tab over unsaved edits: Dismiss keeps the tab, Open wi
     await page.click(`${tabSelector('T.md')} .marxy-tab-close`);
     await asked();
     await button('Dismiss');
-    await page.waitForTimeout(200);
+    await idle(page);
     assert.deepEqual(await pathsShown(page), ['/r/T.md']);
     assert.deepEqual(await rowOf(page), ['A.md', 'T.md*'], 'a dismissed close keeps the tab');
     await page.click(`${tabSelector('T.md')} .marxy-tab-close`);

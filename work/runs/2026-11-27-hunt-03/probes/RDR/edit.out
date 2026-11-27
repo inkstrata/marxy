@@ -1,0 +1,4 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/RDR/edit.mjs --browser chromium
+{"kind":"md-technical","size":1000000,"err":"TimeoutError: page.waitForFunction: Timeout 120000ms exceeded."}
+{"kind":"md-technical","size":2000000,"err":"TimeoutError: page.waitForFunction: Timeout 120000ms exceeded."}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1020

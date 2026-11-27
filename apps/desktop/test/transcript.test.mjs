@@ -6,8 +6,8 @@ import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { bootTwoPanes, closeHarness } from './support/two-pane.mjs';
+import { openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -20,7 +20,7 @@ const prose = '# Title\n\nA paragraph of plain prose, long enough to be a docume
 const files = { '/r/chat.md': chat, '/r/essay.md': prose };
 
 async function withPage(width, fn) {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
     await fn(page);

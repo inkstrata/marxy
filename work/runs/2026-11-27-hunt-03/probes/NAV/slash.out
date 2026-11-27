@@ -1,0 +1,38 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/slash.mjs --browser chromium
+=== md-prose 1 MB, lines 6207
+type /: wall 585ms task 600ms script 94ms layout 106ms(31) style#66 nodes 51787
+type t: wall 602ms task 585ms script 123ms layout 137ms(39) style#77 nodes 54925
+type h: wall 610ms task 577ms script 103ms layout 110ms(27) style#57 nodes 57483
+type e: wall 565ms task 534ms script 101ms layout 94ms(26) style#49 nodes 49617
+type zzq (no match): wall 643ms task 646ms script 133ms layout 131ms(43) style#86 nodes 52749
+Enter (find opens): wall 1563ms task 1471ms script 334ms layout 210ms(71) style#147 nodes 55415
+ count 0 of 0
+Search panel this file: show: wall 551ms task 556ms script 116ms layout 102ms(44) style#90 nodes 58076
+Search panel: type the: wall 2632ms task 2600ms script 603ms layout 469ms(172) style#342 nodes 66894
+ search text 
+Search panel: type ' reader': wall 2720ms task 2709ms script 535ms layout 443ms(174) style#324 nodes 55353
+=== md-prose 2 MB, lines 12409
+type /: wall 638ms task 650ms script 119ms layout 76ms(17) style#20 nodes 75740
+type t: wall 576ms task 592ms script 127ms layout 81ms(20) style#20 nodes 79568
+type h: wall 613ms task 637ms script 134ms layout 101ms(23) style#23 nodes 83875
+type e: wall 571ms task 586ms script 133ms layout 98ms(23) style#23 nodes 87703
+type zzq (no match): wall 696ms task 705ms script 170ms layout 99ms(33) style#33 nodes 91909
+Enter (find opens): wall 1033ms task 1049ms script 250ms layout 126ms(31) style#33 nodes 94790
+ count 0 of 0
+Search panel this file: show: wall 618ms task 639ms script 129ms layout 87ms(26) style#28 nodes 98379
+Search panel: type the: wall 2665ms task 2663ms script 597ms layout 389ms(103) style#103 nodes 107480
+ search text 
+Search panel: type ' reader': wall 2862ms task 2853ms script 601ms layout 366ms(140) style#149 nodes 70854
+=== md-prose 4.9 MB, lines 30395
+type /: wall 613ms task 622ms script 168ms layout 63ms(15) style#18 nodes 208461
+type t: wall 586ms task 592ms script 121ms layout 80ms(21) style#21 nodes 166708
+type h: wall 568ms task 569ms script 112ms layout 86ms(23) style#23 nodes 168663
+type e: wall 579ms task 579ms script 141ms layout 85ms(23) style#23 nodes 175255
+type zzq (no match): wall 607ms task 611ms script 141ms layout 81ms(31) style#31 nodes 181746
+Enter (find opens): wall 1036ms task 1036ms script 263ms layout 116ms(30) style#32 nodes 188773
+ count 0 of 0
+Search panel this file: show: wall 564ms task 569ms script 145ms layout 73ms(25) style#27 nodes 196987
+Search panel: type the: wall 2658ms task 2678ms script 657ms layout 344ms(84) style#84 nodes 218047
+ search text 
+Search panel: type ' reader': wall 2811ms task 2811ms script 669ms layout 321ms(125) style#134 nodes 241108
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1103

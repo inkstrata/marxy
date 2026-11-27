@@ -1,0 +1,1059 @@
+Skip to content
+
+Search Gists
+
+Search Gists
+
+All gists
+
+Back to GitHub
+
+Sign in
+
+Sign up
+
+Sign in
+
+Sign up
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+Instantly share code, notes, and snippets.
+
+paulirish / what-forces-layout.md
+
+Last active
+November 25, 2026 21:46
+
+Show Gist options
+
+Download ZIP
+
+Star
+
+5,000+
+(5,000+)
+
+You must be signed in to star a gist
+
+Fork
+
+864
+(864)
+
+You must be signed in to fork a gist
+
+Embed
+
+Select an option
+
+Embed
+Embed this gist in your website.
+
+Share
+Copy sharable link for this gist.
+
+Clone via HTTPS
+Clone using the web URL.
+
+No results found
+
+Learn more about clone URLs
+
+Clone this repository at &lt;script src=&quot;https://gist.github.com/paulirish/5d52fb081b3570c81e3a.js&quot;&gt;&lt;/script&gt;
+
+Save paulirish/5d52fb081b3570c81e3a to your computer and use it in GitHub Desktop.
+
+Code
+
+Revisions
+27
+
+Stars
+5,000+
+
+Forks
+864
+
+Embed
+
+Select an option
+
+Embed
+Embed this gist in your website.
+
+Share
+Copy sharable link for this gist.
+
+Clone via HTTPS
+Clone using the web URL.
+
+No results found
+
+Learn more about clone URLs
+
+Clone this repository at &lt;script src=&quot;https://gist.github.com/paulirish/5d52fb081b3570c81e3a.js&quot;&gt;&lt;/script&gt;
+
+Save paulirish/5d52fb081b3570c81e3a to your computer and use it in GitHub Desktop.
+
+Download ZIP
+
+What forces layout/reflow. The comprehensive list.
+
+Raw
+
+what-forces-layout.md
+
+What forces layout / reflow
+
+All of the below properties or methods, when requested/called in JavaScript, will trigger the browser to synchronously calculate the style and layout*. This is also called reflow or layout thrashing, and is common performance bottleneck.
+
+Generally, all APIs that synchronously provide layout metrics will trigger forced reflow / layout. Read on for additional cases and details.
+
+Element APIs
+
+Getting box metrics
+
+elem.offsetLeft, elem.offsetTop, elem.offsetWidth, elem.offsetHeight, elem.offsetParent
+
+elem.clientLeft, elem.clientTop, elem.clientWidth, elem.clientHeight
+
+elem.getClientRects(), elem.getBoundingClientRect()
+
+Scroll stuff
+
+elem.scrollBy(), elem.scrollTo()
+
+elem.scrollIntoView(), elem.scrollIntoViewIfNeeded()
+
+elem.scrollWidth, elem.scrollHeight
+
+elem.scrollLeft, elem.scrollTop also, setting them
+
+Setting focus
+
+elem.focus() (source)
+
+Also…
+
+elem.computedRole, elem.computedName
+
+elem.innerText (source)
+
+Getting window dimensions
+
+window.scrollX, window.scrollY
+
+window.innerHeight, window.innerWidth
+
+window.visualViewport.height / width / offsetTop / offsetLeft (source)
+
+document
+
+document.scrollingElement only forces style
+
+document.elementFromPoint
+
+Forms: Setting selection + focus
+
+inputElem.focus()
+
+inputElem.select(), textareaElem.select()
+
+Mouse events: Reading offset data
+
+mouseEvt.layerX, mouseEvt.layerY, mouseEvt.offsetX, mouseEvt.offsetY (source)
+
+Calling getComputedStyle()
+
+window.getComputedStyle() will typically force style recalc.
+
+window.getComputedStyle() will often force layout, as well.
+
+Details of the conditions where gCS() forces layout
+
+window.getComputedStyle() will force layout in one of 3 conditions:
+
+The element is in a shadow tree
+
+There are media queries (viewport-related ones). Specifically, one of the following: (source
+
+min-width, min-height, max-width, max-height, width, height
+
+aspect-ratio, min-aspect-ratio, max-aspect-ratio
+
+device-pixel-ratio, resolution, orientation , min-device-pixel-ratio, max-device-pixel-ratio
+
+The property requested is one of the following: (source)
+
+height, width
+
+top, right, bottom, left
+
+margin [-top, -right, -bottom, -left, or shorthand] only if the margin is fixed.
+
+padding [-top, -right, -bottom, -left, or shorthand] only if the padding is fixed.
+
+transform, transform-origin, perspective-origin
+
+translate, rotate, scale
+
+grid, grid-template, grid-template-columns, grid-template-rows
+
+perspective-origin
+
+These items were previously in the list but appear to not be any longer (as of Feb 2018): motion-path, motion-offset, motion-rotation, x, y, rx, ry
+
+Getting Range dimensions
+
+range.getClientRects(), range.getBoundingClientRect()
+
+SVG
+
+Quite a lot of properties/methods force, but I haven't made an exhaustive list.
+This list in incomplete:
+
+SVGLocatable: computeCTM(), getBBox()
+
+SVGTextContent: getCharNumAtPosition(), getComputedTextLength(), getEndPositionOfChar(), getExtentOfChar(), getNumberOfChars(), getRotationOfChar(), getStartPositionOfChar(), getSubStringLength(), selectSubString()
+
+SVGUse: instanceRoot
+
+Use the "chromium source tree link" below to explore on your own!
+
+contenteditable
+
+Lots & lots of stuff, …including copying an image to clipboard (source)
+
+* Appendix
+
+Reflow only has a cost if the document has changed and invalidated the style or layout. Typically, this is because the DOM was changed (classes modified, nodes added/removed, even adding a psuedo-class like :focus).
+
+If layout is forced, style must be recalculated first. So forced layout triggers both operations. Their costs are very dependent on the content/situation, but typically both operations are similar in cost.
+
+What should you do about all this? Well, the More on forced layout section below covers everything in more detail, but the short version is:
+
+for loops that force layout & change the DOM are the worst, avoid them.
+
+Use DevTools Performance Panel to see where this happens. You may be surprised to see how often your app code and library code hits this.
+
+Batch your writes & reads to the DOM (via FastDOM or a virtual DOM implementation). Read your metrics at the begininng of the frame (very very start of rAF, scroll handler, etc), when the numbers are still identical to the last time layout was done.
+
+Timeline trace of The Guardian. Outbrain is forcing layout repeatedly, probably in a loop.
+
+Cross-browser
+
+The above data was built by reading the Blink source, so it's true for Chrome, Opera, Brave, Edge and most android browsers. You can browse them yourself in the Chromium source tree.
+
+Tony Gentilcore's Layout Triggering List was for 2011 WebKit and generally aligns with the above.
+
+Modern WebKit's instances of forced layout are mostly consistent: updateLayoutIgnorePendingStylesheets - GitHub search - WebKit/WebKit
+
+Gecko's reflow appears to be requested via FrameNeedsReflow. Results: FrameNeedsReflow - mozilla-central searchfox
+
+No concrete data on IE or EdgeHTML, but they likely were roughly the same, as the return values for these properties are spec'd.
+
+More on forced layout
+
+Avoiding layout thrashing — Web Fundamentals The best resource on identifying and fixing this topic.
+
+Fixing Layout thrashing in the real world | Matt Andrews
+
+Timeline demo: Diagnosing forced synchronous layouts - Google Chrome
+
+Preventing 'layout thrashing' | Wilson Page
+
+wilsonpage/fastdom
+
+Rendering: repaint, reflow/relayout, restyle / Stoyan
+
+We spent a week making Trello boards load extremely fast. Here’s how we did it. - Fog Creek Blog
+
+Minimizing browser reflow | PageSpeed Insights | Google Developers
+
+Optimizing Web Content in UIWebViews and Websites on iOS
+
+Accelerated Rendering in Chrome
+
+web performance for the curious
+
+Jank Free
+
+Updated slightly April 2020. Codesearch links and a few changes to relevant element properties.
+
+Load earlier comments...
+
+aquaductape
+
+commented
+
+May 15, 2021
+
+•
+
+edited
+
+Loading
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Copy link
+
+Copy Markdown
+
+@lazysergey From what I know, the Performance result in chrome devtools doesn't format it in a text based way. The result is shown in GUI timeline and you hover over the cells and it tells what it is. So instead of showing a screenshot, I typed out the result as is.
+
+But here's the screenshot in case
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+lazysergey
+
+commented
+
+May 17, 2021
+
+•
+
+edited
+
+Loading
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Copy link
+
+Copy Markdown
+
+thanks, for me they're also almost identical, I don't see any layout tasks
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+waruyama
+
+commented
+
+Jul 1, 2021
+
+Copy link
+
+Copy Markdown
+
+Oh dear, it looks like changing the body's cursor with document.body.style.cursor = 'move'; invalidates the layout for the whole page. Ouch!
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+nullhook
+
+commented
+
+Jul 1, 2021
+
+Copy link
+
+Copy Markdown
+
+@waruyama do you have a test link?
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+waruyama
+
+commented
+
+Jul 2, 2021
+
+Copy link
+
+Copy Markdown
+
+@nullhook
+
+Here is a little test case that creates an SVG with a massive amount of circles.
+
+https://jsfiddle.net/17svhrqy/3/
+
+Run it and wait until "children created" is written to the console.
+
+Click on the red square and move the pointer.
+
+If the cursor is changed on pointerdown, there is a gap of 500ms before mouse move event is triggered. Without changing the cursor (you have to comment that line), this gap is only 170ms. I am pretty sure that recalculation of the style is causing the difference.
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+mootari
+
+commented
+
+Aug 8, 2021
+
+Copy link
+
+Copy Markdown
+
+@paulirish The Fog Creek Blog link is dead. Here is the archive.org link: https://web.archive.org/web/20180401153527/https://blog.fogcreek.com/we-spent-a-week-making-trello-boards-load-extremely-fast-heres-how-we-did-it/
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+htho
+
+commented
+
+Sep 6, 2021
+
+Copy link
+
+Copy Markdown
+
+I've started a little repository to reproduce these issues in order to learn from them. Maybe we can start to collect best practices there and see if some issues are resolved in the future.
+
+https://github.com/htho/what-forces-layout-reflow
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+matonga
+
+commented
+
+Nov 25, 2021
+
+Copy link
+
+Copy Markdown
+
+Is there any way to avoid relayout due to changing text in a text node? I've tried many variations of fixed width/height, overflow, contain, monospaced fonts, all to no avail. I would even settle for being to limit the layout to the parent node, but right now it always seems to leak to the whole document...I'm literally considering using canvas for rendering text which just seems so wrong
+
+@skortchmark9 thank you! I tried with an embedded SVG first, but it didn't do the trick. Using canvas was the only solution that worked. Anyway if someone knows some alternative I'd like to hear about it.
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+dSalieri
+
+commented
+
+Feb 11, 2022
+
+•
+
+edited
+
+Loading
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Copy link
+
+Copy Markdown
+
+Assignment to elem.style.transform value, invokes paint stage, also assignment to elem.style.left value, invokes paint stage twice. But if you will create property will-change, you don't see paint stage nowhere.
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Kaiido
+
+commented
+
+Mar 11, 2022
+
+Copy link
+
+Copy Markdown
+
+A sneaky one I just found in the canvas2D API which currently only concerns Firefox:
+
+setting ctx.fillStyle, ctx.strokeStyle or ctx.shadowColor will force a relayout there, when the associated canvas element is attached to the DOM.
+
+This is because these values can accept a value of "currentColor", so the browser has to perform a recalc to get the computed color. Chrome and Safari have a bug where they only get that value from the canvas element's style attribute, so they don't need to trigger the recalc there. However their behavior is against the specs, so it may change in the future (or maybe the specs will change).
+
+Test page: https://jsfiddle.net/sxe36Lk1/
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+fabiospampinato
+
+commented
+
+Apr 28, 2023
+
+•
+
+edited
+
+Loading
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Copy link
+
+Copy Markdown
+
+Weird how changing the focus triggers a style recalculation, like I don't even have any :focus or :focus-visible selectors, what's a style recalculation good for in this case? It looks like wasted time to me.
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Kaiido
+
+commented
+
+Apr 28, 2023
+
+Copy link
+
+Copy Markdown
+
+@fabiospampinato it's the other way around. These getters and methods do force a reflow because they need an updated layout to work well, so it's not the fact that you have a :focus selector that matters1, but that the focus() method needs an up to date layout.
+
+In the particular case of element.focus() for instance, it needs to check if the element is being-rendered, otherwise it's not a focusable-area, and thus can't be focused.
+
+Footnotes
+
+Might be noted that the default UA stylesheet does have :focus-visible rule. ↩
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+fabiospampinato
+
+commented
+
+Apr 28, 2023
+
+Copy link
+
+Copy Markdown
+
+@Kaiido that makes a lot of sense 🤔 thank you!
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Fa-So
+
+commented
+
+Apr 28, 2023
+
+via email
+
+Copy link
+
+Copy Markdown
+
+Can you please write the test? Unfortunately I did not see that it does not pass through
+
+…
+
+________________________________
+Von: Fabio Spampinato ***@***.***>
+Gesendet: Freitag, 28. April 2023 12:50
+An: fabiospampinato ***@***.***>
+Cc: Manual ***@***.***>
+Betreff: EXTERNAL: Re: paulirish/what-forces-layout.md
+
+CAUTION! External Email. Do not click links or open attachments unless you recognize the sender and are sure the content is safe.
+If you think this is a phishing email, please report it by using the "Phish Alert Report" button in Outlook.
+
+@fabiospampinato commented on this gist.
+
+________________________________
+
+@Kaiido<https://github.com/Kaiido> that makes a lot of sense 🤔 thank you!
+
+—
+Reply to this email directly, view it on GitHub<https://gist.github.com/paulirish/5d52fb081b3570c81e3a#gistcomment-4551750> or unsubscribe<https://github.com/notifications/unsubscribe-auth/AB4BF5CX64B3DD6QY34TZIDXDOOFZBFKMF2HI4TJMJ2XIZLTSKBKK5TBNR2WLJDHNFZXJJDOMFWWLK3UNBZGKYLEL52HS4DFQKSXMYLMOVS2I5DSOVS2I3TBNVS3W5DIOJSWCZC7OBQXE5DJMNUXAYLOORPWCY3UNF3GS5DZVRZXKYTKMVRXIX3UPFYGLK2HNFZXIQ3PNVWWK3TUUZ2G64DJMNZZDAVEOR4XAZNEM5UXG5FFOZQWY5LFVAZDMNBVHAYTGONHORZGSZ3HMVZKMY3SMVQXIZI>.
+You are receiving this email because you are subscribed to this thread.
+
+Triage notifications on the go with GitHub Mobile for iOS<https://apps.apple.com/app/apple-store/id1477376905?ct=notification-email&mt=8&pt=524675> or Android<https://play.google.com/store/apps/details?id=com.github.android&referrer=utm_campaign%3Dnotification-email%26utm_medium%3Demail%26utm_source%3Dgithub>.
+
+UNRESTRICTED
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+iamakulov
+
+commented
+
+Aug 20, 2023
+
+Copy link
+
+Copy Markdown
+
+The reason window.matchMedia is not on this list is because window.matchMedia("(min-width: ...)") does not depend on whether scrollbars are visible:
+
+I believe that the list is correct and matchMedia does not trigger a reflow. All media queries have been carefully designed to not depend on page content. For example, width has been specced as viewport width including the scrollbar so that the result doesn't change regardless of whether there is a scrollbar or not.
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+paulirish
+
+commented
+
+Oct 26, 2023
+
+Copy link
+
+Copy Markdown
+
+Author
+
+A few notes on CSS Triggers
+
+That site (which seems to be hosted by a squatter now?) covers what operations are required as a result of setting/changing a given CSS value. Basically, what work has to happen if you're changing just 1 style property every rAF tick.
+
+"trigger" isn't a great name, but essentially it's poking at: what is invalidated (and thus needs to be recomputed) when style property X is changed?
+
+For example:
+
+setting el.style.opacity in a rAF loop doesn't invalidate the layout or paint, so on each rAF tick, we'd see Style then Composite. (skipping layout & paint)
+
+meanwhile: setting el.style.left in a rAF loop affects layout as well. (And, as a rule, all layout changes need to be painted). So on each rAF tick we see all 4 operations: style,layout,paint,composite.
+
+So while csstriggers is/was about "what is the impact of setting a style value?", the gist above is about "what is the impact of getting a value".
+
+(tbh generally I think the csstriggers data is mostly a distraction/oversimplification and you should just use the devtools performance panel instead)
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Kaiido
+
+commented
+
+Oct 27, 2023
+
+Copy link
+
+Copy Markdown
+
+A couple of new triggers I found, related to the Canvas2D API and my previous comment.
+
+Another sneaky setter, that concerns both Firefox and Chrome: setting the Canvas2D .filter will force a reflow. https://jsfiddle.net/bqfm4agh/ I suppose this is because this property can also have a currentColor component (in drop-shadow()) and that they'll gather the computed styles every time.
+
+Then, the Canvas2D API has a direction attribute, its default value is inherit, so it's taken from the computed style of the target canvas and thus everything that will get this attribute will need to trigger a reflow for connected <canvas> elements...
+
+In Chrome the ctx.direction getter will trigger a reflow, that one is not very surprising. https://jsfiddle.net/mhn4y60c/
+
+In Firefox the direction getter did not trigger a reflow, but that's because they computed it when we called getContext("2d") o_O https://jsfiddle.net/pdyc6v49/ That's certainly more surprising.
+
+And then, in every browser, calling .fillText() or .strokeText() will also trigger a reflow. https://jsfiddle.net/80rgLymn/ You get it, they need the computed direction value for drawing the text, but while it makes sense when you know it, it's definitely not obvious (I discovered it very recently, while I'm interested on this kinda stuff for years now, and did work intensively on this API...).
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+zanesterling
+
+commented
+
+May 17, 2024
+
+Copy link
+
+Copy Markdown
+
+Then, the Canvas2D API has a direction attribute, its default value is inherit, so it's taken from the computed style of the target canvas and thus everything that will get this attribute will need to trigger a reflow for connected elements...
+
+And then, in every browser, calling .fillText() or .strokeText() will also trigger a reflow. https://jsfiddle.net/80rgLymn/ You get it, they need the computed direction value for drawing the text
+
+Frustrating that it seems like even overriding ctx.direction to 'ltr' or 'rtl' doesn't save us from the reflow on .fillText(). https://jsfiddle.net/c92jmnz3/
+
+If I tell my CanvasRenderingContext2D to use direction='ltr', shouldn't it no longer need to check styles?
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+zanesterling
+
+commented
+
+May 17, 2024
+
+Copy link
+
+Copy Markdown
+
+Hmm, seems like there's at least one more reason why Blink unconditionally triggers a reflow on fillText():
+
+accessFont needs the style to be up to date, but updating style can cause
+
+script to run, (e.g. due to autofocus) which can free the canvas (set
+
+size to 0, for example), so update style before grabbing the PaintCanvas.
+
+https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/modules/canvas/canvas2d/base_rendering_context_2d.cc;l=3131-3135;drc=c0265133106c7647e90f9aaa4377d28190b1a6a9
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+thdoan
+
+commented
+
+Jun 11, 2024
+
+Copy link
+
+Copy Markdown
+
+Can you guys help me troubleshoot why content-visibility: auto; is not working on a particular page? I'm applying this to <tr> and usually rows that outside of the viewable area should have a "Descendants are skipped due to content-visibility" tooltip, but I'm still not seeing it. I'm checking out the Performance tab, but I can't figure out exactly what is triggering the repaint that prevents this from working. I double-checked to make sure the page is not using any of the things listed in what-forces-layout.md.
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+danieltroger
+
+commented
+
+Nov 1, 2024
+
+Copy link
+
+Copy Markdown
+
+Anyone else seen reading width of an HTMLImageElement causing a style reclaculation?
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+danieltroger
+
+commented
+
+Nov 1, 2024
+
+Copy link
+
+Copy Markdown
+
+Github is broken so I can't edit comments or add pictures but it seems like element.getAttribute("width") needs to be used instead, width returns the same thing as offsetWidth which is the measured dimensions of the image. Maybe this should be added to the list?
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+oliviertassinari
+
+commented
+
+Nov 25, 2024
+
+•
+
+edited
+
+Loading
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Copy link
+
+Copy Markdown
+
+I guess computedStyleMap() forces reflow, but maybe not since it doesn't resolve values?
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Kaiido
+
+commented
+
+Nov 25, 2024
+
+Copy link
+
+Copy Markdown
+
+@oliviertassinari like getComputedStyle the call itself is free, it's calling get() on it that will cause a reflow. And yes, while the values aren't the "resolved" ones they still force a layout, at least in current Chrome's implementation: https://jsfiddle.net/sempzykg/ I guess they need it even to be able to perform the cascading.
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+oliviertassinari
+
+commented
+
+Nov 27, 2024
+
+Copy link
+
+Copy Markdown
+
+@Kaiido Amazing, thanks for writing that test case!
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+ronnostic
+
+commented
+
+Jan 8, 2025
+
+Copy link
+
+Copy Markdown
+
+Fixing Layout thrashing in the real world is 404
+
+Here's the latest archived version
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+mgrubinger
+
+commented
+
+Jan 15, 2025
+
+Copy link
+
+Copy Markdown
+
+@paulirish, the link to Wilson Page article "Preventing Layout Thrashing" links to a sketchy placeholder site. This seems to be the correct link now https://wilsonpage.uk/preventing-layout-thrashing/
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+jantimon
+
+commented
+
+Mar 14, 2025
+
+Copy link
+
+Copy Markdown
+
+window.innerHeight does not trigger reflows in Chromium: 133.0.6943.141
+
+Test Case Code
+
+// Setup timing function
+const timeOperation = (name, operation) => {
+performance.mark(`${name}-start`);
+operation();
+performance.mark(`${name}-end`);
+performance.measure(name, `${name}-start`, `${name}-end`);
+console.log(performance.getEntriesByName(name)[0].duration);
+};
+
+document.addEventListener("click", () => {
+let x = 0;
+document.body.style.background = "orange";
+// Test innerHeight (shouldn't trigger layout)
+timeOperation('innerHeight', () => {
+for (let i = 0; i < 100000; i++) {
+document.body.style.marginBottom = i + "px";
+x += window.innerHeight;
+x = Math.min(400, x);
+}
+});
+
+document.body.style.background = "purple";
+// Test offsetHeight (triggers layout)
+timeOperation('offsetHeight', () => {
+for (let i = 0; i < 1000; i++) {
+document.body.style.marginBottom = i + "px";
+x += window.document.body.offsetHeight;
+x = Math.min(400, x);
+}
+});
+document.body.style.background = "white";
+console.log(x);
+});
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Ashish-simpleCoder
+
+commented
+
+May 16, 2025
+
+Copy link
+
+Copy Markdown
+
+innerHeight
+
+@jantimon, You are right. I tried both on Chrome and Firefox. Innerheight is not triggering layout reflow.
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+page200
+
+commented
+
+Apr 7, 2026
+
+•
+
+edited
+
+Loading
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Copy link
+
+Copy Markdown
+
+Reflow only has a cost if the document has changed and invalidated the style or layout.
+
+If certain styles such as colors were invalidated but the layout wasn't, then there's no need for a reflow.
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Sign up for free
+to join this conversation on GitHub.
+Already have an account?
+Sign in to comment
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

@@ -1,0 +1,563 @@
+Mozilla Home
+
+Privacy
+
+Cookies
+
+Legal
+
+Bugzilla
+
+Quick Search Tips
+Advanced Search
+
+Browse
+
+Advanced Search
+
+New Bug
+
+Reports
+
+Documentation
+
+Log In
+
+Log In with GitHub
+
+or
+
+Remember me
+
+Create an Account
+·
+Forgot Password
+
+Browse
+
+Advanced Search
+
+New Bug
+
+Reports
+
+Documentation
+
+Copy Summary
+▾
+
+Markdown
+
+Markdown (bug number)
+
+Plain Text
+
+HTML
+
+View ▾
+
+Reset Sections
+
+Expand All Sections
+
+Collapse All Sections
+
+History
+
+JSON
+
+XML
+
+Closed
+
+Bug 475606
+
+Opened 17 years ago
+Closed 8 years ago
+
+Browser not responsive while loading HTML5 spec
+
+*
+Summary:
+
+Browser not responsive while loading HTML5 spec
+
+Categories
+
+(Core :: DOM: HTML Parser, defect)
+
+Product:
+
+Core
+▾
+
+Core
+
+Shared components used by Firefox and other Mozilla software, including handling of Web content; Gecko, HTML, CSS, layout, DOM, scripts, images, networking, etc. Issues with web page layout probably go here, while Firefox user interface issues belong in the Firefox product. (More info)
+
+See Open Bugs in This Product
+
+File New Bug in This Product
+
+Watch This Product
+
+Component:
+
+DOM: HTML Parser
+▾
+
+Core :: DOM: HTML Parser
+
+This system consumes content from the web, parses, validates and builds a content model (document)
+
+See Open Bugs in This Component
+
+Recently Fixed Bugs in This Component
+
+File New Bug in This Component
+
+Watch This Component
+
+Version:
+
+unspecified
+
+Platform:
+
+x86
+
+macOS
+
+Type:
+
+defect
+
+Priority:
+
+Not set
+
+Severity:
+
+normal
+
+Points:
+
+---
+
+Tracking
+
+()
+
+Status:
+
+RESOLVED
+FIXED
+
+Status:
+
+RESOLVED
+
+FIXED
+
+Mark as Assigned
+
+Milestone:
+
+---
+
+Iteration:
+
+---
+
+Project Flags:
+
+a11y-review
+
+---
+
+Accessibility Severity
+
+---
+
+Performance Impact
+
+---
+
+Size Estimate
+
+---
+
+Webcompat Priority
+
+---
+
+Webcompat Score
+
+---
+
+Tracking Flags:
+
+Tracking
+Status
+
+relnote-firefox
+
+---
+
+thunderbird_esr115
+
+---
+
+---
+
+thunderbird_esr153
+
+---
+
+---
+
+firefox-esr115
+
+---
+
+---
+
+firefox-esr153
+
+---
+
+---
+
+firefox161
+
+---
+
+---
+
+firefox162
+
+---
+
+---
+
+firefox163
+
+---
+
+---
+
+People
+
+(Reporter: ian, Unassigned)
+
+Assignee:
+
+Unassigned
+
+Assignee:
+
+Reset Assignee to default
+
+Mentors:
+
+---
+
+QA Contact:
+
+Reset QA Contact to default
+
+Reporter:
+
+ian
+
+Triage Owner:
+
+sfarre
+
+CC:
+
+20 people
+
+References
+
+(Depends on 1 open bug,
+
+URL
+
+)
+
+Depends on:
+
+475721, 481128, 481129
+
+Blocks:
+
+---
+
+Dependency tree
+/ graph
+
+Regressions:
+
+---
+
+Regressed by:
+
+---
+
+Duplicates:
+
+722158
+
+URL:
+
+damowmow.com/playground/bugs/slow/htm...
+
+See Also:
+
+---
+
+Details
+
+(Keywords: perf)
+
+Alias:
+
+---
+
+Keywords:
+
+perf
+
+Whiteboard:
+
+---
+
+QA Whiteboard:
+
+---
+
+Has STR:
+
+---
+
+Change Request:
+
+---
+
+Votes:
+
+4
+
+Bug Flags:
+
+behind-pref
+
+firefox-backlog
+
+sec-bounty
+
+?
+
+sec-bounty-hof
+
+in-qa-testsuite
+
+in-testsuite
+
+qe-verify
+
+Crash Data
+
+Signature:
+
+None
+
+Security
+
+(public)
+
+This bug is publicly visible.
+
+User Story
+
+Bottom &darr;
+
+Tags ▾
+
+Reset
+
+Timeline ▾
+
+Reset
+
+Collapse All
+
+Expand All
+
+Comments Only
+
+Hixie (not reading bugmail)
+
+Reporter
+
+Description
+
+&bull;
+
+17 years ago
+
+STEPS TO REPRODUCE
+1. Load the HTML5 spec (single-page version). There are some snapshots below.
+2. Try to interact with the browser while it is loading.
+
+ACTUAL RESULTS
+Browser isn't very responsive.
+Also, the page takes quite a while to load, especially the full version with CSS and JS.
+
+EXPECTED RESULTS
+The page should display, complete and fully interactive, as soon as I've decided that I want to see it.
+Or, alternatively, if that's too audacious, then it should render quickly once it's started downloading.
+
+TESTCASES
+http://damowmow.com/playground/bugs/slow/html5/full/
+http://damowmow.com/playground/bugs/slow/html5/static-html-only/
+
+Vladimir Vukicevic [:vlad] [:vladv] (needinfo me, slow to respond)
+
+Updated
+
+&bull;
+
+17 years ago
+
+Depends on: 475721
+
+Olli Pettay [:smaug][bugs@pettay.fi]
+
+Updated
+
+&bull;
+
+17 years ago
+
+Depends on: 481128
+
+Olli Pettay [:smaug][bugs@pettay.fi]
+
+Updated
+
+&bull;
+
+17 years ago
+
+Depends on: 481129
+
+u88484
+
+Comment 1
+
+&bull;
+
+16 years ago
+
+Hixie, those links are dead. Do you have a working link?
+
+Biju
+
+Comment 2
+
+&bull;
+
+16 years ago
+
+http://www.whatwg.org/specs/web-apps/current-work/
+
+I think this issue is due to multiple problem.
+PC 1
+a) with JavaScript disabled, I dont see any problem at all
+b) with JavaScript enabled, First few seconds (say 10sec) browser
+response is slow, but user can scroll. Then JS kicks in,
+and browser hangs for a minute or two. After that user can
+work with out any problem.
+
+PC 2 and 3
+a) with JavaScript disabled, scrolling is very slow
+b) with JavaScript enabled, browser just hangs
+
+Henri Sivonen (:hsivonen)
+
+Comment 3
+
+&bull;
+
+16 years ago
+
+The current live spec mostly WFM, but I have a fast computer.
+
+Wayne Mery (:wsmwk)
+
+Comment 5
+
+&bull;
+
+9 years ago
+
+I see only a 1-2 sec delay on https://html.spec.whatwg.org/
+
+Status: NEW &rarr; RESOLVED
+
+Closed: 9 years ago
+
+Keywords: perf
+
+Resolution: --- &rarr; WORKSFORME
+
+Marco Castelluccio [:marco]
+
+Comment 6
+
+&bull;
+
+9 years ago
+
+It's still pretty slow for me. It depends on which machine you're using.
+
+Status: RESOLVED &rarr; REOPENED
+
+Resolution: WORKSFORME &rarr; ---
+
+David Bruant
+
+Comment 7
+
+&bull;
+
+8 years ago
+
+how much faster do you think this can get?
+
+Flags: needinfo?(mcastelluccio)
+
+Marco Castelluccio [:marco]
+
+Comment 8
+
+&bull;
+
+8 years ago
+
+The browser is no longer unresponsive when loading https://html.spec.whatwg.org/ now.
+
+Status: REOPENED &rarr; RESOLVED
+
+Closed: 9 years ago &rarr; 8 years ago
+
+Flags: needinfo?(mcastelluccio)
+
+Resolution: --- &rarr; FIXED
+
+You need to log in
+before you can comment on or make changes to this bug.
+
+Top &uarr;

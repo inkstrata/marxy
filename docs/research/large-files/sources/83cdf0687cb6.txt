@@ -1,0 +1,430 @@
+Skip to main content
+
+Docs
+
+Build with Chrome
+
+Learn how Chrome works, participate in origin trials, and build with Chrome everywhere.
+
+Web Platform
+
+Isolated Web Apps (IWA)
+
+Capabilities
+
+Automation and testing
+
+ChromeDriver
+
+Extensions
+
+Chrome Web Store
+
+Chromium
+
+Web on Android
+
+Origin trials
+
+Release notes
+
+Productivity
+
+Create the best experience for your users with the web's best tools.
+
+DevTools
+
+Lighthouse
+
+Chrome UX Report
+
+Accessibility
+
+Modern Web Guidance
+
+Get things done quicker and neater, with our ready-made libraries.
+
+Workbox
+
+Puppeteer
+
+Experience
+
+Design a beautiful and performant web with Chrome.
+
+AI
+
+Performance
+
+CSS and UI
+
+Identity
+
+Payments
+
+Privacy and security
+
+Ads
+
+Resources
+
+More from Chrome and Google.
+
+All documentation
+
+Baseline open_in_new
+
+web.dev open_in_new
+
+PageSpeed Insights audit open_in_new
+
+Case studies
+
+Blog
+
+New in Chrome
+
+/
+
+English
+
+Deutsch
+
+Español – América Latina
+
+Français
+
+Indonesia
+
+Italiano
+
+Nederlands
+
+Polski
+
+Português – Brasil
+
+Tiếng Việt
+
+Türkçe
+
+Русский
+
+עברית
+
+العربيّة
+
+فارسی
+
+हिंदी
+
+বাংলা
+
+ภาษาไทย
+
+中文 – 简体
+
+中文 – 繁體
+
+日本語
+
+한국어
+
+Sign in
+
+Docs
+
+Performance
+
+Performance insights
+
+Docs
+
+More
+
+Case studies
+
+Blog
+
+New in Chrome
+
+Overview
+
+Tools using Insights
+
+DevTools Performance panel
+
+Lighthouse Performance audits
+
+Insights
+
+CSS selector costs
+
+Declare a character encoding
+
+Document request latency
+
+Duplicated JavaScript
+
+Font display
+
+Forced reflow
+
+Improve image delivery
+
+INP breakdown
+
+Layout shift culprits
+
+LCP breakdown
+
+LCP request discovery
+
+Legacy JavaScript
+
+Modern HTTP
+
+Network dependency tree
+
+Optimize DOM size
+
+Optimize viewport for mobile
+
+Render-blocking requests
+
+Third parties
+
+Use efficient cache lifetimes
+
+Build with Chrome
+
+Web Platform
+
+Isolated Web Apps (IWA)
+
+Capabilities
+
+Automation and testing
+
+ChromeDriver
+
+Extensions
+
+Chrome Web Store
+
+Chromium
+
+Web on Android
+
+Origin trials
+
+Release notes
+
+Productivity
+
+DevTools
+
+Lighthouse
+
+Chrome UX Report
+
+Accessibility
+
+Modern Web Guidance
+
+Workbox
+
+Puppeteer
+
+Experience
+
+AI
+
+Performance
+
+CSS and UI
+
+Identity
+
+Payments
+
+Privacy and security
+
+Ads
+
+Resources
+
+All documentation
+
+Baseline <span class="material-icons" style="font-size: 12px;" aria-hidden="true" translate="no">open_in_new</span>
+
+web.dev <span class="material-icons" style="font-size: 12px;" aria-hidden="true" translate="no">open_in_new</span>
+
+PageSpeed Insights audit <span class="material-icons" style="font-size: 12px;" aria-hidden="true" translate="no">open_in_new</span>
+
+Home
+
+Docs
+
+Performance
+
+Performance insights
+
+Optimize DOM size
+
+Stay organized with collections
+
+Save and categorize content based on your preferences.
+
+Connor Clark
+
+Published: Oct 8, 2025
+
+A large DOM can increase the duration of style calculations and layouts, impacting page responsiveness. A large DOM also increases memory usage.
+
+A deep DOM tree is not a performance issue on its own, however it is a symptom of design patterns that use unnecessary element nesting.
+
+This insight considers the entire DOM, including within shadow roots. It ignores DOM nodes that are not also elements. It also ignores <iframe> contents.
+
+What to look for:
+
+Total elements: The overall number of elements in your page's DOM.
+
+DOM depth: The maximum depth of the DOM tree.
+
+Most children: The element with the most child elements.
+
+How to pass this insight
+
+This insight only fails if there is a large layout or style recalculation exceeding a duration of 40ms.
+
+A large layout update involves over 100 layout objects (which are roughly elements).
+
+A large style recalculation affects more than 300 elements.
+
+On failure, in the Performance panel, this insight highlights these events in the flame chart.
+
+To reduce the cost of these events:
+
+Learn how to measure the cost of CSS selectors and reduce style complexity.
+
+Minimize the depth of the DOM by reducing unnecessary nesting.
+
+Consider adopting Web Components to use the Shadow DOM–while this won't reduce the DOM size, it does reduce the cost of style recalcs.
+
+Stack-specific guidance
+
+This insight also offers stack-specific guidance for pages using the following technologies:
+
+Angular
+
+If you're rendering large lists, use virtual scrolling with the Component Dev Kit (CDK).
+
+React
+
+Use a "windowing" library like
+react-window to minimize the number
+of DOM nodes created if you are rendering many repeated elements on the page.
+
+Minimize unnecessary re-renders using
+shouldComponentUpdate,
+PureComponent,
+or React.memo.
+
+Skip effects
+only until certain dependencies have changed if you are using the Effect
+hook to improve runtime performance.
+
+Additional references
+
+Insight source code
+
+How large DOM sizes affect interactivity, and what you can do about it
+
+Minimizing browser reflow
+
+Selector stats in Chrome DevTools
+
+Style invalidation in Blink
+
+Measure style recalculation time in the field
+
+Except as otherwise noted, the content of this page is licensed under the Creative Commons Attribution 4.0 License, and code samples are licensed under the Apache 2.0 License. For details, see the Google Developers Site Policies. Java is a registered trademark of Oracle and/or its affiliates.
+
+Last updated 2025-10-08 UTC.
+
+Contribute
+
+File a bug
+
+See open issues
+
+Related content
+
+Chromium updates
+
+Case studies
+
+Archive
+
+Podcasts & shows
+
+Follow
+
+@ChromiumDev on X
+
+YouTube
+
+Chrome for Developers on LinkedIn
+
+RSS
+
+Terms
+
+Privacy
+
+Manage cookies
+
+English
+
+Deutsch
+
+Español – América Latina
+
+Français
+
+Indonesia
+
+Italiano
+
+Nederlands
+
+Polski
+
+Português – Brasil
+
+Tiếng Việt
+
+Türkçe
+
+Русский
+
+עברית
+
+العربيّة
+
+فارسی
+
+हिंदी
+
+বাংলা
+
+ภาษาไทย
+
+中文 – 简体
+
+中文 – 繁體
+
+日本語
+
+한국어

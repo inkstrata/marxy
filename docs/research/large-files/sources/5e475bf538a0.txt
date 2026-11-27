@@ -1,0 +1,661 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+nodejs
+
+node
+
+Repository navigation
+
+Code
+
+Issues623 ( 623 )
+
+Pull requests652 ( 652 )
+
+Actions
+
+Projects
+
+Security and quality
+
+Insights
+
+More items
+
+More useful error than toString failed when Buffer length greater than kMaxLength? #3175
+
+New issue
+Copy link
+
+New issue
+Copy link
+
+Closed
+
+Closed
+
+More useful error than toString failed when Buffer length greater than kMaxLength?#3175
+
+Copy link
+
+Labels
+
+bufferIssues and PRs related to the buffer subsystem.help wantedIssues that need assistance from volunteers or PRs that need help to proceed.
+
+Description
+
+mhart
+
+opened on Oct 4, 2015
+
+Issue body actions
+
+I'm assuming there's some sort of memory constraint trying to convert buffers into strings?
+
+$ uname -a
+Darwin ReBuke-Pro.local 15.0.0 Darwin Kernel Version 15.0.0: Wed Aug 26 16:57:32 PDT 2015; root:xnu-3247.1.106~1/RELEASE_X86_64 x86_64
+$ node --version
+v4.1.1
+$ node -p 'new Buffer(268435440).toString().length'
+268435440
+
+But:
+
+$ node -p 'new Buffer(268435441).toString().length'
+buffer.js:378
+throw new Error('toString failed');
+^
+
+Error: toString failed
+at Buffer.toString (buffer.js:378:11)
+at [eval]:1:23
+at Object.exports.runInThisContext (vm.js:54:17)
+at Object.<anonymous> ([eval]-wrapper:6:22)
+at Module._compile (module.js:434:26)
+at node.js:566:27
+at doNTCallback0 (node.js:407:9)
+at process._tickCallback (node.js:336:13)
+
+Firstly, I'm not sure that this should even be an error (are we really only limited to 256MB? That's... not very much). This seems to have been addressed in the past, but I feel like a regression might have occurred: #1374 (comment)
+
+But that aside, can we actually detect what the error is and report on it in a more detailed way? The current toString check provides little insight.
+
+👍React with 👍24Reacted by Chris, Lillem4n, Lloyd Brookes, Jose, behroozshafiabadi, Anass Rach, 许凯旋, Tiago Ferreira, Ruslan Sharipov, Alexander Kachkaev and 14 more
+
+Activity
+
+Next
+
+bnoordhuis commented on Oct 4, 2015
+
+bnoordhuis
+
+on Oct 4, 2015
+
+Member
+
+More actions
+
+256 MB is the limit for strings in V8 so no, it's not a regression. What would you report in more detail?
+
+mhart commented on Oct 4, 2015
+
+mhart
+
+on Oct 4, 2015
+
+ContributorAuthor
+
+More actions
+
+Anything would be better than that TBH.
+
+👍React with 👍4Reacted by Pat Myron, Petr Vnenk, Christopher Liedelt and Zakery Clarke
+
+mhart commented on Oct 4, 2015
+
+mhart
+
+on Oct 4, 2015
+
+ContributorAuthor
+
+More actions
+
+It's not obvious to the user what's actually gone wrong.
+
+How about "Cannot create string larger than 256MB"? Seems a lot clearer to me.
+
+👍React with 👍64Reacted by Chris, Tanner Faulkner, Sam Stefan, William Dias, Luca Steeb, Lloyd Brookes, Jose, Douglas Duhaime, Daniel Bankhead, garrypas and 54 more
+
+bnoordhuis commented on Oct 4, 2015
+
+bnoordhuis
+
+on Oct 4, 2015
+
+Member
+
+More actions
+
+I think a pull request to that effect would be acceptable.
+
+mhart commented on Oct 4, 2015
+
+mhart
+
+on Oct 4, 2015
+
+ContributorAuthor
+
+More actions
+
+But is that the only error that can occur? Looking at the code at the moment, the check is pretty basic – is there no way of getting more detail as to why result may be undefined?
+
+bnoordhuis commented on Oct 4, 2015
+
+bnoordhuis
+
+on Oct 4, 2015
+
+Member
+
+More actions
+
+Not at the moment, no. The undefined value trickles down from StringBytes::Encode() in src/string_bytes.h. I don't think there are other code paths that return an empty Local<String> but I didn't check exhaustively.
+
+thefourtheye
+added
+bufferIssues and PRs related to the buffer subsystem.
+on Oct 4, 2015
+
+mhart commented on Oct 4, 2015
+
+mhart
+
+on Oct 4, 2015
+
+ContributorAuthor
+
+More actions
+
+FWIW, v8 (I assume?) spits out a slightly better error when trying to concat strings:
+
+$ node -p 'var a = "a"; for (var i = 0; i < 27; i++) a = a + a; a.length'
+134217728
+$ node -p 'var a = "a"; for (var i = 0; i < 28; i++) a = a + a; a.length'
+[eval]:1
+var a = "a"; for (var i = 0; i < 28; i++) a = a + a; a.length
+^
+
+RangeError: Invalid string length
+at [eval]:1:49
+at Object.exports.runInThisContext (vm.js:54:17)
+at Object.<anonymous> ([eval]-wrapper:6:22)
+at Module._compile (module.js:434:26)
+at node.js:566:27
+at doNTCallback0 (node.js:407:9)
+at process._tickCallback (node.js:336:13)
+
+Is the size limit exposed at all? If it were I'd be happy to add a PR that checks, in the case of an undefined result, whether the Buffer length is greater than it.
+
+targos commented on Oct 4, 2015
+
+targos
+
+on Oct 4, 2015
+
+Member
+
+More actions
+
+I don't think it is exposed in JS. The exact limit is (1 << 28) - 16 (268435440) and is defined in
+
+node/deps/v8/include/v8.h
+
+Line 2083
+in
+64beab0
+
+static const int kMaxLength = (1 << 28) - 16;
+
+mhart
+changed the title [-]More useful error than `toString failed`?[/-] [+]More useful error than `toString failed` when Buffer length greater than kMaxLength?[/+] on Oct 4, 2015
+
+MylesBorins commented on Oct 6, 2015
+
+MylesBorins
+
+on Oct 6, 2015
+
+Contributor
+
+More actions
+
+I would love to take a stab at this if people are open to it.
+
+/cc @jasnell
+
+👍React with 👍2Reacted by Jose and Kyle Kelley
+
+🎉React with 🎉2Reacted by Jose and Kyle Kelley
+
+jasnell commented on Oct 6, 2015
+
+jasnell
+
+on Oct 6, 2015
+
+Member
+
+More actions
+
+Works for me!
+
+On Oct 6, 2015 12:49 PM, "Myles Borins" notifications@github.com wrote:
+
+I would love to take a stab at this if people are open to it.
+
+/cc @jasnell https://github.com/jasnell
+
+—
+
+Reply to this email directly or view it on GitHub
+
+#3175 (comment).
+
+trevnorris commented on Oct 6, 2015
+
+trevnorris
+
+on Oct 6, 2015
+
+Last edited by Trott
+
+Contributor
+
+More actions
+
+@MylesBorins Seems the discussion addresses more than just the error message. Mind identifying the specifics of what you'll be working on?
+
+MylesBorins commented on Oct 6, 2015
+
+MylesBorins
+
+on Oct 6, 2015
+
+Contributor
+
+More actions
+
+I specifically was interested in a better error message when toString is called on a Buffer larger than kStringMaxLength
+
+That seemed like a pretty easy one to knock out (I've basically got it done already).
+
+mhart commented on Oct 6, 2015
+
+mhart
+
+on Oct 6, 2015
+
+Last edited by Trott
+
+ContributorAuthor
+
+More actions
+
+@MylesBorins I think the discussion was around how to detect the limit though – have you exposed kMaxLength?
+
+27 remaining items
+
+Load more
+
+Trott commented on Mar 23, 2017
+
+Trott
+
+on Mar 23, 2017
+
+Member
+
+More actions
+
+For what it's worth, the error message here has been marginally improved to Error: "toString()" failed (although I'm not sure why the quotation marks are used--that seems peculiar--but the addition of parentheses are a marginal improvement).
+
+And, of course, it still doesn't indicate why it failed though.
+
+😕React with 😕3Reacted by Bill Morris, Aaron Cordova and Maxim Vorobjov
+
+anchnk
+added a commit that references this issue on May 6, 2017
+
+src: do proper StringBytes error handling
+
+...
+
+143c891
+
+justinjdickow commented on Jul 9, 2017
+
+justinjdickow
+
+on Jul 9, 2017
+
+More actions
+
+I... don't understand why the limit is 256 MB :(
+
+👍React with 👍2Reacted by Kyle Kelley and Paul Draper
+
+mhart commented on Jul 9, 2017
+
+mhart
+
+on Jul 9, 2017
+
+ContributorAuthor
+
+More actions
+
+There's an issue open on v8 too, if you'd like to star it: https://bugs.chromium.org/p/v8/issues/detail?id=6148
+
+justinjdickow commented on Jul 9, 2017
+
+justinjdickow
+
+on Jul 9, 2017
+
+More actions
+
+Can we rename the issue from "String length limit is small-ish" to "String length limit is small-af"
+
+👍React with 👍5Reacted by Kyle Kelley, Basit Mustafa, fengthedroid, Jesse Vander Does and Sarat Addepalli
+
+😄React with 😄5Reacted by Basit Mustafa, fengthedroid, devildelta, Shalom Yerushalmy and eglyecyriaco
+
+mhart commented on Jul 24, 2017
+
+mhart
+
+on Jul 24, 2017
+
+ContributorAuthor
+
+More actions
+
+Great news! v8 has upped the limit to ~1GB on 64-bit archs: https://chromium-review.googlesource.com/c/570047
+
+Hopefully it comes with a nicer error message when it fails too (although that's possibly still a Node.js responsibility?)
+
+👍React with 👍2Reacted by Luciano Mammino and si
+
+joyeecheung
+closed this as completedin 289d152on Apr 7, 2018
+
+joyeecheung
+added a commit that references this issue on Apr 7, 2018
+
+src: migrate string_bytes.cc to throw errors with code
+
+...
+
+63eb267
+
+joyeecheung commented on Apr 7, 2018
+
+joyeecheung
+
+on Apr 7, 2018
+
+Member
+
+More actions
+
+After 63eb267 this now returns a message Cannot create a string larger than 0x3fffffe7 bytes with the error code set to ERR_STRING_TOO_LARGE.
+
+👍React with 👍1Reacted by Ouyang Yadong
+
+soichih commented on Jan 7, 2019
+
+soichih
+
+on Jan 7, 2019
+
+More actions
+
+I am running into this issue when I try to download .tar file via request and piping it to tar.x(). Does this issue imply that the maximum body size that I can download via request.get() is 1G for 64-bit machine?
+
+soichih commented on Jan 7, 2019
+
+soichih
+
+on Jan 7, 2019
+
+More actions
+
+nvm.. I just had to set "encoding: null" ... which prevents the body to be passed to toString()
+
+sjarmak
+added a commit that references this issue on Jul 27, 2026
+
+src: add error code helpers to src/node_errors.h
+
+...
+
+289d152
+
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+
+Metadata
+
+Metadata
+
+Assignees
+
+No one assigned
+
+Labels
+
+bufferIssues and PRs related to the buffer subsystem.help wantedIssues that need assistance from volunteers or PRs that need help to proceed.
+
+Type
+
+No type
+
+Projects
+
+No projects
+
+Milestone
+
+No milestone
+
+Relationships
+
+None yet
+
+Development
+
+No branches or pull requests
+
+Issue actions
+
+Open in GitHub Copilot app
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

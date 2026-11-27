@@ -1,0 +1,14 @@
+nested-ul 250 html KB 5 {"ms":41,"len":63250}
+nested-ul 500 html KB 10 {"ms":61,"len":191720}
+nested-ul 1000 html KB 19 {"ms":105,"len":448720}
+nested-ul 2000 html KB 38 {"ms":275,"len":962720}
+nested-ul 4000 html KB 76 {"ms":1022,"len":1990720}
+nested-ul 16000 STALL nested-ul16000
+inline-spans 250 html KB 2 {"ms":3,"len":1500}
+inline-spans 500 html KB 5 {"ms":2,"len":3000}
+inline-spans 1000 html KB 9 {"ms":5,"len":6000}
+inline-spans 2000 html KB 18 {"ms":7,"len":12000}
+inline-spans 4000 html KB 36 {"ms":15,"len":24000}
+inline-spans 16000 html KB 144 {"ms":66,"len":96000}
+inline-spans 64000 html KB 576 {"ms":271,"len":384000}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1039
