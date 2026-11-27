@@ -47,7 +47,6 @@ investigation behind these rows are in `reports/2026-11-26-release-readiness/`. 
 | B4 | Opened from Finder or the Dock on a Mac, a `[[command]]` program or the external editor installed by Homebrew or mise is "not a program on the PATH" | S2, macOS; nothing in `src-tauri` sets `PATH`, and launchd's default holds neither `/opt/homebrew/bin` nor mise's shims; hunt-01 SHL-01, probe `probes/SHL/shl-01-02.verify.rs` | S | |
 | B5 | Saving a file locked in Finder fails with "Operation not permitted" on a hidden temp name, and leaves that hidden file behind, undeletable | S2, macOS; the atomic write's staged copy carries the `uchg` flag, so writing, cleaning up and renaming all fail; the target is unchanged; hunt-01 SHL-04, probe `probes/SHL/uchg-save.verify.rs` | S | |
 | B9 | A Word document of about 62,000 paragraphs or more does not open ("Maximum call stack size exceeded") | S2; every child node spread into one `append` (`viewers/office.ts:348`), the same pattern in `viewers/book.ts:304`, `source/format-ops.ts:261` (`Math.max(0, ...)`) and two export paths in `render/markdown.ts`; WebKit's limit is likely lower; hunt-01 VWR-03, probe `probes/VWR/b-docx-threshold.verify.mjs` | S | |
-| B10 | The Search panel's Find and Replace fields read "Find Find" and "Replace Replace" | S3, the owner's report; `left/panels/search.ts:605-619` sets both a label and a placeholder of the same word; hunt-01 NAV-05 (NAV-02) | S | |
 
 ## Structure
 
