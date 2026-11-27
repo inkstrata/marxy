@@ -45,7 +45,8 @@ test('a Word document of 300,000 paragraphs reads whole', async () => {
   parts['word/document.xml'] = `${head}${'<w:p><w:r><w:t>hi</w:t></w:r></w:p>'.repeat(BIG)}</w:body></w:document>`;
   const r = await readOffice('docx', partsReader(parts));
   assert.equal(r.doc.blocks.length, BIG);
-  assert.equal(r.markdown.split('\n\n').length >= BIG, true);
+  // The page shows a capped reading; the whole document is still written uncapped (export, Copy as).
+  assert.equal(writeMarkdown(r.doc).markdown.split('\n\n').length >= BIG, true);
 });
 
 test('Markdown is written for a code paragraph with 300,000 backtick runs and a table 300,000 rows long', () => {
