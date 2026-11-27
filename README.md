@@ -65,6 +65,7 @@ pnpm --filter @marxy/desktop bundle                                # the install
 | [Keys](docs/keys.md) | every key and chord |
 | [File types, kinds and readings](docs/file-kinds.md) | how a file is recognised and shown |
 | [Architecture](docs/architecture.md) | how the code fits together |
+| [Design principles](docs/principles.md) | the rules every change follows, and the shapes to copy |
 | [The desktop shell](docs/desktop-shell.md) | the Rust side: commands, files, watching, archives |
 | [Themes, looks and type](docs/themes-and-type.md) | themes, the look engine, tokens, typesetting, fonts |
 | [What Marxy keeps on disk](docs/data-on-disk.md) | settings and state files |
