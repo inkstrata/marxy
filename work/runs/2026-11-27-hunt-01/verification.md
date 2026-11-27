@@ -159,3 +159,24 @@ Append-only. Write through .claude/skills/bug-catch/finding.mjs.
 - Severity: S1 freeze
 - Fix hint: same as VWR-02: break or cap a run longer than some thousands of characters before it reaches the article (in the reading or the viewer), or drop kerning for such paragraphs; one fix in the shared article path should cover Markdown, RTF and mail.
 - Checked by: verifier VWR-a, 2026-11-27
+
+### EDT-01 verdict
+- Verdict: CONFIRMED
+- Proof: own run of probes/EDT/edt01.verify.mjs (edt01.verify.out): stage an edit in a file no pane shows, change it on disk, quit, "Save and close": notices [] afterwards, disk unchanged, store still dirty, window stays. Cause read at close.ts:148-154: `s.save()` result 'failed' returns 'failed' with no notice, while left/held.ts:130 `saveHeld` does notify and is not used here.
+- Severity: S2 wrong output (nothing lost; the reader is left with no reason)
+- Fix hint: in the held-files `save()` call `saveHeld(s)` (or show showSaveFailedNotice with the error) before returning 'failed'.
+- Checked by: verifier EDT, 2026-11-27
+
+### EDT-02 verdict
+- Verdict: PLAUSIBLE
+- Proof: the defect is real in code and in the injected case: probes/EDT/edt02b.verify.out (rerun of the catcher's scenario): after the pane store's save rejects, notices [], and the 2nd and 3rd close requests give no prompt and no confirmClose (walk stays set; close.ts:204 returns when no notice is up; the Save click's async body, close.ts:~403, has no try/catch). Real throw sites found by reading: store.save catches write errors and returns 'failed' (store.ts:~722), save.ts rethrows only non-"is closed" errors from store.save, so the reachable ones are `deps.shell.saveDialog` for a scratch document (Tauri `save_dialog` returns Err only if the spawn_blocking join fails: a panic or IPC failure), `foldSource` rejecting inside doc.save, and `flushVersions()` rejecting after a good save. None is a refused write; no ordinary path throws. My second probe (edt02.verify.mjs) tried to make saveDialog reject on a scratch document but the override did not reach the call (the save was cancelled instead), so it proves nothing.
+- Severity: S3 (rare trigger; S2 if one is found, since the window cannot be closed except by force-quit)
+- Fix hint: wrap the Save click's async body in try/catch/finally that calls prompt.stop (and clears `walk`), and do the same for the Discard path.
+- Checked by: verifier EDT, 2026-11-27
+
+### EDT-03 verdict
+- Verdict: BY-DESIGN
+- Proof: docs/using-marxy.md:263-266 says "A paste into Source that carries HTML ... goes in as Markdown ... Mod+Alt+Shift+V pastes the plain text unconverted", with no limit to Markdown files, and docs/keys.md:80 lists the plain paste. Own run probes/EDT/l.verify.mjs (l.verify.out, fixed the catcher's toggle): HTML paste converts in every Source buffer: .py gets ``` fences, a JSON-looking div becomes `{\` / `\[1, 2\],\` (escaped, invalid JSON), a table into .csv becomes `| 1 | 2 |` / `| --- |`, bold in .txt becomes `**bold**`. So it is real as behaviour and the escapes in JSON/code are plainly unwanted, but the doc promises exactly this conversion.
+- Severity: S3 (workaround: Mod+Alt+Shift+V; one undo)
+- Fix hint: if the owner wants it changed, skip conversion in pasteExtension (paste.ts:116) when the open file is not Markdown, and say so in docs/using-marxy.md.
+- Checked by: verifier EDT, 2026-11-27
