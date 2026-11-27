@@ -1,0 +1,14 @@
+--1MB
+cycle1: layouts 147 layoutMs 565 styleMs 662 scriptMs 456 gbcr [["src/render/post.ts:109:21",6997],["src/apply.ts:90:18",503],["src/index.ts:329:61",503],["src/grid.ts:53:42",138]] listeners 299 nodes 102981
+cycle2: layouts 117 layoutMs 500 styleMs 651 scriptMs 309 gbcr [["src/apply.ts:90:18",349],["src/index.ts:329:61",349],["src/index.ts:362:39",87],["src/frame/spine.ts:66:28",9]] listeners 299 nodes 106687
+cycle3: layouts 98 layoutMs 442 styleMs 670 scriptMs 414 gbcr [["src/render/post.ts:109:21",6997],["src/apply.ts:90:18",219],["src/index.ts:329:61",219],["src/grid.ts:53:42",138]] listeners 299 nodes 104053
+cycle4: layouts 99 layoutMs 569 styleMs 622 scriptMs 479 gbcr [["src/render/post.ts:109:21",6997],["src/apply.ts:90:18",216],["src/index.ts:329:61",216],["src/grid.ts:53:42",138]] listeners 299 nodes 106499
+cycle5: layouts 142 layoutMs 661 styleMs 775 scriptMs 356 gbcr [["src/apply.ts:90:18",382],["src/index.ts:329:61",382],["src/index.ts:362:39",95],["src/frame/spine.ts:66:28",5]] listeners 299 nodes 110345
+cycle6: layouts 105 layoutMs 589 styleMs 797 scriptMs 484 gbcr [["src/render/post.ts:109:21",6997],["src/apply.ts:90:18",229],["src/index.ts:329:61",229],["src/grid.ts:53:42",138]] listeners 348 nodes 113421
+--5MB
+cycle1: layouts 84 layoutMs 276 styleMs 550 scriptMs 1365 gbcr [["src/render/post.ts:109:21",88273],["src/grid.ts:53:42",4572],["src/grid.ts:109:20",615],["src/grid.ts:41:23",123]] listeners 299 nodes 469607
+cycle2: layouts 93 layoutMs 249 styleMs 492 scriptMs 1153 gbcr [["src/render/post.ts:109:21",93047],["src/grid.ts:109:20",710],["src/grid.ts:53:42",300],["src/frame/spine.ts:66:28",79]] listeners 299 nodes 431030
+cycle3: layouts 70 layoutMs 243 styleMs 553 scriptMs 1450 gbcr [["src/render/post.ts:109:21",95530],["src/grid.ts:53:42",4940],["src/grid.ts:109:20",666],["src/grid.ts:41:23",132]] listeners 348 nodes 446379
+cycle4: layouts 67 layoutMs 220 styleMs 604 scriptMs 1436 gbcr [["src/render/post.ts:109:21",105710],["src/grid.ts:53:42",5014],["src/grid.ts:109:20",743],["src/grid.ts:41:23",134]] listeners 348 nodes 460423
+cycle5: layouts 79 layoutMs 220 styleMs 587 scriptMs 1368 gbcr [["src/render/post.ts:109:21",98498],["src/grid.ts:109:20",755],["src/grid.ts:53:42",89],["src/frame/spine.ts:66:28",64]] listeners 348 nodes 476945
+cycle6: layouts 65 layoutMs 224 styleMs 532 scriptMs 1461 gbcr [["src/render/post.ts:109:21",99804],["src/grid.ts:53:42",5155],["src/grid.ts:109:20",696],["src/grid.ts:41:23",138]] listeners 397 nodes 491467

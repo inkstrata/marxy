@@ -1,0 +1,35 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/NAV/search.mjs --browser chromium
+== 5 MB markdown, 3000 headings
+  settled probe                  wall   245ms  longest    61ms  listeners add/rm 142/11
+  Search type "e"                wall   607ms  longest    67ms  listeners add/rm 218/11
+    settle after "e"             wall   475ms  longest   122ms  listeners add/rm 218/11
+    away Alt+3 (q kept)          wall   692ms  longest   315ms  listeners add/rm 859/11
+    back Alt+5 (q kept)          wall   358ms  longest    79ms  listeners add/rm 1182/11
+    Alt+4 Links                  wall   369ms  longest    67ms  listeners add/rm 1193/11
+  Alt+5 again ERR STALL >10s at   Alt+5 again
+  Search type "a"                wall   404ms  longest    86ms  listeners add/rm 1345/11
+    settle after "a"             wall   243ms  longest    61ms  listeners add/rm 1345/11
+    away Alt+3 (q kept)          wall   393ms  longest    81ms  listeners add/rm 2023/11
+    back Alt+5 (q kept)          wall   338ms  longest    84ms  listeners add/rm 2372/11
+    Alt+4 Links                  wall   401ms  longest    83ms  listeners add/rm 2618/11
+    Alt+5 again                  wall   514ms  longest   139ms  listeners add/rm 2771/11
+  Search type "the"              wall   613ms  longest   115ms  listeners add/rm 2846/11
+    settle after "the"           wall   340ms  longest    63ms  listeners add/rm 2846/11
+    away Alt+3 (q kept)          wall   454ms  longest    96ms  listeners add/rm 3511/11
+    back Alt+5 (q kept)          wall   359ms  longest   113ms  listeners add/rm 3834/11
+    Alt+4 Links                  wall   517ms  longest   128ms  listeners add/rm 4085/11
+    Alt+5 again                  wall   394ms  longest    83ms  listeners add/rm 4212/11
+  Search type "Paragraph 1"      wall  1186ms  longest    99ms  listeners add/rm 4320/11
+    settle after "Paragraph 1"   wall   271ms  longest    88ms  listeners add/rm 4320/11
+    away Alt+3 (q kept)          wall   596ms  longest   187ms  listeners add/rm 4985/11
+    back Alt+5 (q kept)          wall   393ms  longest    99ms  listeners add/rm 5308/11
+    Alt+4 Links                  wall   590ms  longest   170ms  listeners add/rm 5559/11
+    Alt+5 again                  wall   409ms  longest    83ms  listeners add/rm 5686/11
+  Search type "link"             wall   761ms  longest   100ms  listeners add/rm 5731/11
+    settle after "link"          wall   560ms  longest   137ms  listeners add/rm 5731/11
+    away Alt+3 (q kept)          wall   764ms  longest   115ms  listeners add/rm 6396/11
+    back Alt+5 (q kept)          wall   550ms  longest   129ms  listeners add/rm 6719/11
+    Alt+4 Links                  wall   507ms  longest   121ms  listeners add/rm 6970/11
+    Alt+5 again                  wall   624ms  longest   102ms  listeners add/rm 7097/11
+rows in drawer DOM 0
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0943

@@ -1,0 +1,22 @@
+== 500 sections, 0.08 MB
+  unwrap          392 ms
+  renumber-list   385 ms
+  table-align     275 ms
+  tick-all        173 ms
+  untick-all      180 ms
+== 1500 sections, 0.23 MB
+  unwrap          934 ms
+  dedupe-lines    123 ms
+  renumber-list   4055 ms
+  table-align     12642 ms
+  tick-all        4518 ms
+  untick-all      2516 ms
+  invisible       539 ms
+== 3000 sections, 0.47 MB
+  unwrap          13000 ms
+  sort-lines      174 ms
+  dedupe-lines    129 ms
+  renumber-list   33359 ms
+  table-align     27416 ms
+  tick-all        7109 ms
+  untick-all      4782 ms

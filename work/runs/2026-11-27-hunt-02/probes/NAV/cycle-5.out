@@ -1,0 +1,36 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/NAV/cycle.mjs --browser chromium
+== 5 MB markdown (5000695 chars, 3000 headings)
+open ERR STALL >10s at open
+  r1 Alt+1                           wall   284ms  longest-task 0ms
+  r1 Alt+2                           wall 10750ms  longest-task -1ms
+  r1 Alt+3                           wall   785ms  longest-task 305ms
+  r1 Alt+4                           wall   376ms  longest-task 160ms
+  r1 Alt+5                           wall   259ms  longest-task 54ms
+  r1 Alt+6                           wall   249ms  longest-task 0ms
+  r1 Alt+7                           wall   531ms  longest-task 233ms
+  r1 Alt+8                           wall 10210ms  longest-task 72ms
+  r2 Alt+1                           wall 10259ms  longest-task 159303ms
+  r2 Alt+2                           wall   328ms  longest-task 71ms
+  r2 Alt+3                           wall   317ms  longest-task 93ms
+  r2 Alt+4                           wall   329ms  longest-task 106ms
+  r2 Alt+5                           wall   239ms  longest-task 63ms
+  r2 Alt+6                           wall   276ms  longest-task 55ms
+  r2 Alt+7                           wall   208ms  longest-task 0ms
+  r2 Alt+8                           wall   255ms  longest-task 0ms
+  r3 Alt+1                           wall   270ms  longest-task 0ms
+  r3 Alt+2                           wall   285ms  longest-task 0ms
+  r3 Alt+3                           wall   268ms  longest-task 0ms
+  r3 Alt+4                           wall   346ms  longest-task 116ms
+  r3 Alt+5                           wall   361ms  longest-task 60ms
+  r3 Alt+6                           wall   249ms  longest-task 83ms
+  r3 Alt+7                           wall   251ms  longest-task 50ms
+  r3 Alt+8                           wall   264ms  longest-task 0ms
+  Alt+3 fold                         wall   262ms  longest-task 53ms
+  Alt+3 reopen                       wall   484ms  longest-task 233ms
+  b                                  wall   468ms  longest-task 318ms
+  b                                  wall   524ms  longest-task 275ms
+  b                                  wall   452ms  longest-task 304ms
+  Mod+B                              wall   514ms  longest-task 259ms
+  Mod+B                              wall   622ms  longest-task 310ms
+  Mod+B                              wall   556ms  longest-task 338ms
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0926

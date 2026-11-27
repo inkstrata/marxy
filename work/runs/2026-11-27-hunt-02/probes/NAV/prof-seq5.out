@@ -1,0 +1,28 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/NAV/prof.mjs --browser chromium
+after 1 1992
+after 3 4191
+after 4 5820
+after 5 17533
+wall 17678
+CHAINS
+7169ms fromMarkdown <- parseMarkdown@parse.ts:23 < parseText@prose.ts:5 < protectedSpans@prose.ts:62 < gapsWithTail@prose.ts:72 < gapsOf@prose.ts:83 < proseLines@extract.ts:37 < pathMentions@extract.ts:45
+1302ms getBoundingClientRect <- step@progressive.ts:85 < anon@idle-work.ts:12
+265ms getBoundingClientRect <- place@spine.ts:65 < placeThumb@spine.ts:82 < draw@spine.ts:97 < anon@spine.ts:183
+157ms getBoundingClientRect <- buildBlocks@post.ts:97 < blocksOf@rendered-view.ts:295 < snap@rendered-view.ts:815 < snapPending@rendered-view.ts:988 < anon@rendered-view.ts:1022
+133ms fromMarkdown <- anon@bounded-gfm.ts:25 < parseMarkdown@parse.ts:23 < parseText@prose.ts:5 < protectedSpans@prose.ts:62 < gapsWithTail@prose.ts:72 < gapsOf@prose.ts:83 < proseLines@extract.ts:37
+105ms getBoundingClientRect <- geometry@spine.ts:44 < draw@spine.ts:97 < anon@spine.ts:183
+3983ms (program) :0
+1989ms (garbage collector) :0
+1928ms getBoundingClientRect :0
+1052ms go deps/mdast-util-from-markdown.js?v=d603ef2a:1181
+1044ms subtokenize deps/chunk-NXIHHTN2.js?v=d603ef2a:1228
+682ms compile2 deps/mdast-util-from-markdown.js?v=d603ef2a:1709
+544ms consume deps/mdast-util-from-markdown.js?v=d603ef2a:1189
+506ms querySelectorAll :0
+355ms (anon) theme/lang-colour.ts:40
+351ms fromMarkdown deps/mdast-util-from-markdown.js?v=d603ef2a:1594
+343ms draw left/frame.ts:295
+334ms subcontent deps/chunk-NXIHHTN2.js?v=d603ef2a:1298
+199ms splice deps/chunk-NXIHHTN2.js?v=d603ef2a:34
+156ms buildBlocks render/post.ts:97
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0935

@@ -1,0 +1,74 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/CMD/menus.mjs --browser chromium
+== 5 MB, 3000 headings
+  open                               wall   9333 ms  longest task 54 ms STALL>10s open
+  background work settled after 9203 ms
+  Line Mod+P open                    wall    254 ms  longest task 72 ms 
+  Line type "head"                   wall    449 ms  longest task 86 ms 
+  Line type "ing 1"                  wall    424 ms  longest task 68 ms 
+  Line Escape                        wall    193 ms  longest task 73 ms 
+  Line Mod+P again                   wall    183 ms  longest task 62 ms 
+  Line ArrowDown x10                 wall    326 ms  longest task 81 ms 
+  Line Escape                        wall    352 ms  longest task 85 ms 
+  Studio Mod+Alt+T                   wall    320 ms  longest task 68 ms 
+  Studio Tab                         wall    162 ms  longest task 76 ms 
+  Studio ArrowRight                  wall    195 ms  longest task 75 ms 
+  Studio ArrowRight                  wall    329 ms  longest task 88 ms 
+  Studio ArrowRight                  wall    262 ms  longest task 71 ms 
+  Studio ArrowDown                   wall    139 ms  longest task 57 ms 
+  Studio ArrowDown                   wall    155 ms  longest task 77 ms 
+  Studio ArrowRight                  wall    221 ms  longest task 87 ms 
+  Studio Escape                      wall    281 ms  longest task 130 ms 
+  Settings Mod+,                     wall    485 ms  longest task 83 ms 
+  Settings ArrowDown                 wall    174 ms  longest task 60 ms 
+  Settings ArrowDown                 wall    179 ms  longest task 81 ms 
+  Settings ArrowRight                wall    311 ms  longest task 100 ms 
+  Settings ArrowLeft                 wall    284 ms  longest task 85 ms 
+  Settings Escape                    wall    139 ms  longest task 71 ms 
+  Enter verb menu                    wall    187 ms  longest task 70 ms 
+  verb menu Escape                   wall    190 ms  longest task 74 ms 
+  right-click page                   wall    299 ms  longest task 75 ms 
+  ctx Escape                         wall    218 ms  longest task 79 ms 
+  tab Shift+F10                      wall    259 ms  longest task 106 ms 
+  tab menu Escape                    wall    184 ms  longest task 84 ms 
+  spine press mid                    wall    283 ms  longest task 97 ms 
+   per-move ms 391 141 136 106 190 116 204 110 230 136 161 147 204 160 771
+  spine drag                         wall   3685 ms  longest task 223 ms 
+  Line open/close x10 ms: 567 458 377 359 318 435 710 346 273 347
+  Studio open/close x10 ms: 334 362 346 369 352 307 386 409 407 465
+== 20 MB, 3000 headings
+  open                               wall   2455 ms  longest task 395 ms 
+  background work settled after 3023 ms
+  Line Mod+P open                    wall     14 ms  longest task 0 ms 
+  Line type "head"                   wall    162 ms  longest task 0 ms 
+  Line type "ing 1"                  wall    177 ms  longest task 0 ms 
+  Line Escape                        wall    329 ms  longest task 0 ms 
+  Line Mod+P again                   wall     54 ms  longest task 0 ms 
+  Line ArrowDown x10                 wall     29 ms  longest task 0 ms 
+  Line Escape                        wall     56 ms  longest task 0 ms 
+  Studio Mod+Alt+T                   wall     27 ms  longest task 0 ms 
+  Studio Tab                         wall     67 ms  longest task 0 ms 
+  Studio ArrowRight                  wall      6 ms  longest task 0 ms 
+  Studio ArrowRight                  wall      5 ms  longest task 0 ms 
+  Studio ArrowRight                  wall      8 ms  longest task 0 ms 
+  Studio ArrowDown                   wall     12 ms  longest task 0 ms 
+  Studio ArrowDown                   wall     10 ms  longest task 0 ms 
+  Studio ArrowRight                  wall      5 ms  longest task 0 ms 
+  Studio Escape                      wall     32 ms  longest task 0 ms 
+  Settings Mod+,                     wall     28 ms  longest task 0 ms 
+  Settings ArrowDown                 wall      8 ms  longest task 0 ms 
+  Settings ArrowDown                 wall     12 ms  longest task 0 ms 
+  Settings ArrowRight                wall      9 ms  longest task 0 ms 
+  Settings ArrowLeft                 wall      9 ms  longest task 0 ms 
+  Settings Escape                    wall     22 ms  longest task 0 ms 
+  Enter verb menu                    wall     13 ms  longest task 0 ms 
+  verb menu Escape                   wall     18 ms  longest task 0 ms 
+  right-click page                   wall     21 ms  longest task 0 ms 
+  ctx Escape                         wall     10 ms  longest task 0 ms 
+  tab Shift+F10                      wall      8 ms  longest task 0 ms 
+  tab menu Escape                    wall      7 ms  longest task 0 ms 
+  spine press mid                    wall     18 ms  longest task 0 ms 
+   per-move ms 19 23 19 15 21 24 21 21 13 16 17 19 14 17 18
+  spine drag                         wall    299 ms  longest task 0 ms 
+  Line open/close x10 ms: 44 67 66 67 67 67 65 68 74 65
+  Studio open/close x10 ms: 60 69 65 69 64 67 67 66 66 68
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0927
