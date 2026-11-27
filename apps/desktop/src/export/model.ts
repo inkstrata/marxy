@@ -1,5 +1,6 @@
 // What the Export panel offers and builds, as data: the forms each "what" can take, the names
 // things are saved under, the bundle's entries and its manifest. Pure: bytes and text in, entries and words out.
+import { lineStarts } from '../line/refs.ts';
 import { sha256Hex, uniquePaths, type ZipEntry } from './zip.ts';
 
 export type ExportWhat = 'file' | 'selection' | 'ticked' | 'tray';
@@ -132,15 +133,11 @@ export function relativeTo(root: string | null, path: string): string {
 
 /** The bytes of lines `first` to `last` (1-based, inclusive) of `bytes`, each with its own ending. */
 export function linesBytes(bytes: Uint8Array, first: number, last: number): Uint8Array {
-  let line = 1;
-  let start = first <= 1 ? 0 : -1;
-  for (let i = 0; i < bytes.length; i++) {
-    if (bytes[i] !== 0x0a) continue;
-    line++;
-    if (line === first) start = i + 1;
-    if (line === last + 1) return bytes.subarray(Math.max(0, start), i + 1);
-  }
-  return start < 0 ? bytes.subarray(bytes.length) : bytes.subarray(start);
+  // The cursor's own count of lines (LF, CRLF or a lone CR), so a part named by `lineSpan` is the part saved.
+  const starts = lineStarts(bytes);
+  const from = first <= 1 ? 0 : first - 1 < starts.length ? starts[first - 1]! : bytes.length;
+  const to = last < starts.length ? starts[Math.max(last, 0)]! : bytes.length;
+  return bytes.subarray(from, Math.max(from, to));
 }
 
 /** One Markdown file of several: each under its path in code, as written, in order. */

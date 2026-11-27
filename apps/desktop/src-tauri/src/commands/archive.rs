@@ -3,35 +3,15 @@
 //! `marxy-file://` judges a request, and they write nothing: an entry is read into memory and sent back.
 
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::RwLock;
 
 use serde::Serialize;
 
 use crate::archive::{self, ArchiveListing, Cache, Fault, Head, Key, Limits, Want, INDEXES};
 use crate::error::ShellError;
-use crate::file_scheme::{self, OpenedSet, Refusal};
-
-/// The file at `raw`, open, when `set` holds it and it is a regular file.
-pub(crate) fn open_held(set: &RwLock<OpenedSet>, raw: &str) -> Result<(File, PathBuf), ShellError> {
-    let path = match file_scheme::resolve(set, Path::new(raw)) {
-        Ok(p) => p,
-        Err(Refusal::Outside) => {
-            return Err(ShellError::permission(raw, "not a file Marxy has opened"))
-        }
-        Err(Refusal::NotFound) => return Err(ShellError::not_found(raw, "no such file")),
-        Err(Refusal::Io(e)) => return Err(ShellError::io(raw, e)),
-    };
-    let file =
-        file_scheme::open_unblocked(&path).map_err(|e| ShellError::io(raw, e.to_string()))?;
-    if !file_scheme::handle_held(set, &file, &path) {
-        return Err(ShellError::permission(raw, "not a file Marxy has opened"));
-    }
-    if !file.metadata().is_ok_and(|m| m.is_file()) {
-        return Err(ShellError::invalid(raw, "not a file"));
-    }
-    Ok((file, path))
-}
+use crate::scope::served::open_judged;
+use crate::scope::{self, OpenedSet};
 
 pub(crate) fn shell_error(raw: &str, fault: Fault) -> ShellError {
     match fault {
@@ -63,7 +43,7 @@ pub fn list_in(
     raw: &str,
     limits: &Limits,
 ) -> Result<Option<ArchiveListing>, ShellError> {
-    let (file, path) = open_held(set, raw)?;
+    let (file, path) = open_judged(set, raw)?;
     let cache = cache_of(raw, &file, &path)?;
     archive::list(&file, &file_name(&path), limits, Some(&cache)).map_err(|f| shell_error(raw, f))
 }
@@ -76,7 +56,7 @@ pub fn read_in(
     name: &str,
     limits: &Limits,
 ) -> Result<Vec<u8>, ShellError> {
-    let (file, path) = open_held(set, raw)?;
+    let (file, path) = open_judged(set, raw)?;
     let cache = cache_of(raw, &file, &path)?;
     archive::read(&file, &file_name(&path), index, name, limits, Some(&cache))
         .map_err(|f| shell_error(raw, f))
@@ -90,7 +70,7 @@ pub fn heads_in(
     max_each: u64,
     limits: &Limits,
 ) -> Result<Vec<Head>, ShellError> {
-    let (file, path) = open_held(set, raw)?;
+    let (file, path) = open_judged(set, raw)?;
     let cache = cache_of(raw, &file, &path)?;
     archive::heads(
         &file,
@@ -137,7 +117,7 @@ fn frame_heads(heads: &[Head]) -> Vec<u8> {
 #[tauri::command]
 pub async fn list_archive(path: String) -> Result<Option<ArchiveListing>, ShellError> {
     let shown = path.clone();
-    crate::commands::fs::off_main(move || list_in(file_scheme::opened(), &path, &Limits::DEFAULT))
+    crate::commands::fs::off_main(move || list_in(scope::opened(), &path, &Limits::DEFAULT))
         .await
         .map_err(|e| ShellError::io(&shown, e))?
 }
@@ -150,7 +130,7 @@ pub async fn read_archive_entry(
 ) -> Result<tauri::ipc::Response, ShellError> {
     let shown = path.clone();
     crate::commands::fs::off_main(move || {
-        read_in(file_scheme::opened(), &path, index, &name, &Limits::DEFAULT)
+        read_in(scope::opened(), &path, index, &name, &Limits::DEFAULT)
     })
     .await
     .map_err(|e| ShellError::io(&shown, e))?
@@ -165,13 +145,7 @@ pub async fn read_archive_heads(
 ) -> Result<tauri::ipc::Response, ShellError> {
     let shown = path.clone();
     crate::commands::fs::off_main(move || {
-        heads_in(
-            file_scheme::opened(),
-            &path,
-            &wants,
-            max_each,
-            &Limits::DEFAULT,
-        )
+        heads_in(scope::opened(), &path, &wants, max_each, &Limits::DEFAULT)
     })
     .await
     .map_err(|e| ShellError::io(&shown, e))?
@@ -184,7 +158,7 @@ mod tests {
     use crate::archive::testkit::{self, Z};
     use std::fs;
 
-    fn temp_dir(name: &str) -> PathBuf {
+    fn temp_dir(name: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("marxy-archive-{}-{name}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();

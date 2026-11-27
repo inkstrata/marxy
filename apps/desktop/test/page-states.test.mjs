@@ -81,6 +81,41 @@ test('a wide table ends between two columns, fades at the side with more, and co
   });
 });
 
+test('a wide table on a right-to-left page starts at its right, is cut between columns there, and scrolls to its last columns', async () => {
+  const row = (c) => `| ${Array.from({ length: 24 }, (_, i) => `${c} ${i}`).join(' | ')} |`;
+  const md = `هذا مستند عربي يقرأ من اليمين إلى اليسار.\n\n${row('عمود')}\n|${'---|'.repeat(24)}\n${row('خلية')}\n${row('خلية')}\n\nنهاية.\n`;
+  await withFrame({ files: { '/r/rtl.md': md }, open: ['/r/rtl.md'], viewport: { width: 760, height: 800 } }, async (page) => {
+    await page.waitForSelector('.marxy-article table[data-marxy-cut]');
+    const read = () => page.evaluate(() => {
+      const table = document.querySelector('.marxy-article table');
+      const box = table.getBoundingClientRect();
+      const cells = [...table.rows[0].cells].map((c) => c.getBoundingClientRect());
+      return {
+        dir: getComputedStyle(table).direction,
+        cut: Number.parseFloat(table.style.getPropertyValue('--marxy-table-cut')),
+        room: table.clientWidth,
+        through: cells.filter((c) => c.right > box.left + 0.5 && c.left < box.left - 0.5 || c.left < box.right - 0.5 && c.right > box.right + 0.5).length,
+        more: table.getAttribute('data-marxy-more'),
+        note: table.getAttribute('data-marxy-more-cols'),
+        shown: cells.filter((c) => c.left >= box.left - 0.5 && c.right <= box.right + 0.5).length,
+        scrollable: table.scrollWidth - table.clientWidth,
+      };
+    });
+    const first = await read();
+    assert.equal(first.dir, 'rtl');
+    assert.ok(first.cut > 0, `the cut is a width, not ${first.cut}`);
+    assert.equal(first.through, 0, 'no cell is cut through');
+    assert.equal(first.more, 'end');
+    assert.match(first.note, new RegExp(`^${24 - first.shown} more columns`));
+    await page.evaluate(() => {
+      const t = document.querySelector('.marxy-article table');
+      t.scrollLeft = -(t.scrollWidth - t.clientWidth);
+    });
+    await page.waitForFunction(() => document.querySelector('.marxy-article table').getAttribute('data-marxy-more') === 'start');
+    assert.match(await page.getAttribute('.marxy-article table', 'data-marxy-more-cols'), /columns before$/);
+  });
+});
+
 test("a CSV reading wider than its room says the columns past the edge in its own foot", async () => {
   const head = Array.from({ length: 14 }, (_, i) => `column_${i}`).join(',');
   const rows = Array.from({ length: 5 }, (_, r) => Array.from({ length: 14 }, (_, i) => (r + 1) * (i + 1) * 4_001).join(','));

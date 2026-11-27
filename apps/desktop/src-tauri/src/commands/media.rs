@@ -4,15 +4,15 @@
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
 
-use super::font::open_held;
 use super::held::{self, ArchiveEntryRef};
 use crate::archive;
 use crate::error::ShellError;
 use crate::facts::media::{self, Envelope, MediaFacts};
-use crate::file_scheme::{self, OpenedSet};
+use crate::scope::served::open_judged;
+use crate::scope::{self, OpenedSet};
 
 pub fn facts_in(set: &RwLock<OpenedSet>, raw: &str) -> Result<Option<MediaFacts>, ShellError> {
-    let (mut file, _) = open_held(set, raw)?;
+    let (mut file, _) = open_judged(set, raw)?;
     media::read(&mut file).map_err(|e| ShellError::io(raw, e.to_string()))
 }
 
@@ -22,7 +22,7 @@ pub fn envelope_in(
     raw: &str,
     buckets: u32,
 ) -> Result<Option<Envelope>, ShellError> {
-    let (mut file, _) = open_held(set, raw)?;
+    let (mut file, _) = open_judged(set, raw)?;
     let facts = media::read(&mut file).map_err(|e| ShellError::io(raw, e.to_string()))?;
     let Some(pcm) = facts.and_then(|f| f.pcm) else {
         return Ok(None);
@@ -79,11 +79,9 @@ pub async fn media_facts(
     in_archive: Option<ArchiveEntryRef>,
 ) -> Result<Option<MediaFacts>, ShellError> {
     let shown = path.clone();
-    crate::commands::fs::off_main(move || {
-        facts_at(file_scheme::opened(), &path, in_archive.as_ref())
-    })
-    .await
-    .map_err(|e| ShellError::io(&shown, e))?
+    crate::commands::fs::off_main(move || facts_at(scope::opened(), &path, in_archive.as_ref()))
+        .await
+        .map_err(|e| ShellError::io(&shown, e))?
 }
 
 #[tauri::command]
@@ -94,7 +92,7 @@ pub async fn media_envelope(
 ) -> Result<Option<Envelope>, ShellError> {
     let shown = path.clone();
     crate::commands::fs::off_main(move || {
-        envelope_at(file_scheme::opened(), &path, buckets, in_archive.as_ref())
+        envelope_at(scope::opened(), &path, buckets, in_archive.as_ref())
     })
     .await
     .map_err(|e| ShellError::io(&shown, e))?

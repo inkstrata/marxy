@@ -1,40 +1,19 @@
 //! `font_facts` and `font_glyph`: what a font file is and what one of its glyphs is, for the font page (`src/font`).
 //! Like `image_facts` they read only what the page opened, judged as `marxy-file://` judges a request, and write nothing.
 
-use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::SystemTime;
 
 use super::held::{self, ArchiveEntryRef};
 use crate::archive;
 use crate::error::ShellError;
-use crate::file_scheme::{self, OpenedSet, Refusal};
 use crate::font::{self, FontFacts, GlyphFacts};
-
-/// The file at `raw`, open, when `set` holds it and it is a regular file.
-pub(crate) fn open_held(set: &RwLock<OpenedSet>, raw: &str) -> Result<(File, PathBuf), ShellError> {
-    let path = match file_scheme::resolve(set, Path::new(raw)) {
-        Ok(p) => p,
-        Err(Refusal::Outside) => {
-            return Err(ShellError::permission(raw, "not a file Marxy has opened"))
-        }
-        Err(Refusal::NotFound) => return Err(ShellError::not_found(raw, "no such file")),
-        Err(Refusal::Io(e)) => return Err(ShellError::io(raw, e)),
-    };
-    let file =
-        file_scheme::open_unblocked(&path).map_err(|e| ShellError::io(raw, e.to_string()))?;
-    if !file_scheme::handle_held(set, &file, &path) {
-        return Err(ShellError::permission(raw, "not a file Marxy has opened"));
-    }
-    if !file.metadata().is_ok_and(|m| m.is_file()) {
-        return Err(ShellError::invalid(raw, "not a file"));
-    }
-    Ok((file, path))
-}
+use crate::scope::served::open_judged;
+use crate::scope::{self, OpenedSet};
 
 pub fn facts_in(set: &RwLock<OpenedSet>, raw: &str) -> Result<Option<FontFacts>, ShellError> {
-    let (file, _) = open_held(set, raw)?;
+    let (file, _) = open_judged(set, raw)?;
     let bytes = font::read_bytes(file).map_err(|e| ShellError::invalid(raw, e.to_string()))?;
     Ok(font::facts(&bytes))
 }
@@ -51,7 +30,7 @@ pub fn glyph_in(
     face: u32,
     code: u32,
 ) -> Result<Option<GlyphFacts>, ShellError> {
-    let (file, path) = open_held(set, raw)?;
+    let (file, path) = open_judged(set, raw)?;
     let meta = file
         .metadata()
         .map_err(|e| ShellError::io(raw, e.to_string()))?;
@@ -144,11 +123,9 @@ pub async fn font_facts(
     in_archive: Option<ArchiveEntryRef>,
 ) -> Result<Option<FontFacts>, ShellError> {
     let shown = path.clone();
-    crate::commands::fs::off_main(move || {
-        facts_at(file_scheme::opened(), &path, in_archive.as_ref())
-    })
-    .await
-    .map_err(|e| ShellError::io(&shown, e))?
+    crate::commands::fs::off_main(move || facts_at(scope::opened(), &path, in_archive.as_ref()))
+        .await
+        .map_err(|e| ShellError::io(&shown, e))?
 }
 
 #[tauri::command]
@@ -160,13 +137,7 @@ pub async fn font_glyph(
 ) -> Result<Option<GlyphFacts>, ShellError> {
     let shown = path.clone();
     crate::commands::fs::off_main(move || {
-        glyph_at(
-            file_scheme::opened(),
-            &path,
-            face,
-            code,
-            in_archive.as_ref(),
-        )
+        glyph_at(scope::opened(), &path, face, code, in_archive.as_ref())
     })
     .await
     .map_err(|e| ShellError::io(&shown, e))?
@@ -186,7 +157,7 @@ mod tests {
         fs::create_dir_all(&outside).unwrap();
         let dir = dunce::canonicalize(&dir).unwrap();
         let (inside, outside) = (dir.join("inside"), dir.join("outside"));
-        let src = Path::new(env!("CARGO_MANIFEST_DIR"))
+        let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../../fixtures/demo/fonts/TidemarkSans-Regular.ttf");
         fs::copy(&src, inside.join("a.ttf")).unwrap();
         fs::copy(&src, outside.join("b.ttf")).unwrap();

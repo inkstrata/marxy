@@ -36,7 +36,7 @@ checks another one).
 | --- | --- |
 | `quick` (default) | `pnpm install --offline`, typecheck, lint, `pnpm check`, `gate:golden`, `gate:fidelity`, `gate:licences`, and the unit suites of the packages that changed |
 | `changed` | `quick`, plus the browser test files that cover the changed folders, `lint:rust` and `cargo test` when `apps/desktop/src-tauri` changed |
-| `full` | every unit suite, `lint:rust`, `cargo test`, every browser test file, `pnpm --filter @marxy/desktop build`, and on Windows `check:tauri` |
+| `full` | every unit suite, `lint:rust`, `cargo test`, every browser test file, `gate:aesthetics --mechanical`, `test:mutations`, `pnpm --filter @marxy/desktop build`, and on Windows `check:tauri` |
 
 CI (`.github/workflows/ci.yml`) runs this tool and nothing of its own, in two jobs, and a third, `ci` (the check branch
 protection requires), passes when both do. A pull request runs `--tier changed`, so it pays only for the suites its diff
@@ -79,7 +79,7 @@ pnpm verify --only lint,check --list         # show the plan without running it
 | `--check-map` | lists stale names, test files in no map entry and source folders with no key in the map |
 
 Steps are named `install`, `typecheck`, `lint`, `check`, `golden`, `fidelity`, `licences`, `unit-core`, `unit-theme`,
-`unit-typeset`, `unit-scripts`, `unit-desktop`, `unit-desktop-browser`, `lint-rust`, `browser`, `cargo`, `build` and `tauri`.
+`unit-typeset`, `unit-scripts`, `unit-desktop`, `unit-desktop-browser`, `lint-rust`, `browser`, `cargo`, `aesthetics`, `mutations`, `build` and `tauri`.
 
 The browser step's timeout is 3600 s or a minute per file divided by `--jobs`, whichever is longer, so a `full` run of every file stays inside it.
 
@@ -174,7 +174,8 @@ work, a timer, or the page keep the wall clock, since CPU time would miss that w
 
 `pnpm --filter @marxy/desktop test:mutations` loads a module with one change patched in at import
 time (`scripts/mutation-hooks.mjs`) and requires the named tests to fail and every other test to
-pass, proving those tests can catch that change. Product code has no mutation switch.
+pass, proving those tests can catch that change. Product code has no mutation switch. It takes under a minute and
+runs in the `full` tier (the `mutations` step), so on a push to `main`.
 
 ## The real window
 
@@ -225,7 +226,7 @@ the last lines of the check's output, ending in a `fix:` line. `--only=name[,nam
 | `pnpm gate:bundle` | core loads no KaTeX; the shipped entry reaches no harness or memory shell; `dist/` has no test-only code and one HTML file | run after `build:web` for the `dist/` half |
 | `pnpm gate:golden` | the parse tree and rendered HTML of every corpus file match `packages/core/goldens/` | `pnpm --filter @marxy/core test:golden -- --update` rewrites them |
 | `pnpm gate:fidelity` | saves are byte-exact: compiles `atomic_write.rs` with `rustc` and round-trips every corpus file, checks edits change only their range, and plants broken save paths to prove it fails | needs `rustc` and symlink permission |
-| `pnpm gate:aesthetics` | rendered pages over the corpus: baseline grid, measure, contrast, layout shift, rag, hanging punctuation, hierarchy, screenshots | use `--mechanical` on Windows (no screenshot baselines exist for it) |
+| `pnpm gate:aesthetics` | rendered pages over the corpus: baseline grid, measure, contrast, layout shift, rag, hanging punctuation, hierarchy, screenshots | runs in the `full` tier as `--mechanical` (no screenshot or rag baseline comparison, since the baselines are per machine), about ten minutes; the screenshot comparison is run by hand on the machine the baselines came from. Failures the page has today are listed, not hidden: geometry cases by class with an exact count in `GEOMETRY_CLASSES`, and the rest in `KNOWN_FAILING`, both in `scripts/gate-aesthetics.mjs`. A class not listed, a count that rises, and (on macOS) a count that falls without the list being lowered each fail the gate, so the lists only shrink |
 | `pnpm --filter @marxy/core test:spec` | every CommonMark 0.31.2 example renders equivalently and keeps the tree's invariants | the spec file is not in the repo: download it from the URL `--print-url` prints to the path `--print-dest` prints |
 | `pnpm lint`, `pnpm typecheck`, `pnpm lint:rust` | Biome (unused imports), TypeScript, `cargo fmt` and `clippy` | |
 

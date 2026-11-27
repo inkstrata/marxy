@@ -30,7 +30,7 @@ look for its owner. If there is none, make one, and do not add a second.
 
 | Concern | Owner | Exceptions in the code today; do not add more |
 | --- | --- | --- |
-| Which paths and handles the shell may touch | `src-tauri/src/scope.rs`: `scope::check` with a `Need` | `file_scheme.rs` checks handles itself and `commands/search.rs` judges its roots its own way |
+| Which paths and handles the shell may touch | `src-tauri/src/scope.rs` and `scope/`: `scope::check` with a `Need`, the served rule for what a document loads (`scope::served`), one handle check | none |
 | Every privileged operation | the `Shell` interface, implemented in `shell/tauri.ts` and `shell/memory.ts` | none |
 | Which chord runs what | the command registry (`commands/registry.ts`: a command's `key` and `keys`); palette and keyboard share one list | about ten `document` and `window` keydown dispatchers, ordered by capture phase and `stopPropagation` |
 | Whether a modal owns the keyboard | `pageModalOpen` (`pane/keys.ts`) | other places test their own selectors; `inEditable` is defined twice |

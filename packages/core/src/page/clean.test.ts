@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { cleanCss, cleanPage, hostsOf, leftOutLine, type PageLeftOut } from './clean.ts';
+import { cleanCss, cleanPage, hostsOf, PAGE_MAX_DEPTH, leftOutLine, type PageLeftOut } from './clean.ts';
 import { cpuNow } from '../testing/cpu-clock.ts';
 
 const page = readFileSync(new URL('../../../../fixtures/demo/site/harbour-notice.html', import.meta.url), 'utf8');
@@ -47,7 +47,7 @@ test('a style block keeps its child combinators, quoted values and attribute sel
 });
 
 test('a style that would fetch is cut, and counted: @import, url() to the network, script in old engines', () => {
-  const left: PageLeftOut = { scripts: 0, handlers: 0, scriptLinks: 0, stylesheets: [], images: [], frames: [], forms: 0, other: 0 };
+  const left: PageLeftOut = { scripts: 0, handlers: 0, scriptLinks: 0, stylesheets: [], images: [], frames: [], forms: 0, flattened: 0, other: 0 };
   const out = cleanCss('@import url("https://a.example/x.css"); @import "//b.example/y.css";\nb { background: url(https://c.example/p.gif) } i { background: url(data:image/png;base64,AA) } u { width: expression(alert(1)) }', left);
   assert.doesNotMatch(out, /@import|https:|expression\(/);
   assert.match(out, /url\(data:image\/png;base64,AA\)/);
@@ -107,4 +107,22 @@ test('a page of 50,000 unclosed titles, or a title of 200,000 `<`, is read in a 
     const took = cpuNow() - t;
     assert.ok(took < 1000, `${html.slice(0, 20)}: ${Math.round(took)} ms`);
   }
+});
+test('a page nested past the depth cap is flattened, its words kept, and the line says so', () => {
+  const n = 5_000;
+  const c = cleanPage(`<div>`.repeat(n) + 'deep words' + '</div>'.repeat(n));
+  let depth = 0;
+  let max = 0;
+  for (const m of c.html.matchAll(/<(\/?)div\b[^>]*>/g)) {
+    depth += m[1] ? -1 : 1;
+    max = Math.max(max, depth);
+  }
+  assert.equal(max, PAGE_MAX_DEPTH);
+  assert.equal(depth, 0, 'every open tag is still closed');
+  assert.ok(c.html.includes('deep words'));
+  assert.equal(c.left.flattened, n - PAGE_MAX_DEPTH);
+  assert.match(leftOutLine(c.left), /; nesting past 256 levels flattened$/);
+  const shallow = cleanPage('<div>'.repeat(PAGE_MAX_DEPTH) + 'x' + '</div>'.repeat(PAGE_MAX_DEPTH));
+  assert.equal(shallow.left.flattened, 0);
+  assert.doesNotMatch(leftOutLine(shallow.left), /nesting/);
 });

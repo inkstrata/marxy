@@ -63,7 +63,7 @@ fn args() -> Vec<String> {
             } else {
                 let path = absolute_document_path(&cwd, &a).unwrap_or(a);
                 // The reader opened what they launched with.
-                scope::open_file(file_scheme::opened(), &path);
+                scope::open_file(scope::opened(), &path);
                 path
             }
         })
@@ -124,7 +124,7 @@ fn clipboard_payload(text: String, html: Option<String>) -> ClipboardPayload {
 async fn read_file(path: String) -> Result<tauri::ipc::Response, ShellError> {
     let shown = path.clone();
     // Reading puts nothing in scope: `mark_opened` and the launch, drop and picker routes do (src/scope.rs).
-    commands::fs::off_main(move || commands::fs::read_file_in(file_scheme::opened(), &path))
+    commands::fs::off_main(move || commands::fs::read_file_in(scope::opened(), &path))
         .await
         .map_err(|e| ShellError::io(&shown, e))?
         .map(tauri::ipc::Response::new)
@@ -136,12 +136,10 @@ async fn read_file(path: String) -> Result<tauri::ipc::Response, ShellError> {
 #[tauri::command]
 async fn read_head(path: String, max_bytes: u64) -> Result<tauri::ipc::Response, ShellError> {
     let shown = path.clone();
-    commands::fs::off_main(move || {
-        commands::fs::read_head_in(file_scheme::opened(), &path, max_bytes)
-    })
-    .await
-    .map_err(|e| ShellError::io(&shown, e))?
-    .map(tauri::ipc::Response::new)
+    commands::fs::off_main(move || commands::fs::read_head_in(scope::opened(), &path, max_bytes))
+        .await
+        .map_err(|e| ShellError::io(&shown, e))?
+        .map(tauri::ipc::Response::new)
 }
 
 /// The header `write_file_atomic` reads its destination from, percent-encoded by the webview.
@@ -210,7 +208,7 @@ async fn write_file_atomic(request: tauri::ipc::Request<'_>) -> Result<(), Shell
     let target = path.clone();
     commands::fs::off_main(move || {
         let at = scope::admit(&target, scope::Need::Write)?;
-        let _held = scope::hold_parent(file_scheme::opened(), &at, scope::Need::Write)?;
+        let _held = scope::hold_parent(scope::opened(), &at, scope::Need::Write)?;
         atomic_write::write_atomic_unless_changed(&at, &bytes, expected.as_ref())
             .map_err(|e| write_error(&target, e))
     })
@@ -230,7 +228,7 @@ async fn write_file_new(request: tauri::ipc::Request<'_>) -> Result<(), ShellErr
     let target = path.clone();
     commands::fs::off_main(move || {
         let at = scope::admit(&target, scope::Need::Create)?;
-        let _held = scope::hold_parent(file_scheme::opened(), &at, scope::Need::Create)?;
+        let _held = scope::hold_parent(scope::opened(), &at, scope::Need::Create)?;
         atomic_write::write_new(&at, &bytes).map_err(|e| write_error(&target, e))
     })
     .await
@@ -308,7 +306,7 @@ async fn save_dialog(
     let path = path.map(|p| p.to_string());
     // The name the reader chose is theirs to write, whether or not a file is there yet.
     if let Some(p) = &path {
-        scope::open_file(file_scheme::opened(), p);
+        scope::open_file(scope::opened(), p);
     }
     Ok(path)
 }
@@ -355,9 +353,9 @@ async fn open_dialog(
     // What the reader picked is in scope: a file as opened, a folder as a place for the index.
     for p in &picked {
         if directory {
-            let _ = scope::open_picked_folder(file_scheme::opened(), p);
+            let _ = scope::open_picked_folder(scope::opened(), p);
         } else {
-            scope::open_file(file_scheme::opened(), p);
+            scope::open_file(scope::opened(), p);
         }
     }
     Ok(picked)
@@ -1043,7 +1041,7 @@ fn deliver_open_files(app: &tauri::AppHandle, paths: Vec<String>) {
     }
     // A second launch, a drop, Open with or the jump list: the reader opened these.
     for p in &paths {
-        scope::open_file(file_scheme::opened(), p);
+        scope::open_file(scope::opened(), p);
     }
     focus_main_window(app);
     if OPENS_LISTENER_READY.load(Ordering::SeqCst) {
@@ -1583,7 +1581,7 @@ fn main() {
             .flatten()
             {
                 let _ = std::fs::create_dir_all(&dir);
-                scope::open_app_folder(file_scheme::opened(), &dir);
+                scope::open_app_folder(scope::opened(), &dir);
             }
             if let Some(main) = _app.get_webview_window("main") {
                 let state = data_dir::data_dir(_app.handle())

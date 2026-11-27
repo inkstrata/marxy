@@ -1,29 +1,26 @@
 //! `marxy-file://`, the page's way to load a local file it shows (an image beside a document, a theme's font, a video),
 //! served from disk off the main thread with HTTP Range, so a long video seeks without the whole file being read.
-//! It serves only what the reader opened: a file recorded by `mark_opened` or delivered by Rust (the launch, a second
-//! launch, a drop, the pickers; src/scope.rs), never one only read or indexed, or what
-//! sits under a folder it scoped through `allow_asset_scope` (the document's folder, an image root, a theme's folder),
-//! but never a dot file or folder, nor one of the index's denied folders (`.git`, `node_modules`...), below that folder,
-//! unless the page measured the file there as an image a document names (`open_measured_image`).
-//! The set is fed by the page, so it bounds what a document can reach, not what a compromised page can: that page can
-//! already read files. A request is judged by its spelling first, so a path the set cannot hold (a share, a device) is
-//! refused before the disk is asked; then canonicalised (dunce), so a `..` or a link that leads out is refused; then
-//! judged again by the handle actually opened.
+//! This module only serves bytes: whether a request may be served is the served rule of the scope
+//! (src/scope/served.rs), which holds what the reader opened and the folders it scoped for a document, never a file
+//! only read or indexed. A request is judged by its spelling first, so a path the set cannot hold (a share, a device) is
+//! refused before the disk is asked; then canonicalised, so a `..` or a link that leads out is refused; then judged
+//! again by the handle actually opened.
 //!
 //! On Windows WebView2 reaches a custom scheme as `http://marxy-file.localhost/<path>`, elsewhere as
 //! `marxy-file://localhost/<path>`; the path is `encodeURIComponent` of the file's absolute path (`convertFileSrc`).
 
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashSet;
 use std::fs::{self, File};
 use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Seek, SeekFrom};
-use std::path::{Component, Path, PathBuf, Prefix};
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex, OnceLock, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use tauri::http::{header, Method, Request, Response, StatusCode};
+
+use crate::scope::{self, served, OpenedSet, Refusal};
 
 pub const SCHEME: &str = "marxy-file";
 /// The most bytes one ranged response carries; a media element asks again from where the last one stopped.
@@ -34,342 +31,6 @@ pub const MAX_WHOLE_BYTES: u64 = 64 * 1024 * 1024;
 const WHOLE_READS_AT_ONCE: usize = 4;
 /// The decoded-image cache's ceiling on disk; the least recently used images go first past it.
 pub const DECODED_CACHE_BYTES: u64 = 512 * 1024 * 1024;
-
-/// A path as written, made comparable: absolute, no `..`, no `.`, and on Windows one separator and one case. None for
-/// what the set never holds: a relative path, a NUL, a `..`, a device path (`\\.\`) or a verbatim one (`\\?\`).
-pub(crate) fn spelling(raw: &Path) -> Option<PathBuf> {
-    let text = raw.as_os_str().to_str()?;
-    if !raw.is_absolute() || text.contains('\0') {
-        return None;
-    }
-    #[cfg(windows)]
-    let text = text.replace('/', "\\");
-    // One case on Windows, applied per part: the prefix is read first, and `\\?\UNC` is only a prefix in capitals.
-    let fold = |s: &str| -> String {
-        if cfg!(windows) {
-            s.to_lowercase()
-        } else {
-            s.to_owned()
-        }
-    };
-    let mut out = PathBuf::new();
-    for c in Path::new(&text).components() {
-        match c {
-            Component::Prefix(p) => match p.kind() {
-                Prefix::Disk(_) | Prefix::UNC(..) => {
-                    out.push(fold(&c.as_os_str().to_string_lossy()))
-                }
-                // A long path (`\\?\C:\...`, `\\?\UNC\server\share\...`) names the same place as its plain form, which is how
-                // the set spells it; the canonical path is judged again after the disk is asked.
-                Prefix::VerbatimDisk(letter) => out.push(fold(&format!("{}:", char::from(letter)))),
-                Prefix::VerbatimUNC(server, share) => {
-                    let (Some(server), Some(share)) = (server.to_str(), share.to_str()) else {
-                        return None;
-                    };
-                    out.push(fold(&format!(r"\\{server}\{share}")));
-                }
-                _ => return None,
-            },
-            Component::RootDir => out.push(c.as_os_str()),
-            Component::Normal(name) => out.push(fold(&name.to_string_lossy())),
-            Component::CurDir => {}
-            Component::ParentDir => return None,
-        }
-    }
-    Some(out)
-}
-
-/// Whether `rest`, the part of a path below an opened folder, is a dot name, or passes through a dot name or a denied
-/// folder. The last part is the file asked for, so a file named `build` or `out` is no denied folder.
-fn hidden_below(rest: &Path) -> bool {
-    let count = rest.components().count();
-    rest.components().enumerate().any(|(i, c)| match c {
-        Component::Normal(name) => name.to_str().is_none_or(|n| {
-            n.starts_with('.') || (i + 1 < count && crate::commands::fs::denied_name(n))
-        }),
-        _ => false,
-    })
-}
-
-/// `path` is `folder` or below it, and not hidden there.
-fn under(path: &Path, folder: &Path) -> bool {
-    path.strip_prefix(folder)
-        .is_ok_and(|rest| !hidden_below(rest))
-}
-
-/// `path` without Windows' verbatim prefix (`\\?\C:\...` as `C:\...`, `\\?\UNC\s\share\...` as `\\s\share\...`), to
-/// compare by: `dunce` keeps the prefix on a path too long for the plain form, so a file deep under a folder opened by
-/// its short plain path was never under it. Only for comparing; a path the disk is asked about keeps its prefix.
-pub(crate) fn plain(path: &Path) -> PathBuf {
-    #[cfg(windows)]
-    if let Some(text) = path.to_str() {
-        if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
-            return PathBuf::from(format!(r"\\{rest}"));
-        }
-        if let Some(rest) = text.strip_prefix(r"\\?\") {
-            let b = rest.as_bytes();
-            if b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':' {
-                return PathBuf::from(rest);
-            }
-        }
-    }
-    path.to_path_buf()
-}
-
-/// Opens `path` to read without waiting on it: a FIFO swapped in for a file would hold the open until a writer came
-/// (Unix). Every caller then checks the handle is a regular file.
-pub fn open_unblocked(path: &Path) -> io::Result<File> {
-    let mut options = File::options();
-    options.read(true);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::OpenOptionsExt;
-        options.custom_flags(libc::O_NONBLOCK);
-    }
-    options.open(path)
-}
-
-#[derive(Debug)]
-pub(crate) struct Folder {
-    pub(crate) canonical: PathBuf,
-    pub(crate) spellings: Vec<PathBuf>,
-}
-
-pub(crate) fn push_folder(list: &mut Vec<Folder>, raw: &Path, canonical: PathBuf) {
-    let spellings: Vec<PathBuf> = [spelling(raw), spelling(&canonical)]
-        .into_iter()
-        .flatten()
-        .collect();
-    match list.iter_mut().find(|f| f.canonical == canonical) {
-        Some(f) => f.spellings.extend(spellings),
-        None => list.push(Folder {
-            canonical,
-            spellings,
-        }),
-    }
-}
-
-/// The files and folders the page opened this session: canonical, and as they were spelled. `marxy-file://` serves
-/// `files` and what is under `folders`; the path commands also answer for `roots` and `app` (src/scope.rs).
-#[derive(Debug, Default)]
-pub struct OpenedSet {
-    pub(crate) files: HashSet<PathBuf>,
-    pub(crate) file_spellings: HashSet<PathBuf>,
-    pub(crate) folders: Vec<Folder>,
-    /// Folders the reader chose for the index (a document's repository, a collection's folder): read by the path
-    /// commands, never served to a document.
-    pub(crate) roots: Vec<Folder>,
-    /// Roots something besides the index chose (a crumb, a folder page, a theme folder): the index letting go of one
-    /// does not end the reader's use of it.
-    pub(crate) roots_kept: HashSet<PathBuf>,
-    /// Folders the reader picked in the picker (Add a folder): read and written by the path commands, never served.
-    pub(crate) picked: Vec<Folder>,
-    /// Marxy's own data and config folders.
-    pub(crate) app: Vec<Folder>,
-    /// The keys above, spelled and canonical, kept in step by the `add_*` methods (src/scope.rs).
-    pub(crate) spelled: crate::scope::KeyIndex,
-    pub(crate) canonical: crate::scope::KeyIndex,
-}
-
-impl OpenedSet {
-    pub fn add_file(&mut self, raw: &Path, canonical: PathBuf) {
-        for spelled in [spelling(raw), spelling(&canonical)].into_iter().flatten() {
-            self.add_file_spelling(spelled);
-        }
-        let plain = plain(&canonical);
-        self.add_file_canonical(&plain);
-        self.files.insert(plain);
-    }
-
-    pub fn add_folder(&mut self, raw: &Path, canonical: PathBuf) {
-        push_folder(&mut self.folders, raw, canonical);
-        self.reindex_places();
-    }
-
-    /// Whether the set could hold `raw`, judged by its spelling alone, without asking the disk.
-    pub fn may_hold(&self, raw: &Path) -> bool {
-        let Some(s) = spelling(raw) else {
-            return false;
-        };
-        self.file_spellings.contains(&s)
-            || self
-                .folders
-                .iter()
-                .any(|f| f.spellings.iter().any(|folder| under(&s, folder)))
-    }
-
-    /// Whether `canonical` sits under a folder the page opened, hidden there or not.
-    fn within_a_folder(&self, canonical: &Path) -> bool {
-        let canonical = plain(canonical);
-        self.folders
-            .iter()
-            .any(|f| canonical.starts_with(plain(&f.canonical)))
-    }
-
-    /// Whether `canonical` is a file the page opened or sits, not hidden, under a folder it opened.
-    pub fn holds(&self, canonical: &Path) -> bool {
-        let canonical = plain(canonical);
-        self.files.contains(&canonical)
-            || self
-                .folders
-                .iter()
-                .any(|f| under(&canonical, &plain(&f.canonical)))
-    }
-}
-
-pub fn opened() -> &'static RwLock<OpenedSet> {
-    static SET: OnceLock<RwLock<OpenedSet>> = OnceLock::new();
-    SET.get_or_init(Default::default)
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Refusal {
-    /// Not absolute, a `..` in it, a NUL, outside the opened set, or a folder too wide to open.
-    Outside,
-    NotFound,
-    Io(String),
-}
-
-/// The canonical form of an absolute path, refusing `..` before the file system is asked: the page names files by
-/// their normalised absolute path, so a `..` is never the reader's.
-pub fn canonical(raw: &Path) -> Result<PathBuf, Refusal> {
-    if !raw.is_absolute()
-        || raw.as_os_str().to_string_lossy().contains('\0')
-        || raw.components().any(|c| c == Component::ParentDir)
-    {
-        return Err(Refusal::Outside);
-    }
-    dunce::canonicalize(raw).map_err(|e| match e.kind() {
-        io::ErrorKind::NotFound => Refusal::NotFound,
-        _ => Refusal::Io(e.to_string()),
-    })
-}
-
-fn held(set: &RwLock<OpenedSet>, judge: impl FnOnce(&OpenedSet) -> bool) -> bool {
-    set.read().map(|s| judge(&s)).unwrap_or(false)
-}
-
-/// The canonical path of `raw` when `set` holds it: by spelling first, so nothing outside reaches the disk (a share's
-/// name would be looked up, and answered with the reader's credentials), then canonical. Canonicalised outside the lock:
-/// a stalled share must not hold it.
-pub fn resolve(set: &RwLock<OpenedSet>, raw: &Path) -> Result<PathBuf, Refusal> {
-    if !held(set, |s| s.may_hold(raw)) {
-        return Err(Refusal::Outside);
-    }
-    let path = canonical(raw)?;
-    if held(set, |s| s.holds(&path)) {
-        Ok(path)
-    } else {
-        Err(Refusal::Outside)
-    }
-}
-
-/// Records an image the page measured (`image_size`) for a document, under a folder it opened (the image root), even
-/// below a dot or denied folder there: the document names it (`![logo](.github/logo.png)`) and its header says
-/// it is an image, so the box the page reserved for it fills. A path outside every opened folder is not recorded.
-pub fn open_measured_image(set: &RwLock<OpenedSet>, path: &str) {
-    let raw = Path::new(path);
-    let Ok(c) = canonical(raw) else {
-        return;
-    };
-    if let Ok(mut set) = set.write() {
-        if set.within_a_folder(&c) {
-            set.add_file(raw, c);
-        }
-    }
-}
-
-/// The reader's home folder, canonical.
-pub(crate) fn home() -> Option<PathBuf> {
-    let var = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
-    std::env::var_os(var).and_then(|h| dunce::canonicalize(h).ok())
-}
-
-/// A folder too wide to open as a whole: a drive's or a share's root, the home folder or a folder above it.
-pub(crate) fn too_wide(folder: &Path, home: Option<&Path>) -> bool {
-    folder.parent().is_none() || home.is_some_and(|h| h.starts_with(folder))
-}
-
-/// Records a folder the page opened; anything but an existing folder, or a folder `too_wide`, is refused.
-pub fn open_folder(path: &str) -> Result<PathBuf, Refusal> {
-    let raw = Path::new(path);
-    let c = canonical(raw)?;
-    if !c.is_dir() || too_wide(&c, home().as_deref()) {
-        return Err(Refusal::Outside);
-    }
-    if let Ok(mut set) = opened().write() {
-        set.add_folder(raw, c.clone());
-    }
-    Ok(c)
-}
-
-/// `raw` when it names an existing folder in `set` (a `[[command]]`'s working folder).
-pub fn opened_folder(set: &RwLock<OpenedSet>, raw: &Path) -> Result<PathBuf, Refusal> {
-    let c = resolve(set, raw)?;
-    if c.is_dir() {
-        Ok(c)
-    } else {
-        Err(Refusal::Outside)
-    }
-}
-
-/// Whether the file behind `file`, opened from `path`, is still one `set` holds: a link swapped in between the
-/// canonicalisation and the open would have led the open elsewhere.
-pub fn handle_held(set: &RwLock<OpenedSet>, file: &File, path: &Path) -> bool {
-    #[cfg(windows)]
-    {
-        let _ = path;
-        final_path(file).is_some_and(|p| held(set, |s| s.holds(&p)))
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt;
-        let (Ok(opened), Ok(again)) = (file.metadata(), dunce::canonicalize(path)) else {
-            return false;
-        };
-        let same =
-            fs::metadata(&again).is_ok_and(|m| m.dev() == opened.dev() && m.ino() == opened.ino());
-        same && held(set, |s| s.holds(&again))
-    }
-    #[cfg(not(any(windows, unix)))]
-    {
-        let _ = file;
-        held(set, |s| s.holds(path))
-    }
-}
-
-/// The path of the file a handle is open on, as the canonicalisation spells it.
-#[cfg(windows)]
-pub(crate) fn final_path(file: &File) -> Option<PathBuf> {
-    use std::ffi::{c_void, OsString};
-    use std::os::windows::ffi::OsStringExt;
-    use std::os::windows::io::AsRawHandle;
-
-    #[link(name = "kernel32")]
-    extern "system" {
-        fn GetFinalPathNameByHandleW(
-            file: *mut c_void,
-            path: *mut u16,
-            len: u32,
-            flags: u32,
-        ) -> u32;
-    }
-    let mut buf = vec![0u16; 512];
-    loop {
-        // SAFETY: the handle is open for as long as `file` is, and `buf` holds `buf.len()` u16s.
-        let n = unsafe {
-            GetFinalPathNameByHandleW(file.as_raw_handle(), buf.as_mut_ptr(), buf.len() as u32, 0)
-        } as usize;
-        if n == 0 {
-            return None;
-        }
-        if n < buf.len() {
-            let path = PathBuf::from(OsString::from_wide(&buf[..n]));
-            return Some(dunce::simplified(&path).to_path_buf());
-        }
-        buf.resize(n + 1, 0);
-    }
-}
 
 /// A turn at holding a whole file in memory, `WHOLE_READS_AT_ONCE` at most.
 struct WholeRead;
@@ -748,13 +409,13 @@ fn answer(
     let Ok(raw) = crate::percent_decode(encoded.strip_prefix('/').unwrap_or(encoded)) else {
         return status(StatusCode::BAD_REQUEST);
     };
-    let path = match resolve(set, Path::new(&raw)) {
+    let path = match served::resolve(set, Path::new(&raw)) {
         Ok(path) => path,
         Err(Refusal::NotFound) => return status(StatusCode::NOT_FOUND),
         Err(Refusal::Outside) => return status(StatusCode::FORBIDDEN),
         Err(Refusal::Io(_)) => return status(StatusCode::INTERNAL_SERVER_ERROR),
     };
-    let mut file = match open_unblocked(&path) {
+    let mut file = match scope::open_unblocked(&path) {
         Ok(f) => f,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return status(StatusCode::NOT_FOUND),
         Err(e) if e.kind() == io::ErrorKind::PermissionDenied => {
@@ -762,7 +423,7 @@ fn answer(
         }
         Err(_) => return status(StatusCode::INTERNAL_SERVER_ERROR),
     };
-    if !handle_held(set, &file, &path) {
+    if !served::handle_served(set, &file, &path) {
         return status(StatusCode::FORBIDDEN);
     }
     let meta = match file.metadata() {
@@ -919,7 +580,9 @@ pub fn handle<R: tauri::Runtime>(
     let cache_dir = crate::data_dir::decoded_cache_dir(ctx.app_handle()).ok();
     tauri::async_runtime::spawn_blocking(move || {
         let cache = cache_dir.map(|dir| DecodedCache::new(dir, DECODED_CACHE_BYTES));
-        responder.respond(guarded(|| respond(&request, opened(), cache.as_ref())));
+        responder.respond(guarded(|| {
+            respond(&request, scope::opened(), cache.as_ref())
+        }));
     });
 }
 
@@ -932,6 +595,11 @@ fn guarded(answer: impl FnOnce() -> Response<Vec<u8>>) -> Response<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(windows)]
+    use crate::scope::plain;
+    use crate::scope::served::{
+        hidden_below, open_folder, open_measured_image, opened_folder, resolve, too_wide,
+    };
     use std::sync::atomic::AtomicUsize;
 
     /// A folder of the test's own, removed when the test ends however it ends.
@@ -1319,7 +987,7 @@ mod tests {
             open_folder(&real_root.to_string_lossy()),
             Err(Refusal::Outside)
         );
-        if let Some(h) = super::home() {
+        if let Some(h) = crate::scope::served::home() {
             assert_eq!(open_folder(&h.to_string_lossy()), Err(Refusal::Outside));
         }
     }
