@@ -2,11 +2,11 @@
 // function from a file's text, or the lines of a selection in it, to the text it would leave, with the lines it changes.
 // Core's transforms and operations do the work where they have it; the few it adds that core has no form of
 // (trailing spaces, tabs, ticks, sorted keys, line ends, the final newline, invisible characters) are here. Pure.
-import { parseMarkdown, unifiedDiff, utf8Length, type Document, type Node, type ParsedText } from '@marxy/core';
+import { parseMarkdown, parseMarkdownSteps, unifiedDiff, utf8Length, type Document, type Node, type ParsedText } from '@marxy/core';
 import { alignTablePipes } from '@marxy/core/src/operations/align-table-pipes.ts';
 import { renumberList } from '@marxy/core/src/operations/list-markers.ts';
 import { parseText } from '@marxy/core/src/transforms/prose.ts';
-import { runTransform } from '@marxy/core/src/transforms/registry.ts';
+import { runTransform, transformById } from '@marxy/core/src/transforms/registry.ts';
 import { joinLines, splitLines } from './search-model.ts';
 
 /** Lines `[a, b)`, 0-based: the selection a transform runs on. */
@@ -143,10 +143,31 @@ function* eachLine(text: string, sel: LineSel | null, run: (line: string, i: num
   return measure(text, joinLines(lines, sp.eols));
 }
 
-// Core takes the parse only when it is of exactly the text it reads (`withParse`): the whole file, not a selection's lines.
-// Core's transform is one call; the parse it would otherwise make is the costly part, and the store's parse spares it.
-const core = (id: string) => (text: string, sel: LineSel | null, parsed?: ParsedText | null): Steps =>
-  onRegion(text, sel, (part) => runTransform(id, part, parsed ? { parsed } : undefined));
+// Core takes the parse only when it is of exactly the text it reads (`withParse`): the whole file as LF text, not a
+// selection's lines. Core's transform is one call; the parse it would otherwise make is the costly part, so it is handed
+// one (a row that reads no structure parses nothing): the store's for LF text, or, for text with CRLF or CR line ends (core reads the LF copy), an LF parse made here in
+// slices, a piece per turn of the panel's budget and shared by every row.
+const core = (id: string) =>
+  function* (text: string, sel: LineSel | null, parsed?: ParsedText | null): Steps {
+    const given = sel === null && text.includes('\r') && transformById(id)?.outsideCode ? yield* lfParsed(text) : parsed;
+    return yield* onRegion(text, sel, (part) => runTransform(id, part, given ? { parsed: given } : undefined));
+  };
+
+/** The last LF parse made here for a text whose line ends are not LF. */
+let lfOwn: ParsedText | null = null;
+
+/** The Markdown parse of the LF copy core's transforms read of `text` (CRs and a byte-order mark gone), in slices; null if it cannot be made. */
+function* lfParsed(text: string): Generator<void, ParsedText | null, void> {
+  const lf = (text.startsWith('\uFEFF') ? text.slice(1) : text).replace(/\r\n|\r/g, '\n');
+  if (lfOwn?.text === lf) return lfOwn;
+  try {
+    const doc = yield* parseMarkdownSteps(encoder.encode(lf), { file: 'transform' });
+    lfOwn = { text: lf, doc };
+    return lfOwn;
+  } catch {
+    return null;
+  }
+}
 
 /** The last parse made here of a text core's cache does not take (one with a CR or a byte-order mark). */
 let own: { readonly text: string; readonly doc: Document } | null = null;
