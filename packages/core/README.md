@@ -11,6 +11,7 @@ in the app, in a worker and under Node's test runner. The path from bytes to pag
 | --- | --- |
 | `src/index.ts` | the package's whole surface |
 | `src/buffer/`, `src/encoding/`, `src/position/`, `src/sourcemap/` | the document as bytes: splices, encodings, places and their mapping |
+| `src/scale/` | the scale record: bytes, lines and longest line of a file, and what its parse holds; numbers only, no policy |
 | `src/parse/`, `src/render/`, `src/sanitize/` | Markdown to a tree with byte ranges, the tree to HTML, and the one sanitiser |
 | `src/kind/`, `src/reading/`, `src/viewer/` | recognising a file, the ways it can be read, and readers for archives, pictures and other non-text files |
 | `src/data/`, `src/log/`, `src/diff/`, `src/mail/`, `src/office/`, `src/book/`, `src/page/` | the readings of each family of file |

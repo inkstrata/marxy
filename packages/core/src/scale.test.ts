@@ -14,6 +14,7 @@ import { reparseMarkdown } from './parse/reparse.ts';
 import { BLOCKS } from './parse/testing/structured.ts';
 import { indexLines } from './reading/lines.ts';
 import { readingOf } from './reading/index.ts';
+import { byteScale, parseScale } from './scale/record.ts';
 import { renderDocumentSafeHtml } from './render/pipeline.ts';
 import { sanitizeHtml } from './sanitize/sanitize-html.ts';
 import { describeGrowth, type Growth, growth } from './testing/growth.ts';
@@ -97,6 +98,25 @@ test('the line index of a big text file grows with the file', () => {
   const make = (n: number) => enc(fill(n, (i) => `${words(i, 13)}\n`));
   holds('indexLines', (runs) => growth(make, (bytes) => indexLines(bytes, false), { small: SMALL * 4, runs }));
 });
+
+for (const [shape, make] of Object.entries({
+  lines: (n: number) => enc(fill(n, (i) => `${words(i, 13)}
+`)),
+  'CRLF lines': (n: number) => enc(fill(n, (i) => `${words(i, 13)}
+`)),
+  'one long line': (n: number) => enc(fill(n, (i) => `${words(i, 13)} `)),
+})) {
+  test(`the scale record's byte facts (${shape}) grow with the file`, () => {
+    holds(`byteScale ${shape}`, (runs) => growth(make, (bytes) => byteScale(bytes), { small: SMALL * 4, runs }));
+  });
+}
+
+for (const shape of ['prose']) {
+  test(`the scale record's parse facts (${shape}) grow with the page`, () => {
+    const make = (n: number) => parseMarkdown(enc(MARKDOWN[shape]!(n)), { file: 'big.md' });
+    holds(`parseScale ${shape}`, (runs) => growth(make, (doc) => parseScale(doc), { small: 1024 * 1024, runs }));
+  });
+}
 
 const READINGS: Record<string, (bytes: number) => string> = {
   'rows.csv': (b) => `id,word,value,phrase\n${fill(b, (i) => `${i},${WORDS[i % 19]},${i * 1.5},"${words(i, 5)}"\n`)}`,
