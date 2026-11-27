@@ -1,0 +1,466 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+mash
+
+markdown-fast
+
+Repository navigation
+
+Code
+
+Issues
+
+Pull requests
+
+Actions
+
+Projects
+
+Security and quality
+
+Insights
+
+More items
+
+markdown-fast
+Public
+
+NotificationsYou must be signed in to change notification settings
+
+Fork0 (0)
+
+Star1 (1)You must be signed in to star a repository
+
+About
+
+A faster Markdown preview for VS Code. Drop-in replacement for the builtin — TTFP drops from ~4.6s to under 1s on large code-heavy docs.
+
+marketplace.visualstudio.com/items?itemName=maaashjp.markdown-fast
+
+Topics
+
+autoresearchclaude-codemarkdownmarkdown-previewperformancevscodevscode-extension
+
+Resources
+
+Readme
+
+License
+
+Activity
+
+Stars
+
+1 star
+
+Watchers
+
+0 watching
+
+Forks
+
+0 forks
+
+Report repository
+
+main
+
+Branches Tags
+
+Go to file
+
+Code
+Open more actions menu
+
+Latest commit
+
+History
+32 Commits
+
+32 Commits
+
+Folders and files
+
+Name Name
+Last commit message
+
+Last commit date
+
+.claude/skills/autoresearch
+
+.claude/skills/autoresearch
+
+benchmark
+
+benchmark
+
+docs/media
+
+docs/media
+
+ext/markdown-fast
+
+ext/markdown-fast
+
+.gitignore
+
+.gitignore
+
+LICENSE
+
+LICENSE
+
+README.md
+
+README.md
+
+package-lock.json
+
+package-lock.json
+
+package.json
+
+package.json
+
+program.md
+
+program.md
+
+tsconfig.json
+
+tsconfig.json
+
+View all files
+
+Repository files navigation
+
+README
+
+License
+
+More items
+
+Markdown Fast
+
+A faster Markdown preview for VS Code.
+
+Why
+
+I didn't have a problem with the builtin Markdown viewer until this morning, when I opened a large plan file and it took at least a whole second before anything showed up. In the AI era we're reading a lot more Markdown than before — especially long, code-heavy design documents written in plan mode — and those pauses add up.
+
+Markdown Fast is a fork of the builtin that keeps the same UX — same markdown-it pipeline, same keybindings, same syntax highlighting, same scroll-sync — but cuts time-to-first-paint by deferring and slicing work that the builtin does eagerly. You see the top of the document immediately; the rest fills in just after, with off-screen syntax highlighting deferred until you scroll there.
+
+It's a drop-in replacement. Disable the builtin vscode.markdown-language-features extension to make Markdown Fast the default previewer.
+
+Install
+
+From the Marketplace (recommended): maaashjp.markdown-fast
+
+code --install-extension maaashjp.markdown-fast
+
+Or search for "Markdown Fast" in the Extensions sidebar (⇧⌘X).
+
+From VSIX:
+
+cd ext/markdown-fast
+npm install
+npm run package # compiles + produces markdown-fast-*.vsix
+code --install-extension markdown-fast-*.vsix
+
+From source (development):
+
+(cd ext/markdown-fast && npm install)
+npm run build
+# then launch a dev VS Code with --extensionDevelopmentPath=./ext/markdown-fast
+
+Usage: open a .md file and press ⇧⌘V (preview) or ⌘K V (preview to side).
+
+Disable the builtin Markdown preview
+
+Markdown Fast and the builtin both register the same commands and view types, so to make Markdown Fast the active previewer you should disable the builtin.
+
+Open the Extensions sidebar (⇧⌘X).
+
+In the search box, type @builtin markdown language features.
+
+Click the entry "Markdown Language Features" (publisher: vscode) and choose Disable (or Disable (Workspace) if you only want it disabled in this project). Only this one — leave "Markdown Language Basics", "Markdown Math", and any other @builtin markdown ... extensions enabled.
+
+After disabling, reload the window (⌘R / Cmd+Shift+P → "Developer: Reload Window") so VS Code picks up the change.
+
+On first activation Markdown Fast will also prompt to set itself as the default editor for *.md (writing workbench.editorAssociations to your user settings). Without this, opening a .md still goes to the plain text editor; with it, opening goes straight to the rendered preview.
+
+How is it fast
+
+Three optimizations, all benchmarked to actually move TTFP, run together:
+
+Lazy highlight — highlight.js is deferred from the host to the webview, and only visible code blocks get highlighted on first paint. The rest highlight as you scroll.
+
+Viewport-first rendering — the visible viewport is rendered and painted before anything below the fold; the rest of the document is rendered after first paint.
+
+Token-boundary slicing — the document is parsed once, then split at top-level markdown-it token boundaries: only the viewport's tokens are rendered synchronously; the rest is rendered lazily after first paint. Splitting on tokens (not source lines) means a slice never bisects a fenced code block, list, table, or blockquote.
+
+Net effect: TTFP on a large plan file drops from roughly 4.6s to under 1s in the bench harness. Correctness and final DOM match the builtin once everything has finished rendering.
+
+Benchmarks & autoresearch
+
+This repo is also an experiment: applying Karpathy's autoresearch idea — let an agent run a tight measure → propose → keep-or-revert loop against a hard metric — to user-interfacing software instead of model training. The hard metric here is TTFP (Time To First Paint) of the preview pane, measured in two flavors:
+
+Offline TTFP-host — parse + render(+ highlight) in Node, measured by benchmark/bench-engine.ts. Fast feedback for host-side changes.
+
+E2E TTFP — wall-clock time between the harness pressing Enter in Quick Open and the first heading rendering inside the preview webview, captured via Playwright + Chrome DevTools Protocol.
+
+npm run bench:e2e # baseline (builtin VS Code preview)
+npm run build
+BENCH_FORK=1 BENCH_LAZY_HL=1 BENCH_VIEWPORT_FIRST=1 BENCH_TOKEN_SLICE=1 npm run bench:e2e
+
+Each run writes one JSON to benchmark/results/e2e-${variant}.json, including per-iteration TTFP samples and [BENCH]-prefixed phase markers (parse/render on the host, firstMorph/firstAnimFrame in the webview) so regressions can be attributed to a phase rather than a vague "slower."
+
+The harness opens files via Quick Open (Cmd+P → type filename → Enter). Both variants are configured so the rendered preview is the default editor for *.md — the fork via its customEditor contribution, the baseline via a workbench.editorAssociations setting written into the test user-data dir — so a single Enter opens straight into a preview. Same gesture, same code path, apples-to-apples.
+
+Autoresearch
+
+The autoresearch skill (.claude/skills/autoresearch/SKILL.md) runs the loop autonomously: pick an idea, edit the fork, build, bench, log to results.tsv, and either commit-and-keep or revert based on the numbers. The decision rule is simple: keep if median TTFP improves ≥3% and p95 doesn't regress >5%; otherwise discard.
+
+The chart above is a representative run: each grey dot is a discarded experiment, each green dot is a kept improvement, and the green staircase is the running best.
+
+The optimizations themselves were written by the autoresearch loop. I worked with Claude Code to set up the benchmark harness, the fork scaffolding, and the skill, contributed the "viewport-first rendering" idea, and let the loop iterate on the rest.
+
+Layout
+
+benchmark/
+gen-corpus.ts deterministic synthetic .md generator (4 profiles × 4 sizes)
+bench-engine.ts offline (Node) markdown-it + highlight.js phase timings
+e2e/run-ttfp.ts E2E harness; baseline or fork via BENCH_FORK=1
+e2e-summarize.ts joins offline + e2e numbers into a markdown report
+results/ *.json + *.md (gitignored — re-run to reproduce)
+ext/markdown-fast/ the extension; this is what we're optimizing
+tmp/vscode-markdown/ upstream microsoft/vscode shallow clone (reference; not edited)
+tmp/corpus/ generated test corpus (gitignored)
+
+Conventions
+
+Synthetic corpus is deterministic (LCG-seeded); regenerate with npm run gen:corpus.
+
+Results JSON is gitignored — re-run benchmarks to reproduce.
+
+License & credits
+
+MIT — see LICENSE. Forked from microsoft/vscode/extensions/markdown-language-features, © Microsoft Corporation, also MIT.
+
+About
+
+A faster Markdown preview for VS Code. Drop-in replacement for the builtin — TTFP drops from ~4.6s to under 1s on large code-heavy docs.
+
+marketplace.visualstudio.com/items?itemName=maaashjp.markdown-fast
+
+Topics
+
+autoresearchclaude-codemarkdownmarkdown-previewperformancevscodevscode-extension
+
+Resources
+
+Readme
+
+License
+
+Activity
+
+Stars
+
+1 star
+
+Watchers
+
+0 watching
+
+Forks
+
+0 forks
+
+Report repository
+
+Releases
+
+Packages
+
+Contributors
+
+Languages
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

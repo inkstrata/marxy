@@ -1,0 +1,290 @@
+🇬🇧
+🇩🇪
+
+← Marked Home
+
+Marked Help
+
+Getting Started
+
+Overview
+
+Live Markdown Preview on Mac
+
+What's New
+
+Opening Files
+
+Using the Browser Extensions
+
+Using the Share Extension
+
+Marked Quick Look
+
+Quick Open
+
+Quick Actions
+
+Choosing a Processor
+
+Preview Appearance
+
+Interface Features
+
+Exporting
+
+Comparisons & FAQ
+
+Marked vs Obsidian Preview
+
+Markdown Preview FAQ
+
+Reading Features
+
+Document Navigation
+
+Wiki Navigation
+
+Zoom Overview
+
+Autoscroll
+
+Speed Reading
+
+Reading Mode
+
+Ask About Document
+
+Writing Features
+
+Layout and Typography
+
+Document Statistics
+
+Multi-file Documents
+
+Fountain for Screenwriters
+
+Keyword Highlighting
+
+Spelling and Grammar
+
+CriticMarkup
+
+MathJax
+
+Working with DOCX
+
+HTML Export
+
+EPUB Export
+
+RTF / RTFD
+
+PDF
+
+Image Variants
+
+Link Validation
+
+Comments and Annotations
+
+Features for Coders
+
+Using Marked with Agentic Coding
+
+Supported Apps
+
+Bear
+
+Bike
+
+Curio
+
+DEVONthink
+
+Drafts
+
+Finis
+
+Folder Watching
+
+Highland
+
+Hookmark
+
+iA Writer
+
+iThoughtsX
+
+MarsEdit
+
+Microsoft Word
+
+MindNode
+
+MultiMarkdown Composer
+
+nvALT
+
+nvUltra
+
+Obsidian
+
+OmniOutliner and OPML
+
+Scrivener 3
+
+The Archive
+
+Tree Outliner
+
+Traverse
+
+Ulysses
+
+Vim
+
+VS Code
+
+VoodooPad
+
+Xcode Playgrounds
+
+DocC
+
+Additional app integrations
+
+Advanced Features
+
+Custom Styles
+
+Creating Custom Styles
+
+Custom Style Generator
+
+Style Manager
+
+Style Stealer
+
+Markdownifier
+
+Custom Processor
+
+Sandbox Restrictions
+
+Per-Document Settings
+
+Marked Special Syntax
+
+Creating Tables Using CSV Files
+
+Embedding Mind Maps and Outlines
+
+Keyboard Shortcuts
+
+Workflow Integration
+
+URL Handler
+
+AppleScript Support
+
+Command Line Utility
+
+AI Integration
+
+Streaming Preview
+
+HTML Specific Settings
+
+Embedding JavaScript
+
+JavaScript API Docs
+
+Settings
+
+Settings: General
+
+Settings: Preview
+
+Settings: Style
+
+Settings: Processor
+
+Settings: Applications
+
+Settings: Proofing
+
+Settings: Export
+
+Settings: Advanced
+
+Troubleshooting
+
+Preview Not Updating
+
+Overall Performance
+
+Debugging
+
+Additional Help
+
+About Markdown
+
+Processor Selection
+
+Markdown Overview
+
+Markdown Dingus
+
+MultiMarkdown v5 Specification
+
+CommonMark Specification
+
+Kramdown Specification
+
+Discount GFM Specification
+
+Apex (beta)
+
+Apex configuration
+
+Credits
+
+Credits
+
+MultiMarkdown License
+
+Discount License
+
+Kramdown License
+
+CommonMark License
+
+pdf22md License
+
+Ask
+
+Full Index
+
+Changelog
+
+◀ Preview Not Updating
+Debugging ▶
+
+Overall Performance
+
+Marked’s overall rendering speed and performance can vary greatly based on your settings and the type of content you have in your document. There are several factors that can lead to slow rendering or long delays:
+
+Time Machine. If Time Machine is running and your system is experiencing a lot of disk activity, you may find Marked is slower to respond to changes in your document. The processing speed is not affected, just the reaction time.
+
+Rendering a Markdown document containing a lot of HTML. This will always take longer to process. Discount handles it a little better than MultiMarkdown, so if this is a necessity you might consider changing the default processor (Caveat: you’ll lose footnotes and some other MultiMarkdown features).
+
+Using many includes. Whether it’s code includes or an index merge file, picking up all the pieces takes Marked a second. The same is true of large Scrivener documents. There’s not a lot you can do to fix this one, Marked will just do its best to keep up with the way you choose to structure your document.
+
+Hard drive condition. If your hard drive is almost full, your Spotlight index is corrupt or your permissions haven’t been repaired in a while, Marked may have a harder time picking up the changes to the file it’s watching. Optimizing your drive by repairing permissions will often help, and rebuilding the Spotlight index is often a fix for Marked issues.
+
+Next up: Debugging ▶
+
+Search | Ask | Support Site | Legal |
+Privacy | Twitter

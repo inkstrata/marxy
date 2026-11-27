@@ -1,0 +1,460 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+readium
+
+kotlin-toolkit
+
+Repository navigation
+
+Code
+
+Issues52 ( 52 )
+
+Pull requests18 ( 18 )
+
+Discussions
+
+Actions
+
+Projects
+
+Security and quality
+
+Insights
+
+More items
+
+Full vertical scroll (or less internal components) #313
+
+New issue
+Copy link
+
+New issue
+Copy link
+
+Closed as duplicate
+
+Closed as duplicate
+
+Full vertical scroll (or less internal components)#313
+
+Copy link
+
+Description
+
+sdsantos
+
+opened on Dec 20, 2022
+
+Issue body actions
+
+I'm using Readium with a specific requirement: full vertical scroll, instead of the existing mix of vertical scroll + swipe to switch chapters. This currently requires skipping a lot of the library UI code and managing my own RecyclerView of chapters with R2WebView items inside. With the version currently in develop this kind of usage becomes harder because a lot of important navigator components are internal like EpubNavigatorViewModel and WebViewServer.
+
+a) Could the visibility of those components be revised?
+
+b) A ViewPager is currently being used for displaying chapter resources. Could a RecyclerView with a PagerSnapHelper be an interesting alternative? That way switching between all pages, scroll + chapter pages, or full scroll would be way easier.
+
+Activity
+
+mickael-menu commented on Dec 20, 2022
+
+mickael-menu
+
+on Dec 20, 2022
+
+Member
+
+More actions
+
+I'm using Readium with a specific requirement: full vertical scroll, instead of the existing mix of vertical scroll + swipe to switch chapters.
+
+That's interesting. If you already implemented it, could you share a screencast of what it looks like? We are not particularly happy with the horizontal swipes across chapters and would be opened to have a different behavior.
+
+a) Could the visibility of those components be revised?
+
+Unlikely, because they would increase the API surface and prevent any significant implementation changes. We used to have too much stuff public and are trying to reduce the public API to keep it maintainable and the private implementation flexible.
+
+That being said, we're open to make public some components as "helpers", if they are really independent and their APIs clearly defined. WebViewServer and ReadiumCss could make good candidates. Though this is pretty low priority and we want to be careful when exposing private details.
+
+b) A ViewPager is currently being used for displaying chapter resources. Could a RecyclerView with a PagerSnapHelper be an interesting alternative? That way switching between all pages, scroll + chapter pages, or full scroll would be way easier.
+
+The EPUB navigator didn't change much since the beginning. There was an attempt to migrate to ViewPager2, but it was aborted because it is only a good fit for paginated modes. There's also an old issue suggesting just that, but not much else.
+
+In the context of Navigator 2, we (core developers) are experimenting with Jetpack Compose to implement a new navigator. At the moment, we don't plan to improve the way resources are displayed in the current EPUB navigator. However, if you want to tackle this in the current implementation, I think it would be a welcome contribution.
+
+sdsantos commented on Dec 20, 2022
+
+sdsantos
+
+on Dec 20, 2022
+
+Last edited by sdsantos
+
+Author
+
+More actions
+
+That's interesting. If you already implemented it, could you share a screencast of what it looks like? We are not particularly happy with the horizontal swipes across chapters and would be opened to have a different behavior.
+
+Here's how it's looking with the latest develop branch. I haven't migrated to the new ReadiumCss so the layout isn't how it should be.
+
+readium_scroll.1.mp4
+
+Unlikely, because they would increase the API surface and prevent any significant implementation changes. We used to have too much stuff public and are trying to reduce the public API to keep it maintainable and the private implementation flexible.
+
+That being said, we're open to make public some components as "helpers", if they are really independent and their APIs clearly defined. WebViewServer and ReadiumCss could make good candidates. Though this is pretty low priority and we want to be careful when exposing private details.
+
+Right now this means I had to copy over the WebViewServer, ReadiumCss, Layout and HtmlInjector. And I will either have to duplicate the EpubNavigatorViewModel as well, with more internal dependencies likely, or just copy the code that maintains the Preferences API + ReadiumCss.
+
+mickael-menu commented on Dec 20, 2022
+
+mickael-menu
+
+on Dec 20, 2022
+
+Member
+
+More actions
+
+Here's how it's looking with the latest develop branch. I haven't migrated to the new ReadiumCss so the layout isn't how it should be.
+
+This looks great. Why don't you contribute it back into Readium? That would solve the problem of accessing internal components.
+
+As a first step and to limit regressions until it's battle tested, it could be a copy of the EpubNavigatorFragment, or better have the EpubNavigatorFragment be able to switch between the current implementation and the RecyclerView one based on a config option.
+
+sdsantos commented on Dec 20, 2022
+
+sdsantos
+
+on Dec 20, 2022
+
+Author
+
+More actions
+
+This looks great. Why don't you contribute it back into Readium? That would solve the problem of accessing internal components.
+
+Currently, it's not an implementation that is easy to detach from the specifics of the app we're building. Also, it does not support many of the configurations and settings available, many are hardcoded. Maybe with some time, I would be able to make it more abstract so it would be fit for sharing.
+
+mickael-menu commented on Dec 20, 2022
+
+mickael-menu
+
+on Dec 20, 2022
+
+Member
+
+More actions
+
+Alright, I'm looking forward to it if you find the time to extract your implementation!
+
+So for this, you used a RecyclerView, and the PagerSnapHelper is used when in paginated mode? For the continuous scroll, do you resize the WebViews every time the HTML height changes, and disable any scrolling directly in the web view?
+
+sdsantos commented on Dec 20, 2022
+
+sdsantos
+
+on Dec 20, 2022
+
+Author
+
+More actions
+
+So for this, you used a RecyclerView, and the PagerSnapHelper is used when in paginated mode? For the continuous scroll, do you resize the WebViews every time the HTML height changes, and disable any scrolling directly in the web view?
+
+I'm using a plain RecyclerView. We don't support a paginated mode, just a full vertical scroll. RecyclerView items naturally expand with the contents of the WebView, it's the RecyclerView that scrolls and not the WebViews.
+
+qnga commented on Dec 20, 2022
+
+qnga
+
+on Dec 20, 2022
+
+Member
+
+More actions
+
+One more question! How do you deal with the loading time? For instance when a fling would get beyond the already loaded resources. When working on that, I felt like it would be a mess to handle this edge case.
+
+sdsantos commented on Dec 20, 2022
+
+sdsantos
+
+on Dec 20, 2022
+
+Author
+
+More actions
+
+One more question! How do you deal with the loading time? For instance when a fling would get beyond the already loaded resources. When working on that, I felt like it would be a mess to handle this edge case.
+
+Before the WebView has loaded we show a progress bar for each chapter, and the view has some minimum fixed height. So basically once you reach a chapter that hasn't loaded yet, you can scroll through chapters very quickly, which is a bit weird, but works out well if you tapped a link to go to another chapter far away.
+
+The good thing is that without the WebServer, chapters are loading very fast now.
+
+qnga commented on Dec 20, 2022
+
+qnga
+
+on Dec 20, 2022
+
+Member
+
+More actions
+
+Got it! Thanks.
+
+blackdandan commented on Mar 20, 2025
+
+blackdandan
+
+on Mar 20, 2025
+
+More actions
+
+Is there some solution for Full vertical scroll
+
+mickael-menu commented on Mar 20, 2025
+
+mickael-menu
+
+on Mar 20, 2025
+
+Member
+
+More actions
+
+No it's currently not supported.
+
+mickael-menu commented on Apr 25, 2025
+
+mickael-menu
+
+on Apr 25, 2025
+
+Member
+
+More actions
+
+The Navigator 2 implementation which will be released in beta in a few months will have a continuous scrolling.
+
+mickael-menu
+closed this as duplicateon Apr 25, 2025
+
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+
+Metadata
+
+Metadata
+
+Assignees
+
+No one assigned
+
+Labels
+
+No labels
+
+No labels
+
+Type
+
+No type
+
+Projects
+
+No projects
+
+Milestone
+
+No milestone
+
+Relationships
+
+None yet
+
+Development
+
+No branches or pull requests
+
+Issue actions
+
+Open in GitHub Copilot app
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

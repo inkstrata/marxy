@@ -1,0 +1,86 @@
+{
+ "chapter": "08-search-highlight.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "SRC-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "50ae95daa742"
+  },
+  "SRC-02": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "e12373bf65b4"
+  },
+  "SRC-03": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "371cfc418d5f"
+  },
+  "SRC-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "5d6f90a86980"
+  },
+  "SRC-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "ad851337b859"
+  },
+  "SRC-06": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "4b79edeb1d05"
+  },
+  "SRC-07": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "5a27e2367e1c"
+  },
+  "SRC-08": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "421bdac6e7ea"
+  },
+  "SRC-09": {
+   "tags": [
+    "confirmed",
+    "confirmed"
+   ],
+   "hash": "554be36a599c"
+  },
+  "SRC-10": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "35809a7983ae"
+  },
+  "SRC-11": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "d0a6a1f2478c"
+  },
+  "SRC-12": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "dfe929073cf9"
+  },
+  "SRC-13": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "3ff7eff3a09f"
+  }
+ }
+}

@@ -1,0 +1,2506 @@
+{
+ "format": "sources/1",
+ "sources": [
+  {
+   "id": "582a09908ed3",
+   "url": "https://archive.eclipse.org/jgit/site/5.11.0.202103091610-r/org.eclipse.jgit.coverage/jacoco-aggregate/org.eclipse.jgit/org.eclipse.jgit.diff/HistogramDiff.java.html",
+   "title": "HistogramDiff.java",
+   "retrieved": "2026-11-27",
+   "sha256": "582a09908ed3eac8bf8120bc128f3409f685f7432b1269c4af790f2a6c26ba2b",
+   "chars": 6407,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "38fa1dedff90",
+   "url": "https://arxiv.org/abs/2602.11988",
+   "title": "[2602.11988] Evaluating AGENTS.md: Are Repository-Level Context Files Helpful for Coding Agents?",
+   "retrieved": "2026-11-27",
+   "sha256": "38fa1dedff90c80814cf35542adecb8b17158d9a886dc5bce2b5e0d877e6ec28",
+   "chars": 4872,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "89ee7baa4cea",
+   "url": "https://arxiv.org/html/2311.17620v2",
+   "title": "Linear Matching of JavaScript Regular Expressions",
+   "retrieved": "2026-11-27",
+   "sha256": "89ee7baa4cea0a09b9173a5ce36622a251bd498a868a7e1265085417905e2800",
+   "chars": 110680,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "47bff736d41e",
+   "url": "https://arxiv.org/html/2312.17149v3",
+   "title": "On-Demand JSON: A Better Way to Parse Documents?",
+   "retrieved": "2026-11-27",
+   "sha256": "47bff736d41e644e7dcc4bd0910c53f1cdb9cf68ccf62ba00ed96f0d76c80b63",
+   "chars": 45860,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "4830d3300853",
+   "url": "https://arxiv.org/html/2602.11988v1",
+   "title": "Evaluating AGENTS.md:Are Repository-Level Context Files Helpful for Coding Agents?",
+   "retrieved": "2026-11-27",
+   "sha256": "4830d330085393a9ad36fa9439bae89c7af4d4995f717002ad6b2dd69c91a82c",
+   "chars": 57991,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "500bee110ba6",
+   "url": "https://biomejs.dev/blog/biome-v2-5/",
+   "title": "Biome v2.5—500 Lint Rules, Plugin Code Fix, and Cross-File Linting | Biome",
+   "retrieved": "2026-11-27",
+   "sha256": "500bee110ba6c573209652c9d89aa60e0d1067fdbf262f8f540a80d811882888",
+   "chars": 17966,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "99fd9d38415c",
+   "url": "https://biomejs.dev/blog/biome-v2-6/",
+   "title": "Biome v2.6—Support for new languages, JavaScript plugins, better Tailwind integration and the biome inspect command | Biome",
+   "retrieved": "2026-11-27",
+   "sha256": "99fd9d38415c3abf077f268d180a97b4744e224f982e156320ab5bacc8d1a6f1",
+   "chars": 36344,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "8b77b717e65d",
+   "url": "https://biomejs.dev/linter/plugins/",
+   "title": "Linter Plugins | Biome",
+   "retrieved": "2026-11-27",
+   "sha256": "8b77b717e65df390aa7398c19613a95a433336d91f1a17bea60a2b261efb5e33",
+   "chars": 42354,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "6a0ceae0cfba",
+   "url": "https://bugzilla.mozilla.org/show_bug.cgi?id=1363222",
+   "title": "1363222 - JSON Viewer is slow for large JSON",
+   "retrieved": "2026-11-27",
+   "sha256": "6a0ceae0cfba1eb63527382ffb871442283d4ae8559d8dcfa292f1cbb5e891cb",
+   "chars": 11375,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "2038f8a613d5",
+   "url": "https://bugzilla.mozilla.org/show_bug.cgi?id=1804655",
+   "title": "1804655 - high cpu usage and memory when using the JSON viewer on an 8MB file",
+   "retrieved": "2026-11-27",
+   "sha256": "2038f8a613d5d207a80717d179574f779b95d79645b71f1a0e7d46685bd54643",
+   "chars": 6872,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "65bcdd49fe41",
+   "url": "https://bugzilla.mozilla.org/show_bug.cgi?id=2005283",
+   "title": "2005283 - Is WebKit shaping 50x faster than Firefox?",
+   "retrieved": "2026-11-27",
+   "sha256": "65bcdd49fe41b4bf141de89efd89d170fc2475de2b369d4459ff4e35c5462904",
+   "chars": 5972,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "954377b0d057",
+   "url": "https://bugzilla.mozilla.org/show_bug.cgi?id=235022",
+   "title": "235022 - Pathologically slow rendering of extremely wide text file",
+   "retrieved": "2026-11-27",
+   "sha256": "954377b0d057a9b44215f33dc553203c24e44ad72a42139165f50de3595cb202",
+   "chars": 18209,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "22891ddcc29e",
+   "url": "https://bugzilla.mozilla.org/show_bug.cgi?id=475606",
+   "title": "475606 - Browser not responsive while loading HTML5 spec",
+   "retrieved": "2026-11-27",
+   "sha256": "22891ddcc29e21aa549887a2b0940b13a592b9ac4c1f020c49921d30f94e1b6d",
+   "chars": 5525,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "2e313a88bc10",
+   "url": "https://bugzilla.mozilla.org/show_bug.cgi?id=934770",
+   "title": "934770 - divide large text runs into smaller runs to avoid chrome hangs",
+   "retrieved": "2026-11-27",
+   "sha256": "2e313a88bc106bd4b2a1bb1087eb58bf61540a8871981a41d123ee8f2b704f59",
+   "chars": 9050,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e7d106e00336",
+   "url": "https://bun.com/blog/how-we-made-postMessage-string-500x-faster",
+   "title": "500x faster postMessage(string) | Bun Blog",
+   "retrieved": "2026-11-27",
+   "sha256": "e7d106e00336fdd61140b766a74c4bd84a3884727cdffeec18bc636c3a38fc56",
+   "chars": 4334,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "774de38b7147",
+   "url": "https://burntsushi.net/ripgrep/",
+   "title": "ripgrep is faster than {grep, ag, git grep, ucg, pt, sift} - Andrew Gallant's Blog",
+   "retrieved": "2026-11-27",
+   "sha256": "774de38b7147c03a817a1b3621a8d2757284c682deb478dc8b9ad96e1261ad53",
+   "chars": 109821,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "bd349043fa7b",
+   "url": "https://cdn.jsdelivr.net/npm/@shikijs/core/dist/index.d.mts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "bd349043fa7b4d457b47ac16a25a382e81e7e076c375408e397d65bc07347eda",
+   "chars": 10583,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "0d17abc3770e",
+   "url": "https://cdn.jsdelivr.net/npm/@shikijs/types/dist/index.d.mts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "0d17abc3770e176cacb8bb28ad28612b7c0fc36a685f1cce46040aebd877b264",
+   "chars": 28576,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "d703eeebfea6",
+   "url": "https://cdn.jsdelivr.net/npm/tex-linebreak@0.9.0/README.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "d703eeebfea6412563610335e23b06dc3eb73a796887a83f0989412e26c02197",
+   "chars": 8068,
+   "via": "save-source.mjs",
+   "content_type": "text/markdown"
+  },
+  {
+   "id": "f17bd2ab2006",
+   "url": "https://chromedevtools.github.io/devtools-protocol/tot/Performance/",
+   "title": "Redirecting to DevTools Protocol: Performance...",
+   "retrieved": "2026-11-27",
+   "sha256": "f17bd2ab200660b5382249a036993b2abd3d453a0d9d16585baf7c45ca14b63c",
+   "chars": 30,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "83466c290c6c",
+   "url": "https://chromium.googlesource.com/chromium/src/+/main/docs/speed/addressing_performance_regressions.md",
+   "title": "Chrome Speed - Addressing Performance Regressions",
+   "retrieved": "2026-11-27",
+   "sha256": "83466c290c6c5d6ea680f8f1b2eed0193e591fcd6b92f7713ecffa390ce94b7f",
+   "chars": 10713,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "eb23c4b4098c",
+   "url": "https://chromium.googlesource.com/v8/v8.git/+/main/docs/objects/strings.md",
+   "title": "V8 Strings: Representations, Encoding, and Hashing",
+   "retrieved": "2026-11-27",
+   "sha256": "eb23c4b4098ca4c8e2a65275d557eb84b8050bb7cf1fd6fae0ed79b90e57cda0",
+   "chars": 12604,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e15b40514904",
+   "url": "https://chromium.googlesource.com/v8/v8.git/+/refs/heads/main/src/objects/string.h?format=text",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "e15b40514904c06e8e8b79d1aca2729f3c97be94e4a2e1b644ebc50db9382cca",
+   "chars": 81321,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "890cddd27583",
+   "url": "https://circleci.com/changelog/find-cmd-f-now-working-in-the-new-ui/",
+   "title": "Find (CMD+F) Now Working in the New UI - CircleCI Changelog",
+   "retrieved": "2026-11-27",
+   "sha256": "890cddd2758300d87ddeb33d816cd0ae758b854943554977fa5cfd8e2af2564e",
+   "chars": 5216,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "86ff9f5f109b",
+   "url": "https://code.claude.com/docs/en/hooks",
+   "title": "Hooks reference - Claude Code Docs",
+   "retrieved": "2026-11-27",
+   "sha256": "86ff9f5f109bb519c713afebef70755f99e8e319bd8a0dbcae8ed18f39a577ed",
+   "chars": 255075,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "55912de794f7",
+   "url": "https://code.visualstudio.com/blogs/2018/03/23/text-buffer-reimplementation",
+   "title": "Text Buffer Reimplementation",
+   "retrieved": "2026-11-27",
+   "sha256": "55912de794f7e9c6c080336d96c940e9db272f341e93847895e9425df836754f",
+   "chars": 21188,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "a17a81c11636",
+   "url": "https://codemirror.net/docs/guide/",
+   "title": "CodeMirror System Guide",
+   "retrieved": "2026-11-27",
+   "sha256": "a17a81c11636238b996a99267e3b7f070677cb15f1da5585ae9987da697047b7",
+   "chars": 31248,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "979a25524a08",
+   "url": "https://codemirror.net/docs/ref/",
+   "title": "CodeMirror Reference Manual",
+   "retrieved": "2026-11-27",
+   "sha256": "979a25524a0848685b3351afa02940661bfe60e701b93d0f9992e0288fb571b3",
+   "chars": 235143,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e1e5073c1cbe",
+   "url": "https://codemirror.net/examples/million/",
+   "title": "CodeMirror Huge Doc Demo",
+   "retrieved": "2026-11-27",
+   "sha256": "e1e5073c1cbef928505f5bf03e88e36a632d467d3a152f63d8ec08abf449d8c5",
+   "chars": 575,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "cc04750cbb12",
+   "url": "https://codspeed.io/blog/unrelated-benchmark-regression",
+   "title": "Why glibc is faster on some Github Actions Runners | CodSpeed",
+   "retrieved": "2026-11-27",
+   "sha256": "cc04750cbb129a41d5f576d40d5ea9fce5639f93aad638deb9c641ecf538ef37",
+   "chars": 19744,
+   "via": "save-source.mjs",
+   "final_url": "https://codspeed.io/blog/why-glibc-faster-github-actions",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e607260715c2",
+   "url": "https://conf.researchr.org/event/issta-2018/issta-2018-technical-papers-perffuzz-automatically-generating-pathological-inputs",
+   "title": "PerfFuzz: Automatically Generating Pathological Inputs (ISSTA 2018 - ISSTA Technical Papers) - ISSTA 2018",
+   "retrieved": "2026-11-27",
+   "sha256": "e607260715c2d6f07cfeca2be3ad90688a76cf4d3a416c902f762941379c3dd0",
+   "chars": 13060,
+   "via": "save-source.mjs",
+   "final_url": "https://conf.researchr.org/details/issta-2018/issta-2018-Technical-Papers/1/PerfFuzz-Automatically-Generating-Pathological-Inputs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "8f13fcd98fa5",
+   "url": "https://defoe.sourceforge.net/folio/knuth-plass.html",
+   "title": "The Knuth/Plass line-breaking Algorithm",
+   "retrieved": "2026-11-27",
+   "sha256": "8f13fcd98fa53debcac80305f13a68f6e623702dc39135bfa7448df884e5dba7",
+   "chars": 33461,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "3c40344b2a6a",
+   "url": "https://dev.to/l1u7/fixing-the-file-is-too-large-to-render-in-typora-by-increasing-the-file-size-limit-hnc",
+   "title": "Fixing “The file is too large to render in Typora” by Increasing the File Size Limit - DEV Community",
+   "retrieved": "2026-11-27",
+   "sha256": "3c40344b2a6a9b34ddeb8fc1aac39e7048109899cab7c43eea626d44aabb9615",
+   "chars": 3537,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "8e9a7aea2801",
+   "url": "https://developer.apple.com/documentation/safari-release-notes/safari-26-release-notes.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "8e9a7aea2801182ad6c688a8bbb921473d7b31682874e56b5d2202d36b5f8fe3",
+   "chars": 27876,
+   "via": "save-source.mjs",
+   "content_type": "text/markdown"
+  },
+  {
+   "id": "8983a95da747",
+   "url": "https://developer.apple.com/documentation/safari-technology-preview-release-notes/stp-release-238.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "8983a95da747c8da74f55dfc6706c02bcf3261b8b362695d0f435ce10cf533b0",
+   "chars": 7365,
+   "via": "save-source.mjs",
+   "content_type": "text/markdown"
+  },
+  {
+   "id": "e590ea30bf48",
+   "url": "https://developer.apple.com/documentation/webkit/wkwebview/find(_:configuration:completionhandler:).md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "e590ea30bf48eedc6cee5589f515158ddfa400749d569dbaf3ad1616bcf02c57",
+   "chars": 1604,
+   "via": "save-source.mjs",
+   "content_type": "text/markdown"
+  },
+  {
+   "id": "76bcb082ee8d",
+   "url": "https://developer.chrome.com/blog/transferable-objects-lightning-fast",
+   "title": "Transferable objects - Lightning fast | Blog | Chrome for Developers",
+   "retrieved": "2026-11-27",
+   "sha256": "76bcb082ee8da18f07fe9b844169326c734b9b6105724615ded69e494c28fd66",
+   "chars": 6031,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "2703689d2e55",
+   "url": "https://developer.chrome.com/blog/use-scheduler-yield",
+   "title": "scheduler.yield() を使用して長いタスクを分割する | Blog | Chrome for Developers",
+   "retrieved": "2026-11-27",
+   "sha256": "2703689d2e558dbb5d59832f75714e54363a84c284002cf2ddd6af94393ee6d4",
+   "chars": 6973,
+   "via": "save-source.mjs",
+   "final_url": "https://developer.chrome.com/blog/use-scheduler-yield?hl=ja",
+   "content_type": "text/html"
+  },
+  {
+   "id": "b20b0a8f84ea",
+   "url": "https://developer.chrome.com/docs/css-ui/hidden-until-found",
+   "title": "Making collapsed content accessible with hidden=until-found | CSS and UI | Chrome for Developers",
+   "retrieved": "2026-11-27",
+   "sha256": "b20b0a8f84ea698b800f07769bfc53c7816e8045328ba7cfe2cd45d6742f5aa3",
+   "chars": 7227,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "b20b0a8f84ea",
+   "url": "https://developer.chrome.com/docs/css-ui/hidden-until-found?hl=en",
+   "title": "Making collapsed content accessible with hidden=until-found | CSS and UI | Chrome for Developers",
+   "retrieved": "2026-11-27",
+   "sha256": "b20b0a8f84ea698b800f07769bfc53c7816e8045328ba7cfe2cd45d6742f5aa3",
+   "chars": 7227,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "50ad9ed67ce8",
+   "url": "https://developer.chrome.com/docs/lighthouse/performance/dom-size",
+   "title": "หลีกเลี่ยง DOM ที่มีขนาดใหญ่เกินไป | Lighthouse | Chrome for Developers",
+   "retrieved": "2026-11-27",
+   "sha256": "50ad9ed67ce85a731a8da68c26051098b76f39eb1de43509b67f3233a7451f64",
+   "chars": 5933,
+   "via": "save-source.mjs",
+   "final_url": "https://developer.chrome.com/docs/lighthouse/performance/dom-size?hl=th",
+   "content_type": "text/html"
+  },
+  {
+   "id": "95b208082ebf",
+   "url": "https://developer.chrome.com/docs/lighthouse/performance/dom-size?hl=en",
+   "title": "Avoid an excessive DOM size | Lighthouse | Chrome for Developers",
+   "retrieved": "2026-11-27",
+   "sha256": "95b208082ebff403c229dbd0bfbc8c38fc590ba72fbbdd33cb9291cfc9528849",
+   "chars": 5784,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "83cdf0687cb6",
+   "url": "https://developer.chrome.com/docs/performance/insights/dom-size?hl=en",
+   "title": "Optimize DOM size | Performance insights | Chrome for Developers",
+   "retrieved": "2026-11-27",
+   "sha256": "83cdf0687cb675598090aff1e81759029acecbd41c9e1673561a88a1654f54d5",
+   "chars": 5617,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "93b1f07e0c52",
+   "url": "https://developer.mozilla.org/docs/Web/API/TextEncoder/encodeInto",
+   "title": "TextEncoder: encodeInto() method - Web APIs | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "93b1f07e0c52f3fd8ea38e3937ee2afe4720a7e459c4d7da1550f92dfb9155a7",
+   "chars": 9705,
+   "via": "save-source.mjs",
+   "final_url": "https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder/encodeInto",
+   "content_type": "text/html"
+  },
+  {
+   "id": "151dbdc99efa",
+   "url": "https://developer.mozilla.org/docs/Web/CSS/Reference/Properties/text-wrap-style",
+   "title": "text-wrap-style CSS property - CSS | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "151dbdc99efafac80a1d7f0c5d6eb6db5556d3836191144d90f5c4ee80920155",
+   "chars": 31111,
+   "via": "save-source.mjs",
+   "final_url": "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/text-wrap-style",
+   "content_type": "text/html"
+  },
+  {
+   "id": "471b10856858",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/API/CSS_Custom_Highlight_API",
+   "title": "CSS Custom Highlight API - Web APIs | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "471b10856858ed80a87cb73589064200f14263457611852224420b0f1ff90470",
+   "chars": 10970,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "795d14828bf5",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/API/Scheduler/postTask",
+   "title": "Scheduler: postTask() method - Web APIs | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "795d14828bf51150946d7ef6ef509dfac166734fbb901b6a7dc75165ea7b2d1b",
+   "chars": 13485,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "664d531c4c8e",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/API/Scheduler/yield",
+   "title": "Scheduler: yield() method - Web APIs | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "664d531c4c8e77a744ff790dca4af5ce24eba5d9bf8ccb3c9c0f43c7f28ce4b7",
+   "chars": 11704,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "7e075a61567a",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/API/Scheduling/isInputPending",
+   "title": "Scheduling: isInputPending() method - Web APIs | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "7e075a61567adbcbe3b8ffde2b11c2033ab2752d1014a7aa20e6299801883fbc",
+   "chars": 6508,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "7cf787ee97d7",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects",
+   "title": "Transferable objects - Web APIs | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "7cf787ee97d7ac409eea649e330eda2375af583a4421ec3c6981843cb4bc5c99",
+   "chars": 7765,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "fb5caee45335",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/API/Window/requestIdleCallback",
+   "title": "Window: requestIdleCallback() method - Web APIs | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "fb5caee45335209fe744a7c0d28ab2a5b074760bb8ec5db85adebb1db6784b5f",
+   "chars": 9214,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "479f2673ceab",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/CSS/content-visibility",
+   "title": "content-visibility CSS property - CSS | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "479f2673ceab71f6128b4d3fdcb82535266a39776739b0fa676ddb33aa27491a",
+   "chars": 35371,
+   "via": "save-source.mjs",
+   "final_url": "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/content-visibility",
+   "content_type": "text/html"
+  },
+  {
+   "id": "fa4e7a04e4fb",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/hidden",
+   "title": "hidden HTML global attribute - HTML | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "fa4e7a04e4fb9902edfec9cf2b471dc9e466fe5f32478c222c934dab4ca5e063",
+   "chars": 12554,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "553fccbed8a3",
+   "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/length",
+   "title": "String: length - JavaScript | MDN",
+   "retrieved": "2026-11-27",
+   "sha256": "553fccbed8a31bebff70efc6b8610dd9ea4f9ee66adc7915a77fe5f7d7154eb0",
+   "chars": 9151,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "8062e6d6d3b6",
+   "url": "https://discuss.codemirror.net/t/cm6-performance-benchmarks/2471",
+   "title": "CM6 Performance Benchmarks - Uncategorized - discuss.CodeMirror",
+   "retrieved": "2026-11-27",
+   "sha256": "8062e6d6d3b67bc17cbfb19676dab58acae4a83cde7c579e955ff4ef86fe65b8",
+   "chars": 1224,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "f347d3a57480",
+   "url": "https://discuss.codemirror.net/t/improve-scroll-performance-tradeoff/8825",
+   "title": "Improve Scroll / Performance tradeoff - v6 - discuss.CodeMirror",
+   "retrieved": "2026-11-27",
+   "sha256": "f347d3a57480633ff697832cc8d6318707259fac680e981b2ba2073dd1164f17",
+   "chars": 1050,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "caf5540b6db4",
+   "url": "https://discuss.codemirror.net/t/noticable-lag-when-dealing-with-large-files/5928",
+   "title": "Noticable lag when dealing with large files - v6 - discuss.CodeMirror",
+   "retrieved": "2026-11-27",
+   "sha256": "caf5540b6db4785ea8cbcf842fdc3728b9cabc8dbf521000d21f764e760c2fb9",
+   "chars": 2184,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e023551825ad",
+   "url": "https://discuss.codemirror.net/t/possible-performance-enhancement-for-very-long-rows/4897",
+   "title": "Possible performance enhancement for very long rows - v5 - discuss.CodeMirror",
+   "retrieved": "2026-11-27",
+   "sha256": "e023551825ada5d398c31fd2ac6f1926ee462f530b283825e3866269cae28cdc",
+   "chars": 2010,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "065704c22301",
+   "url": "https://discuss.codemirror.net/t/syntax-highlighting-not-working-on-large-documents/7579",
+   "title": "syntax highlighting not working on large documents - v6 - discuss.CodeMirror",
+   "retrieved": "2026-11-27",
+   "sha256": "065704c223012b4b5364145384afeba751151ae9799c75dec0bb606f3a4f019f",
+   "chars": 2733,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "51727e080a6d",
+   "url": "https://docs.github.com/en/enterprise-server@3.21/repositories/working-with-files/using-files/working-with-non-code-files",
+   "title": "Working with non-code files - GitHub Enterprise Server 3.21 Docs",
+   "retrieved": "2026-11-27",
+   "sha256": "51727e080a6d3b94364b4c5ee7e17fcb29f14c05715abc5edc41cb3a0d05f706",
+   "chars": 17389,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "76d7ac92d232",
+   "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-comparing-branches-in-pull-requests",
+   "title": "Branches - GitHub Docs",
+   "retrieved": "2026-11-27",
+   "sha256": "76d7ac92d232158e00d003775108872b538c44a57acd1813ac4dd9a7b41e08aa",
+   "chars": 7555,
+   "via": "save-source.mjs",
+   "final_url": "https://docs.github.com/en/pull-requests/reference/branches",
+   "content_type": "text/html"
+  },
+  {
+   "id": "71a416de1e71",
+   "url": "https://docs.github.com/en/repositories/creating-and-managing-repositories/repository-limits",
+   "title": "Repository limits - GitHub Docs",
+   "retrieved": "2026-11-27",
+   "sha256": "71a416de1e71a81dccf061a5ace4a092d9c248c51da14d99a070bda99e163a74",
+   "chars": 9857,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "f2411ebca813",
+   "url": "https://docs.gitlab.com/administration/instance_limits",
+   "title": "GitLab application limits | GitLab Docs",
+   "retrieved": "2026-11-27",
+   "sha256": "f2411ebca8137a6b5fadda2a9d09eb703f932d99a7435ca086bd1e824c0b34ff",
+   "chars": 48449,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "d089f0975eb0",
+   "url": "https://docs.rs/crate/comrak/0.52.0/source/src/tests/pathological.rs",
+   "title": "comrak 0.52.0 - Docs.rs",
+   "retrieved": "2026-11-27",
+   "sha256": "d089f0975eb06a0b645a7553cf35f7853ff63b21367f12497039226759e745d1",
+   "chars": 5363,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "3ba20d2fc80e",
+   "url": "https://docs.rs/crate/ferromark/0.1.4/source/README.md",
+   "title": "ferromark 0.1.4 - Docs.rs",
+   "retrieved": "2026-11-27",
+   "sha256": "3ba20d2fc80e4f88f8c52b588b9131a39d7fe644eec484857b9d47bf3b342a86",
+   "chars": 27525,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "063f845a14bf",
+   "url": "https://docs.rs/crate/sha2/latest",
+   "title": "sha2 0.11.2 - Docs.rs",
+   "retrieved": "2026-11-27",
+   "sha256": "063f845a14bfafb610fe2d2479ad5ece28b1f380d6055d1b763d3cc2f2cdb440",
+   "chars": 6576,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "c2dda9877ea9",
+   "url": "https://docs.rs/crate/tauri/2.9.2/source/scripts/ipc-protocol.js",
+   "title": "tauri 2.9.2 - Docs.rs",
+   "retrieved": "2026-11-27",
+   "sha256": "c2dda9877ea9d967e032783175e2b1cfcfe436c7f0863dd3f720f279b701cab6",
+   "chars": 3761,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "216611340b32",
+   "url": "https://docs.rs/crate/tauri/2.9.2/source/src/ipc/channel.rs",
+   "title": "tauri 2.9.2 - Docs.rs",
+   "retrieved": "2026-11-27",
+   "sha256": "216611340b32f88f41cee72e413414f7a73ae0f6398a342ccc62f1ed79b7542c",
+   "chars": 11256,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "2c274358b0c3",
+   "url": "https://docs.rs/ropey/latest/ropey/",
+   "title": "ropey - Rust",
+   "retrieved": "2026-11-27",
+   "sha256": "2c274358b0c3b340e0502f1db52baeee5093c3d0be056b04afa906afb26afbca",
+   "chars": 6244,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "c2bbdbf1dc71",
+   "url": "https://en.wikipedia.org/wiki/Knuth%E2%80%93Plass_line-breaking_algorithm",
+   "title": "Knuth–Plass line-breaking algorithm - Wikipedia",
+   "retrieved": "2026-11-27",
+   "sha256": "c2bbdbf1dc71be349caaf90babe26e2cee3f67834a5ebf447f2d024d5a6894ec",
+   "chars": 6163,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "2e2862d8f4f0",
+   "url": "https://eslint.org/docs/latest/rules/no-restricted-syntax",
+   "title": "no-restricted-syntax - ESLint - Pluggable JavaScript Linter",
+   "retrieved": "2026-11-27",
+   "sha256": "2e2862d8f4f062cb6bf61d9c6dbf156013913a7a4042bd44a061f565092e6c1a",
+   "chars": 7229,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "8b1d967f87dd",
+   "url": "https://firefox-source-docs.mozilla.org/testing/perfdocs/perf-sheriffing.html",
+   "title": "Performance Sheriffing — Firefox Source Docs documentation",
+   "retrieved": "2026-11-27",
+   "sha256": "8b1d967f87dd5024f2086f9ba232c1147087039be447578568703ea2dc102d37",
+   "chars": 56050,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "693a5d4bccc5",
+   "url": "https://forum.obsidian.md/t/improve-support-for-very-large-notes-markdown-files-greater-than-1-mb/114238",
+   "title": "Improve support for very large notes - markdown files (greater than 1 MB) - Feature requests - Obsidian Forum",
+   "retrieved": "2026-11-27",
+   "sha256": "693a5d4bccc54c88e7a601af64c30b3f087d99bb5e04a7c2764ebf6d44d64698",
+   "chars": 5093,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "46200ce8a968",
+   "url": "https://forum.obsidian.md/t/live-preview-when-opening-note-render-viewport-in-one-chunk/108018",
+   "title": "Live Preview: When Opening Note, Render Viewport In One Chunk - Feature requests - Obsidian Forum",
+   "retrieved": "2026-11-27",
+   "sha256": "46200ce8a9687cc1f0e641ac70ffbc96c66ebf05fde2307ec3dad6b3704bd391",
+   "chars": 827,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "146eadce9679",
+   "url": "https://forum.obsidian.md/t/obsidian-freezes-while-indexing-markdown-generated-from-a-pdf-with-many-raw-html-tables/117316",
+   "title": "Obsidian freezes while indexing Markdown generated from a PDF with many raw HTML tables - Bug reports - Obsidian Forum",
+   "retrieved": "2026-11-27",
+   "sha256": "146eadce9679e26345ceedac48cb79a1bf57383ee3de49f140ef0d9657a4af74",
+   "chars": 7377,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "c3d6353cc248",
+   "url": "https://forum.obsidian.md/t/obsidian-reading-view-keeps-modifying-the-dom-in-long-notes/53709",
+   "title": "Obsidian reading view keeps modifying the DOM in long notes - Help - Obsidian Forum",
+   "retrieved": "2026-11-27",
+   "sha256": "c3d6353cc2484b956e8c0f3544897376563d04c5c7730339a449410ebb9bec7b",
+   "chars": 2687,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "350a8497ff30",
+   "url": "https://forum.obsidian.md/t/reading-mode-and-canvas-implement-some-form-of-progressive-rendering-for-long-lists-and-callouts/90646",
+   "title": "Reading mode (and Canvas): Implement some form of progressive rendering for long lists and callouts - Feature requests - Obsidian Forum",
+   "retrieved": "2026-11-27",
+   "sha256": "350a8497ff30d0b7dd8845236b9e287db620fc724bf37d13ef7479f214bf44a6",
+   "chars": 1149,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "c62d40ffc6c4",
+   "url": "https://forum.obsidian.md/t/renderer-exits-and-window-turns-black-while-indexing-large-markdown-files/115709",
+   "title": "Renderer exits and window turns black while indexing large Markdown files (Obsidian crash) - Bug reports - Obsidian Forum",
+   "retrieved": "2026-11-27",
+   "sha256": "c62d40ffc6c437ea6581801e3e432e0445ad57a871cbc1196e582e2a02494da0",
+   "chars": 16882,
+   "via": "save-source.mjs",
+   "final_url": "https://forum.obsidian.md/t/renderer-exits-and-window-turns-black-while-indexing-large-markdown-files-obsidian-crash/115709",
+   "content_type": "text/html"
+  },
+  {
+   "id": "fbf5e964f186",
+   "url": "https://forum.obsidian.md/t/ui-performance-issues-with-large-files/13782",
+   "title": "UI performance issues with large files - Bug reports - Obsidian Forum",
+   "retrieved": "2026-11-27",
+   "sha256": "fbf5e964f1866b6b96a148169a168494f65cac73f2b9daacf82bc9313490dec1",
+   "chars": 4231,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "90b63105533d",
+   "url": "https://forum.sublimetext.com/t/sublime-text-performance-with-very-large-files/9832/27",
+   "title": "Sublime Text performance with very large files - General Discussion - Sublime Forum",
+   "retrieved": "2026-11-27",
+   "sha256": "90b63105533d566831e2a62539693d0cd7014005ef008b78cbcdc0b10c20e5b2",
+   "chars": 18925,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "20d3a91eeb22",
+   "url": "https://gist.github.com/paulirish/5d52fb081b3570c81e3a",
+   "title": "What forces layout/reflow. The comprehensive list. · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "20d3a91eeb22544016b18357b54d46883d4846ae2b7ef24c68d6fb789a03546f",
+   "chars": 25564,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "389795bb8936",
+   "url": "https://github.com/antonycourtney/tad",
+   "title": "GitHub - antonycourtney/tad: A desktop application for viewing and analyzing tabular data · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "389795bb893670cbaf09ea038bbe75eae37a047387d6d048037ad3f045db5027",
+   "chars": 8177,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "abd9f1afb66e",
+   "url": "https://github.com/AykutSarac/jsoncrack.com",
+   "title": "GitHub - AykutSarac/jsoncrack.com: ✨ Innovative and open-source visualization application that transforms various data formats, such as JSON, YAML, XML and CSV into interactive graphs. · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "abd9f1afb66edebe9e5de68895c78d30775d91563abcf89367c6ca7a4886c5a2",
+   "chars": 7224,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "a82be1b04b9a",
+   "url": "https://github.com/beijaflor/wasm-markdown-bench",
+   "title": "GitHub - beijaflor/wasm-markdown-bench · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "a82be1b04b9a845dd903b03f47b52814b157fc3aab476ae1e4b952a740c25d37",
+   "chars": 3857,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e9d787dc662b",
+   "url": "https://github.com/chenglou/pretext",
+   "title": "GitHub - chenglou/pretext: Fast, accurate & comprehensive text measurement & layout · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "e9d787dc662b5fdf23c610e3dcabd6971bc23ffe1d05b2a8f68d491487762f5f",
+   "chars": 30954,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "3d9748484950",
+   "url": "https://github.com/glideapps/glide-data-grid",
+   "title": "GitHub - glideapps/glide-data-grid: 🚀 Glide Data Grid is a no compromise, outrageously fast react data grid with rich rendering, first class accessibility, and full TypeScript support. · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "3d9748484950fa380ff502aca20f65a3380eef9aff817297ed70f55bcba01564",
+   "chars": 9043,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "06ff1b25c16b",
+   "url": "https://github.com/ianthehenry/sd",
+   "title": "GitHub - ianthehenry/sd: a cozy nest for your scripts · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "06ff1b25c16b3c972925d80c7ea2088e7025c91cb753cf214f3525aff31a984e",
+   "chars": 14078,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "b79f7c039470",
+   "url": "https://github.com/johnfactotum/foliate-js",
+   "title": "GitHub - johnfactotum/foliate-js: Render e-books in the browser · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "b79f7c039470d2957417c425b1bfdd76a9bd2b4430e613d40071e5a939040428",
+   "chars": 24586,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e3f0ac97a57a",
+   "url": "https://github.com/krevis/hexfiend",
+   "title": "GitHub - krevis/HexFiend: A fast and clever hex editor for macOS · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "e3f0ac97a57a4d3b626835b85cc28f96ce85b37a248f721acce2a243bf084a61",
+   "chars": 4875,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "0893e234dd9f",
+   "url": "https://github.com/le0pard/re2js",
+   "title": "GitHub - le0pard/re2js: RE2JS is the JavaScript port of RE2, a regular expression engine that provides linear time matching · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "0893e234dd9f811a003c0f178aea39e634f1d50fa8f7f4aa1eca1a152245d436",
+   "chars": 39875,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "c74d055181f6",
+   "url": "https://github.com/mash/markdown-fast",
+   "title": "GitHub - mash/markdown-fast: A faster Markdown preview for VS Code. Drop-in replacement for the builtin — TTFP drops from ~4.6s to under 1s on large code-heavy docs. · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "c74d055181f6093d98d12a6bf9fe56be312d2e2e7734f23e66b88582ce644d03",
+   "chars": 10236,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "8ad1597c983d",
+   "url": "https://github.com/micromark/micromark/issues/169",
+   "title": "Performance: larger MDX files are unmanagably slow to parse · Issue #169 · micromark/micromark · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "8ad1597c983d951c0306ce32fc27f8b8ba93fd6cf0a3bdf3816748acc73b8775",
+   "chars": 7042,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "2fde01bc9cd7",
+   "url": "https://github.com/micromark/micromark/issues/246",
+   "title": "Block quotes, nested lists, and setext headings take quadratic time in 4.0.3 · Issue #246 · micromark/micromark · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "2fde01bc9cd78be0977d397ebf47e2b9eb6b97ff7f633be67056512f156cfcb8",
+   "chars": 7576,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "0dcac7ef9b1a",
+   "url": "https://github.com/micromark/micromark/issues/263",
+   "title": "Quadratic time in initializeDocument when many containers close · Issue #263 · micromark/micromark · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "0dcac7ef9b1a1a3fc95023856cf6f4456c20ac500495b752f3144c2ac74fb228",
+   "chars": 5490,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "3938b8b3135c",
+   "url": "https://github.com/micromark/micromark/issues/265",
+   "title": "Lazy continuation lines in a list item or block quote take quadratic time · Issue #265 · micromark/micromark · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "3938b8b3135c7fbfe8dc40c417c5ab1d163deb0b77f0de94ba0a4701bbb38fb4",
+   "chars": 4796,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "f29d2b528603",
+   "url": "https://github.com/micromark/micromark/issues/9",
+   "title": "Trade-off between extensibility and performance · Issue #9 · micromark/micromark · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "f29d2b5286034fa12137d240760bccbb965dd04761bc753098c20c31f083af1e",
+   "chars": 11886,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "89f8c529a8ad",
+   "url": "https://github.com/micromark/micromark/pull/171",
+   "title": "Refactor to improve postprocess performance by robsimmons · Pull Request #171 · micromark/micromark · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "89f8c529a8ad81feee91680aaadcd380ff53432f8bd46182067f6d0a36676dd0",
+   "chars": 18728,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "2e31f8612c46",
+   "url": "https://github.com/microsoft/vscode/blob/main/src/vs/editor/common/config/editorOptions.ts",
+   "title": "vscode/src/vs/editor/common/config/editorOptions.ts at main · microsoft/vscode · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "2e31f8612c4628ccf02b99cb0351f69b378991af532d99f2ce1e54ee58d09c84",
+   "chars": 35809,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "caf8a30297c8",
+   "url": "https://github.com/microsoft/vscode/wiki/%5BDEV%5D-Perf-Tools-for-VS-Code-Development",
+   "title": "[DEV] Perf Tools for VS Code Development · microsoft/vscode Wiki · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "caf8a30297c8ee164baae54f91257bbf13f6479c2840f948193cfe04730bc73e",
+   "chars": 20036,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "698957a1d2b4",
+   "url": "https://github.com/mnater/Hyphenopoly",
+   "title": "GitHub - mnater/Hyphenopoly: Hyphenation for node and Polyfill for client-side hyphenation. · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "698957a1d2b4022ab890cf5418e0ad0fd523c591eb67e61aa92ee00074c5f5c5",
+   "chars": 11317,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "5e475bf538a0",
+   "url": "https://github.com/nodejs/node/issues/3175",
+   "title": "More useful error than `toString failed` when Buffer length greater than kMaxLength? · Issue #3175 · nodejs/node · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "5e475bf538a0e207d13517cf82a769d19fc1e04b9080e9f31a6faa63f4af5686",
+   "chars": 11550,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "242e834db96c",
+   "url": "https://github.com/orgs/community/discussions/23920",
+   "title": "Does README.md have max characters? · community · Discussion #23920 · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "242e834db96c424208232566fab5b9eada6256faa321d3da8d17a4836f7fdf75",
+   "chars": 12840,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "182d354da87d",
+   "url": "https://github.com/orgs/micromark/discussions/29",
+   "title": "Performance benchmarks · micromark · Discussion #29 · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "182d354da87d8caf36276237bd793a65798251243a3363e4d916176950c5d39b",
+   "chars": 7284,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "72c7c6ade7c4",
+   "url": "https://github.com/orgs/remarkjs/discussions/1027",
+   "title": "Improving perfomance of `react-markdown` with very large texts - consider virtualization · remarkjs · Discussion #1027 · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "72c7c6ade7c4a6ada088e41df501f2c5d4244f62e0fb10ef149c8adf0ff6512d",
+   "chars": 13637,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "a65ed90f0f1a",
+   "url": "https://github.com/orgs/remarkjs/discussions/978",
+   "title": "[remark-gfm] Parsing long tables is very slow · remarkjs · Discussion #978 · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "a65ed90f0f1a3fc0308faf6dcf8f80f0e8ff014b10524a688715ee66ee7552fb",
+   "chars": 9859,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "451244b3a9c1",
+   "url": "https://github.com/orgs/tauri-apps/discussions/11915",
+   "title": "Performance: Tauri IPC vs React Native JSI · tauri-apps · Discussion #11915 · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "451244b3a9c1d118d0b004bff6c8b6ce6cddfff8b6c203cd86060ff1403fbe3b",
+   "chars": 5735,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "d46276f6d0df",
+   "url": "https://github.com/PaulJuliusMartinez/jless",
+   "title": "GitHub - PaulJuliusMartinez/jless: jless is a command-line JSON viewer designed for reading, exploring, and searching through JSON data. · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "d46276f6d0df168c79a6743236ff5e2b237a6718a4f7323bfd11384e70bcd1cb",
+   "chars": 5189,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "82da9a584358",
+   "url": "https://github.com/rakina/find-in-page-api",
+   "title": "GitHub - rakina/find-in-page-api · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "82da9a5843588406499ddde39c96d43436fff8046b524cba4618b236e8a2ec7c",
+   "chars": 8842,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "0c16339cc7c4",
+   "url": "https://github.com/readium/kotlin-toolkit/issues/313",
+   "title": "Full vertical scroll (or less internal components) · Issue #313 · readium/kotlin-toolkit · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "0c16339cc7c4c80ee002c4ee8a660cba4e3bb38b5331f9e52004438f7c4aa6d5",
+   "chars": 10474,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "3a20eb63057b",
+   "url": "https://github.com/remarkjs/remark/issues/1010",
+   "title": "Quadratic complexity on highly nested lists · Issue #1010 · remarkjs/remark · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "3a20eb63057ba53cbd3c17e3d4b07502badcd82ba014275d5066ecb948d928ad",
+   "chars": 6286,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "b3bfda3282b3",
+   "url": "https://github.com/rust-lang/regex",
+   "title": "GitHub - rust-lang/regex: An implementation of regular expressions for Rust. This implementation uses finite automata and guarantees linear time matching on all inputs. · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "b3bfda3282b34110b92b86a2b6421f402cb266f2c6e18b2ed7e14743e526a46b",
+   "chars": 15051,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "4f3d2c2d8504",
+   "url": "https://github.com/tauri-apps/tauri/discussions/5690",
+   "title": "IPC Improvements · tauri-apps · Discussion #5690 · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "4f3d2c2d8504c4736aae4e41e3b89f9d145c94a701c8fca58822d5d9a0cf7117",
+   "chars": 10521,
+   "via": "save-source.mjs",
+   "final_url": "https://github.com/orgs/tauri-apps/discussions/5690",
+   "content_type": "text/html"
+  },
+  {
+   "id": "0f0972f7ead7",
+   "url": "https://github.com/tauri-apps/wry/issues/767",
+   "title": "IPC summary and evaluation for improvement · Issue #767 · tauri-apps/wry · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "0f0972f7ead7b753d7a8da80b492ddadb544b8e8ef1190385a0e064da4b1c7d4",
+   "chars": 6214,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "ea5d8bf02c08",
+   "url": "https://github.com/variar/klogg",
+   "title": "GitHub - variar/klogg: Really fast log explorer based on glogg project · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "ea5d8bf02c088babfe0ec964d7ad1daf351d4dd8889d00ca6973c3244087c680",
+   "chars": 10019,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "fd40a15c45d2",
+   "url": "https://github.com/wooorm/markdown-rs/issues/113",
+   "title": "Performance: larger MDX files are unmanagably slow to parse · Issue #113 · wooorm/markdown-rs · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "fd40a15c45d234012aad82a18407797c30fcbce2acea5d6032e2dc88bb410f75",
+   "chars": 7940,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "10e05e583d85",
+   "url": "https://github.com/xi-editor/xi-editor/blob/master/rust/rope/src/tree.rs",
+   "title": "xi-editor/rust/rope/src/tree.rs at master · xi-editor/xi-editor · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "10e05e583d85487882c581265ce138158bf7aa1844cb069f18bcd19beb55cf7e",
+   "chars": 37820,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "972a7e52fb08",
+   "url": "https://github.com/YS-L/csvlens",
+   "title": "GitHub - YS-L/csvlens: Command line csv viewer · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "972a7e52fb089274a045450c4c3e6ac816fe485c525f3bc69aae66804a6be5a4",
+   "chars": 8623,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "d28d2194268e",
+   "url": "https://github.com/zed-industries/zed/pull/27458",
+   "title": "worktree: Don't open files >= 6GB in size by probably-neb · Pull Request #27458 · zed-industries/zed · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "d28d2194268e00eca1e4a0320792d4e4f6e424625581f86abd1b9c54c0e8717c",
+   "chars": 5994,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "616ea057d108",
+   "url": "https://gitlab.com/gitlab-org/gitlab/-/commit/de3ea3cb762bb8d08d4419e048a171b4719aaf5e",
+   "title": "Truncate all non-blob markdown to 1MB by default (de3ea3cb) · Commits · GitLab.org / GitLab · GitLab",
+   "retrieved": "2026-11-27",
+   "sha256": "616ea057d108e6c559f699864fe6b6485473e718f44d1d3f3d4e5e16112df9f0",
+   "chars": 4280,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "6319784800c0",
+   "url": "https://gitlab.com/gitlab-org/gitlab/-/issues/276401",
+   "title": "Long load times rendering large (~2.5MB) Markdown files in Wiki (#276401) · Issues · GitLab.org / GitLab · GitLab",
+   "retrieved": "2026-11-27",
+   "sha256": "6319784800c026d581b2561e4343792f6c153e44b39533f602301b06fb6c79b4",
+   "chars": 8742,
+   "via": "save-source.mjs",
+   "final_url": "https://gitlab.com/gitlab-org/gitlab/-/work_items/276401",
+   "content_type": "text/html"
+  },
+  {
+   "id": "0915bcbe0dfe",
+   "url": "https://gitlab.com/gitlab-org/gitlab/-/issues/411775",
+   "title": "Allow configurable markdown rendering limits (#411775) · Issues · GitLab.org / GitLab · GitLab",
+   "retrieved": "2026-11-27",
+   "sha256": "0915bcbe0dfe862dc69ac806a9027a2f65f65406756ee90934af72ea54fe786d",
+   "chars": 2120,
+   "via": "save-source.mjs",
+   "final_url": "https://gitlab.com/gitlab-org/gitlab/-/work_items/411775",
+   "content_type": "text/html"
+  },
+  {
+   "id": "ef06e99fa389",
+   "url": "https://groups.google.com/a/chromium.org/g/blink-dev/c/6KcNuIEHyZ0",
+   "title": "Web-Facing PSA: Remove 64k Text Node Splitting",
+   "retrieved": "2026-11-27",
+   "sha256": "ef06e99fa38902d542fd239429d105efb2e3b75444c0f1ea133c4ee7d374e3af",
+   "chars": 2433,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "7ca0ec1bfab8",
+   "url": "https://groups.google.com/a/chromium.org/g/blink-dev/c/aYpmS8hP2UQ",
+   "title": "Intent to Prototype and Ship: content-visibility: auto implies contain-intrinsic-size: auto",
+   "retrieved": "2026-11-27",
+   "sha256": "7ca0ec1bfab834a7b644183df8db99b47612ccd2e1c69d5f103b259c6cc345fb",
+   "chars": 11227,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "ff0ccdaf313c",
+   "url": "https://groups.google.com/a/chromium.org/g/blink-dev/c/rwBWqqOB_ag/m/bfEq3MqwAgAJ",
+   "title": "Intent to Ship: CSS text-wrap: pretty",
+   "retrieved": "2026-11-27",
+   "sha256": "ff0ccdaf313cc7eb614627ac58ac50cfb1f16d486a8aed1c0b546fcd17bd2960",
+   "chars": 26479,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "b368dad94094",
+   "url": "https://hexfiend.github.io/HexFiend/",
+   "title": "Hex Fiend, a fast and clever hex editor for Mac OS X",
+   "retrieved": "2026-11-27",
+   "sha256": "b368dad94094816aa1fff83ac46bdabd46e40698f6d19c1788c016f4cb8e457a",
+   "chars": 2054,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "0c9ebc1ba775",
+   "url": "https://hexfiend.github.io/HexFiend/docs",
+   "title": "HexFiend: HexFiend.framework",
+   "retrieved": "2026-11-27",
+   "sha256": "0c9ebc1ba77527a4371cc30b46375608426717b8c1b42ce1e2b135acd187ca6e",
+   "chars": 1605,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "f0be2e5d0495",
+   "url": "https://hi-malay.github.io/bigjson/",
+   "title": "Big JSON File Viewer for macOS, Windows & Linux | bigJson",
+   "retrieved": "2026-11-27",
+   "sha256": "f0be2e5d0495fc56ef53dea73eb987b00122b4e10c9da384e3a8ec17f5418e0a",
+   "chars": 3032,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "7b1b127c05f1",
+   "url": "https://internals.rust-lang.org/t/what-is-perf-rust-lang-org-measuring-and-why-is-instructions-u-the-default/9815",
+   "title": "What is perf.rust-lang.org measuring and why is \"instructions:u\" the default? - compiler - Rust Internals",
+   "retrieved": "2026-11-27",
+   "sha256": "7b1b127c05f1dc11c661690d69dc56e832440f2621c4026bc345542d3df0f41c",
+   "chars": 11646,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "249f8cff3901",
+   "url": "https://lists.w3.org/Archives/Public/public-css-archive/2024Jan/0592.html",
+   "title": "[csswg-drafts] [css-contain][css-scroll-anchoring] Scroll into view adjustments for content-visibility: auto (#9833) from Robert Flack via GitHub on 2024-01-22 (public-css-archive@w3.org from January 2024)",
+   "retrieved": "2026-11-27",
+   "sha256": "249f8cff3901a59002b85e1dc1fc9371f7d3203380e6131f29fc7532fe129dce",
+   "chars": 2481,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "207df5d11fd3",
+   "url": "https://lists.w3.org/Archives/Public/public-whatwg-archive/2009Dec/0018.html",
+   "title": "[whatwg] [WebWorkers] Advocation to provide the DOM API to the workers from Ian Hickson on 2009-12-02 (public-whatwg-archive@w3.org from December 2009)",
+   "retrieved": "2026-11-27",
+   "sha256": "207df5d11fd356c806103fb63fab0d6e274d991005f87aa300f76ab8ec650ead",
+   "chars": 2539,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "82bc8e3e3e42",
+   "url": "https://lwn.net/Articles/322823/",
+   "title": "ext4 and data loss [LWN.net]",
+   "retrieved": "2026-11-27",
+   "sha256": "82bc8e3e3e4285eb6ac1049504a73888a70802fbd77c43c3e42bf3e22e3bc22c",
+   "chars": 84566,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "4782612443b8",
+   "url": "https://man7.org/linux/man-pages/man1/less.1.html",
+   "title": "less(1) - Linux manual page",
+   "retrieved": "2026-11-27",
+   "sha256": "4782612443b848e2a491fb94db78ab6829600a35cdeb20b76be1f7ee03cf5dd4",
+   "chars": 107629,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "aa0f30e063e3",
+   "url": "https://marijnhaverbeke.nl/blog/codemirror-line-tree.html",
+   "title": "CodeMirror's document representation",
+   "retrieved": "2026-11-27",
+   "sha256": "aa0f30e063e38c5c804f7164bec8272abc322d4a1b146f2f7c176494feb65d44",
+   "chars": 8029,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "8d603b232431",
+   "url": "https://marijnhaverbeke.nl/blog/lezer.html",
+   "title": "Lezer",
+   "retrieved": "2026-11-27",
+   "sha256": "8d603b232431a7f5f9f5d1ad8fe519aba16d4350e42641a5084b02ce98b0b2dd",
+   "chars": 27796,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "889a47a9f39b",
+   "url": "https://markdownmonster.west-wind.com/docs/FAQ/Editing-Huge-Documents.html",
+   "title": "Editing Huge Documents - Markdown Monster",
+   "retrieved": "2026-11-27",
+   "sha256": "889a47a9f39b96b4c18e5846f9258c974f1f36fce14d8f8327b20e7c92e4eab2",
+   "chars": 4752,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "9af747cfac68",
+   "url": "https://markedapp.com/help/Troubleshooting/Overall_Performance.html",
+   "title": "Overall Performance",
+   "retrieved": "2026-11-27",
+   "sha256": "9af747cfac686305128e2f7b4e7f809e30f44b9568200b6e06e28a5f9a0d1f1c",
+   "chars": 3864,
+   "via": "save-source.mjs",
+   "final_url": "https://markedapp.com/help/Overall_Performance",
+   "content_type": "text/html"
+  },
+  {
+   "id": "63877884cd85",
+   "url": "https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/",
+   "title": "Specification",
+   "retrieved": "2026-11-27",
+   "sha256": "63877884cd850ba216c38b34cfbfaa5564c20bc61e4f23a7d95014c5b0013cc3",
+   "chars": 322123,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "61879b94b572",
+   "url": "https://nolanlawson.com/2016/02/29/high-performance-web-worker-messages/",
+   "title": "High-performance Web Worker messages | Read the Tea Leaves",
+   "retrieved": "2026-11-27",
+   "sha256": "61879b94b572cc2c3bb8340b4b7463d95b4eae73d08d1be767e8f51f4329c8f8",
+   "chars": 13913,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "967c29d09ef9",
+   "url": "https://nolanlawson.com/2024/09/18/improving-rendering-performance-with-css-content-visibility/",
+   "title": "Improving rendering performance with CSS content-visibility | Read the Tea Leaves",
+   "retrieved": "2026-11-27",
+   "sha256": "967c29d09ef95a00a2014ac9ca32565f1f9d633aa2fa74ee35d353fb93816276",
+   "chars": 11566,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "3bffd177b9db",
+   "url": "https://pptr.dev/api/puppeteer.metrics",
+   "title": "Metrics interface | Puppeteer",
+   "retrieved": "2026-11-27",
+   "sha256": "3bffd177b9dbf6a8ce1dbabdfd6b22a24b2d5eb11de30700c5b947c0c1563414",
+   "chars": 5457,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "f5b46b9c536e",
+   "url": "https://pulldown-cmark.github.io/pulldown-cmark/dev/performance.html",
+   "title": "Performance Optimizations - pulldown-cmark guide",
+   "retrieved": "2026-11-27",
+   "sha256": "f5b46b9c536eba44d0c1635a671e73b8d7584e9a41ddea88ab048d396a2debb7",
+   "chars": 5230,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "4f1fdff381d0",
+   "url": "https://pythonspeed.com/articles/big-o-tests",
+   "title": "Unit testing your code’s performance, part 1: Big-O scaling",
+   "retrieved": "2026-11-27",
+   "sha256": "4f1fdff381d0abec920774e2ac98d864c51cfddecbc0ea44cfca805898428947",
+   "chars": 8231,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "caf49fe3e9c2",
+   "url": "https://pythonspeed.com/articles/consistent-benchmarking-in-ci",
+   "title": "CI for performance: Reliable benchmarking in noisy environments",
+   "retrieved": "2026-11-27",
+   "sha256": "caf49fe3e9c2e619bdbc78b0c15a4a670aeadd6a77fc954c8ee8342fc756f6e9",
+   "chars": 17111,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "629c01cb999f",
+   "url": "https://raw.githubusercontent.com/cessen/ropey/master/README.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "629c01cb999f5b0bcec3011bb6fb16ea59fa2979debb15dd5770b26afeeba397",
+   "chars": 6336,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "28edff8cff0f",
+   "url": "https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/json/browser_protocol.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "28edff8cff0fd2cd7f803287f749e6591ccfd91664d5895caf459033283ab96a",
+   "chars": 1426475,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "daa02319a3e5",
+   "url": "https://raw.githubusercontent.com/codemirror/commands/main/src/history.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "daa02319a3e5fe7681fdf332a8b2855d71943d1623e47959cd67d473d2cdb92a",
+   "chars": 16481,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "96d36a3e1e5a",
+   "url": "https://raw.githubusercontent.com/codemirror/language/main/src/language.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "96d36a3e1e5a3ca08d3e7600be40ebdd5ebdd0742bca19f74a0941c92b2b41c0",
+   "chars": 30371,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "0b300240e4d9",
+   "url": "https://raw.githubusercontent.com/codemirror/state/main/src/change.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "0b300240e4d99fd433b8a545a33b093a8f4034b0818de56a9d26ab4cd094abf6",
+   "chars": 22631,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "796d710e2c3e",
+   "url": "https://raw.githubusercontent.com/codemirror/state/main/src/text.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "796d710e2c3eacce60a31253e97d60b5e0d38851a3ff7caa05c86f4ee41b0fc3",
+   "chars": 20392,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "c1181dad1800",
+   "url": "https://raw.githubusercontent.com/codemirror/view/main/src/heightmap.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "c1181dad1800a93528a54d0e1a2b2b60ec552c2062e695ae4ad52105eda4cd8b",
+   "chars": 29107,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "7d0af441be6c",
+   "url": "https://raw.githubusercontent.com/codemirror/view/main/src/viewstate.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "7d0af441be6c3ff4c1f19002461fd7599865a5966dc0fa9d6323434a9cf31cd2",
+   "chars": 32153,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "4f1ba5759781",
+   "url": "https://raw.githubusercontent.com/commonmark/cmark/master/test/pathological_tests.py",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "4f1ba5759781f6488c23c9b08d6e2b056b72101057c695e6e525ac2946c48a4f",
+   "chars": 7441,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "6fa5702f8901",
+   "url": "https://raw.githubusercontent.com/facebook/react/main/packages/scheduler/src/forks/Scheduler.js",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "6fa5702f890113e15cb7166f1944c5770513f6dc122a849663f409dccf17e36e",
+   "chars": 17889,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "7793d7d29a63",
+   "url": "https://raw.githubusercontent.com/facebook/react/main/packages/scheduler/src/SchedulerFeatureFlags.js",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "7793d7d29a6341bf62838e70d21859e1df3c00aba8874512fb293643828c9c1e",
+   "chars": 514,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "cda437c98727",
+   "url": "https://raw.githubusercontent.com/folke/snacks.nvim/main/lua/snacks/bigfile.lua",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "cda437c987272c3bdc070b84e416090a6bf3b035ab2bf9ca5e0b8d77c1fc73a1",
+   "chars": 2328,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "51cec81572d5",
+   "url": "https://raw.githubusercontent.com/johnfactotum/foliate-js/main/paginator.js",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "51cec81572d5d182e231fe68ce9c3b5489a0976b36172060516336ba893565ea",
+   "chars": 44213,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "44faac27dcc4",
+   "url": "https://raw.githubusercontent.com/lezer-parser/markdown/main/README.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "44faac27dcc4c812980c31b802a3b6586ae0c2a403da8c178696a1d1548bcb26",
+   "chars": 52693,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "cd21988b2bb5",
+   "url": "https://raw.githubusercontent.com/lezer-parser/markdown/main/src/markdown.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "cd21988b2bb5594d59e4e1678a0d6319dfa569262e7e831ed17e5011987bf0b5",
+   "chars": 74846,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "2d6364595a99",
+   "url": "https://raw.githubusercontent.com/LunarVim/bigfile.nvim/main/README.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "2d6364595a99e894a30fb26989b4e42ef9c258918e8101bbaea37765597dec8f",
+   "chars": 3709,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "5ff8deeb0e84",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/api/Highlight.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "5ff8deeb0e8437df245d41a383623a6e30d8b3a9ddc4ca2e4611fb072b6c5572",
+   "chars": 14960,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "f51b401414e7",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/api/Scheduler.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "f51b401414e79e0c728935bff5f223c64e5347a09c4883c8947ed4259c5e8961",
+   "chars": 3162,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "595a87c44828",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/api/Scheduling.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "595a87c448281663640d3fbf25006f5721bab2c7e7d01fd383205bb5f19db997",
+   "chars": 2140,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "c2618b991da2",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/api/Window.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "c2618b991da21a690e382d13e9b64e182d97b32b8fe22df8e6c3f58b15738b83",
+   "chars": 263517,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "5d166a39c850",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/api/Worker.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "5d166a39c850121375d7c5108a164b4fb0225f36e7cae24cb38584c66a5fc6b8",
+   "chars": 24036,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "9a98287102b3",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/css/properties/content-visibility.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "9a98287102b3478ec458b40791487e30e9e189218323999384add1b1fd3aa725",
+   "chars": 6202,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "85a2e61052d5",
+   "url": "https://raw.githubusercontent.com/mdn/browser-compat-data/main/html/global_attributes.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "85a2e61052d50f73e71ec22b1dd1d0411cbd5b93e92873c3b184f933390fd7e0",
+   "chars": 69166,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "8d9150616900",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/.github/skills/chat-perf/SKILL.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "8d915061690029a0ec9c4cfad1ff307f012a6e769798b3c5d7e2274924dc1451",
+   "chars": 19305,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "3ac4bc6874f1",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/extensions/json-language-features/package.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "3ac4bc6874f12a9f79b2bfbab8455c94ebcf8e4f25d5ad1ae3194e8e571bad58",
+   "chars": 6593,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "2fce07d98b43",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/extensions/json-language-features/package.nls.json",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "2fce07d98b43f4f859828c73ed0fbc3c32037453de7454b1c2e537cfa024dfdd",
+   "chars": 2829,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "0043291971c2",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/extensions/markdown-language-features/preview-src/index.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "0043291971c235827210dd4809b3cd903602297b995630e812c9e5ba036ef17b",
+   "chars": 27343,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "0e70ba1e87ad",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/extensions/markdown-language-features/preview-src/scroll-sync.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "0e70ba1e87ad6d3cbf0b87c04d2eeb0851c753d55e20f8ae407b4c44cc3ed388",
+   "chars": 12362,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "40af93669758",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/extensions/markdown-language-features/src/preview/preview.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "40af93669758df098e852da90daca9fa4d798d13ea037de097915686ebe18bf2",
+   "chars": 29503,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "c15890a1b64e",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/config/diffEditor.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "c15890a1b64ed5e6eff5eee084a6e0b185672ac3b91cc33f7a29046836420e9b",
+   "chars": 1317,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "89ffacf23cae",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/config/editorConfigurationSchema.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "89ffacf23caec113227821f830ddf85f1b7ad4d5d19af5ba6f66c3c68389a418",
+   "chars": 18600,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "3a94a1d5644b",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/config/editorOptions.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "3a94a1d5644ba12a86cc3e209611848a2721a93d91d63d9d03c3180d60dd1173",
+   "chars": 260072,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "1209e7a08bf1",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "1209e7a08bf1eb9416534af84d6f388028cdb9744ea2dc52c34e28e93bd26312",
+   "chars": 12115,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "71b3a63373b5",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/diff/legacyLinesDiffComputer.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "71b3a63373b5a3adfc72fd32c7b8242a90bd9fcf8ced3654edcbc9113decdd27",
+   "chars": 25548,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "fc62731e4d00",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/model.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "fc62731e4d009d36eceb90f441fc44dd35986a3f11a4f893c5625ea6735f07f7",
+   "chars": 50702,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "9154bbb62a89",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeBase.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "9154bbb62a89b8b34d40daf39b88e7dab51781b9a0f2914e9c24320176169c28",
+   "chars": 58669,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "841861c71e02",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/model/textModel.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "841861c71e02f3bbf301fdde6618c703d82ac09ca7b6b9f1b826ab93542891e3",
+   "chars": 109139,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "5876a3f7e735",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/model/textModelSearch.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "5876a3f7e735ab74ee6ab338521f180e560b1839e0f32cdf29823cbb8c68a778",
+   "chars": 19897,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "0106c368ab94",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/common/model/tokens/tokenizationTextModelPart.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "0106c368ab941b0073d55aee16504b5f2dfc573a83b63fe7cdec685b296d1aa4",
+   "chars": 14882,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "fe74e2222088",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/editor/contrib/find/browser/findModel.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "fe74e222208823070a582aff74c54845a8c6edd9e6262d5655e19c7ee6d7ccb7",
+   "chars": 22266,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "4f6978281d49",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/workbench/contrib/codeEditor/browser/largeFileOptimizations.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "4f6978281d49e2afeaaba8f5378bce22b4f3e98192f5b0c86d9cf6bf0242967b",
+   "chars": 2864,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "3bdf968e4d33",
+   "url": "https://raw.githubusercontent.com/microsoft/vscode/main/src/vs/workbench/services/search/common/search.ts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "3bdf968e4d330daa722a36cbbe15bd88f35a009a584a961870d47ab8a16cf72e",
+   "chars": 30349,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "acecf62738dd",
+   "url": "https://raw.githubusercontent.com/tree-sitter-grammars/tree-sitter-markdown/split_parser/README.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "acecf62738ddff5f276b468e6c2c2a340490fc727a7a41be3a954e6f2cec8576",
+   "chars": 4738,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "c75d7f32512e",
+   "url": "https://raw.githubusercontent.com/tstack/lnav/master/NEWS.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "c75d7f32512ec53d7b88b71c206726f0b8681d18040add984875eecab2f43461",
+   "chars": 132346,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "f357161441be",
+   "url": "https://raw.githubusercontent.com/v8/v8/main/src/objects/string.h",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "f357161441be8a327ef7e4b2863aede58edad46d8be3beb98325729c43815e6e",
+   "chars": 60988,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "b6af017f4cf3",
+   "url": "https://raw.githubusercontent.com/variar/klogg/master/src/logdata/include/compressedlinestorage.h",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "b6af017f4cf3f216e623a9231a2bc8b277479d2dff2e93416ee1dff69fe92b26",
+   "chars": 3228,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "c51459ea2839",
+   "url": "https://raw.githubusercontent.com/variar/klogg/master/src/logdata/include/linepositionarray.h",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "c51459ea283940255510eb1d4665e658c17f5c1afd17eef2224d16c64f884418",
+   "chars": 6569,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "d5672f4caa0f",
+   "url": "https://raw.githubusercontent.com/WebKit/WebKit/main/Source/JavaScriptCore/runtime/JSString.h",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "d5672f4caa0f968ab82145b22a82966e6653d7ce2800bf07b1e88d9d9b48e284",
+   "chars": 49948,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "725668271492",
+   "url": "https://raw.githubusercontent.com/zed-industries/zed/main/crates/rope/src/chunk.rs",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "7256682714925f16c61026010cb59e267d8aa30943b9cc8b0a52efeb6b766084",
+   "chars": 40954,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "394c1fa0b700",
+   "url": "https://raw.githubusercontent.com/zed-industries/zed/main/crates/rope/src/rope.rs",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "394c1fa0b7007e3a1395bfa02e1a9048bbffe51afe8e18e2f896f064e541d1bb",
+   "chars": 84353,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "c82d14f056b0",
+   "url": "https://raw.githubusercontent.com/zed-industries/zed/main/crates/sum_tree/src/sum_tree.rs",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "c82d14f056b068bce2917fe5a61daf054d9da930b9b42e70fe996ad447260eb4",
+   "chars": 77737,
+   "via": "save-source.mjs",
+   "content_type": "text/plain"
+  },
+  {
+   "id": "f27b71278973",
+   "url": "https://readium.org/technical/r2-navigator-design-dilemmas/",
+   "title": "R2 Navigator Design Dilemmas",
+   "retrieved": "2026-11-27",
+   "sha256": "f27b71278973dd1ca3a93bc965aa781b3de04658848767abb4bd87473727fb55",
+   "chars": 16463,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "323f496d34f6",
+   "url": "https://securitylab.github.com/advisories/GHSL-2023-031_cmark",
+   "title": "GHSL-2023-031: Quadratic complexity algorithm in cmark - CVE-2023-24824 | GitHub Security Lab",
+   "retrieved": "2026-11-27",
+   "sha256": "323f496d34f6d9a5e161e15a3e675aee5c83075d6d6c28860112fc2e8018a16c",
+   "chars": 3739,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "3c9378915aa1",
+   "url": "https://securitylab.github.com/advisories/GHSL-2023-117_GHSL-2023-119_cmark-gfm",
+   "title": "GHSL-2023-117_GHSL-2023-119: Denial of Service (DoS) in cmark-gfm - CVE-2023-37463 | GitHub Security Lab",
+   "retrieved": "2026-11-27",
+   "sha256": "3c9378915aa122f7369b3c9f395bac0c1e5640fca6a68cda0a0802836f9824b3",
+   "chars": 6575,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "eadfab03eb4f",
+   "url": "https://shiki.style/guide/best-performance",
+   "title": "Best Performance Practices | Shiki",
+   "retrieved": "2026-11-27",
+   "sha256": "eadfab03eb4ff6a1403d1e3f53d7d610a83d52138d544acc6811b0ae5129c27d",
+   "chars": 5287,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e7d2c836535e",
+   "url": "https://shiki.style/guide/regex-engines",
+   "title": "RegExp Engines | Shiki",
+   "retrieved": "2026-11-27",
+   "sha256": "e7d2c836535e9c5986977ff9d419fbf47143ab7cfc2709058b89ab9872021da0",
+   "chars": 6307,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "9337f34553b8",
+   "url": "https://spec.commonmark.org/0.31.2/",
+   "title": "CommonMark Spec",
+   "retrieved": "2026-11-27",
+   "sha256": "9337f34553b8c4301885b640559a7e99e086fb7d8014f8e3778c8c017890ad6d",
+   "chars": 160267,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "6f6dab48864b",
+   "url": "https://sqlite.org/cpu.html",
+   "title": "Measuring and Reducing CPU Usage in SQLite",
+   "retrieved": "2026-11-27",
+   "sha256": "6f6dab48864baf7e2483e03ad7c12eeced416ff94df526e75d9733ad721d4349",
+   "chars": 9894,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "f06e56e5bdf0",
+   "url": "https://support.markedapp.com/questions/D11k",
+   "title": "Print Preview Rendering Speed is Very, Very Slow - Marked Support",
+   "retrieved": "2026-11-27",
+   "sha256": "f06e56e5bdf058eacbcbd89eb1594cd6eb7f9113504220c171f8fb1f7c46f16c",
+   "chars": 1350,
+   "via": "save-source.mjs",
+   "final_url": "https://support.markedapp.com/questions/D11k/print-preview-rendering-speed-is-very-very-slow",
+   "content_type": "text/html"
+  },
+  {
+   "id": "a2105fa9b40b",
+   "url": "https://support.microsoft.com/en-us/office/1672b34d-7043-467e-8e27-269d656771c3",
+   "title": "Excel specifications and limits | Microsoft Support",
+   "retrieved": "2026-11-27",
+   "sha256": "a2105fa9b40b4ebefdcc4597251e42f8161670ab40c1f824c60f6b4916c6c3c0",
+   "chars": 9443,
+   "via": "save-source.mjs",
+   "final_url": "https://support.microsoft.com/en-us/excel/excel-specifications-and-limits",
+   "content_type": "text/html"
+  },
+  {
+   "id": "c034c8df675a",
+   "url": "https://surma.dev/things/is-postmessage-slow/",
+   "title": "Is postMessage slow? — surma.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "c034c8df675a86f9e086a34f8b0c8c2744fad4acc957b6f6eadc59e50a064559",
+   "chars": 20323,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "7dd6a3cf543a",
+   "url": "https://tak.jdx.dev/guide/methodology",
+   "title": "Methodology | tak",
+   "retrieved": "2026-11-27",
+   "sha256": "7dd6a3cf543a7d6297003d79d717cd328e579f01841e998a267d82073d2b88db",
+   "chars": 7481,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "45147b03ed08",
+   "url": "https://tanstack.com/blog/tanstack-virtual-perf-and-ios",
+   "title": "TanStack Virtual just got a lot faster, and finally handles iOS | TanStack Blog",
+   "retrieved": "2026-11-27",
+   "sha256": "45147b03ed08b6fadd01c36209afdfe97e550486b9f3f4e912bca64fca82eb73",
+   "chars": 9629,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "d2e24d86a406",
+   "url": "https://tanstack.com/virtual/latest/docs/api/virtualizer.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "d2e24d86a406f84398ead72d3c0ef70f9cbd02f6723ea6d625d682b558fb08a8",
+   "chars": 27767,
+   "via": "save-source.mjs",
+   "content_type": "text/markdown"
+  },
+  {
+   "id": "c2f644ab724d",
+   "url": "https://tinfoil-knight.github.io/notes/efficient-csv-parsing---on-the-complexity-of-simple-things-2024",
+   "title": "Efficient CSV Parsing - On the Complexity of Simple Things (2024)",
+   "retrieved": "2026-11-27",
+   "sha256": "c2f644ab724db731d88c0dcca6cb36724ef1cb1027dd6d09dd1783e284bbe87b",
+   "chars": 5299,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "c8b652dd4c91",
+   "url": "https://trac.webkit.org/wiki/CSSContainIntrinsicSize",
+   "title": "CSSContainIntrinsicSize – WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "c8b652dd4c9107f99fb01fb6a991ecaafa29169069c4d292a38b80cfd4ce3f39",
+   "chars": 3253,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "2f05f455aa24",
+   "url": "https://ubugeeei-prod.github.io/ox-content/performance/index.html",
+   "title": "Performance - Ox Content",
+   "retrieved": "2026-11-27",
+   "sha256": "2f05f455aa24449cc01707e6f9d6474e51d5657c41e048c9dd8d9be9b832f54f",
+   "chars": 21170,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "80d552fb8b64",
+   "url": "https://unpkg.com/@shikijs/core/dist/types.d.mts",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "80d552fb8b64671e23a8d2177b9edf67c5da57346e4e4bb44cb5f5dac6aca5e0",
+   "chars": 32,
+   "via": "save-source.mjs",
+   "final_url": "https://unpkg.com/@shikijs/core@4.6.0/dist/types.d.mts",
+   "content_type": "text/typescript"
+  },
+  {
+   "id": "1702ea549217",
+   "url": "https://unpkg.com/epubjs@0.3.88/README.md",
+   "title": null,
+   "retrieved": "2026-11-27",
+   "sha256": "1702ea549217df359b76a9f4a7f3aaa91c912d7e5e6e23702ae32226da8bad8c",
+   "chars": 5931,
+   "via": "save-source.mjs",
+   "content_type": "text/markdown"
+  },
+  {
+   "id": "f6a67c8e1985",
+   "url": "https://v2.tauri.app/concept/inter-process-communication/",
+   "title": "Inter-Process Communication | Tauri",
+   "retrieved": "2026-11-27",
+   "sha256": "f6a67c8e198599dee9a8aa9c4d1dca9f0d4275647a601f718dfde90efa3d96b6",
+   "chars": 4776,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "ddb819b8e0b1",
+   "url": "https://v2.tauri.app/develop/calling-frontend/",
+   "title": "Calling the Frontend from Rust | Tauri",
+   "retrieved": "2026-11-27",
+   "sha256": "ddb819b8e0b1ef4a98633ea5a7ffa64dbbc98dc8a165cd01fbb7b7eac634be4a",
+   "chars": 20333,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e6afe764154b",
+   "url": "https://v2.tauri.app/develop/calling-rust/",
+   "title": "Calling Rust from the Frontend | Tauri",
+   "retrieved": "2026-11-27",
+   "sha256": "e6afe764154b80593d0f2148ec7335dbf3f475abc9de49f1032c43ef9f4090f1",
+   "chars": 36570,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e58a822cc0e4",
+   "url": "https://v2.tauri.app/security/http-headers/",
+   "title": "HTTP Headers | Tauri",
+   "retrieved": "2026-11-27",
+   "sha256": "e58a822cc0e4a9d21e0190b9a694e83b65811bbeae3a38cb54b2cbdcac30f1af",
+   "chars": 9219,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "fb39e5f03b6e",
+   "url": "https://v8.dev/blog/cost-of-javascript-2019",
+   "title": "The cost of JavaScript in 2019 · V8",
+   "retrieved": "2026-11-27",
+   "sha256": "fb39e5f03b6eec3310e75a1899acbfb3375fe8d9b33d7b0860fc540d93e295e7",
+   "chars": 14563,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "906760920704",
+   "url": "https://v8.dev/blog/non-backtracking-regexp",
+   "title": "An additional non-backtracking RegExp engine · V8",
+   "retrieved": "2026-11-27",
+   "sha256": "906760920704a1c8c4481b29ff5a559025c7e1fe131457f001b0a72eb6400e07",
+   "chars": 10565,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "2d965f9ed813",
+   "url": "https://wasm-bindgen.github.io/wasm-bindgen/reference/types/str.html",
+   "title": "str - The `wasm-bindgen` Guide",
+   "retrieved": "2026-11-27",
+   "sha256": "2d965f9ed8134a688accda4108ea638124571c4ee5dba37844dabda8a99a4641",
+   "chars": 2319,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "c371c2d66988",
+   "url": "https://web-platform-dx.github.io/web-features-explorer/features/contain-intrinsic-size",
+   "title": "Web features explorer - contain-intrinsic-size",
+   "retrieved": "2026-11-27",
+   "sha256": "c371c2d66988396137ce8f8f99ddc433a144999ba9a3854377b662758f60f2c8",
+   "chars": 1419,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "fed2ccff22d4",
+   "url": "https://web-platform-dx.github.io/web-features-explorer/features/content-visibility",
+   "title": "Web features explorer - content-visibility",
+   "retrieved": "2026-11-27",
+   "sha256": "fed2ccff22d4c59925b437b2d8e03fc263cb48c9e3bebefa542d710195208816",
+   "chars": 1407,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "43501c202a9e",
+   "url": "https://web-platform-dx.github.io/web-features-explorer/features/hidden-until-found",
+   "title": "Web features explorer - hidden=\"until-found\"",
+   "retrieved": "2026-11-27",
+   "sha256": "43501c202a9ef5816b9feca4ed579422801b56ed7c0ed46a97670c1718352cbb",
+   "chars": 1799,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "5ae2dd96bc0d",
+   "url": "https://web-platform-dx.github.io/web-features-explorer/features/overflow-anchor",
+   "title": "Web features explorer - overflow-anchor",
+   "retrieved": "2026-11-27",
+   "sha256": "5ae2dd96bc0db6549faa0b7a6b902a26237193188af70f1e2f9c5245f93416d0",
+   "chars": 1384,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "652005f5b547",
+   "url": "https://web.dev/articles/client-side-rendering-of-html-and-interactivity",
+   "title": "Renderización de HTML e interactividad del cliente | web.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "652005f5b5470172ce7fa836db2967aa438fc9d4a86ebdd0c6a6492e412a8804",
+   "chars": 17778,
+   "via": "save-source.mjs",
+   "final_url": "https://web.dev/articles/client-side-rendering-of-html-and-interactivity?hl=es-419",
+   "content_type": "text/html"
+  },
+  {
+   "id": "7b914258eefd",
+   "url": "https://web.dev/articles/client-side-rendering-of-html-and-interactivity?hl=en",
+   "title": "Client-side rendering of HTML and interactivity | web.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "7b914258eefd8d35e5c8126fc363243e5b45cf43922a184cc8423ec63a633ca6",
+   "chars": 15101,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "282be7075431",
+   "url": "https://web.dev/articles/content-visibility",
+   "title": "content-visibility: the new CSS property that boosts your rendering performance | Articles | web.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "282be70754319a9e81dec1c4ff131b8d68ce3cb770683615d9cd099d15c6d5dc",
+   "chars": 15765,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "c3e0b4f2e1bc",
+   "url": "https://web.dev/articles/content-visibility",
+   "title": "content-visibility: คุณสมบัติ CSS ใหม่ที่เพิ่มประสิทธิภาพการแสดงผลของคุณ | Articles | web.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "c3e0b4f2e1bc357949393171a5337d753f25c0f7f107f553f84ffa065443cd19",
+   "chars": 14882,
+   "via": "save-source.mjs",
+   "final_url": "https://web.dev/articles/content-visibility?hl=th",
+   "content_type": "text/html"
+  },
+  {
+   "id": "282be7075431",
+   "url": "https://web.dev/articles/content-visibility?hl=en",
+   "title": "content-visibility: the new CSS property that boosts your rendering performance | Articles | web.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "282be70754319a9e81dec1c4ff131b8d68ce3cb770683615d9cd099d15c6d5dc",
+   "chars": 15765,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "3a982757fdc3",
+   "url": "https://web.dev/articles/dom-size-and-interactivity",
+   "title": "DOM 大小過大對互動的影響，以及您可以採取哪些行動 | web.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "3a982757fdc32eb6c434bddb4efdbce91d53a01385c8957e0542144d2be9494e",
+   "chars": 5588,
+   "via": "save-source.mjs",
+   "final_url": "https://web.dev/articles/dom-size-and-interactivity?hl=zh-tw",
+   "content_type": "text/html"
+  },
+  {
+   "id": "68b441c7cbae",
+   "url": "https://web.dev/articles/dom-size-and-interactivity?hl=en",
+   "title": "How large DOM sizes affect interactivity, and what you can do about it | web.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "68b441c7cbae703c8008d39bd823d24b325cff5166b7dc38a9a63c065b5ce251",
+   "chars": 15263,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "95c812ecb1d1",
+   "url": "https://web.dev/articles/inp",
+   "title": "Interaction to Next Paint (INP) | web.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "95c812ecb1d1b8811d7c3a66df9f234270c3d3fc521b38a0ef4f07978309a723",
+   "chars": 24293,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e210bd4ead2e",
+   "url": "https://web.dev/articles/optimize-long-tasks",
+   "title": "Optimize long tasks | web.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "e210bd4ead2e5c6048e2d25b6427f1fdc8990907125116961cd191aa636c6439",
+   "chars": 19386,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "505b8fdc38e4",
+   "url": "https://web.dev/articles/rail",
+   "title": "Measure performance with the RAIL model | Articles | web.dev",
+   "retrieved": "2026-11-27",
+   "sha256": "505b8fdc38e4ff0057633e9b8351e28e6bbb9ad2f31a39b3770c5913a28f4be6",
+   "chars": 14503,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "3165b267363d",
+   "url": "https://webkit.org/?p=17640",
+   "title": "WebKit Features for Safari 26.2 | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "3165b267363d35968a7ac76dc800a51e9d09e24b61a1898312ea76c802eedc9f",
+   "chars": 60536,
+   "via": "save-source.mjs",
+   "final_url": "https://webkit.org/blog/17640/webkit-features-for-safari-26-2/",
+   "content_type": "text/html"
+  },
+  {
+   "id": "8e1e1bee3ceb",
+   "url": "https://webkit.org/blog/16547/better-typography-with-text-wrap-pretty/",
+   "title": "Better typography with text-wrap pretty | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "8e1e1bee3cebdafcc230ef499904229eac3cc4e527d82c6d273d6e2b26d80f49",
+   "chars": 21383,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "d8bbacfc2baa",
+   "url": "https://webkit.org/blog/16574/webkit-features-in-safari-18-4/",
+   "title": "WebKit Features in Safari 18.4 | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "d8bbacfc2baa586330bcf149957f0a3711bb6f966ccb5f6b6edca35b58739e75",
+   "chars": 58455,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "afea7b639d98",
+   "url": "https://webkit.org/blog/16993/news-from-wwdc25-web-technology-coming-this-fall-in-safari-26-beta/",
+   "title": "News from WWDC25: WebKit in Safari 26 beta | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "afea7b639d9803803416f5e522ee24c894137237ed1e5db45f41f6a061e7b966",
+   "chars": 46423,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "059a8744b935",
+   "url": "https://webkit.org/blog/7790/update-on-web-cryptography",
+   "title": "Update on Web Cryptography | WebKit",
+   "retrieved": "2026-11-27",
+   "sha256": "059a8744b935701b16ad355bf69d2b4fd8b415336378151438d560b45255aaa5",
+   "chars": 30651,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "c1c1aa4b6579",
+   "url": "https://www.chromium.org/teams/layout-team/eliminating-simple-text/",
+   "title": "Eliminating Simple Text",
+   "retrieved": "2026-11-27",
+   "sha256": "c1c1aa4b6579d48c8d3f5357ec732a9f851702e75e8bbffb9ea0af0a39fc59c3",
+   "chars": 5620,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "0c16339cc7c4",
+   "url": "https://www.github.com/readium/kotlin-toolkit/issues/313",
+   "title": "Full vertical scroll (or less internal components) · Issue #313 · readium/kotlin-toolkit · GitHub",
+   "retrieved": "2026-11-27",
+   "sha256": "0c16339cc7c4c80ee002c4ee8a660cba4e3bb38b5331f9e52004438f7c4aa6d5",
+   "chars": 10474,
+   "via": "save-source.mjs",
+   "final_url": "https://github.com/readium/kotlin-toolkit/issues/313",
+   "content_type": "text/html"
+  },
+  {
+   "id": "3669a97c2104",
+   "url": "https://www.jetbrains.com/help/idea/tuning-the-ide.html",
+   "title": "Advanced configuration | IntelliJ IDEA Documentation",
+   "retrieved": "2026-11-27",
+   "sha256": "3669a97c210453a4691fa6cc8c919dac473d065129fe11ec8dcc2ba9bedc3caf",
+   "chars": 7500,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "94f653904fa9",
+   "url": "https://www.moderncsv.com/",
+   "title": "CSV File Editor and Viewer for Windows, Mac, and Linux - Modern CSV",
+   "retrieved": "2026-11-27",
+   "sha256": "94f653904fa9180be39d5b7bf8fcff77ca9fd0530f4f9f307db7ba7352f5389a",
+   "chars": 10717,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "7724ea725aec",
+   "url": "https://www.papaparse.com/docs",
+   "title": "Documentation - Papa Parse",
+   "retrieved": "2026-11-27",
+   "sha256": "7724ea725aec8dd84321c68d50a4ea4d8ac5fc329e5381c9aefa66af94c3bd92",
+   "chars": 16278,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "0b1939ebdda2",
+   "url": "https://www.sublimetext.com/docs/settings.html",
+   "title": "Settings",
+   "retrieved": "2026-11-27",
+   "sha256": "0b1939ebdda219474b2e4d136861c77c6ca71dea1a27dc252e8cc775458cf603",
+   "chars": 4591,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "e6f6a94cd5e9",
+   "url": "https://www.visidata.org/",
+   "title": "Open-source data multitool | VisiData",
+   "retrieved": "2026-11-27",
+   "sha256": "e6f6a94cd5e9b3b39dc1a2232e19c380843a0fbd3fd91515060aea703a8656a1",
+   "chars": 2205,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "4b84dd961b4b",
+   "url": "https://www.w3.org/TR/css-contain-2/",
+   "title": "CSS Containment Module Level 2",
+   "retrieved": "2026-11-27",
+   "sha256": "4b84dd961b4b464c6f54441de5c849529b244b91058d79fbc762b96b7e6a9cb6",
+   "chars": 82921,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "f4915d934a18",
+   "url": "https://www2.webkit.org/show_bug.cgi?id=297088",
+   "title": "297088 – [Skia] Implement Font::applyTransforms with HarfBuzz",
+   "retrieved": "2026-11-27",
+   "sha256": "f4915d934a18031441c61d02dcaa8dc0c2c443e3e3737f09da64954ff9b29176",
+   "chars": 5132,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  },
+  {
+   "id": "8f44b8c4ae69",
+   "url": "https://www2.webkit.org/show_bug.cgi?id=99524",
+   "title": "99524 – zooming with text-rendering: geometricPrecision is very janky",
+   "retrieved": "2026-11-27",
+   "sha256": "8f44b8c4ae69e8753e9f95f8e651fa1274753d07d5d1bd41697c71c4dff7b668",
+   "chars": 3386,
+   "via": "save-source.mjs",
+   "content_type": "text/html"
+  }
+ ]
+}

@@ -1,0 +1,91 @@
+{
+ "chapter": "07-data-viewers.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "DAT-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "66863127ee5a"
+  },
+  "DAT-02": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "48d596f7d214"
+  },
+  "DAT-03": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "d6d750264d72"
+  },
+  "DAT-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "1a3d3432dab8"
+  },
+  "DAT-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "ffa5d2899fab"
+  },
+  "DAT-06": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "2c5e608ba26e"
+  },
+  "DAT-07": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "6feff8a7186e"
+  },
+  "DAT-08": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "c1ad99a67ea5"
+  },
+  "DAT-09": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "3df5575c28dc"
+  },
+  "DAT-10": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "ea489c054118"
+  },
+  "DAT-11": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "86db5782bb47"
+  },
+  "DAT-12": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "c633ea1d5820"
+  },
+  "DAT-13": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "5ab34ff6149c"
+  },
+  "DAT-14": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "74e84d1212cb"
+  }
+ }
+}
