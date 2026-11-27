@@ -290,7 +290,8 @@ fn the_frame_carries_the_head_the_table_and_the_text() {
 
 #[test]
 fn shift_jis_and_gbk_text_is_guessed_as_such_not_taken_for_damaged_utf8() {
-    let sjis_text = "吾輩は猫である。名前はまだ無い。どこで生れたかとんと見当がつかぬ。\n".repeat(20);
+    let sjis_text =
+        "吾輩は猫である。名前はまだ無い。どこで生れたかとんと見当がつかぬ。\n".repeat(20);
     let gbk_text = "我是一只猫。名字还没有。出生在哪里全然不知道。\n".repeat(20);
     for (text, enc, label) in [
         (&sjis_text, encoding_rs::SHIFT_JIS, "shift_jis"),

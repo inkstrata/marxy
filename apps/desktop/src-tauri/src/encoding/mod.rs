@@ -189,7 +189,10 @@ pub fn looks_like_utf8(bytes: &[u8]) -> bool {
                 break;
             }
             Err(e) => {
-                good += rest[..e.valid_up_to()].iter().filter(|&&b| b >= 0x80).count();
+                good += rest[..e.valid_up_to()]
+                    .iter()
+                    .filter(|&&b| b >= 0x80)
+                    .count();
                 let bad = e.error_len().unwrap_or(rest.len() - e.valid_up_to());
                 if bad > 1 {
                     good += bad;

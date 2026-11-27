@@ -108,7 +108,8 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("marxy-userpath-{}-{name}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("marxy-userpath-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir
@@ -130,7 +131,10 @@ mod tests {
         let shell = script(
             dir.as_path(),
             "login-shell",
-            &format!("echo noise from a startup file\nprintf '{MARK}/usr/bin:{}' ", bin.display()),
+            &format!(
+                "echo noise from a startup file\nprintf '{MARK}/usr/bin:{}' ",
+                bin.display()
+            ),
         );
         let asked = login_shell_path(&shell, Duration::from_secs(5)).unwrap();
         assert!(asked.ends_with(&bin.display().to_string()));
@@ -155,7 +159,10 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(5));
         let failing = script(dir.as_path(), "failing", "exit 3");
         assert_eq!(login_shell_path(&failing, Duration::from_secs(5)), None);
-        assert_eq!(login_shell_path(&dir.join("none"), Duration::from_secs(5)), None);
+        assert_eq!(
+            login_shell_path(&dir.join("none"), Duration::from_secs(5)),
+            None
+        );
     }
 
     #[test]
@@ -174,7 +181,17 @@ mod tests {
             ]
             .map(PathBuf::from)
         );
-        let path = complete(Some("/opt/homebrew/bin:/bin".into()), None, Some(home), &there);
-        assert_eq!(std::env::split_paths(&path).filter(|p| p == Path::new("/opt/homebrew/bin")).count(), 1);
+        let path = complete(
+            Some("/opt/homebrew/bin:/bin".into()),
+            None,
+            Some(home),
+            &there,
+        );
+        assert_eq!(
+            std::env::split_paths(&path)
+                .filter(|p| p == Path::new("/opt/homebrew/bin"))
+                .count(),
+            1
+        );
     }
 }

@@ -2404,7 +2404,11 @@ mod tests {
         chflags("nouchg", &target);
         let refused = refused.expect_err("a locked file is not saved over");
         assert_eq!(refused.kind, WriteErrorKind::Permission);
-        assert!(refused.message.contains("locked in Finder"), "{}", refused.message);
+        assert!(
+            refused.message.contains("locked in Finder"),
+            "{}",
+            refused.message
+        );
         assert_eq!(fs::read(&target).expect("read"), b"old\n");
         assert_eq!(staged_files(&dir), Vec::<String>::new());
     }
@@ -2417,9 +2421,15 @@ mod tests {
         let tmp = dir.join(".doc.md.marxy-tmp-1-0-0");
         fs::write(&tmp, b"x").expect("seed");
         chflags("uchg", &tmp);
-        assert!(fs::remove_file(&tmp).is_err(), "the flag blocks a plain remove");
+        assert!(
+            fs::remove_file(&tmp).is_err(),
+            "the flag blocks a plain remove"
+        );
         remove_staged(&tmp);
-        assert!(fs::symlink_metadata(&tmp).is_err(), "staged file left behind");
+        assert!(
+            fs::symlink_metadata(&tmp).is_err(),
+            "staged file left behind"
+        );
     }
 
     /// Sets `user.marxy.test`, saves through the real path, and reads the attribute back. POSIX
