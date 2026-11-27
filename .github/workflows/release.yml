@@ -124,5 +124,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Found by id from the list: GitHub's lookup by tag does not return drafts.
         run: |
-          gh release edit "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --notes-file "docs/releases/${GITHUB_REF_NAME#v}.md" --prerelease --draft=false
+          id=$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\" and .draft) | .id" | head -n 1)
+          [ -n "$id" ] || { echo "::error::no draft release for $GITHUB_REF_NAME to publish"; exit 1; }
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" -F draft=false -F prerelease=true -F body=@"docs/releases/${GITHUB_REF_NAME#v}.md" --jq .html_url
