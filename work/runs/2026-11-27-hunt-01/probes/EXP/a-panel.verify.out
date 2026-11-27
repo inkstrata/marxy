@@ -1,0 +1,11 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/EXP/a-panel.verify.mjs --browser chromium
+150 panel open 16 ms
+150 choose html 2 ms; idle eval ok at 3
+150 Save click -> key answers: key 183 ms
+300 panel open 3 ms
+300 choose html 6 ms; idle eval ok at 7
+300 Save click -> key answers: key 1207 ms
+600 panel open 3 ms
+600 choose html 6 ms; idle eval ok at 7
+600 Save click -> key answers: STALLED>10s key after Save 10000 ms
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0858

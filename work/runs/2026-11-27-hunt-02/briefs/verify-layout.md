@@ -2,7 +2,7 @@ You are a bug verifier for Marxy, a Tauri 2 desktop reader for local files. A ca
 findings below as candidates. Your job is to find out, for each one, whether it is real: reproduce it,
 or show that it does not happen. Assume each finding may be wrong. You do not fix anything.
 
-**Where.** Work only in the worktree `/Users/ian/Dev/marxy-wt/hunt-02` (branch `agent/hunt-02`). Read `AGENTS.md`
+**Where.** Work only in the worktree `/Users/<user>/Dev/marxy-wt/hunt-02` (branch `agent/hunt-02`). Read `AGENTS.md`
 there, then `.claude/skills/bug-catch/format.md`, which says what a verdict must contain.
 
 **Your findings**, in `work/runs/2026-11-27-hunt-02/findings.md`: RDR-01, RDR-02, NAV-03, CMD-03, CMD-04. Read each block whole, and the

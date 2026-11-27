@@ -1,0 +1,8 @@
+/demo/x.py pasted -> "x = 1\n```\ndef foo_bar(x):\n    return x * 2  # *double*\n```\n" | wanted tail "def foo_bar(x):\n    return x * 2  # *double*\n"
+shots: page.waitForFunction: Timeout 30000ms exceeded.
+    at Module.default (/Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/EDT/l.mjs:14:16)
+    at async main (/Users/<user>/Dev/marxy-wt/hunt-01/apps/desktop/scripts/shots.mjs:216:5)
+    at async file:///Users/<user>/Dev/marxy-wt/hunt-01/apps/desktop/scripts/shots.mjs:239:36
+/Users/<user>/Dev/marxy-wt/hunt-01/apps/desktop:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @marxy/desktop@0.2.0 shots: `node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/EDT/l.mjs --browser chrome --out /tmp/edtshots`
+Exit status 1

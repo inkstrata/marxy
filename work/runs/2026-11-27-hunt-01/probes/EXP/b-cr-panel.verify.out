@@ -1,0 +1,11 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/apps/desktop/../../work/runs/2026-11-27-hunt-01/probes/EXP/b-cr-panel.verify.mjs --browser chromium
+{
+ "ok": true,
+ "sel": "{\"kind\":\"node\",\"node\":{\"type\":\"paragraph\",\"src\":{\"file\":\"/demo/cr.md\",\"start\":7,\"end\":16},\"children\":[{\"type\":\"text\",\"src\":{\"file\":\"/demo/cr.md\",\"start\":7,\"end\":16},\"value\":\"two words\"}]},\"el\":{}}",
+ "panel": "Export line 3 WHAT never changes a file This file cr.md The selection paragraph, line 3 The files ticked in Places none ticked The tray empty AS A web page one file A PDF through the system’s print Markdown, as written byte for byte Plain text as it reads Save cr-lines-3-3.md… Copy instead Saved where you choose. Nothing is sent anywhere. This file o choose",
+ "out": "\"\"",
+ "notes": [
+  "Exported o-cr.md to /demo · nothing is sent anywhere"
+ ]
+}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0858

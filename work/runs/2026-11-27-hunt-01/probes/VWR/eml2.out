@@ -1,0 +1,4 @@
+txt 5MB single line (control)      opened alive 1770 ms
+eml 200KB single line              opened alive 2932 ms
+eml 5MB words                      opened alive 1632 ms
+eml 800k lines                     opened alive 9382 ms

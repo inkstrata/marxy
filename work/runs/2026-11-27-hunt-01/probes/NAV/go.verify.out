@@ -1,0 +1,13 @@
+repl="" key=o title pg16-upgrade-plan.md — Marxy -> pg16-upgrade-plan.md — Marxy | sel "" | foot line 2 o go Space untick its file y collect
+repl="" key=Enter title pg16-upgrade-plan.md — Marxy -> pg16-upgrade-plan.md — Marxy | sel "" | foot Tab comes here. J K walk the matches and the page follows; Space ticks a file.
+repl="" key=Meta+Enter title pg16-plan-tldr.diff — Marxy -> pg16-plan-tldr.diff — Marxy | sel "postgres" | foot line 5 o go Space untick its file y collect
+repl="" key=Control+Enter title 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy -> 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy | sel "postgres" | foot line 3 o go Space untick its file y collect
+repl="" key=Meta+o title 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy -> 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy | sel "" | foot line 3 o go Space untick its file y collect
+repl="" key=Shift+o title 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy -> 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy | sel "" | foot line 3 o go Space untick its file y collect
+repl="XYZ" key=o title 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy -> 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy | sel "" | foot line 3 o go Space untick its file y collect
+repl="XYZ" key=Enter title 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy -> 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy | sel "" | foot Tab comes here. J K walk the matches and the page follows; Space ticks a file.
+repl="XYZ" key=Meta+Enter title 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy -> 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy | sel "" | foot Tab comes here. J K walk the matches and the page follows; Space ticks a file.
+repl="XYZ" key=Control+Enter title 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy -> 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy | sel "" | foot Tab comes here. J K walk the matches and the page follows; Space ticks a file.
+repl="XYZ" key=Meta+o title 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy -> 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy | sel "" | foot line 3 o go Space untick its file y collect
+repl="XYZ" key=Shift+o title 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy -> 2026-10-01-quarterly-database-migration-readiness-review.md — Marxy | sel "" | foot line 3 o go Space untick its file y collect
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0853

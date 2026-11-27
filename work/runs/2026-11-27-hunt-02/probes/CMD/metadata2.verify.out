@@ -1,0 +1,10 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/CMD/metadata2.verify.mjs --browser chromium
+1 MB Alt+2 #0: tasks [92] after 2929 ms
+1 MB Alt+2 #1: tasks [385,66,62] after 1068 ms
+3 MB Alt+2 #0: tasks [473,55] after 9497 ms
+3 MB Alt+2 #1: tasks [351,71,63] after 1046 ms
+4.5 MB Alt+2 #0: tasks [FROZEN>10s] after 11524 ms
+4.5 MB Alt+2 #1: tasks [104,321,58,64] after 987 ms
+4.9 MB Alt+2 #0: tasks [FROZEN>10s] after 11398 ms
+4.9 MB Alt+2 #1: tasks [196,281,52,111,50] after 950 ms
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0953

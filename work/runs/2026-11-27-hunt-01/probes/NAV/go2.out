@@ -1,0 +1,13 @@
+$ node scripts/shots.mjs --browser chromium /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/NAV/go2.mjs
+panel {"title":"pg16-upgrade-plan.md — Marxy","sel":"postgres"}
+on row {"title":"pg16-upgrade-plan.md — Marxy","sel":"","row":"2\ntitle: Postgres 14 → 16 upgrade plan"}
+shot a-row
+key o {"title":"pg16-upgrade-plan.md — Marxy","sel":"","row":"2\ntitle: Postgres 14 → 16 upgrade plan"}
+shot a-o
+key Enter {"title":"pg16-upgrade-plan.md — Marxy","sel":"","row":"2\ntitle: Postgres 14 → 16 upgrade plan"}
+shot a-Enter
+hit rows 4
+click hit {"title":"pg16-upgrade-plan.md — Marxy","sel":"","row":"6\n# Postgres 14 → 16 upgrade plan"}
+Enter with replace text {"title":"pg16-upgrade-plan.md — Marxy","sel":""}
+shot a-enter-replace
+4 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0851

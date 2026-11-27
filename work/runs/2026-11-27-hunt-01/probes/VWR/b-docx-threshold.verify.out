@@ -1,0 +1,9 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/VWR/b-docx-threshold.verify.mjs --browser chromium
+docx 20000 fails= false
+docx 60000 fails= false
+docx 100000 fails= true
+docx 125000 fails= true
+docx 150000 fails= true
+threshold between 61640 ok and 62656 fails
+md 8936 ms "h › long.md › Long Read Source Long word word word word word word word word word word word word word word word word word word word "
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0901

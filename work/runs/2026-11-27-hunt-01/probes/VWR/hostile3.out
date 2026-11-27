@@ -1,0 +1,10 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/VWR/hostile3.mjs --browser chrome
+/h/w1.docx         opened alive 1609ms "h › w1.docx Read Source Word document · 1 word xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" 
+/h/w2.docx         opened alive 2655ms "h › w2.docx Read Source THIS FILE COULD NOT BE OPENED w2.docx /h/ why The system said:" 
+/h/w3.docx         opened alive 1913ms "h › w3.docx Read Source Word document · 60,000 words c c c c c c c c c c c c c c c c c c c" 
+/h/r1.rtf          TIMEOUT open TIMEOUT alive 25768ms "TIMEOUT text" 
+/h/c1.csv          TIMEOUT open TIMEOUT alive 35711ms "TIMEOUT text" 
+/h/j1.json         TIMEOUT open TIMEOUT alive 30504ms "TIMEOUT text" 
+/h/h1.html         TIMEOUT open TIMEOUT alive 35715ms "TIMEOUT text" 
+/h/m1.md           TIMEOUT open alive 23535ms "h › m1.md Read Source xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" 
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0854

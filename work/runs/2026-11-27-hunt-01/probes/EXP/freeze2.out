@@ -1,0 +1,15 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/EXP/freeze2.mjs --browser chromium
+/demo/long.md html 1823 ms ok printed=undefined notices=Exported out-html to /demo · nothing is sent anywhere
+/demo/long.md pdf 1811 ms ok printed=1 notices=The page is with the system’s print · choose Save as PDF there · nothing is sent anywhere
+/demo/long.md raw 1809 ms ok printed=1 notices=Exported out-raw to /demo · nothing is sent anywhere
+/demo/long.md text 1812 ms ok printed=1 notices=Exported out-text to /demo · nothing is sent anywhere
+/demo/t.csv html 1807 ms ok printed=1 notices=Exported out-html to /demo · nothing is sent anywhere
+/demo/t.csv pdf 1809 ms ok printed=2 notices=The page is with the system’s print · choose Save as PDF there · nothing is sent anywhere
+/demo/t.csv raw 1807 ms ok printed=2 notices=Exported out-raw to /demo · nothing is sent anywhere
+/demo/t.csv text 1805 ms ok printed=2 notices=Exported out-text to /demo · nothing is sent anywhere
+/demo/t.csv jsonl 1807 ms ok printed=2 notices=Exported out-jsonl to /demo · nothing is sent anywhere
+plans/pg16-upgrade-plan.md html 1806 ms ok printed=2 notices=Could not build pg16-upgrade-plan.md · not found: plans/pg16-upgrade-plan.md · nothing was written
+plans/pg16-upgrade-plan.md pdf 1805 ms ok printed=2 notices=Could not build pg16-upgrade-plan.md · not found: plans/pg16-upgrade-plan.md · nothing was written
+plans/pg16-upgrade-plan.md raw 1805 ms ok printed=2 notices=Could not build pg16-upgrade-plan.md · not found: plans/pg16-upgrade-plan.md · nothing was written
+plans/pg16-upgrade-plan.md text 1804 ms ok printed=2 notices=Could not build pg16-upgrade-plan.md · not found: plans/pg16-upgrade-plan.md · nothing was written
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0850
