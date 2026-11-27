@@ -38,12 +38,15 @@ checks another one).
 | `changed` | `quick`, plus the browser test files that cover the changed folders, `lint:rust` and `cargo test` when `apps/desktop/src-tauri` changed |
 | `full` | every unit suite, `lint:rust`, `cargo test`, every browser test file, `gate:aesthetics --mechanical`, `test:mutations`, `pnpm --filter @marxy/desktop build`, and on Windows `check:tauri` |
 
-CI (`.github/workflows/ci.yml`) runs this tool and nothing of its own, in two jobs, and a third, `ci` (the check branch
-protection requires), passes when both do. A pull request runs `--tier changed`, so it pays only for the suites its diff
+CI (`.github/workflows/ci.yml`) runs this tool and nothing of its own, in three jobs (macOS, Windows, Linux), and a fourth, `ci` (the check branch
+protection requires), which passes when all three do (`linux` joined after two green runs in a row). A pull request runs `--tier changed`, so it pays only for the suites its diff
 touches; a push to `main` runs `--tier full`. Both leave out `browser` and `tauri` with `--skip` (the browser suite takes
 two hours on a hosted runner and 14 of its files fail there). A pull request also runs the browser smoke set, a job of its own (see "Tests that wait for conditions"). macOS also skips
 `unit-desktop-browser`, whose first WebKit boot misses its budget on a hosted macOS runner (Windows runs it), and runs
-the release build on `main` only; Windows skips the build. A manual run takes any tier on Windows, browser suite
+the release build on `main` only; Windows skips the build. Linux (`ubuntu-latest`, Tauri's WebKitGTK packages
+installed first) skips the same two plus `unit-desktop-browser` and `aesthetics`, runs the release build on `main`, and
+its smoke launch runs under `xvfb`; it is the only place the `cfg(unix)` Rust paths other than macOS's run. The smoke check also launches the document
+five times and prints the median time to first text (`smoke-cli-open startup:` in the build log), on a CI runner, so an upper bound on a laptop. A manual run takes any tier on Windows, browser suite
 included. Each job uploads its step logs as an artifact.
 
 "Changed" means changed since the merge base with `--base` (default `main`): commits, staged and unstaged edits, and
