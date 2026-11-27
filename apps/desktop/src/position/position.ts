@@ -54,3 +54,29 @@ export function restoreScrollToPosition(
   // The line sat `lead` px above the block, in the margin before it: it goes back there.
   scroller.scrollTop = top - (position.lead ?? 0);
 }
+
+/** What a position is read from when the page keeps a geometry table (`view/block-geometry.ts`): the inner blocks around a place. */
+export interface NearBlocks {
+  near(y: number): BlockList;
+  nearByte(byte: number): BlockList;
+}
+
+/**
+ * `currentPosition` over the blocks around the reading line only: the same answer as over the whole page's list, from
+ * the few blocks that can hold it.
+ */
+export function positionNear(
+  scroller: ScrollerGeometry,
+  table: NearBlocks,
+  path: string,
+  mode: ReadingPosition['mode'],
+  offset = 0,
+): HeldPosition {
+  if (scroller.scrollTop <= 0) return { path, byteOffset: 0, fraction: 0, mode };
+  return currentPosition(scroller, table.near(scroller.scrollTop - offset + readingLine(scroller.clientHeight)), path, mode, offset);
+}
+
+/** The scroll offset that puts `position` back, from the blocks around its byte: `restoreScrollToPosition`'s, unwritten. */
+export function scrollTopNear(table: NearBlocks, position: HeldPosition, clientHeight: number, offset = 0): number {
+  return scrollTopForPosition(table.nearByte(position.byteOffset), position.byteOffset, position.fraction, clientHeight) + offset - (position.lead ?? 0);
+}

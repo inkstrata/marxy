@@ -104,46 +104,59 @@ const BLOCK_CARRIERS = [
  */
 const RANGE_DISPLAYS: ReadonlySet<string> = new Set(['block', 'table-row', 'list-item', 'flow-root']);
 
+/** `candidates` (in document order) without any that holds another of them, looking no higher than `stop`. */
+function innermost(candidates: readonly HTMLElement[], stop: Element | null): HTMLElement[] {
+  const inner = new Set(candidates);
+  for (const el of candidates) {
+    for (let up = el.parentElement; up !== null && up !== stop; up = up.parentElement) inner.delete(up);
+  }
+  return candidates.filter((el) => inner.has(el));
+}
+
+/** The elements under `root` matching `selector`, `root` itself first when it matches. */
+const withSelf = (root: HTMLElement, selector: string): HTMLElement[] =>
+  root.matches(selector) ? [root, ...root.querySelectorAll<HTMLElement>(selector)] : [...root.querySelectorAll<HTMLElement>(selector)];
+
+/** Whether a reading's element is one of its blocks before the innermost rule: it takes room and is a block or row. */
+function rangeCandidate(el: HTMLElement): boolean {
+  // A sorted table is one block: its rows are in the view's order, not the file's, and the list must run in the file's.
+  const sorted = el.closest('[data-marxy-sorted]');
+  if (sorted) return el === sorted && el.getBoundingClientRect().height > 0;
+  if (!RANGE_DISPLAYS.has(getComputedStyle(el).display)) return false;
+  return el.getBoundingClientRect().height > 0;
+}
+
+const blockCandidate = (el: HTMLElement, map: NodeMap): boolean => BLOCK_DISPLAYS.has(getComputedStyle(el).display) && nodeFor(map, el) !== undefined;
+
+function measured(article: HTMLElement, elements: readonly HTMLElement[]): BlockList {
+  const origin = article.getBoundingClientRect().top;
+  return elements.map((el) => {
+    const rect = el.getBoundingClientRect();
+    return { el, start: Number(el.getAttribute('data-marxy-s')), top: rect.top - origin, height: rect.height };
+  });
+}
+
 /**
  * The block list of a page set as a reading (a data tree, records, verse): no parse stands behind its elements, so the
  * innermost elements that carry a byte range and take room on the page are its blocks, in document order.
  */
 export function buildBlocksByRange(article: HTMLElement): BlockList {
-  const candidates = [...article.querySelectorAll<HTMLElement>('[data-marxy-s]')].filter((el) => {
-    // A sorted table is one block: its rows are in the view's order, not the file's, and the list must run in the file's.
-    const sorted = el.closest('[data-marxy-sorted]');
-    if (sorted) return el === sorted && el.getBoundingClientRect().height > 0;
-    if (!RANGE_DISPLAYS.has(getComputedStyle(el).display)) return false;
-    return el.getBoundingClientRect().height > 0;
-  });
-  const inner = new Set(candidates);
-  for (const el of candidates) {
-    for (let up = el.parentElement; up !== null && up !== article; up = up.parentElement) inner.delete(up);
-  }
-  const origin = article.getBoundingClientRect().top;
-  const blocks: Block[] = [];
-  for (const el of candidates) {
-    if (!inner.has(el)) continue;
-    const rect = el.getBoundingClientRect();
-    blocks.push({ el, start: Number(el.getAttribute('data-marxy-s')), top: rect.top - origin, height: rect.height });
-  }
-  return blocks;
+  return measured(article, innermost([...article.querySelectorAll<HTMLElement>('[data-marxy-s]')].filter(rangeCandidate), article));
 }
 
 export function buildBlocks(article: HTMLElement, map: NodeMap): BlockList {
-  const candidates = [...article.querySelectorAll<HTMLElement>(BLOCK_CARRIERS)].filter(
-    (el) => BLOCK_DISPLAYS.has(getComputedStyle(el).display) && nodeFor(map, el) !== undefined,
-  );
-  const inner = new Set(candidates);
-  for (const el of candidates) {
-    for (let up = el.parentElement; up !== null && up !== article; up = up.parentElement) inner.delete(up);
-  }
-  const origin = article.getBoundingClientRect().top;
-  const blocks: Block[] = [];
-  for (const el of candidates) {
-    if (!inner.has(el)) continue;
-    const rect = el.getBoundingClientRect();
-    blocks.push({ el, start: Number(el.getAttribute('data-marxy-s')), top: rect.top - origin, height: rect.height });
-  }
-  return blocks;
+  return measured(article, innermost([...article.querySelectorAll<HTMLElement>(BLOCK_CARRIERS)].filter((el) => blockCandidate(el, map)), article));
+}
+
+/**
+ * The entries `buildBlocks` would make inside `block`, one top-level child of the article (itself included), in
+ * document order, unmeasured. The geometry table asks for these for the one block under the reading line only.
+ */
+export function innerBlocks(block: HTMLElement, map: NodeMap): HTMLElement[] {
+  return innermost(withSelf(block, BLOCK_CARRIERS).filter((el) => blockCandidate(el, map)), block.parentElement);
+}
+
+/** The entries `buildBlocksByRange` would make inside `block`, one top-level child of a reading's article. */
+export function innerBlocksByRange(block: HTMLElement): HTMLElement[] {
+  return innermost(withSelf(block, '[data-marxy-s]').filter(rangeCandidate), block.parentElement);
 }

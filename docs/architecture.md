@@ -83,6 +83,30 @@ path ─ shell.detectFiles (head) ─ shell.readFile ─ decode if not UTF-8 ─
    markup, diagram SVG; bounded by entries and characters, strings and token data only), so the same text drawn
    again is painted at once with no worker post. Colour, spacing and ink are CSS, so a theme change needs no clearing.
 
+### Where the blocks are
+
+The reading position, putting it back, the spine, crumbs and the outline mark all ask where a byte sits on the page
+and which byte sits under the reading line. Two structures answer:
+
+- **The block list** (`render/post.ts`, `buildBlocks`; `buildBlocksByRange` for a reading): the innermost elements
+  that carry a byte range and a parse node (a list's items, a quote's paragraphs), each with its top and height, read
+  from the page. The view patches it after a highlight batch (`view/block-list.ts`) and builds it whole elsewhere.
+- **The geometry table** (`view/block-geometry.ts`, pure parts in `packages/core/src/position/geometry.ts`): one entry
+  per top-level block of the article (the element, its range read from it when asked, its top and height, and whether
+  that box is measured or still an estimate), kept by the browser's notifications rather than by reading. A
+  ResizeObserver reports blocks that changed size once a frame, after layout, so reading them in its callback forces
+  nothing; the blocks between move by what each run's first block moved, checked at the run's last block, and where
+  the two disagree (a margin that changed with no size changing) the first that moved otherwise is found by halving.
+  A MutationObserver on the article's children adds and drops entries as chunks come in and blocks are replaced, so
+  mounting a chunk reads nothing. Notes in the margin (out of flow, with no range) are not entries. While the article
+  is hidden the table keeps the page as last shown. A position is as fine as the block list's: `positionNear` and
+  `scrollTopNear` (`position/position.ts`) search the inner blocks of the few entries around one place, measured when
+  first asked for and kept for at most 64 entries, which are watched so that an item that changes size inside a block
+  that does not is noticed. `forgetInner` drops them after a grid pass. Readers that read the table in a frame before
+  it heard of that frame's layout are told on the next frame (`onMoved`), and only they.
+
+The view still reads the block list; the table is checked against the page in `apps/desktop/test/block-geometry.test.mjs`.
+
 Binary files skip the buffer: their viewer (`apps/desktop/src/viewers/`) reads what it needs through the
 shell (headers, ranges, archive entries, table pages) and draws its own page; Source shows the hex view.
 
