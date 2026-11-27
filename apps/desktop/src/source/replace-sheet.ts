@@ -41,6 +41,7 @@ import {
   type Segment,
 } from './replace.ts';
 import { closeButton } from '../frame/dom.ts';
+import { maxOf } from '@marxy/core/src/util/spread.ts';
 
 /** What an editor is to the functions here: its state and a way to change it (an `EditorView`, or a test's stand-in). */
 export interface ReplaceTarget {
@@ -539,7 +540,7 @@ function paint(l: Live, query: ReplaceQuery): void {
   pre.tabIndex = 0;
   pre.setAttribute('role', 'region');
   pre.setAttribute('aria-label', `Changes, ${countLine(plan)}`);
-  const width = Math.max(...rows.map((r) => (r.lastLine === r.line ? String(r.line) : `${r.line}–${r.lastLine}`).length), 1);
+  const width = maxOf(rows.map((r) => (r.lastLine === r.line ? String(r.line) : `${r.line}–${r.lastLine}`).length), 1);
   for (const row of rows) paintRow(pre, row, width);
   body.append(pre);
 

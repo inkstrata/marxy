@@ -2,6 +2,7 @@
 // things are saved under, the bundle's entries and its manifest. Pure: bytes and text in, entries and words out.
 import { lineStarts } from '../line/refs.ts';
 import { sha256Hex, uniquePaths, type ZipEntry } from './zip.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 export type ExportWhat = 'file' | 'selection' | 'ticked' | 'tray';
 export type ExportAs = 'html' | 'pdf' | 'raw' | 'text' | 'jsonl' | 'html1' | 'md1' | 'zip' | 'trmd' | 'brief';
@@ -200,8 +201,8 @@ export function bundleEntries(files: readonly BundleFile[], o: BundleOptions, ex
   const out: ZipEntry[] = files.map((f) => ({ path: f.zip, bytes: f.disk }));
   if (o.notes) for (const f of files) if (f.notes !== null) out.push({ path: `notes/${f.name}.notes.md`, bytes: enc.encode(f.notes) });
   if (o.patches) for (const f of files) if (f.dirty && f.patch) out.push({ path: `patches/${f.name}.patch`, bytes: enc.encode(f.patch) });
-  if (o.pointed) out.push(...extra.pointed);
-  if (o.pages) out.push(...extra.pages);
+  if (o.pointed) pushAll(out, extra.pointed);
+  if (o.pages) pushAll(out, extra.pages);
   // The manifest is packed after these as `manifest.md`: a file of that name gives way, as a second one would.
   return o.manifest ? uniquePaths([{ path: MANIFEST, bytes: new Uint8Array(0) }, ...out]).slice(1) : uniquePaths(out);
 }

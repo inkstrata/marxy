@@ -27,6 +27,7 @@ import { nextViewerId, viewerChanged } from './signal.ts';
 import { createRemoteImages } from './remote-images.ts';
 import { tabState } from './tab-state.ts';
 import type { PaneViewer, PartTree, PartUnit, ViewerExport, ViewMode } from './types.ts';
+import { appendAll } from '@marxy/core/src/util/spread.ts';
 
 const enc = new TextEncoder();
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -425,11 +426,11 @@ export function createMailViewer(o: MailOptions): PaneViewer {
     col.append(head(m));
     const bar = remoteBar();
     if (bar) col.append(bar);
-    if (partShown() === 'html') col.append(...htmlBody());
+    if (partShown() === 'html') appendAll(col, htmlBody());
     else {
       frame?.destroy();
       frame = null;
-      col.append(...textBody(m));
+      appendAll(col, textBody(m));
     }
     const capped = [...(outlook?.notes ?? []), ...m.capped];
     if (capped.length) col.append(el('p', 'marxy-mail-note', capped.join(' ')));

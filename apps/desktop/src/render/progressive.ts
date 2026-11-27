@@ -14,6 +14,7 @@
 
 import { Abandoned } from '@marxy/core';
 import { whenIdle } from '../startup/idle-work.ts';
+import { appendAll } from '@marxy/core/src/util/spread.ts';
 
 export interface ProgressiveMount {
   /** Resolves when every top-level block is in the article, or when the mount is cancelled. */
@@ -256,7 +257,7 @@ export async function parseInertInSlices(
     const holder = inert.createElement('div');
     holder.innerHTML = html;
     prepare?.(holder);
-    parsed.append(...holder.childNodes);
+    appendAll(parsed, holder.childNodes);
     chars = Math.max(4_000, Math.min(400_000, Math.round(html.length * (budgetMs / Math.max(performance.now() - t0, 0.25)))));
     if (at < pieces.length) {
       await yieldNow();

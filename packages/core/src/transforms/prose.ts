@@ -8,6 +8,7 @@ import type { Operation } from '../contracts/operation.ts';
 import { parseMarkdown } from '../parse/parse.ts';
 import { textIndex, type TextIndex } from '../operations/text-helpers.ts';
 import type { ParsedText } from './types.ts';
+import { lineStartBefore } from '../util/text.ts';
 
 const enc = new TextEncoder();
 
@@ -120,7 +121,7 @@ export function protectedSpans(lf: string, doc: Document = parseText(lf)): Span[
 /**
  * The text between protected spans, with `tail`: the bytes of the next protected block's own line that come before
  * the block (its container's indent and markers; empty when the block starts its line, or no block follows).
- * LF text only (the transform wrapper guarantees it).
+ * A line may end in LF, CRLF or CR: a caller with the document's own text and parse (the Links panel) passes it as it is.
  */
 export function gapsWithTail(lf: string, doc?: Document): (Span & { tail: string })[] {
   const gaps: (Span & { tail: string })[] = [];
@@ -128,7 +129,7 @@ export function gapsWithTail(lf: string, doc?: Document): (Span & { tail: string
   for (const p of protectedSpans(lf, doc)) {
     // A block nested in a list or quote starts after its container's indent and markers; those bytes are on the
     // block's own line, so the protected span is widened back to the line start and no caller can touch them.
-    const start = Math.max(at, lf.lastIndexOf('\n', p.start - 1) + 1);
+    const start = Math.max(at, lineStartBefore(lf, p.start));
     if (start > at) gaps.push({ start: at, end: start, tail: lf.slice(start, p.start) });
     at = Math.max(at, p.end);
   }

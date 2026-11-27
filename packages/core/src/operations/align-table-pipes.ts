@@ -3,6 +3,7 @@ import type { Node } from '../contracts/ast.ts';
 import type { Operation, OperationInput, OperationResult } from '../contracts/operation.ts';
 import { displayWidth } from './display-width.ts';
 import { trimEndOf } from '../util/text.ts';
+import { ancestorsOf } from './parents.ts';
 
 type RowParts = { readonly cells: readonly string[]; readonly leading: boolean; readonly trailing: boolean };
 
@@ -30,15 +31,7 @@ function splitLinesPreserve(text: string): { content: string; ending: string }[]
 }
 
 /** How many blockquotes hold `target`: each puts one `>` marker in front of every row after the first. */
-function quoteDepth(node: Node, target: Node, depth = 0): number | null {
-  if (node === target) return depth;
-  const children = (node as { children?: readonly Node[] }).children ?? [];
-  for (const child of children) {
-    const found = quoteDepth(child, target, depth + (node.type === 'blockquote' ? 1 : 0));
-    if (found !== null) return found;
-  }
-  return null;
-}
+const quoteDepth = (root: Node, target: Node): number => ancestorsOf(root, target).filter((n) => n.type === 'blockquote').length;
 
 /**
  * The container prefix of a row after the first: indentation, and one `>` per enclosing blockquote.
@@ -128,7 +121,7 @@ export const alignTablePipes: Operation = {
   },
   run(input: OperationInput): OperationResult {
     const lines = splitLinesPreserve(input.text);
-    const quotes = input.node ? (quoteDepth(input.document, input.node) ?? 0) : 0;
+    const quotes = input.node ? quoteDepth(input.document, input.node) : 0;
     const prefixes = lines.map((l, li) => (li === 0 ? '' : prefixOf(l.content, quotes)));
     const rows = lines.map((l, li) => splitCells(l.content.slice(prefixes[li]!.length)));
     // Only the second row is the delimiter row; a body row of dashes ("-" for "none") is content.

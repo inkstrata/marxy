@@ -73,19 +73,50 @@ function measureAdvance(span: HTMLElement): number {
   return width;
 }
 
+/** Everything of an element's computed style that can change one glyph's advance in its own inline box. */
+const ADVANCE_STYLE = [
+  'font-family', 'font-size', 'font-weight', 'font-style', 'font-stretch', 'font-size-adjust', 'font-optical-sizing',
+  'font-variation-settings', 'font-feature-settings', 'font-kerning', 'font-synthesis', 'font-variant-caps',
+  'font-variant-numeric', 'font-variant-ligatures', 'font-variant-east-asian', 'font-variant-position',
+  'font-variant-alternates', 'letter-spacing', 'text-transform', 'text-rendering', 'writing-mode', '-webkit-text-stroke-width',
+] as const;
+
+/**
+ * What a hang span set inside `el`, in a paragraph whose lines start at `edge`, takes its glyph's advance from:
+ * the same string, the same advance. It reads style, so it is called before the batch writes anything (a style
+ * read after the breaks went in restyled the article once more per batch). The edge is in it because the
+ * engine gives a glyph's box as two edges in single precision, so its width moves in the sixth digit with where
+ * on the page it sits. The key holds the paragraph's edge, not the glyph's own place on its line: a first line's
+ * `text-indent`, or the padding or border of an inline element the line starts with, moves the glyph off that
+ * edge, and its advance can then differ from the cached one in that sixth digit (no corpus page does).
+ */
+export function advanceStyle(el: Element, edge: number): string {
+  const cs = getComputedStyle(el);
+  const lang = el.closest('[lang]')?.getAttribute('lang') ?? '';
+  return `${edge}|${lang}|${ADVANCE_STYLE.map((name) => cs.getPropertyValue(name)).join('|')}`;
+}
+
 /**
  * After applyBreaks: wrap the first grapheme of each line and pull it left by hangFraction of its
  * measured advance. Quotes take the whole advance; protrusion entries take their thousandths.
  *
- * Every paragraph's wraps are written first, then every advance is read, then every margin written:
- * one layout for the batch. Measuring each wrap as it was made cost a layout per hung line, and
- * a layout of a large article is not cheap. A wrap's advance is its own glyph's, which neither the
- * other wraps nor the margins change, so the numbers are the ones the one-at-a-time order read.
+ * A hang span is an inline block, so its glyph's advance is the glyph's own, whatever line or paragraph
+ * it is in: it depends only on the grapheme and on what `styleOf` gives for the element the span goes in
+ * (`advanceStyle`, read by the caller before it wrote anything). `advances` keeps every advance read, under
+ * that key, so a batch whose hung graphemes have all been seen before writes its wraps and margins without a
+ * read: the read after the breaks went in was a layout of the batch's paragraphs, and of the article they sit
+ * in, before the overflow check's own, once more per batch. An advance not seen yet is read, all of them in
+ * one layout after every wrap is written and before any margin; neither the other wraps nor the margins change it.
  */
-export function applyHang(paragraphs: readonly HTMLElement[], inPlace: (p: HTMLElement) => boolean = () => true): void {
-  const wraps: { span: HTMLElement; fraction: number }[] = [];
+export function applyHang(
+  paragraphs: readonly HTMLElement[],
+  inPlace: (p: HTMLElement) => boolean = () => true,
+  advances: Map<string, number> = new Map(),
+  styleOf: (el: Element) => string = (el) => advanceStyle(el, 0),
+): void {
+  // Every start, its grapheme and its key, before any wrap is written.
+  const found: { keep: boolean; starts: { node: Text; offset: number; grapheme: string; fraction: number; key: string }[] }[] = [];
   for (const p of paragraphs) {
-    const keep = inPlace(p);
     const starts: { node: Text; offset: number }[] = [];
     const first = firstTextAfter(p, null);
     if (first !== null) starts.push(first);
@@ -93,19 +124,35 @@ export function applyHang(paragraphs: readonly HTMLElement[], inPlace: (p: HTMLE
       const next = firstTextAfter(p, br);
       if (next !== null) starts.push(next);
     }
+    const hung = [];
     // Reverse so later (node, offset) pairs stay valid while earlier wraps split text nodes.
     for (const { node, offset } of starts.reverse()) {
-      // Two starts in one node happen only with nothing but white space between two breaks; the one wrap is enough.
-      if (!keep && node.parentNode === null) continue;
       const grapheme = firstGrapheme(node.data.slice(offset));
       const fraction = hangFraction(grapheme);
       if (fraction <= 0 || grapheme.length === 0) continue;
-      wraps.push({ span: wrapGrapheme(node, offset, grapheme, keep), fraction });
+      hung.push({ node, offset, grapheme, fraction, key: `${grapheme}|${styleOf(node.parentElement!)}` });
+    }
+    found.push({ keep: inPlace(p), starts: hung });
+  }
+  const wraps: { span: HTMLElement; fraction: number; key: string }[] = [];
+  for (const { keep, starts } of found) {
+    for (const { node, offset, grapheme, fraction, key } of starts) {
+      // Two starts in one node happen only with nothing but white space between two breaks; the one wrap is enough.
+      // Replaced, the node has left the paragraph; split in place, it now ends where the first wrap began.
+      if (keep ? !node.data.startsWith(grapheme, offset) : node.parentNode === null) continue;
+      wraps.push({ span: wrapGrapheme(node, offset, grapheme, keep), fraction, key });
     }
   }
-  const advances = wraps.map(({ span }) => measureAdvance(span));
+  // Reads, then writes. An advance of 0 (a glyph that paints no box) is not kept: the next span is measured itself.
+  const measured = wraps.map(({ span, key }) => {
+    const known = advances.get(key);
+    if (known !== undefined) return known;
+    const advance = measureAdvance(span);
+    if (advance > 0) advances.set(key, advance);
+    return advance;
+  });
   wraps.forEach(({ span, fraction }, i) => {
-    const advance = advances[i]!;
+    const advance = measured[i]!;
     if (advance > 0) span.style.marginInlineStart = `${-(fraction * advance)}px`;
   });
 }

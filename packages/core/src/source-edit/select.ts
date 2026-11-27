@@ -10,6 +10,7 @@ import type { Document, Heading, Node } from '../contracts/ast.ts';
 import { parseMarkdown } from '../parse/parse.ts';
 import { byteOffsets, type ByteOffsets } from '../parse/byte-offsets.ts';
 import { sectionRange } from '../sourcemap/section.ts';
+import { pushAll } from '../util/spread.ts';
 
 export interface TextRange {
   readonly from: number;
@@ -155,10 +156,10 @@ export function expandSelection(text: string, sel: TextRange, kind: StructureKin
   // A selection that ends at the start of a line does not reach into that line.
   const endPos = sel.to > sel.from && text[sel.to - 1] === '\n' ? sel.to - 1 : sel.to;
   candidates.push({ from: lineBounds(text, sel.from).from, to: lineBounds(text, endPos).to });
-  candidates.push(...blocksFor(text, sel, kind));
+  pushAll(candidates, blocksFor(text, sel, kind));
   if (kind === 'markdown') {
     const p = parse(text);
-    candidates.push(...sectionsHolding(p, p.offsets.at(sel.from), p.offsets.at(sel.to)));
+    pushAll(candidates, sectionsHolding(p, p.offsets.at(sel.from), p.offsets.at(sel.to)));
   }
   candidates.push({ from: 0, to: text.length });
   let best: TextRange | null = null;

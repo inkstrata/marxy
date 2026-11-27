@@ -129,7 +129,11 @@ linear.
   reading, detecting or parsing, reads the file only when an event arrived while no pane showed it or
   its size or times moved since it was kept (an event not yet delivered), and closing the tab closes the
   store. A store whose folder could not be watched is not kept. The sanitised page of a parse is kept per parse and policy
-  (`view/rendered-view.ts`), so a return does not render it again. Closing
+  (`view/rendered-view.ts`), so a return does not render it again. The store's parse is the only parse of
+  the file: a panel that reads structure (Transforms' counts, Links' written paths, the Line's transforms, Copy
+  as) borrows it (`textParse`, or `snapshot().ast` with its own text) and does not parse the bytes again.
+  Transforms works its counts out in short pieces after the list is drawn, and Links keeps what a
+  version of the text says, so another file opening only places the links again. Closing
   tells the views at once, but what is held for the file (its encoding, the shell's record of the last
   read) goes only after a save already under way has written, and the record only if the file was not
   read again in the meantime (a reopened file keeps its own).

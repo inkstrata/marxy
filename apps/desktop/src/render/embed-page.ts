@@ -61,7 +61,9 @@ function drawMarkdown(article: HTMLElement, name: string, html: string): void {
 
 /** Draws entry `name`'s `bytes` into `article` as the pane reads a file of kind `kind`; resolves once its code is coloured. */
 export async function fillEmbedPage(article: HTMLElement, name: string, bytes: Uint8Array, kind: string): Promise<{ readonly code: boolean }> {
-  const reading = readingOf(name, bytes, kind);
+  // A broken data file big enough to be the Lines page has no body here to mount into: it is set as code.
+  const found = readingOf(name, bytes, kind);
+  const reading = found?.id === 'lines' ? null : found;
   let code = false;
   if (reading) article.innerHTML = reading.html;
   else {

@@ -2,6 +2,7 @@
 // browser build and the app read it alike from the store's own bytes. Bounded: parts, depth, headers and the message's
 // size are capped, and a cap that cuts says so. Nothing is fetched, run or written. Pure: no DOM, no I/O.
 import { type Budget, budget, figure } from '../util/budget.ts';
+import { pushAll } from '../util/spread.ts';
 
 /** What one message may cost. Past `messageBytes` the message is not read as one: Source has its text. */
 export const MAIL_LIMITS = {
@@ -287,7 +288,7 @@ export function parseParams(value: string): { value: string; params: Record<stri
           if (v[k] === '%' && /^[0-9a-f]{2}$/i.test(v.slice(k + 1, k + 3))) {
             bytes.push(parseInt(v.slice(k + 1, k + 3), 16));
             k += 2;
-          } else bytes.push(...new TextEncoder().encode(v[k]!));
+          } else pushAll(bytes, new TextEncoder().encode(v[k]!));
         }
       } else for (const byte of new TextEncoder().encode(v)) bytes.push(byte);
     });

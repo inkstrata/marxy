@@ -147,9 +147,12 @@ export function partReading(part: Pick<Part, 'contentStart' | 'contentEnd' | 'la
   const raw = readingOf(`part.${format}`, bytes.subarray(part.contentStart, part.contentEnd), 'data');
   const by = part.contentStart;
   const made: Reading | null =
-    raw === null || raw.id === 'written'
+    raw === null
       ? raw
-      : {
+      : raw.failed !== null
+        ? // A fence has no Lines page to mount a windowed body in: a fence that does not read is as written however long.
+          { ...raw, id: 'written', name: 'written' }
+        : {
           ...raw,
           html: shiftRanges(raw.html, by),
           contents: raw.contents ? { title: raw.contents.title, items: raw.contents.items.map((i) => ({ ...i, byte: i.byte + by })) } : null,
@@ -184,7 +187,7 @@ function decide(block: CodeBlock, bytes: Uint8Array, lang: string, firstContentL
     const kind: PartReading = lang === 'csv' || lang === 'tsv' ? 'table' : 'data';
     if (own === null) return { guess: 'written', from: 'fence', reasons: [says, 'It sits in a list or a quote: its lines are not the file’s lines as they stand, so it is set as written.'], ways: ['written'], note: null };
     const r = partReading({ contentStart: block.content.start, contentEnd: block.content.end, lang }, bytes);
-    if (r === null || r.id === 'written') {
+    if (r === null || r.failed !== null || r.id === 'written') {
       const at = r?.failed ? ` at line ${firstContentLine + r.failed.line - 1}, ${r.failed.why}` : '';
       const what = r?.failed ? `${r.format} that does not read${at}` : `${r?.format ?? lang.toUpperCase()} with too little in it to read`;
       return { guess: 'written', from: 'fence', reasons: [says, `${what}: set as written.`], ways: ['written'], note: what };

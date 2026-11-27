@@ -330,7 +330,7 @@ function textAccount(ctx: Ctx, pane: PaneView, path: string, body: HTMLElement):
   if (onRequest === 'lines') small.append(`Shown as lines, as the file writes it: it is ${mb(buffer.bytes.length)}, and past 5 MB Markdown is rendered only when asked, as that parses the whole file. `, flip('Show rendered (g r)', true));
   else if (onRequest === 'rendered') small.append('Rendered because you asked; at this size it opens as lines. ', flip('Back to lines (g r)', false), ' ');
   else if (chose) small.append('You chose this reading; Read as puts it back. ');
-  else if (reading?.failed) small.append(`It does not read as ${reading.format}: at line ${reading.failed.line}, ${reading.failed.why}. Set as written.`);
+  else if (reading?.failed) small.append(`It does not read as ${reading.format}: at line ${reading.failed.line}, ${reading.failed.why}. ${reading.id === 'lines' ? 'Shown as lines.' : 'Set as written.'}`);
   else if (reading && (reading.id === 'verse' || reading.id === 'prose')) small.append('Read so because ', g(`${reading.id === 'verse' ? 'its short lines and stanzas' : 'its lines of words'}: a guess from its shape, not its name`), '. ');
   else if (reading && !asLines) small.append(`Read so because its name ends .${/\.([^./]+)$/.exec(path)?.[1] ?? ''}. `);
   else if (markdown) {
