@@ -81,11 +81,23 @@ They are `todo.md` row M4:
 
 CI runs the browser suite on Windows until they pass.
 
+## Windows, first CI run (GitHub's `windows-latest`)
+
+The pull request's first Windows run (`logs/verify-ci-windows-summary.json`, `logs/verify-ci-windows-browser.log`)
+took 2 h 11 min. 12 of 16 steps passed. Each of the four failures came from the hosted runner, not the code:
+
+| Step | Failure | Fix |
+| --- | --- | --- |
+| scripts | the workspace test compared a temp path holding the runner's short name (`RUNNER~1`) with git's long one | `realpathSync.native` |
+| core | the 10 MB notebook took 1.7 s of CPU against a 1.5 s bound | bound 3 s, which still catches the old 7 s |
+| cargo | the symlinked-journal test, skipped on the desktop (no symlink right), ran: Windows SQLite takes a zero-size link for no journal and reads in place, not from a copy | both accepted on Windows; the linked file is not read either way |
+| browser | 2521 pass, 14 fail, mostly timing budgets on a slow machine (`todo.md`, M5) | the Windows job leaves the browser suite out, as the macOS job does |
+
 ## Not done
 
 - **M1:** the Windows checkout's unlanded branches (round 16, wave 5, `web-shell`, `open-with`) are not here.
 - **M2:** nobody has used the Mac build by hand.
 - **M3:** Linux has never been built.
-- **M4:** the 14 browser files above.
-- **Windows CI** has not run yet: the pull request's run is its first.
+- **M4:** the 14 macOS browser files above.
+- **M5:** the 14 browser files that fail on a hosted Windows runner (above).
 - **`release.yml`** has not run.

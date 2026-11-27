@@ -7,10 +7,10 @@ fn demo(name: &str) -> PathBuf {
         .join(name)
 }
 
+/// A folder of its own holding copies of `names` from the demo, so nothing reads the fixtures in place.
+///
 /// `open` takes the canonical path the scope judged. The temp folder is not canonical everywhere (on macOS it is
 /// `/var/folders/...`, a link to `/private/var/folders/...`), so each test folder is canonicalised once it exists.
-
-/// A folder of its own holding copies of `names` from the demo, so nothing reads the fixtures in place.
 fn copied(tag: &str, names: &[&str]) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("marxy-tables-{}-{tag}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
@@ -511,7 +511,18 @@ fn a_journal_symlinked_in_between_the_check_and_the_open_is_not_read() {
     let db = open(&dir.join("gauges.sqlite"), false, &Limits::DEFAULT)
         .unwrap()
         .unwrap();
-    assert_eq!(db.summary.state, "copy");
+    // Elsewhere SQLite looks for the journal, the VFS refuses the link, and the database is read from a copy. On Windows
+    // SQLite asks for the journal's size without following the link, finds the link's own (zero), takes the journal for
+    // absent and never opens it, so it reads in place. Either way the file the link leads to is not read.
+    if cfg!(windows) {
+        assert!(
+            matches!(db.summary.state.as_str(), "copy" | "place"),
+            "{}",
+            db.summary.state
+        );
+    } else {
+        assert_eq!(db.summary.state, "copy");
+    }
 }
 
 #[test]

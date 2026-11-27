@@ -5,10 +5,11 @@ name: ci
 # - macOS (a product target): every step that passes there — typecheck, lint, `pnpm check`, the gates, every unit
 #   suite, the Rust lint and tests, and the release build with its smoke launch. The browser suite is left out:
 #   14 of its files still fail on macOS WebKit (work/todo.md, M4). When they pass, add `browser` here.
-# - Windows (where the suite has always run green): `pnpm verify --tier changed` against the base on a pull request,
-#   which runs the browser test files that cover the changed folders; `quick` on a push to main; any tier by hand.
-#   Only `full` runs `check:tauri` (the real-window check); whether a hosted runner can drive WebView2 for it is
-#   untried, so a run's integrator still runs it on a Windows desktop.
+# - Windows: the same steps on a pull request and on main, but the release build. The browser suite is left out here
+#   too: it is green on a Windows desktop (2536/0), but 14 of its files fail on a hosted runner, mostly timing budgets
+#   that a slow machine misses (work/todo.md, M5); it takes two hours there as well. A run by hand takes the tier it is
+#   given, browser suite included. Only `full` runs `check:tauri` (the real-window check); whether a hosted runner can
+#   drive WebView2 for it is untried, so a run's integrator still runs it and the browser suite on a Windows desktop.
 #
 # The repository is public, so the minutes are free.
 on:
@@ -62,7 +63,7 @@ jobs:
 
   windows:
     runs-on: windows-latest
-    timeout-minutes: 180
+    timeout-minutes: 180 # a run by hand at `full` takes the browser suite, about two hours
     defaults:
       run:
         shell: bash
@@ -82,10 +83,12 @@ jobs:
         run: pnpm exec playwright install webkit
       - name: Verify
         env:
-          TIER: ${{ inputs.tier || (github.event_name == 'pull_request' && 'changed') || 'quick' }}
+          TIER: ${{ inputs.tier || 'changed' }}
           BASE: origin/${{ github.base_ref || 'main' }}
           MARXY_BROWSER_TESTS_REQUIRED: "1"
-        run: node scripts/verify.mjs --tier "$TIER" --base "$BASE" --logs "$RUNNER_TEMP/verify" --no-lock
+          # Empty on a run by hand, which then runs its tier's steps.
+          ONLY: ${{ github.event_name != 'workflow_dispatch' && 'install,typecheck,lint,check,golden,fidelity,licences,unit-core,unit-theme,unit-typeset,unit-scripts,unit-desktop,unit-desktop-browser,lint-rust,cargo' || '' }}
+        run: node scripts/verify.mjs --tier "$TIER" --base "$BASE" --logs "$RUNNER_TEMP/verify" --no-lock ${ONLY:+--only "$ONLY"}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -1,0 +1,119 @@
+{
+  "tier": "changed",
+  "base": "origin/main",
+  "root": "D:\\a\\marxy\\marxy",
+  "rows": [
+    {
+      "name": "install",
+      "status": "pass",
+      "seconds": 0.893,
+      "tests": "",
+      "log": "D:\\a\\_temp\\verify\\01-install.log"
+    },
+    {
+      "name": "typecheck",
+      "status": "pass",
+      "seconds": 25.535,
+      "tests": "",
+      "log": "D:\\a\\_temp\\verify\\02-typecheck.log"
+    },
+    {
+      "name": "lint",
+      "status": "pass",
+      "seconds": 6.246,
+      "tests": "",
+      "log": "D:\\a\\_temp\\verify\\03-lint.log"
+    },
+    {
+      "name": "check",
+      "status": "pass",
+      "seconds": 18.966,
+      "tests": "10 pass, 0 fail",
+      "log": "D:\\a\\_temp\\verify\\04-check.log"
+    },
+    {
+      "name": "golden",
+      "status": "pass",
+      "seconds": 3.265,
+      "tests": "",
+      "log": "D:\\a\\_temp\\verify\\05-golden.log"
+    },
+    {
+      "name": "fidelity",
+      "status": "pass",
+      "seconds": 30.003,
+      "tests": "",
+      "log": "D:\\a\\_temp\\verify\\06-fidelity.log"
+    },
+    {
+      "name": "licences",
+      "status": "pass",
+      "seconds": 1.089,
+      "tests": "",
+      "log": "D:\\a\\_temp\\verify\\07-licences.log"
+    },
+    {
+      "name": "unit-core",
+      "status": "FAIL",
+      "seconds": 639.744,
+      "tests": "4233 pass, 1 fail, 1 skip",
+      "log": "D:\\a\\_temp\\verify\\08-unit-core.log"
+    },
+    {
+      "name": "unit-theme",
+      "status": "pass",
+      "seconds": 75.334,
+      "tests": "305 pass, 0 fail",
+      "log": "D:\\a\\_temp\\verify\\09-unit-theme.log"
+    },
+    {
+      "name": "unit-typeset",
+      "status": "pass",
+      "seconds": 82.749,
+      "tests": "90 pass, 0 fail",
+      "log": "D:\\a\\_temp\\verify\\10-unit-typeset.log"
+    },
+    {
+      "name": "unit-scripts",
+      "status": "FAIL",
+      "seconds": 36.905,
+      "tests": "271 pass, 1 fail",
+      "log": "D:\\a\\_temp\\verify\\11-unit-scripts.log"
+    },
+    {
+      "name": "unit-desktop",
+      "status": "pass",
+      "seconds": 99.644,
+      "tests": "1268 pass, 0 fail, 2 skip",
+      "log": "D:\\a\\_temp\\verify\\12-unit-desktop.log"
+    },
+    {
+      "name": "unit-desktop-browser",
+      "status": "pass",
+      "seconds": 144.691,
+      "tests": "44 pass, 0 fail, 1 skip",
+      "log": "D:\\a\\_temp\\verify\\13-unit-desktop-browser.log"
+    },
+    {
+      "name": "lint-rust",
+      "status": "pass",
+      "seconds": 164.537,
+      "tests": "",
+      "log": "D:\\a\\_temp\\verify\\14-lint-rust.log"
+    },
+    {
+      "name": "browser",
+      "status": "FAIL",
+      "seconds": 6209.996,
+      "tests": "2521 pass, 14 fail, 4 skip",
+      "log": "D:\\a\\_temp\\verify\\15-browser.log"
+    },
+    {
+      "name": "cargo",
+      "status": "FAIL",
+      "seconds": 252.515,
+      "tests": "642 pass, 1 fail, 6 skip",
+      "log": "D:\\a\\_temp\\verify\\16-cargo.log"
+    }
+  ]
+}

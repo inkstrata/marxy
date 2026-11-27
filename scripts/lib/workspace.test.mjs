@@ -9,7 +9,8 @@ import { join } from 'node:path';
 import { branchFacts, workspace } from './workspace.mjs';
 
 test('the main checkout and its worktrees folder are the same from any tree; the tracker is the tree\'s own', () => {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'marxy-workspace-test-')));
+  // `.native` expands a Windows short name (a hosted runner's temp folder is under RUNNER~1); git reports the long one.
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'marxy-workspace-test-')));
   try {
     const app = join(dir, 'app');
     mkdirSync(app);

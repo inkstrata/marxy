@@ -310,8 +310,9 @@ test('a 10 MB notebook draws its first cells, says how many more and where, and 
   const { r } = read(nb4(cells));
   const ms = cpuNow() - t0;
   assert.ok(r.html.length < 2 * 1024 * 1024, `${r.html.length} characters of html`);
-  // This file once took 7 s and 25 MB of html; warm, about 0.45 s now. The bound is a slow machine's; the clock is CPU time, so a busy one does not count.
-  assert.ok(ms < 1500, `${Math.round(ms)} ms`);
+  // This file once took 7 s and 25 MB of html; warm, about 0.45 s now. The bound is a slow machine's (a hosted Windows
+  // runner took 1.7 s) and still catches the old 7 s; the clock is CPU time, so a busy machine does not count.
+  assert.ok(ms < 3000, `${Math.round(ms)} ms`);
   assert.equal((r.html.match(/<section class="marxy-nb-cell/g) ?? []).length, NOTEBOOK_MAX_CELLS);
   const stop = /<p class="marxy-nb-note marxy-nb-stop" data-marxy-s="(\d+)" data-marxy-e="\1"><b>([\d,]+) more cells here, not drawn\.<\/b>/.exec(r.html);
   assert.ok(stop, 'the stop line');

@@ -39,8 +39,9 @@ checks another one).
 | `full` | every unit suite, `lint:rust`, `cargo test`, every browser test file, `pnpm --filter @marxy/desktop build`, and on Windows `check:tauri` |
 
 CI (`.github/workflows/ci.yml`) runs this tool and nothing of its own, in two jobs, and a third, `ci` (the check branch protection requires), passes when both do. On macOS it runs every step
-that passes there (all but `browser` and `tauri`), with `--tier full --only`. On Windows it runs `changed` against the base branch
-on a pull request, `quick` on a push to `main`, and any tier on a manual run. Each job uploads its step logs as an
+that passes there (all but `browser` and `tauri`), with `--tier full --only`. On Windows it runs the same steps but the
+release build, on a pull request and on a push to `main`, and any tier, browser suite included, on a manual run. The
+browser suite runs on neither: it is green on a Windows desktop but not on a hosted runner (`work/todo.md`, M5). Each job uploads its step logs as an
 artifact. The browser suite is not yet green on macOS WebKit; the files that fail there are listed in
 `work/todo.md`.
 

@@ -76,9 +76,10 @@ the app does; `runs/2026-11-26-import/README.md` has the table.
   now runs that step only on Windows.
 
 CI (`.github/workflows/ci.yml`) has two jobs. **macOS** runs the 16 steps above at `--tier full`, with no
-browser suite until M4 is done. **Windows** runs `pnpm verify --tier changed` against the base on a pull
-request, browser suite included; it runs `quick` on a push to `main`, and any tier by hand. Neither job runs
-`check:tauri`, so a person still runs it on a Windows desktop.
+browser suite until M4 is done. **Windows** runs the same steps but the release build, on a pull request and on
+`main`, and any tier by hand. Its first run, on the import pull request, ran the browser suite too: 2521 pass and
+14 fail on a hosted runner, against 2536/0 on the Windows desktop (`todo.md`, M5). Neither job runs the browser
+suite or `check:tauri`, so a person still runs both on a Windows desktop.
 
 **Flaky under load** (passes when run alone): `split-narrow` (waves 2 to 4, round 9, round 16),
 `source-looks`, `large-open-panel`, `progressive-large`, `no-displacement`, core's 10 MB notebook timing,
@@ -109,6 +110,7 @@ All of it is in `todo.md`.
   - M2: use the app on macOS.
   - M3: build it on Linux.
   - M4: the 14 browser test files that fail on macOS.
+  - M5: the 14 browser test files that fail on a hosted Windows runner.
 - **Next:**
   - S17: web shell over the File System Access API. The spike and its report exist (`reports/2026-11-23-reach-beyond-desktop/`), but the branch is not here.
   - P11, P12: lines-of-text and container budgets. Built in round 16, which is not landed.
