@@ -177,6 +177,12 @@ Folders named `node_modules`, `target`, `.venv`, `venv`, `dist`, `build`, `out`,
 
 ### Scope of the path commands (`src/scope.rs`)
 
+One module decides which paths and handles the shell may touch: `src/scope.rs` with `src/scope/`. The opened set
+(`scope/set.rs`) records what the reader opened and chose; `scope::check` judges it for a path command by what the
+command needs (below), and `scope/served.rs` judges it for what a document may load (`marxy-file://` and the readers
+of a file the page shows, further down). Every handle opened after either judgement is judged again in one place,
+`scope.rs`, and must be open on the very path that was judged. No command judges a path or a handle any other way.
+
 The path commands answer only for what the reader opened or chose, and for Marxy's own folders. The set has five
 parts, each canonical and as spelled: **files** the reader opened, **folders** scoped for a document
 (`allow_asset_scope`: its folder, an image root, a theme), **roots** chosen for the index (`mark_opened` with `root`:
@@ -191,8 +197,10 @@ set starts empty and is rebuilt from the launch, the restored layout and the fol
 history. Writing is narrower than reading: roots and folders scoped for a document are read-only.
 
 A path is judged by spelling first, so a path outside never reaches the disk (no share lookup); then canonical, so a
-`..`, a symlink or a junction inside a root that leads out is refused. `read_file`, which follows links, judges the
-opened handle again; `read_head` (and `detect_files` through it), `image_size` and `stat_file` refuse a handle open on
+`..`, a symlink or a junction inside a root that leads out is refused. `read_file`, which follows links, refuses a
+handle open on any file but the one judged, or one the set no longer admits for reading (a repository probe is still
+admitted while a file or place below it is held, so the index finds a document's repository above its folder);
+`read_head` (and `detect_files` through it), `image_size` and `stat_file` refuse a handle open on
 any file but the one judged and read from that handle, so a folder swapped for a junction between the check and the
 open is refused; `read_dir` holds the judged folder open while it lists it (on Windows without delete sharing, so it
 cannot be swapped meanwhile; on Unix the handle is judged once, then the folder is listed by name); `real_path` answers
@@ -218,7 +226,7 @@ Paths compare with one separator, without the `\\?\` prefix, and in one case on 
 | --- | --- |
 | `read_file`, `read_head`, `image_size` | **Read**: a file opened, or inside a folder, root, picked folder or Marxy's folder (dot files too); plus `<dir>/.git` and `<dir>/.git/HEAD` for the nearest repository above an opened file or a place, so the index can find it |
 | `detect_files` | Read; a path outside answers null |
-| `search_content` | each root Read; files under no kept root are skipped |
+| `search_content` | each root Read, and each file held for Read before it is opened (a root admitted only as a repository probe lends nothing below it); a file must also lie under a kept root, below no denied folder and through no link, and is opened without blocking and judged by its handle; files under no kept root are skipped |
 | `real_path`, `stat_file` | **List**: Read, or any folder above an opened file or a place (the breadcrumbs) |
 | `read_dir`, a flat `watch_root` | **Folder**: inside a place, or the folder of a file opened (its neighbours); a folder above is not listed |
 | a tree `watch_root` | Read |
@@ -307,16 +315,17 @@ request (`decode_text`).
 - Events are `created`, `removed`, `modified`, and `renamed` (paired by inode on Unix and NTFS file id
   on Windows, so a save by rename is seen as one). `\\?\` prefixes are stripped from Windows paths.
 
-### `marxy-file://` and the opened set (`src/file_scheme.rs`)
+### `marxy-file://` and the served set (`src/file_scheme.rs`, `src/scope/served.rs`)
 
 Images, fonts, media and PDFs a document shows are served through `marxy-file://` (on Windows
 `http://marxy-file.localhost/…`). Only the served part of the scope can be reached: files the reader opened
 (above), folders added with `allow_asset_scope` (never a drive root, the home folder or its
-parents), and images measured under such a folder; never a file only read or indexed. Each request is checked by spelling, after
-canonicalisation and by the opened handle. Ranges are served up to 4 MB per response; a whole file over
+parents), and images measured under such a folder; never a file only read or indexed. `file_scheme.rs` only serves
+bytes; the rule is `scope/served.rs`. Each request is checked by spelling, after canonicalisation and by the opened
+handle, which must be open on the very file the canonical check resolved. Ranges are served up to 4 MB per response; a whole file over
 64 MB needs a range. `?decoded` answers PNG from the first decoder that reads the file (an SVGZ's unpacked SVG, as `image/svg+xml`), cached on disk under a name ending in what it holds (`.png`, `.svg`). A decoder that panics on a hostile file refuses that file (422), and any panic in answering a request is a 500: the request always completes.
-The archive, table, font and media commands, `open_with_system` and `run_command`'s working folder are
-limited to the same set.
+The archive, table, font and media commands open their file through the same rule and handle check
+(`served::open_judged`); `open_with_system` and `run_command`'s working folder are limited to the same set.
 
 ## Archives and decoders
 

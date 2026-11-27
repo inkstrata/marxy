@@ -9,10 +9,11 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use serde::Deserialize;
 
-use super::archive::{cache_of, file_name, open_held, shell_error};
+use super::archive::{cache_of, file_name, shell_error};
 use crate::archive::{self, Key, Limits};
 use crate::error::ShellError;
-use crate::file_scheme::OpenedSet;
+use crate::scope::served::open_judged;
+use crate::scope::OpenedSet;
 
 /// Which entry of the archive at `path` a reader reads: its ordinal, and the name the page listed there.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -82,7 +83,7 @@ pub fn entry<T: Send + Sync + 'static>(
     limits: &Limits,
     make: impl FnOnce(Vec<u8>) -> Result<T, ShellError>,
 ) -> Result<Arc<T>, ShellError> {
-    let (file, path) = open_held(set, raw)?;
+    let (file, path) = open_judged(set, raw)?;
     let cache = cache_of(raw, &file, &path)?;
     if let Some(made) = lookup(&cache.key, at, what).and_then(|m| m.downcast::<T>().ok()) {
         return Ok(made);

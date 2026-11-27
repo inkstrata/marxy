@@ -56,7 +56,7 @@ What each guards is in [docs/testing.md](../docs/testing.md#repository-checks-pn
 | `gate-fidelity.mjs` | `pnpm gate:fidelity` | saves are byte-exact over the corpus |
 | `gate-no-network.mjs` | `pnpm gate:no-network` | rendering the corpus and the hostile vectors reaches nothing off the machine |
 | `gate-bundle.mjs` | `pnpm gate:bundle` | what the shipped bundle may and may not hold, and its size |
-| `gate-aesthetics.mjs` | `pnpm gate:aesthetics` | the rendered page over the corpus: grid, measure, contrast, rag |
+| `gate-aesthetics.mjs` | `pnpm gate:aesthetics` | the rendered page over the corpus: grid, measure, contrast, rag; `--mechanical` runs in the `full` tier; known failures are listed by class with a count |
 | `gate-highlight-bundle.mjs` | run by core's highlight tests | no grammar off `allowlists/shiki-languages.json` is imported or bundled; in the build, each grammar is defined by one chunk and no page's import graph reaches one (the highlight worker alone loads them) |
 | `gate-code-block-layout.mjs` | run by core's highlight tests | code blocks wrap with a hanging indent and never scroll sideways |
 

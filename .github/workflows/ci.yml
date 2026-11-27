@@ -34,7 +34,7 @@ env:
 jobs:
   macos:
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 45 || 90 }} # a push to main also runs the aesthetics gate
     steps:
       - uses: actions/checkout@v4
         with:

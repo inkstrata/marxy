@@ -284,7 +284,7 @@ fn edit_with_notepad(path: &str) -> Result<(), ShellError> {
         code: "refused".into(),
         message: message.into(),
     };
-    let file = crate::file_scheme::resolve(crate::file_scheme::opened(), Path::new(path))
+    let file = crate::scope::served::resolve(crate::scope::opened(), Path::new(path))
         .map_err(|_| refuse("not a file this window opened"))?;
     if !file.is_file() {
         return Err(refuse("not a file"));
@@ -550,7 +550,7 @@ pub async fn open_with_system(path: String, reveal: bool) -> Result<(), ShellErr
             code: "refused".into(),
             message: message.into(),
         };
-        let file = crate::file_scheme::resolve(crate::file_scheme::opened(), Path::new(&path))
+        let file = crate::scope::served::resolve(crate::scope::opened(), Path::new(&path))
             .map_err(|_| refuse("not a file this window opened"))?;
         if !file.is_file() {
             return Err(refuse("not a file"));

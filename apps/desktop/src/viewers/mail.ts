@@ -14,6 +14,7 @@ import type { AppShell } from '../app-types.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { holdEntry } from '../document/entries.ts';
 import { el, plural } from '../frame/dom.ts';
+import { guardLongRuns } from '../render/long-runs.ts';
 import { intend } from '../frame/intent.ts';
 import type { CardDef } from '../frame/cards/types.ts';
 import { notify } from '../notices/index.ts';
@@ -363,6 +364,8 @@ export function createMailViewer(o: MailOptions): PaneViewer {
       blockEls.at(-1)!.append(p);
       if (i === b.to - 1) k++;
     });
+    // A line with no space in it is one unbroken run the engine lays out in time that grows steeply with its length.
+    guardLongRuns(box);
     return [box];
   }
 
