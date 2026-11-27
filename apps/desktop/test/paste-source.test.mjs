@@ -40,6 +40,9 @@ async function withSource(text, fn, { extraFiles = {} } = {}) {
     await page.keyboard.press(`${mod}+e`);
     await page.waitForFunction(() => document.body.dataset.marxyMode === 'source');
     await page.waitForSelector('.cm-content');
+    // Source has no scroll spine, but the one Read drew is taken away a tick after the mode changes: the page outside the editor is
+    // not the Source page until it is gone.
+    await page.waitForFunction(() => document.querySelector('[data-marxy-spine]') === null);
     const api = {
       mod,
       /** Puts one item on the fake pasteboard: `{ type: text }`. */
