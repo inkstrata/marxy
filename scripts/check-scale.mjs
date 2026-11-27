@@ -14,7 +14,8 @@
 //   line-split        a text split into all its lines (`split('\n')`, `split(/\r?\n/)`): an array of every line of
 //                     whatever text it is given, which is a whole document more often than it looks
 //   dynamic-regexp    `new RegExp(<not a literal>)`: a pattern built at run time, often from what the reader typed,
-//                     run by a backtracking engine on the main thread
+//                     run by a backtracking engine on the main thread; a worker (`*.worker.ts`) is exempt, since
+//                     the page can stop it
 //
 // A hit is allowed when a comment on its line or the line above says why it is bounded, starting `scale:`
 // (`// scale: a heading's text, at most one line`). Hits without one are counted per file and rule against
@@ -100,6 +101,8 @@ export function hitsIn(text, fileName = 'file.ts') {
     }
     return false;
   };
+  // A pattern in a worker cannot freeze the page, and the page can terminate it: that is the remedy, not the risk.
+  const inWorker = /\.worker\.[cm]?[jt]s$/.test(fileName);
   const out = [];
   const add = (rule, node) => {
     const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
@@ -125,7 +128,7 @@ export function hitsIn(text, fileName = 'file.ts') {
       if (!written && !ts.isCallExpression(p) && inLoop(node)) add('layout-in-loop', node);
     } else if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'RegExp') {
       const a = node.arguments?.[0];
-      if (a && !fixedPattern(a)) add('dynamic-regexp', node);
+      if (a && !inWorker && !fixedPattern(a)) add('dynamic-regexp', node);
     }
     ts.forEachChild(node, visit);
   };

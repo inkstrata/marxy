@@ -19,12 +19,6 @@
     "apps/desktop/src/document/fork.ts": {
       "spread-call": 1
     },
-    "apps/desktop/src/document/live-reload.ts": {
-      "spread-call": 1
-    },
-    "apps/desktop/src/export/model.ts": {
-      "spread-call": 2
-    },
     "apps/desktop/src/find/query.ts": {
       "dynamic-regexp": 1
     },
@@ -53,9 +47,6 @@
     "apps/desktop/src/frame/hue-test.ts": {
       "spread-call": 3
     },
-    "apps/desktop/src/frame/model/outline.ts": {
-      "spread-call": 1
-    },
     "apps/desktop/src/frame/spine.ts": {
       "layout-in-loop": 1
     },
@@ -72,7 +63,7 @@
     },
     "apps/desktop/src/frontispiece/shape.ts": {
       "queue-in-loop": 1,
-      "spread-call": 2
+      "spread-call": 1
     },
     "apps/desktop/src/harness/layout-shift.ts": {
       "layout-in-loop": 2,
@@ -81,18 +72,13 @@
     "apps/desktop/src/harness/test-hooks.ts": {
       "spread-call": 1
     },
-    "apps/desktop/src/index/service.ts": {
-      "spread-call": 2
-    },
     "apps/desktop/src/kinds/log-view.ts": {
       "layout-in-loop": 1,
       "line-split": 1,
-      "queue-in-loop": 2,
-      "spread-call": 1
+      "queue-in-loop": 2
     },
     "apps/desktop/src/kinds/quiet-dates.ts": {
-      "query-in-loop": 1,
-      "spread-call": 1
+      "query-in-loop": 1
     },
     "apps/desktop/src/kinds/table-lens.ts": {
       "spread-call": 3
@@ -101,9 +87,6 @@
       "line-split": 1,
       "query-in-loop": 2
     },
-    "apps/desktop/src/layout/restore.ts": {
-      "spread-call": 2
-    },
     "apps/desktop/src/left/aria.ts": {
       "query-in-loop": 2
     },
@@ -111,8 +94,7 @@
       "line-split": 1
     },
     "apps/desktop/src/left/doc-model.ts": {
-      "line-split": 1,
-      "spread-call": 2
+      "line-split": 1
     },
     "apps/desktop/src/left/frame.ts": {
       "query-in-loop": 1
@@ -122,8 +104,7 @@
       "spread-call": 1
     },
     "apps/desktop/src/left/panels/outline.ts": {
-      "layout-in-loop": 2,
-      "spread-call": 5
+      "layout-in-loop": 2
     },
     "apps/desktop/src/left/panels/places.ts": {
       "queue-in-loop": 1
@@ -179,16 +160,14 @@
       "query-in-loop": 6
     },
     "apps/desktop/src/parts/reading-parts.ts": {
-      "query-in-loop": 1,
-      "spread-call": 1
+      "query-in-loop": 1
     },
     "apps/desktop/src/parts/tree-folds.ts": {
       "query-in-loop": 1,
       "queue-in-loop": 1
     },
     "apps/desktop/src/paste/html-to-markdown.ts": {
-      "line-split": 3,
-      "spread-call": 3
+      "line-split": 3
     },
     "apps/desktop/src/proposals/inspector.ts": {
       "layout-in-loop": 1,
@@ -200,8 +179,7 @@
       "spread-call": 1
     },
     "apps/desktop/src/proposals/notes-in-place.ts": {
-      "layout-in-loop": 3,
-      "spread-call": 1
+      "layout-in-loop": 3
     },
     "apps/desktop/src/proposals/table-aids.ts": {
       "layout-in-loop": 2
@@ -214,8 +192,7 @@
     },
     "apps/desktop/src/render/highlight.ts": {
       "layout-in-loop": 1,
-      "line-split": 3,
-      "spread-call": 3
+      "line-split": 3
     },
     "apps/desktop/src/render/link-dest.ts": {
       "query-in-loop": 1
@@ -235,8 +212,7 @@
       "layout-in-loop": 6
     },
     "apps/desktop/src/render/progressive.ts": {
-      "layout-in-loop": 2,
-      "spread-call": 1
+      "layout-in-loop": 2
     },
     "apps/desktop/src/render/tasks.ts": {
       "layout-in-loop": 1
@@ -263,33 +239,22 @@
     "apps/desktop/src/shell/memory.ts": {
       "queue-in-loop": 1
     },
-    "apps/desktop/src/shell/tauri.ts": {
-      "spread-call": 1
-    },
-    "apps/desktop/src/source/colour.ts": {
-      "spread-call": 1
-    },
-    "apps/desktop/src/source/editor.ts": {
-      "spread-call": 1
-    },
     "apps/desktop/src/source/editorconfig.ts": {
       "dynamic-regexp": 1,
       "line-split": 1
     },
     "apps/desktop/src/source/format-ops.ts": {
       "dynamic-regexp": 2,
-      "line-split": 1,
-      "spread-call": 1
+      "line-split": 1
     },
     "apps/desktop/src/source/harness-entry.ts": {
-      "layout-in-loop": 1,
-      "spread-call": 1
+      "layout-in-loop": 1
     },
     "apps/desktop/src/source/notes.ts": {
       "line-split": 1
     },
     "apps/desktop/src/source/replace-sheet.ts": {
-      "spread-call": 2
+      "spread-call": 1
     },
     "apps/desktop/src/source/replace.ts": {
       "dynamic-regexp": 1
@@ -360,11 +325,10 @@
     "apps/desktop/src/viewers/archive.ts": {
       "query-in-loop": 1,
       "queue-in-loop": 1,
-      "spread-call": 3
+      "spread-call": 2
     },
     "apps/desktop/src/viewers/book.ts": {
-      "layout-in-loop": 3,
-      "spread-call": 1
+      "layout-in-loop": 3
     },
     "apps/desktop/src/viewers/card.ts": {
       "spread-call": 2
@@ -376,7 +340,7 @@
       "query-in-loop": 2
     },
     "apps/desktop/src/viewers/hex.ts": {
-      "spread-call": 4
+      "spread-call": 2
     },
     "apps/desktop/src/viewers/image-chunks.ts": {
       "spread-call": 1
@@ -388,7 +352,7 @@
     },
     "apps/desktop/src/viewers/mail.ts": {
       "line-split": 5,
-      "spread-call": 5
+      "spread-call": 3
     },
     "apps/desktop/src/viewers/media.ts": {
       "spread-call": 1
@@ -396,7 +360,7 @@
     "apps/desktop/src/viewers/office.ts": {
       "layout-in-loop": 1,
       "query-in-loop": 1,
-      "spread-call": 2
+      "spread-call": 1
     },
     "apps/desktop/src/viewers/page-find.ts": {
       "layout-in-loop": 1
@@ -404,13 +368,9 @@
     "apps/desktop/src/viewers/pdf-blocks.ts": {
       "spread-call": 4
     },
-    "apps/desktop/src/viewers/pdf-state.ts": {
-      "spread-call": 1
-    },
     "apps/desktop/src/viewers/pdf.ts": {
       "query-in-loop": 1,
-      "queue-in-loop": 1,
-      "spread-call": 2
+      "queue-in-loop": 1
     },
     "apps/desktop/src/viewers/sandbox.ts": {
       "layout-in-loop": 1,
@@ -430,8 +390,7 @@
       "spread-call": 1
     },
     "packages/core/src/book/xhtml.ts": {
-      "queue-in-loop": 1,
-      "spread-call": 3
+      "queue-in-loop": 1
     },
     "packages/core/src/buffer/source-text.ts": {
       "spread-call": 1
@@ -439,23 +398,11 @@
     "packages/core/src/data/table-view.ts": {
       "queue-in-loop": 1
     },
-    "packages/core/src/derive/jsonl-transcript.ts": {
-      "spread-call": 3
-    },
     "packages/core/src/derive/transcript-html.ts": {
       "line-split": 2
     },
-    "packages/core/src/highlight/diff-lines.ts": {
-      "spread-call": 1
-    },
-    "packages/core/src/highlight/index.ts": {
-      "spread-call": 4
-    },
     "packages/core/src/highlight/session.ts": {
       "line-split": 1
-    },
-    "packages/core/src/index-model/collection.ts": {
-      "spread-call": 1
     },
     "packages/core/src/index-model/entry.ts": {
       "dynamic-regexp": 1
@@ -463,9 +410,6 @@
     "packages/core/src/index-model/ignore.ts": {
       "dynamic-regexp": 1,
       "line-split": 1
-    },
-    "packages/core/src/index-model/walk.ts": {
-      "spread-call": 1
     },
     "packages/core/src/kind/detect.ts": {
       "dynamic-regexp": 1,
@@ -483,29 +427,19 @@
     "packages/core/src/mail/mime.ts": {
       "line-split": 2,
       "queue-in-loop": 1,
-      "spread-call": 2
+      "spread-call": 1
     },
     "packages/core/src/mail/sniff.ts": {
       "line-split": 1
     },
-    "packages/core/src/office/index.ts": {
-      "spread-call": 1
-    },
     "packages/core/src/office/markdown.ts": {
-      "line-split": 2,
-      "spread-call": 2
-    },
-    "packages/core/src/office/odf.ts": {
-      "spread-call": 10
+      "line-split": 2
     },
     "packages/core/src/office/rtf.ts": {
-      "spread-call": 5
+      "spread-call": 3
     },
     "packages/core/src/office/slides.ts": {
-      "spread-call": 5
-    },
-    "packages/core/src/office/word.ts": {
-      "spread-call": 9
+      "spread-call": 1
     },
     "packages/core/src/office/xml.ts": {
       "dynamic-regexp": 1,
@@ -513,9 +447,6 @@
     },
     "packages/core/src/operations/front-matter-value.ts": {
       "dynamic-regexp": 1
-    },
-    "packages/core/src/operations/list-markers.ts": {
-      "spread-call": 1
     },
     "packages/core/src/operations/plain-text.ts": {
       "line-split": 1
@@ -536,18 +467,12 @@
       "dynamic-regexp": 1,
       "line-split": 1
     },
-    "packages/core/src/render/pipeline.ts": {
-      "spread-call": 3
-    },
     "packages/core/src/sanitize/sanitize-html.ts": {
       "spread-call": 1
     },
     "packages/core/src/source-edit/lines.ts": {
       "line-split": 2,
       "queue-in-loop": 1
-    },
-    "packages/core/src/source-edit/select.ts": {
-      "spread-call": 2
     },
     "packages/core/src/transforms/clean.ts": {
       "line-split": 2
@@ -618,9 +543,9 @@
     },
     "packages/typeset/src/index.ts": {
       "layout-in-loop": 9,
-      "query-in-loop": 2,
+      "query-in-loop": 3,
       "queue-in-loop": 1,
-      "spread-call": 2
+      "spread-call": 1
     },
     "packages/typeset/src/measure.ts": {
       "layout-in-loop": 1

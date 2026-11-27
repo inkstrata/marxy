@@ -47,6 +47,9 @@ test('a pattern built at run time is found; one fixed when written is not', () =
   assert.deepEqual(rules('const re = new RegExp("a+b", "g");'), []);
   assert.deepEqual(rules('const re = new RegExp(BREAK.source, "g");'), []);
   assert.deepEqual(rules('const re = new RegExp(`\\\\S{${RUN_CHARS + 1},}`, "gu");'), []);
+  const inFile = (text, name) => hitsIn(text, name).filter((h) => !h.bounded).map((h) => h.rule);
+  assert.deepEqual(inFile('const re = new RegExp(query, "gi");', 'src/line/find.worker.ts'), []);
+  assert.deepEqual(inFile('const re = new RegExp(query, "gi");', 'src/line/find.ts'), ['dynamic-regexp']);
 });
 
 test('a scale: comment on the line or just above bounds a hit', () => {
