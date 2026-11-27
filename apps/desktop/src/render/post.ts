@@ -113,6 +113,9 @@ export function buildBlocksByRange(article: HTMLElement): BlockList {
     // A sorted table is one block: its rows are in the view's order, not the file's, and the list must run in the file's.
     const sorted = el.closest('[data-marxy-sorted]');
     if (sorted) return el === sorted && el.getBoundingClientRect().height > 0;
+    // Inside a folded branch there is no box, and asking each such element for its box or style would resolve it one at a
+    // time: a tree of thousands of folded values made that the page's slowest step.
+    if (el.parentElement?.closest('details:not([open])')) return false;
     if (!RANGE_DISPLAYS.has(getComputedStyle(el).display)) return false;
     return el.getBoundingClientRect().height > 0;
   });

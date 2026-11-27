@@ -3,7 +3,8 @@
 import type { CodeBlock, Document } from '../contracts/ast.ts';
 import { copyCommand, hasDeceptiveCharacters } from '../operations/copy-command.ts';
 import { extractCodeBlocks, extractLinks, extractTasks } from '../operations/extract.ts';
-import { clipboardOf, gapsOf, nodesOf, parseText, utf8Length } from './prose.ts';
+import { clipboardOf, gapsOf, nodesOf, parseText } from './prose.ts';
+import { utf8Length } from '../util/count.ts';
 import { tablesAs } from './convert.ts';
 import { copyTableCsv } from '../operations/copy-table.ts';
 import type { TransformDef } from './types.ts';

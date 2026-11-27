@@ -6,6 +6,7 @@
 //
 // Find and the level filter go through every line of the file, a slice at a time, the loop given back between slices.
 // They change only the view: no byte of the file moves.
+import { yieldToMain } from '../scheduler/index.ts';
 import {
   LineHeights,
   lineOfByte,
@@ -33,17 +34,8 @@ const OVERSCAN = 40;
 /** Lines left past an edge before the window is drawn again further on. */
 const MARGIN = 10;
 
-/** A slice of work gives the loop back through a message, not a timer: a timer's clamp would add 4 ms a slice. */
-function yieldNow(): Promise<void> {
-  return new Promise((resolve) => {
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => {
-      channel.port1.close();
-      resolve();
-    };
-    channel.port2.postMessage(null);
-  });
-}
+/** A slice of work gives the loop back: the reader asked for what is being done. */
+const yieldNow = (): Promise<void> => yieldToMain('input');
 
 class Ints {
   data = new Int32Array(1024);

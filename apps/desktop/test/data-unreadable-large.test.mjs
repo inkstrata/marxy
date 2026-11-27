@@ -47,7 +47,7 @@ async function openThenChange(path, text, after) {
     await page.waitForFunction(() => typeof window.marxyApp?.start === 'function');
     return await page.evaluate(async ({ path, text, after }) => {
       const { createMemoryShell } = await import('/src/shell/memory.ts');
-      const shell = createMemoryShell({ [path]: new TextEncoder().encode(text) });
+      const shell = createMemoryShell({ [path]: typeof text === 'string' ? new TextEncoder().encode(text) : Uint8Array.from(text) });
       const { startApp } = await import('/src/app.ts');
       const handle = await startApp(shell, { argv: [path] });
       await handle.ready;
@@ -102,4 +102,16 @@ test('the same file opened already unreadable is the lines page too, and a short
   assert.ok(long.opened.elements <= 3000, `${long.opened.elements} elements`);
   const short = await openThenChange('/docs/short.json', `${pretty(20)}\nstray words\n`, null);
   assert.equal(short.opened.reading, 'written');
+});
+
+test('a long broken data file that is not UTF-8 is windowed lines in the pane too (the pane hands the reading UTF-8)', async () => {
+  // Latin-1 bytes: one byte a character, the \u00e9 a byte UTF-8 would not have.
+  const text = `${pretty(5000).replaceAll('item', 'caf\u00e9')}\nstray words\n`;
+  const bytes = Array.from(text, (c) => c.charCodeAt(0));
+  assert.ok(bytes.length > 300 * 1024, `${bytes.length} bytes`);
+  const r = await openThenChange('/docs/latin.json', bytes, null);
+  assert.equal(r.opened.reading, 'lines');
+  assert.match(r.opened.why, /cannot draw as a tree: at line \d+/);
+  assert.equal(r.opened.written, 0);
+  assert.ok(r.opened.elements <= 3000, `${r.opened.elements} elements`);
 });

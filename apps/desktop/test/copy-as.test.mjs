@@ -399,6 +399,28 @@ test('Copy as Jira of the whole document, from Rendered and from Source, reads t
   }
 });
 
+test('Copy as Jira of a whole Source selection (select all) reads the store\'s parse: no parse is made, and the bytes are a from-scratch parse\'s', async () => {
+  const jira = COPY_TARGETS.find((t) => t.id === 'jira');
+  const file = '28-llm-answer.md';
+  const text = readFileSync(join(corpusDir, file), 'utf8').replace(/^\ufeff/, '');
+  const { page, docPath } = await boot(file);
+  try {
+    await page.keyboard.press(`${await mod(page)}+KeyE`);
+    await page.waitForSelector('#marxy-source .cm-editor');
+    await page.locator('#marxy-source .cm-content').click();
+    await page.keyboard.press(`${await mod(page)}+KeyA`);
+    await page.mouse.move(400, 300);
+    await openMenu(page);
+    const before = await page.evaluate(() => window.marxySelection.parseCount());
+    await choose(page, 'jira');
+    assert.equal(await page.evaluate(() => window.marxySelection.parseCount()), before, 'the whole file selected made no parse');
+    const [one] = await calls(page, 'clipboardWriteItem');
+    assert.equal(one.reps[TEXT], jira.build(copyAsFromText(text, { path: docPath })).text);
+  } finally {
+    await page.close();
+  }
+});
+
 test('a selection\'s Copy as is never handed the store\'s parse, in Rendered and in Source; the whole document is', async () => {
   const file = '28-llm-answer.md';
   /** Counts the asks of `textParse` on the open document's store, so the test sees who is handed the pair. */
