@@ -98,6 +98,42 @@ jobs:
           path: ${{ runner.temp }}/verify
           if-no-files-found: ignore
 
+  # First Linux build (work/todo.md, M3). Not yet in `ci`: it joins the aggregate once it has been green twice in a row.
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - name: Tauri's Linux packages, and a virtual display for the smoke launch
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev \
+            libssl-dev libxdo-dev build-essential pkg-config patchelf xvfb dbus
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          cache-on-failure: true
+      - run: pnpm install --frozen-lockfile
+      - name: Verify
+        env:
+          TIER: ${{ inputs.tier || (github.event_name == 'pull_request' && 'changed' || 'full') }}
+          BASE: origin/${{ github.base_ref || 'main' }}
+        run: >-
+          node scripts/verify.mjs --tier "$TIER" --base "$BASE" --no-lock --logs "$RUNNER_TEMP/verify"
+          --skip unit-desktop-browser,browser,aesthetics,tauri
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-logs-linux
+          path: ${{ runner.temp }}/verify
+          if-no-files-found: ignore
+
   # Branch protection on main requires the one check `ci`; it passes only when both platforms did.
   ci:
     if: always()
