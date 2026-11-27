@@ -12,7 +12,8 @@ use serde::Serialize;
 use super::held::{self, ArchiveEntryRef};
 use crate::archive;
 use crate::error::ShellError;
-use crate::file_scheme::{self, OpenedSet, Refusal};
+use crate::scope::served::open_judged;
+use crate::scope::{self, OpenedSet};
 use crate::tables::sheets::{self, Book, BookSummary};
 use crate::tables::sqlite::{self, Db, DbSummary};
 use crate::tables::{Fault, Limits, Source};
@@ -63,22 +64,7 @@ fn beside(path: &Path, suffix: &str) -> PathBuf {
 
 /// The file at `raw`, resolved, when `set` holds it and it is a regular file.
 fn held(set: &RwLock<OpenedSet>, raw: &str) -> Result<PathBuf, ShellError> {
-    let path = match file_scheme::resolve(set, Path::new(raw)) {
-        Ok(p) => p,
-        Err(Refusal::Outside) => {
-            return Err(ShellError::permission(raw, "not a file Marxy has opened"))
-        }
-        Err(Refusal::NotFound) => return Err(ShellError::not_found(raw, "no such file")),
-        Err(Refusal::Io(e)) => return Err(ShellError::io(raw, e)),
-    };
-    let file =
-        file_scheme::open_unblocked(&path).map_err(|e| ShellError::io(raw, e.to_string()))?;
-    if !file_scheme::handle_held(set, &file, &path) {
-        return Err(ShellError::permission(raw, "not a file Marxy has opened"));
-    }
-    if !file.metadata().is_ok_and(|m| m.is_file()) {
-        return Err(ShellError::invalid(raw, "not a file"));
-    }
+    let (_, path) = open_judged(set, raw)?;
     Ok(path)
 }
 
@@ -340,7 +326,7 @@ pub async fn tables_open(
     let shown = path.clone();
     crate::commands::fs::off_main(move || {
         open_at(
-            file_scheme::opened(),
+            scope::opened(),
             &path,
             alone.unwrap_or(false),
             in_archive.as_ref(),
@@ -364,7 +350,7 @@ pub async fn tables_rows(
     let shown = path.clone();
     crate::commands::fs::off_main(move || {
         rows_at(
-            file_scheme::opened(),
+            scope::opened(),
             &path,
             &part,
             from,
@@ -400,7 +386,7 @@ pub async fn tables_blob(
             max,
         };
         blob_at(
-            file_scheme::opened(),
+            scope::opened(),
             &path,
             &cell,
             alone.unwrap_or(false),

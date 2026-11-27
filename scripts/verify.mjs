@@ -1,7 +1,7 @@
 // One command that checks a tree in tiers and says what each step cost: `pnpm verify`.
 //   quick    install, typecheck, lint, pnpm check, the three gates, and the unit suites of the packages that changed
 //   changed  quick, plus the browser tests covering the changed folders (scripts/verify-map.json) and cargo test
-//   full     everything: every unit suite, Rust lint and tests, the browser tests, the build and check:tauri
+//   full     everything: every unit suite, Rust lint and tests, the browser tests, the aesthetics gate, the mutation check, the build and check:tauri
 // usage: node scripts/verify.mjs [--tier quick|changed|full] [--base <ref>] [--root <dir>] [--logs <dir>]
 //   [--from <step>] [--only a,b] [--skip a,b] [--list] [--check-map] [--jobs <n>] [--unit-jobs <n>] [--lock-wait <sec>] [--no-lock] [--timeout-scale <x>]
 import { spawn, spawnSync } from 'node:child_process';
@@ -268,6 +268,10 @@ export function catalog(ctx) {
       timeout: Math.max(3600, 60 * Math.ceil(browserFiles.length / jobs)),
     },
     { name: 'cargo', tiers: ['changed', 'full'], when: () => full || change.rust, cmd: 'cargo', args: ['test'], cwd: 'apps/desktop/src-tauri', timeout: 2400 },
+    // The aesthetics gate renders every corpus page through the real app in WebKit (about ten minutes). It runs
+    // mechanical: the screenshot baselines are per machine and font stack, so a runner would never match them.
+    pnpm('aesthetics', ['gate:aesthetics', '--mechanical'], 3000, ['full']),
+    pnpm('mutations', ['--filter', '@marxy/desktop', 'test:mutations'], 600, ['full']),
     pnpm('build', ['--filter', '@marxy/desktop', 'build'], 2400, ['full']),
     // check:tauri drives the real WebView2 window over its debugging port, so it runs on Windows only.
     pnpm('tauri', ['--filter', '@marxy/desktop', 'check:tauri'], 1800 + ctx.lockWait, ['full'], { when: () => (ctx.platform ?? process.platform) === 'win32' }),

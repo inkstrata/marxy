@@ -1884,3 +1884,8 @@ pre[data-marxy-diagram-source] .marxy-diagram-scroll > svg { display: none; }
    aside here (its kill switch). */
 [data-marxy-look-align="justify"] .marxy-article { --marxy-typeset: none; }
 [data-marxy-look-align="justify"] .marxy-article p { text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+
+/* A run of more than a few thousand characters with no space in it (render/long-runs.ts cuts it for line breaking).
+   With kerning on the engine still shapes the whole run as one piece, which took seconds for a few hundred kilobytes;
+   without it the same run takes milliseconds. Prose with spaces never gets the class, so it keeps its kerning. */
+.marxy-long-run { font-kerning: none; }
