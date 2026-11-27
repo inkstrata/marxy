@@ -138,6 +138,8 @@ test('End on a large page still being set, then back up: the paragraphs on scree
     assert.ok(pending > 500, `${pending} paragraphs still to set when the jump is made`);
     await page.evaluate(() => document.activeElement?.blur?.());
     await page.keyboard.press('End');
+    // The key is handled on the page's own time: wait for the jump to begin before waiting for it to land.
+    await page.waitForFunction(() => document.documentElement.scrollTop > 0, null, { polling: 'raf' });
     const r = await page.evaluate(async () => {
       const frame = () => new Promise((res) => requestAnimationFrame(res));
       const d = document.documentElement;
