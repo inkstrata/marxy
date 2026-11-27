@@ -24,7 +24,7 @@ import { chromium } from 'playwright';
 import { newDataFolder, removeDataFolder, webviewsGone } from './data-folder.mjs';
 import { frameColour, writeLargeMp4 } from './large-video.mjs';
 import { longPdf } from './pdf-fixture.mjs';
-import { describeDifference, embeddedSignature, largeLog, minimalPe, treeMemory, utf16LeWithBom, utf8WithBom } from './real-window-fixtures.mjs';
+import { describeDifference, embeddedSignature, largeLog, launchVerdict, minimalPe, treeMemory, utf16LeWithBom, utf8WithBom } from './real-window-fixtures.mjs';
 import { takeLock } from '../../../scripts/lib/machine-lock.mjs';
 
 if (process.platform !== 'win32') {
@@ -53,6 +53,19 @@ const env = {
   WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding`,
 };
 const launch = (file) => spawn(exe, [join(demo, file)], { env, stdio: 'ignore' });
+// The first launch's stdout, where the app prints its `MARK <name> <epoch ms> <detail>` lines (a windowed program's stdout is
+// the pipe it was given, so a piped launch hands them over).
+const launchMarks = [];
+const launchMarked = (file) => {
+  const run = spawn(exe, [join(demo, file)], { env, stdio: ['ignore', 'pipe', 'ignore'] });
+  let tail = '';
+  run.stdout.on('data', (chunk) => {
+    const lines = (tail + chunk).split(/\r?\n/);
+    tail = lines.pop();
+    for (const line of lines) if (line.startsWith('MARK ')) launchMarks.push(line);
+  });
+  return run;
+};
 // A deadline already past arrives here as a negative count: it is expired, not a timeout for Node to correct.
 const wait = (ms) => new Promise((r) => setTimeout(r, Math.max(0, ms)));
 const results = [];
@@ -98,6 +111,8 @@ function zipOf(entries) {
   return Buffer.concat([...locals, cdBytes, end]);
 }
 
+// A case that could not run here is a SKIP line, kept out of the PASS count: it proves nothing about the code.
+const skip = (name, why) => results.push(`SKIP  ${name} · ${why}`);
 const check = (name, ok, detail = '') => results.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` · ${detail}` : ''}`);
 
 // Two index snapshots for the sweep to judge: one whose folder is gone (its parent, the data folder, is there to say so) and
@@ -121,7 +136,8 @@ let ev;
 let launchedAt;
 const start = async () => {
   launchedAt = Date.now();
-  app = launch('plans/pg16-upgrade-plan.md');
+  launchMarks.length = 0;
+  app = launchMarked('plans/pg16-upgrade-plan.md');
   browser = undefined;
   for (let i = 0; i < 60 && !browser; i++) {
     try {
@@ -189,6 +205,15 @@ try {
   check('the window is the Tauri app', await ev(() => '__TAURI_INTERNALS__' in window), await ev(() => location.href));
   check('the plan is set', await ev(() => document.querySelector('.marxy-article h1')?.textContent.includes('Postgres 14')));
   check('frame: rail, tab row, pane head, drawer', await ev(() => !!document.querySelector('.marxy-rail .marxy-l-rb') && !!document.querySelector('.marxy-tabbar') && !!document.querySelector('.marxy-head .marxy-crumbs') && !!document.querySelector('.marxy-drawer')));
+  // The launch's own marks: the text is on screen soon after the render, whichever signal ended the wait. A launch the engine
+  // gives no paint entry for waits for one by a fallback of about 2 s unless a contentful paint already sits before the render;
+  // that stall shows here as `since_render_ms` past the fallback, and a frames-only launch must say why it was one.
+  const painted = await (async () => {
+    for (let t = 0; t < 8000 && !launchMarks.some((m) => m.startsWith('MARK painted ')); t += 250) await wait(250);
+    return launchMarks.find((m) => m.startsWith('MARK painted '));
+  })();
+  const launched = launchVerdict(painted);
+  check(`the launch's text is on screen within 1500 ms of the render, not after a 2 s wait for a paint (${launched.via} launch)`, launched.ok, launched.ok ? painted : `${launched.why}: ${painted ?? ''}`);
   const docked = await ev(() => document.body.getAttribute('data-marxy-drawer') === 'docked');
   // Outline is rows: a Markdown file's sections, each keyed by `h:`.
   const outlineRows = (prefix) => ev((p) => document.querySelectorAll(`.marxy-drawer .marxy-l-body[data-marxy-left="outline"] .marxy-l-prow[data-marxy-left-row^="${p}"]`).length, prefix);
@@ -1762,7 +1787,7 @@ try {
     const candidates = [join(roots[1], 'msedge.exe'), join(roots[0], 'System32', 'mstsc.exe'), join(roots[0], 'System32', 'notepad.exe'), join(roots[0], 'explorer.exe')].filter(existsSync);
     const signedPick = candidates.find((c) => embeddedSignature(readFileSync(c))) ?? candidates[0];
     if (!signedPick) {
-      check('a copy of a system program shows its card (skipped: no system program found to copy)', true);
+      skip('a copy of a system program shows its card', 'no system program found to copy');
     } else {
       const copy = real('signed-copy.exe');
       copyFileSync(signedPick, copy);
@@ -1774,6 +1799,41 @@ try {
       check('opening the program cards started no program', !running('signed-copy.exe') && !running('minimal.exe'));
     }
   });
+  // A file whose path is not the one the disk keeps it under: a `subst` drive and a network path (the loopback administrative
+  // share), as a mapped drive or a share is. Opening one reads its head from a handle whose own path is compared with the path
+  // the shell judged, so the two spellings must agree; the document and a picture must still open.
+  await caseOf('mapped paths', async () => {
+    const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==';
+    const folder = real('mapped');
+    mkdirSync(folder);
+    const opens = async (label, base, tag) => {
+      const noteName = `mapped-${tag}.md`;
+      const dotName = `mapped-${tag}.png`;
+      writeFileSync(join(folder, noteName), '# Mapped note\n\nread through another spelling of its path\n');
+      writeFileSync(join(folder, dotName), Buffer.from(pngBase64, 'base64'));
+      await openReal(join(base, noteName));
+      const h1 = await ev(() => document.querySelector('.marxy-article h1')?.textContent ?? '');
+      await openReal(join(base, dotName));
+      // This pass's own picture: its name is in the source of the image shown, so one left from the other pass cannot satisfy it.
+      const image = await page.waitForFunction((n) => [...document.querySelectorAll('img')].some((i) => i.getClientRects().length > 0 && decodeURIComponent(i.src).includes(n)), dotName, { timeout: 10000 }).then(() => true, () => false);
+      check(`a Markdown file and a picture on ${label} open`, h1 === 'Mapped note' && image, JSON.stringify({ h1, image }));
+    };
+    const taken = new Set(execFileSync('cmd', ['/c', 'subst'], { encoding: 'utf8' }).split(/\r?\n/).map((l) => l[0]?.toUpperCase()));
+    const letter = [...'ZYXWVUTSRQPONM'].find((c) => !taken.has(c) && !existsSync(`${c}:\\`));
+    if (!letter) skip('a file on a subst drive opens', 'no free drive letter');
+    else {
+      execFileSync('subst', [`${letter}:`, folder]);
+      try {
+        await opens(`a subst drive (${letter}:)`, `${letter}:\\`, 'subst');
+      } finally {
+        execFileSync('subst', [`${letter}:`, '/d']);
+      }
+    }
+    const drive = /^([A-Za-z]):\\(.*)$/.exec(folder);
+    const share = drive ? `\\\\127.0.0.1\\${drive[1]}$\\${drive[2]}` : null;
+    if (!share || !existsSync(share)) skip('a file on a network path opens', 'this account cannot read its own administrative share');
+    else await opens('a network path (the loopback share)', share, 'share');
+  });
 } catch (error) {
   check('the run', false, String(error?.message ?? error).split('\n')[0]);
   if (/Call log/.test(String(error?.message))) console.log(String(error.message).slice(0, 1500));
@@ -1782,6 +1842,7 @@ try {
 }
 
 console.log(results.join('\n'));
+console.log(['PASS', 'FAIL', 'SKIP'].map((k) => `${results.filter((r) => r.startsWith(k)).length} ${k}`).join(', '));
 console.log(problems.length ? problems.slice(0, 20).join('\n') : 'no page errors');
 await browser?.close().catch(() => {});
 stop();

@@ -38,12 +38,15 @@ checks another one).
 | `changed` | `quick`, plus the browser test files that cover the changed folders, `lint:rust` and `cargo test` when `apps/desktop/src-tauri` changed |
 | `full` | every unit suite, `lint:rust`, `cargo test`, every browser test file, `gate:aesthetics --mechanical`, `test:mutations`, `pnpm --filter @marxy/desktop build`, and on Windows `check:tauri` |
 
-CI (`.github/workflows/ci.yml`) runs this tool and nothing of its own, in two jobs, and a third, `ci` (the check branch
-protection requires), passes when both do. A pull request runs `--tier changed`, so it pays only for the suites its diff
+CI (`.github/workflows/ci.yml`) runs this tool and nothing of its own, in three jobs (macOS, Windows, Linux), and a fourth, `ci` (the check branch
+protection requires), which passes when all three do (`linux` joined after two green runs in a row). A pull request runs `--tier changed`, so it pays only for the suites its diff
 touches; a push to `main` runs `--tier full`. Both leave out `browser` and `tauri` with `--skip` (the browser suite takes
 two hours on a hosted runner and 14 of its files fail there). A pull request also runs the browser smoke set, a job of its own (see "Tests that wait for conditions"). macOS also skips
 `unit-desktop-browser`, whose first WebKit boot misses its budget on a hosted macOS runner (Windows runs it), and runs
-the release build on `main` only; Windows skips the build. A manual run takes any tier on Windows, browser suite
+the release build on `main` only; Windows skips the build. Linux (`ubuntu-latest`, Tauri's WebKitGTK packages
+installed first) skips the same two plus `unit-desktop-browser` and `aesthetics`, runs the release build on `main`, and
+its smoke launch runs under `xvfb`; it is the only place the `cfg(unix)` Rust paths other than macOS's run. The smoke check also launches the document
+five times and prints the median time to first text (`smoke-cli-open startup:` in the build log), on a CI runner, so an upper bound on a laptop. A manual run takes any tier on Windows, browser suite
 included. Each job uploads its step logs as an artifact.
 
 "Changed" means changed since the merge base with `--base` (default `main`): commits, staged and unstaged edits, and
@@ -220,7 +223,7 @@ panels, the Line, a second launch handing over a file, readings, Settings, refus
 commands and navigation, saves by rename, versions, staged changes, `marxy-file://` ranges and
 refusals, image decoding, a 2 GB sparse video, Source edits, archives and their previews, databases in
 archives, fonts, media, PDF with Find, the index sweep, relaunch restoring panel, place and tab order,
-tab dragging and Explorer file drops, then cases on a real disk: a save refused after another program changed the file (both conflict choices, nothing added to Versions), UTF-16LE and CRLF UTF-8 files with a BOM saved byte for byte, a save after the file was deleted or renamed from outside, the shell's scope (an unopened neighbour refused, the folder crumb, an index root read-only), F11 and Esc read from the window, a 20 MB log as Lines with the window's memory growth bounded at 600 MB, and program cards for a generated minimal program and a copy of a system one. A run takes several minutes; `MARXY_CHECK_SHOTS=<dir>` keeps
+tab dragging and Explorer file drops, then cases on a real disk: a save refused after another program changed the file (both conflict choices, nothing added to Versions), UTF-16LE and CRLF UTF-8 files with a BOM saved byte for byte, a save after the file was deleted or renamed from outside, the shell's scope (an unopened neighbour refused, the folder crumb, an index root read-only), F11 and Esc read from the window, a 20 MB log as Lines with the window's memory growth bounded at 600 MB, and program cards for a generated minimal program and a copy of a system one, the first launch's own marks (the text is on screen within 1500 ms of the render, not after the 2 s wait for a paint; a frames-only launch must say it was one and why), and a Markdown file and a picture opened on a `subst` drive and on a network path (the loopback administrative share, skipped where the account cannot read it). A case that cannot run prints a `SKIP` line, counted apart from `PASS` in the summary. The `subst` drive is removed when the case ends; a run killed in the middle leaves it mapped until logoff, and `subst <letter>: /d` removes it. A run takes several minutes; `MARXY_CHECK_SHOTS=<dir>` keeps
 screenshots. Only one run can use port 9333 at a time: it takes a lock file (see `pnpm verify` above).
 
 This is the check that sees Windows-only behaviour the browser tests cannot (paths, drops, the shell's
