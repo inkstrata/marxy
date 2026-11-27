@@ -3,8 +3,6 @@ name: browser-windows
 # relative to apps/desktop/test), or, left empty, scripts/browser-windows.json. ci.yml runs no browser suite on Windows
 # (docs/testing.md, "Browser tests on a hosted runner"); this is how a file is proved there. Timings are uploaded.
 on:
-  push:
-    branches: [agent/hosted-windows]
   workflow_dispatch:
     inputs:
       files:
