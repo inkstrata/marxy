@@ -153,11 +153,11 @@ test('a column narrowed while Source shows is not lost: Rendered shows the page 
     await settle(page);
     // The column narrows with Source showing (as when a second pane opens beside it): the page behind keeps its own box,
     // so this new width is the only change of size it sees, and it sees none when it shows again.
+    // Two frames: the new width is laid out and any observer of it has had its call.
     await page.evaluate(async (wide) => {
       window.__marxyHandle.panes().panes[0].article.style.maxWidth = `${wide - 120}px`;
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     }, wide);
-    await new Promise((r) => setTimeout(r, 300));
     await page.keyboard.press(`${mod}+e`);
     await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].view.mode === 'rendered');
     await settle(page);
