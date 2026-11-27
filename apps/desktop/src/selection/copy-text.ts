@@ -5,6 +5,8 @@
 // A diagram copies as its source: its drawing and its note are the page's own (render/diagram.ts).
 const SKIP = new Set(['marxy-elided', 'marxy-invisible-glyph', 'marxy-link-dest', 'marxy-link-host-label', 'marxy-log-hidden-run', 'marxy-diagram', 'marxy-diagram-note', 'marxy-note-margin', 'marxy-note-here']);
 
+import { pendingBlocks } from '../render/progressive.ts';
+
 let inertDoc: Document | null = null;
 
 /** A document with no browsing context: nothing made in it loads, runs or lays out. */
@@ -13,43 +15,99 @@ export function inertDocument(): Document {
   return inertDoc;
 }
 
-/** The part of `range` as a fragment of the inert document: nodes are imported one by one, never cloned in the page. */
+/**
+ * The part of `range` as a fragment of the inert document: nodes are imported into it, never cloned in the page. Only
+ * the nodes on the paths down to the range's two ends are partly in it; every other node between them is wholly in and
+ * is imported with all it holds, so the copy costs what the selected nodes do (testing each node against the range
+ * made a select-all of a long page cost more than twice as much for twice the text).
+ *
+ * A range over the whole of an article whose long document is still mounting takes the rest of the document too
+ * (`appendRest`).
+ */
 export function cloneRangeInert(range: Range): DocumentFragment {
   const target = inertDocument();
   const out = target.createDocumentFragment();
+  const { startContainer, startOffset, endContainer, endOffset } = range;
+  const root = range.commonAncestorContainer;
   const textPart = (node: CharacterData): string => {
-    const end = node === range.endContainer ? range.endOffset : node.data.length;
-    const start = node === range.startContainer ? range.startOffset : 0;
+    const end = node === endContainer ? endOffset : node.data.length;
+    const start = node === startContainer ? startOffset : 0;
     return node.data.slice(start, end);
   };
-  const copy = (node: Node, into: Node): void => {
-    if (!range.intersectsNode(node)) return;
-    if (node.nodeType === Node.TEXT_NODE) {
+  // The child of each node on the path from `root` down to an end, keyed by that node.
+  const pathTo = (container: Node): Map<Node, Node> => {
+    const path = new Map<Node, Node>();
+    for (let n: Node = container; n !== root && n.parentNode; n = n.parentNode) path.set(n.parentNode, n);
+    return path;
+  };
+  const startPath = pathTo(startContainer);
+  const endPath = pathTo(endContainer);
+  const indexIn = (parent: Node, child: Node): number => Array.prototype.indexOf.call(parent.childNodes, child);
+  /** `node`, which an end lies in or under, with the part of it the range holds. */
+  const copyPart = (node: Node, into: Node): void => {
+    if (node.nodeType === Node.TEXT_NODE || node.nodeType === Node.CDATA_SECTION_NODE) {
       into.appendChild(target.createTextNode(textPart(node as CharacterData)));
       return;
     }
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    const el = target.importNode(node, false);
-    into.appendChild(el);
-    for (const child of node.childNodes) copy(child, el);
+    if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) return;
+    const el = node === root && into === out ? out : into.appendChild(target.importNode(node, false));
+    const kids = node.childNodes;
+    const fromChild = startPath.get(node);
+    const toChild = endPath.get(node);
+    const from = node === startContainer ? startOffset : fromChild ? indexIn(node, fromChild) : 0;
+    const to = node === endContainer ? endOffset : toChild ? indexIn(node, toChild) + 1 : kids.length;
+    for (let i = from; i < to && i < kids.length; i += 1) {
+      const kid = kids[i]!;
+      if (kid === fromChild || kid === toChild) copyPart(kid, el);
+      else if (kid.nodeType === Node.TEXT_NODE || kid.nodeType === Node.ELEMENT_NODE) el.appendChild(target.importNode(kid, true));
+    }
   };
-  const root = range.commonAncestorContainer;
   if (root.nodeType === Node.TEXT_NODE) out.appendChild(target.createTextNode(textPart(root as CharacterData)));
-  else {
-    // Only the children from the one holding the start to the one holding the end can intersect the range.
-    const childOf = (container: Node, offset: number, after: boolean): Node | null => {
-      if (container === root) return root.childNodes[after ? Math.min(offset, root.childNodes.length - 1) : offset] ?? null;
-      let n: Node | null = container;
-      while (n && n.parentNode !== root) n = n.parentNode;
-      return n;
-    };
-    const last = childOf(range.endContainer, range.endOffset, true);
-    for (let child = childOf(range.startContainer, range.startOffset, false); child; child = child.nextSibling) {
-      copy(child, out);
-      if (child === last) break;
+  else copyPart(root, out);
+  appendRest(range, root, out, target);
+  return out;
+}
+
+/** Whether `range` holds the first character of `article`'s text. */
+function holdsStart(range: Range, article: HTMLElement): boolean {
+  const walker = article.ownerDocument.createTreeWalker(article, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode() as Text | null;
+  while (node !== null && node.data.trim() === '') node = walker.nextNode() as Text | null;
+  return node !== null && range.comparePoint(node, node.data.search(/\S/)) === 0;
+}
+
+/**
+ * The rest of the document after a range from the start of an article to its end (select all) while the article's
+ * long document is still mounting: the blocks appended since the range was made (a selection the reader took to the
+ * end of the page ends at the article itself, at the count of blocks it then held) and the blocks still to be appended
+ * (`pendingBlocks`). Select all then Copy copies the document, not the part of it drawn when it was selected.
+ */
+function appendRest(range: Range, root: Node, out: DocumentFragment, target: Document): void {
+  const element = root instanceof Element ? root : root.parentElement;
+  const article = element?.closest<HTMLElement>('.marxy-article') ?? element?.querySelector<HTMLElement>('.marxy-article') ?? null;
+  if (!article) return;
+  const pending = pendingBlocks(article);
+  const { endContainer, endOffset } = range;
+  const toPageEnd = endContainer === article;
+  const grown = toPageEnd && endOffset < article.childNodes.length;
+  if (!pending && !grown) return;
+  // Select all ends at the article itself; a drag or Shift-click that ends in its text, even on its last drawn
+  // character, is the passage the reader chose and takes nothing more. (The offset is not checked: blocks appended
+  // since the selection was made leave it short of the article's present count.)
+  if (!toPageEnd || !holdsStart(range, article)) return;
+  if (grown) for (let i = endOffset; i < article.childNodes.length; i += 1) out.appendChild(target.importNode(article.childNodes[i]!, true));
+  if (!pending) return;
+  // A reading set in runs appends its runs inside its root: they go inside the root's copy.
+  let into: Node = out;
+  if (pending.classList.contains('marxy-reading-runs')) {
+    for (let n: Node | null = out.lastChild; n instanceof Element; n = n.lastChild) {
+      if (n.classList.contains('marxy-reading-runs')) {
+        into = n;
+        break;
+      }
     }
   }
-  return out;
+  for (const child of pending.childNodes) into.appendChild(target.importNode(child, true));
 }
 
 /** Text for the clipboard from a range; invisible marker labels are omitted. */

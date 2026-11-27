@@ -67,8 +67,9 @@ async function sourceInput(): Promise<CopyAsInput | null> {
   // A byte that is not UTF-8 is a lone surrogate in the editor's text; it is copied as U+FFFD.
   const text = readableText(held);
   const path = pathOfOpen();
-  // With nothing selected this is the whole file: the store's parse of it, when it is exactly this text.
-  const parsed = from === to ? (appHandle()?.document()?.textParse() ?? undefined) : undefined;
+  // With nothing selected, or all of it, this is the whole file: the store's parse of it, when it is exactly this text.
+  const whole = from === to || (from === 0 && to === state.doc.length);
+  const parsed = whole ? (appHandle()?.document()?.textParse() ?? undefined) : undefined;
   return copyAsFromText(text, { ...(path === undefined ? {} : { path }), ...(parsed === undefined ? {} : { parsed }) });
 }
 

@@ -180,13 +180,17 @@ fn link_dir(target: &Path, link: &Path) -> bool {
     }
     #[cfg(windows)]
     {
-        if std::os::windows::fs::symlink_dir(target, link).is_ok() {
+        // `cmd` reads a `/` in an argument as the start of a switch (`inside/e` is `inside` and `/e`), so the paths
+        // given to `mklink` are spelled with the platform's separator only.
+        let native = |p: &Path| PathBuf::from(p.to_string_lossy().replace('/', "\\"));
+        let (target, link) = (native(target), native(link));
+        if std::os::windows::fs::symlink_dir(&target, &link).is_ok() {
             return true;
         }
         std::process::Command::new("cmd")
             .args(["/C", "mklink", "/J"])
-            .arg(link)
-            .arg(target)
+            .arg(&link)
+            .arg(&target)
             .output()
             .is_ok_and(|o| o.status.success())
     }

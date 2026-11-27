@@ -4,8 +4,6 @@
 // the page, so a long page costs a binary search per mark. Later slices add their own marks with
 // `spineMarks(pane).set(kind, ranges)`.
 import { appHandle } from '../commands/app-handle.ts';
-import { findAll } from '../find/text-index.ts';
-import { walkText } from '../find/walk.ts';
 import { activeFind } from '../find/view.ts';
 import { headingsOf } from './crumbs.ts';
 import { scrollTopAt, spineFraction, thumbOf, type SpineGeometry } from './spine-map.ts';
@@ -282,31 +280,24 @@ export function mountSpine(pane: FramePane): { destroy(): void; draw(): void } {
   }
   const offCursor = selection?.onChange(() => later(true)) ?? (() => {});
 
-  // Find's hits, while find is open in this pane: found again when its query changes, as find finds them.
+  // Find's hits, while find is open in this pane: the blocks find's own matches are in, once find has matched the query
+  // (on a long page it waits for a pause in the typing). Find's walk is read, not made again.
   let findKey = '';
   const checkFind = (): void => {
     const f = activeFind();
     const state = f && f.pane === pane && f.isOpen() ? f.state() : null;
+    if (state && !state.settled) {
+      onFindInput();
+      return;
+    }
     const key = state ? `${state.query}\n${String(state.pattern)}\n${state.count}` : '';
     if (key === findKey) return;
     findKey = key;
-    const re = state?.pattern ?? null;
-    if (!re) {
+    if (!f || !state?.pattern) {
       spine.set('hit', []);
       return;
     }
-    const walked = walkText(pane.article);
-    const hits: SpineRange[] = [];
-    let lastBlock: Element | null = null;
-    for (const span of findAll(walked.index, re)) {
-      if (hits.length >= MARKS_MAX) break;
-      const node = walked.nodes[walked.index.locate(span.start).piece];
-      const block = node?.parentElement?.closest('[data-marxy-s]') ?? null;
-      if (!block || block === lastBlock) continue;
-      lastBlock = block;
-      hits.push({ start: Number(block.getAttribute('data-marxy-s')) });
-    }
-    spine.set('hit', hits);
+    spine.set('hit', f.hitStarts(MARKS_MAX).map((start): SpineRange => ({ start })));
   };
   let findTimer: ReturnType<typeof setTimeout> | undefined;
   const onFindInput = (): void => {

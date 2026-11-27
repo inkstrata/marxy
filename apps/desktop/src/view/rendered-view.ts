@@ -1812,8 +1812,18 @@ export function createRenderedView(host: ViewHost, deps: RenderedViewDeps): Rend
       settleResize = null;
     };
     resizeObserver = new ResizeObserver(() => {
-      // Hidden (Source mode) the article is zero-width: measuring now would zero every block position.
-      if (!laidOut() || (article.clientWidth === width && window.innerWidth === viewportWidth)) return;
+      // Hidden (Source mode) the article's blocks are not laid out: measuring now would zero every block position. The page
+      // behind Source keeps its own box (skipped, not removed). Chromium and WebKit report a width it takes there only
+      // once it shows, and the burst below re-breaks it then; an engine that reports it now would not report it again,
+      // so the page, its paragraphs holding the old width's breaks, is set whole when Read next shows.
+      if (!laidOut()) {
+        if (article.hidden && viewMode === 'source' && shown && article.clientWidth > 0 && article.clientWidth !== width) {
+          width = article.clientWidth;
+          markStale();
+        }
+        return;
+      }
+      if (article.clientWidth === width && window.innerWidth === viewportWidth) return;
       rebreak ||= article.clientWidth !== width;
       width = article.clientWidth;
       viewportWidth = window.innerWidth;

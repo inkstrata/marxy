@@ -185,7 +185,7 @@ or code page:
 | Log | logs | time, level and spacing classes, an error rule on error lines, level counts |
 | Terminal | sessions | command, continuation and output lines; copy commands or output |
 | Diff | patches | added and removed lines inside hunks, changed words marked |
-| Data tree | JSON, JSON with comments, JSON5, YAML, TOML, XML | a foldable tree two levels open; a list of three or more same-keyed maps as a table; a Keys card |
+| Data tree | JSON, JSON with comments, JSON5, YAML, TOML, XML | a foldable tree two levels open (the first 300 branches of a long list; the rest start folded, so a held place or a return from Source to a field past item 300 lands on that item's folded summary); a list of three or more same-keyed maps as a table; a Keys card |
 | Records | JSON Lines | a table of every record, keys as columns, as the Table reading draws its rows |
 | Table | CSV, TSV | header and every row, a field with a line break in it one row; sorting, the row filter and find go through every row and change the view, never the file; a Columns card |
 | Verse | plain text of short lines in stanzas | stanzas, a number every fifth line |

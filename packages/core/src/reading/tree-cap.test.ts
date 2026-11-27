@@ -182,3 +182,14 @@ test('the Reading card lists four tiers for a tree, the second the one drawn in 
   assert.deepEqual(treeTierList('JSON').map((t) => t.name), ['The whole tree', `The first ${TREE_MAX_VALUES.toLocaleString('en-GB')} values`, 'As written', 'The bytes']);
   assert.match(treeTierList('YAML')[2]!.words, /past 1\.5 MB, or when it does not read as YAML/);
 });
+
+test('a long list of maps draws its first branches open and the rest folded, with every one still there', () => {
+  const items = Array.from({ length: 600 }, (_, i) => `{"id": ${i}, "tags": {"a": ${i}}}`).join(',');
+  const read = readingOf('/d/items.json', enc(`[${items}]`))!;
+  const opens = (read.html.match(/<details class="marxy-tree-branch" open/g) ?? []).length;
+  const all = (read.html.match(/<details class="marxy-tree-branch"/g) ?? []).length;
+  assert.equal(opens, 300, 'the first 300 branches are open');
+  assert.ok(all > 600, 'the folded ones are drawn too');
+  const small = readingOf('/d/small.json', enc('[{"a": {"b": 1}}, {"a": {"b": 2}}]'))!;
+  assert.equal((small.html.match(/<details class="marxy-tree-branch" open/g) ?? []).length, 4, 'a small tree opens two levels as before');
+});

@@ -221,6 +221,12 @@ function linesReading(path: string, bytes: Uint8Array, tier: LinesTier): Reading
 // ---- the data tree ------------------------------------------------------------------------------------------------
 
 const FOLD_DEPTH = 2;
+/**
+ * Branches drawn open, in all. A list of a thousand maps opens each to its fields and draws the whole of it before the first
+ * paint, and an open branch is most of what the page spends on a tree; the first of them fill the screen, and the rest are
+ * one click each. A tree small enough to read at a glance is unchanged.
+ */
+const OPEN_BRANCHES_MAX = 300;
 const TABLE_MIN = 3;
 
 /** Where a tree's offsets fall in the file: a byte, and the line it is on. */
@@ -324,6 +330,8 @@ interface TreeInput {
 interface Draw {
   readonly p: Place;
   left: number;
+  /** Branches that may still be drawn open. */
+  openLeft: number;
   shown: number;
   readonly cut: ReadonlyMap<TreeNode, Cut>;
   readonly base: TreeNode;
@@ -515,8 +523,11 @@ function nodeHtml(d: Draw, node: TreeNode, depth: number, index: number | null, 
   const kind = node.kind === 'list' ? '[ ]' : node.kind === 'element' ? '' : '{ }';
   const table = tableKeys(node) !== null;
   const meta = `<span class="marxy-tree-meta">${kind ? `${kind} ` : ''}${count(node, entriesOf(d, node))}${table ? ' · as a table' : ''}</span>`;
-  const open = depth < FOLD_DEPTH ? ' open' : '';
+  const early = depth < FOLD_DEPTH && d.openLeft-- > 0;
+  const stoppedBefore = d.stopped;
   const body = entriesHtml(d, node, depth, path, node === d.base ? d.start : 0);
+  // The branch the tree stops in stays open past the limit: its stop line and the ways on from it are not to be folded away.
+  const open = early || (depth < FOLD_DEPTH && d.stopped && !stoppedBefore) ? ' open' : '';
   return `<details class="marxy-tree-branch"${open}${spanAt(p, node.start, node.end)}><summary>${keyHtml(node, index)}${attrsHtml(node)} ${meta}</summary><div class="marxy-tree-kids">${body}</div></details>`;
 }
 
@@ -555,7 +566,7 @@ function treeReading(input: TreeInput): Reading {
   const { p, rootKind, total, from, entries, entryCount } = input;
   const capped = total > TREE_MAX_VALUES;
   const top = from.path.length === 0 && rootKind !== 'element' && rootKind !== 'scalar';
-  const d: Draw = { p, left: TREE_MAX_VALUES, shown: 0, cut: input.cut, base: input.base, start: input.start, offset: input.offset, stopped: false };
+  const d: Draw = { p, left: TREE_MAX_VALUES, openLeft: OPEN_BRANCHES_MAX, shown: 0, cut: input.cut, base: input.base, start: input.start, offset: input.offset, stopped: false };
   const drawn: string[] = [];
   if (top) {
     // The root map or list is the page itself, not a node on it: its entries are drawn at the top, and a root map's

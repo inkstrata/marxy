@@ -5,6 +5,7 @@
 import { magicOf } from './bytes.ts';
 import { shortSize } from './archive.ts';
 import { guardFormula } from '../operations/copy-table.ts';
+import { plural } from '../util/count.ts';
 
 // Structural copies of shell-api's table types: core cannot import the shell.
 
@@ -174,9 +175,8 @@ export const COLUMNS_DRAWN = 100;
 
 const n2 = (n: number): string => n.toLocaleString('en-GB');
 
-export function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n2(n)} ${n === 1 ? one : many}`;
-}
+// The app's sheet and SQLite viewers take their counts from here.
+export { plural };
 
 /** A sheet's column letters: 0 is A, 26 is AA. */
 export function colName(c: number): string {
