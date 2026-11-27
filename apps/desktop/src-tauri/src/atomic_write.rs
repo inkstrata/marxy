@@ -119,10 +119,60 @@ pub fn write_atomic_unless_changed(
     match saved {
         Ok(()) => sweep_once(&dir),
         Err(_) => {
-            let _ = fs::remove_file(&tmp);
+            remove_staged(&tmp);
         }
     }
     saved
+}
+
+/// Removes a staged file after a failed save. On macOS a staged copy that picked up the destination's immutable flag
+/// (`uchg`, a file locked in Finder) cannot be removed until the flag is cleared, so it is cleared first.
+fn remove_staged(tmp: &Path) {
+    let removed = fs::remove_file(tmp).is_ok();
+    #[cfg(not(target_os = "macos"))]
+    let _ = removed;
+    #[cfg(target_os = "macos")]
+    if !removed {
+        // Only a plain file with this one name: a second name (the link fallback of `commit_new` links the staged
+        // name to the destination) shares its flags with the reader's own file, which must keep them.
+        use std::os::unix::fs::MetadataExt;
+        if fs::symlink_metadata(tmp).is_ok_and(|m| m.is_file() && m.nlink() == 1) {
+            macos_flags::clear(tmp);
+            let _ = fs::remove_file(tmp);
+        }
+    }
+}
+
+/// Whether the file carries the user or system immutable flag, which Finder shows as Locked: writing, removing and
+/// renaming over it all fail with "Operation not permitted".
+#[cfg(target_os = "macos")]
+fn locked_in_finder(meta: &Metadata) -> bool {
+    use std::os::macos::fs::MetadataExt;
+    meta.st_flags() & (macos_flags::UF_IMMUTABLE | macos_flags::SF_IMMUTABLE) != 0
+}
+
+#[cfg(target_os = "macos")]
+mod macos_flags {
+    use std::ffi::{c_char, c_int, c_uint};
+    use std::os::unix::ffi::OsStrExt;
+    use std::path::Path;
+
+    pub const UF_IMMUTABLE: u32 = 0x0000_0002;
+    pub const SF_IMMUTABLE: u32 = 0x0002_0000;
+
+    extern "C" {
+        fn lchflags(path: *const c_char, flags: c_uint) -> c_int;
+    }
+
+    /// Clears every file flag on `path` itself, not on what a link leads to; best effort.
+    pub fn clear(path: &Path) {
+        let mut bytes = path.as_os_str().as_bytes().to_vec();
+        bytes.push(0);
+        // SAFETY: `bytes` is NUL-terminated and outlives the call.
+        unsafe {
+            lchflags(bytes.as_ptr().cast(), 0);
+        }
+    }
 }
 
 /// Publishes the staged file at a name that was free when the save began, refusing with `Changed` if something
@@ -562,7 +612,7 @@ pub fn write_new(path: &Path, bytes: &[u8]) -> Result<(), WriteError> {
     match created {
         Ok(()) => sweep_once(&dir),
         Err(_) => {
-            let _ = fs::remove_file(&tmp);
+            remove_staged(&tmp);
         }
     }
     created
@@ -654,7 +704,7 @@ fn commit_new(
                 Ok(()) => {
                     // The file now has two names; the staging one is dropped so it has one. If that drop fails
                     // the file is still complete and in place, so it is not an error of the write.
-                    let _ = fs::remove_file(tmp);
+                    remove_staged(tmp);
                 }
                 Err(e) if e.kind() == ErrorKind::AlreadyExists => {
                     return Err(taken(target, "file or folder"))
@@ -1084,6 +1134,13 @@ fn refuse_surprising_destination(target: &Path) -> Result<Option<Metadata>, Writ
         return Err(WriteError::permission(format!(
             "{}: is read-only; marxy will not overwrite it, because clearing that would change more \
              than the bytes",
+            target.display()
+        )));
+    }
+    #[cfg(target_os = "macos")]
+    if locked_in_finder(&meta) {
+        return Err(WriteError::permission(format!(
+            "{}: is locked in Finder; unlock it (Get Info, untick Locked) to save",
             target.display()
         )));
     }
@@ -2329,6 +2386,79 @@ mod tests {
         write_atomic(&target, b"new")
             .expect("saving into a different-group directory must succeed");
         assert_eq!(fs::read(&target).expect("read back"), b"new");
+    }
+
+    fn chflags(flag: &str, path: &Path) {
+        let status = std::process::Command::new("chflags")
+            .args([flag, &path.to_string_lossy()])
+            .status()
+            .expect("run chflags");
+        assert!(status.success());
+    }
+
+    /// A file locked in Finder (`uchg`) is refused up front, in words about Finder, with the file unchanged and no
+    /// staged file left beside it.
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn a_file_locked_in_finder_is_refused_and_nothing_is_left_behind() {
+        let dir = scratch("uchg");
+        let target = dir.join("doc.md");
+        fs::write(&target, b"old\n").expect("seed");
+        chflags("uchg", &target);
+        let refused = write_atomic(&target, b"new\n");
+        chflags("nouchg", &target);
+        let refused = refused.expect_err("a locked file is not saved over");
+        assert_eq!(refused.kind, WriteErrorKind::Permission);
+        assert!(
+            refused.message.contains("locked in Finder"),
+            "{}",
+            refused.message
+        );
+        assert_eq!(fs::read(&target).expect("read"), b"old\n");
+        assert_eq!(staged_files(&dir), Vec::<String>::new());
+    }
+
+    /// The link fallback's staged name is a second name of the reader's own locked file: cleanup must not strip its flag.
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn cleanup_never_clears_the_flag_of_a_file_another_name_shares() {
+        let dir = scratch("uchg-shared");
+        let target = dir.join("doc.md");
+        let tmp = dir.join(".doc.md.marxy-tmp-1-0-0");
+        fs::write(&target, b"old").expect("seed");
+        fs::hard_link(&target, &tmp).expect("link");
+        chflags("uchg", &target);
+        remove_staged(&tmp);
+        let flags = {
+            use std::os::macos::fs::MetadataExt;
+            fs::metadata(&target).expect("meta").st_flags()
+        };
+        chflags("nouchg", &target);
+        assert_ne!(
+            flags & macos_flags::UF_IMMUTABLE,
+            0,
+            "the target was unlocked"
+        );
+        assert_eq!(fs::read(&target).expect("read"), b"old");
+    }
+
+    /// Cleanup of a staged file that carries the immutable flag clears the flag first, so it does not stay for good.
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn a_staged_file_with_the_immutable_flag_is_still_removed() {
+        let dir = scratch("uchg-staged");
+        let tmp = dir.join(".doc.md.marxy-tmp-1-0-0");
+        fs::write(&tmp, b"x").expect("seed");
+        chflags("uchg", &tmp);
+        assert!(
+            fs::remove_file(&tmp).is_err(),
+            "the flag blocks a plain remove"
+        );
+        remove_staged(&tmp);
+        assert!(
+            fs::symlink_metadata(&tmp).is_err(),
+            "staged file left behind"
+        );
     }
 
     /// Sets `user.marxy.test`, saves through the real path, and reads the attribute back. POSIX
