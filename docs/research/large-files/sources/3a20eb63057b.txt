@@ -1,0 +1,398 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+remarkjs
+
+remark
+
+Repository navigation
+
+Code
+
+Issues1 ( 1 )
+
+Pull requests9 ( 9 )
+
+Discussions
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+Quadratic complexity on highly nested lists #1010
+
+New issue
+Copy link
+
+New issue
+Copy link
+
+Closed
+
+Closed
+
+Quadratic complexity on highly nested lists#1010
+
+Copy link
+
+Labels
+
+🏁 area/perfThis affects performance📚 area/docsThis affects documentation🤞 phase/openPost is being triaged manually
+
+Description
+
+andersk
+
+opened on Jul 9, 2022
+
+Issue body actions
+
+Initial checklist
+
+I read the support docs
+
+I read the contributing guide
+
+I agree to follow the code of conduct
+
+I searched issues and couldn’t find anything (or linked relevant results below)
+
+Affected packages and versions
+
+remark 14.0.2
+
+Link to runnable example
+
+No response
+
+Steps to reproduce
+
+$ 'time' node -e 'import("remark").then(({remark}) => remark().process("* ".repeat(8000) + "a"))'
+…
+RangeError: Maximum call stack size exceeded
+…
+35.51user 1.63system 0:27.79elapsed 133%CPU (0avgtext+0avgdata 182780maxresident)k
+0inputs+0outputs (4major+870117minor)pagefaults 0swaps
+
+Expected behavior
+
+Ideally, remark should run in linear time (O(n) for input of length n). There are other Markdown parsers that achieve this.
+
+When I reported this privately, the response indicated that security against computational complexity attacks is not considered to be goal of this project. If that’s the case, that should at least be noted in the Security section of the readme, similarly to the existing note about security against cross-site scripting attacks.
+
+Actual behavior
+
+remark runs in quadratic time (O(n²) for input of length n). It spends over 30 seconds of CPU time on this 16001 byte input before failing with RangeError: Maximum call stack size exceeded. The CPU time quadruples each time the input size is doubled. This means an application accepting Markdown input from the user can be tricked into spending enormous amounts of computation for relatively little input.
+
+Runtime
+
+Node v16
+
+Package manager
+
+npm 8
+
+OS
+
+Linux
+
+Build and bundle tools
+
+No response
+
+Activity
+
+github-actions
+added
+👋 phase/newPost is being triaged automatically
+
+🤞 phase/openPost is being triaged manually
+and removed
+👋 phase/newPost is being triaged automatically
+on Jul 9, 2022
+
+ChristianMurphy
+added
+🏁 area/perfThis affects performance
+on Jul 9, 2022
+
+ChristianMurphy commented on Jul 9, 2022
+
+ChristianMurphy
+
+on Jul 9, 2022
+
+Member
+
+More actions
+
+When a grammar is ambiguous, the time to build a parse tree will exceed linear time (or space) complexity, that is true of all parsers.
+
+Polynomial time is unfortunate but at times necessary, hence why this does not meet the standard of "DDoS" or "a security vulnerability".
+
+All that said, remark does strive to be fast, if a way to lower the complexity can be found, without breaking with the CommonMark standard, a pull request would be welcome.
+
+ChristianMurphy
+changed the title [-]Denial of service via quadratic complexity on highly nested inputs[/-] [+]Quadratic complexity on highly nested lists[/+] on Jul 9, 2022
+
+wooorm
+closed this as completedin cdab8faon Feb 12, 2025
+
+github-actions commented on Feb 12, 2025
+
+github-actionsBot
+
+on Feb 12, 2025 – with GitHub Actions
+
+More actions
+
+Hi! This was closed. Team: If this was fixed, please add phase/solved. Otherwise, please add one of the no/* labels.
+
+wooorm commented on Feb 12, 2025
+
+wooorm
+
+on Feb 12, 2025
+
+Member
+
+More actions
+
+I added this to the security section, thanks!
+
+Improvements to performance are welcome. Most of that would go in micromark!
+
+wooorm
+added
+📚 area/docsThis affects documentation
+on Feb 12, 2025
+
+pull
+added a commit that references this issue on Feb 12, 2025
+
+Add paragraph on security
+
+...
+
+This issue will close once commit cdab8fa is merged into the 'main' branch.
+
+cdab8fa
+
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+
+Metadata
+
+Metadata
+
+Assignees
+
+No one assigned
+
+Labels
+
+🏁 area/perfThis affects performance📚 area/docsThis affects documentation🤞 phase/openPost is being triaged manually
+
+Type
+
+No type
+
+Projects
+
+No projects
+
+Milestone
+
+No milestone
+
+Relationships
+
+None yet
+
+Development
+
+No branches or pull requests
+
+Issue actions
+
+Open in GitHub Copilot app
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

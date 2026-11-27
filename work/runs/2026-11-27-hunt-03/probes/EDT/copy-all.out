@@ -1,0 +1,14 @@
+md-prose 500000 {"nodes":8461,"textMs":208,"textLen":463351,"htmlMs":252,"htmlLen":555837}
+md-prose 1000000 {"nodes":13231,"textMs":876,"textLen":926857,"htmlMs":979,"htmlLen":1111736}
+md-prose 2000000 {"nodes":13197,"textMs":1256,"textLen":1187267,"htmlMs":1330,"htmlLen":1424151}
+md-tables 500000 {"nodes":56916,"textMs":759,"textLen":400476,"htmlMs":1133,"htmlLen":922206}
+md-tables 1000000 {"nodes":58320,"textMs":906,"textLen":410629,"htmlMs":1194,"htmlLen":945229}
+md-tables 2000000 STALL open
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1042
+md-prose 500000 {"nodes":8117,"textMs":223,"textLen":463351,"htmlMs":280,"htmlLen":555837}
+md-prose 1000000 {"nodes":12932,"textMs":846,"textLen":926857,"htmlMs":984,"htmlLen":1111736}
+md-prose 2000000 {"nodes":12247,"textMs":1199,"textLen":1101638,"htmlMs":1153,"htmlLen":1321392}
+md-tables 500000 {"nodes":56916,"textMs":908,"textLen":400476,"htmlMs":1208,"htmlLen":922206}
+md-tables 1000000 {"nodes":59724,"textMs":1031,"textLen":420782,"htmlMs":1101,"htmlLen":968252}
+md-tables 2000000 STALL open
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1044

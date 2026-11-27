@@ -1,0 +1,29 @@
+ 3:08  up 1 day,  6:26, 1 user, load averages: 38.87 38.98 43.97
+$ shots v.verify.mjs
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/VWR/v.verify.mjs --browser chromium
+{"case":"html-nested-5000","rep":0,"bytes":55042,"openMs":521,"task":0.65,"thread":0.65,"script":0.02,"layout":0.05,"style":0.1,"nodes":512,"err":""}
+{"case":"html-nested-5000","rep":1,"bytes":55042,"openMs":578,"task":0.61,"thread":0.61,"script":0.02,"layout":0.06,"style":0.09,"nodes":512,"err":""}
+{"case":"html-nested-10000","rep":0,"bytes":110042,"openMs":1105,"task":1.8,"thread":1.78,"script":0.02,"layout":0.12,"style":0.17,"nodes":512,"err":""}
+{"case":"html-nested-10000","rep":1,"bytes":110042,"openMs":1158,"task":1.79,"thread":1.78,"script":0.03,"layout":0.09,"style":0.18,"nodes":512,"err":""}
+{"case":"html-nested-20000","rep":0,"bytes":220042,"openMs":3383,"task":6.04,"thread":6,"script":0.03,"layout":0.15,"style":0.31,"nodes":512,"err":""}
+{"case":"html-nested-20000","rep":1,"bytes":220042,"openMs":3680,"task":6.36,"thread":6.32,"script":0.05,"layout":0.18,"style":0.35,"nodes":512,"err":""}
+{"case":"json-pretty-20000","rep":0,"bytes":20050,"openMs":326,"task":0.34,"thread":0.33,"script":0.05,"layout":0.04,"style":0.11,"nodes":5329,"err":""}
+{"case":"json-pretty-20000","rep":1,"bytes":20050,"openMs":317,"task":0.32,"thread":0.32,"script":0.05,"layout":0.04,"style":0.11,"nodes":5329,"err":""}
+{"case":"json-pretty-100000","rep":0,"bytes":100062,"openMs":2413,"task":2.3,"thread":2.24,"script":0.24,"layout":0.2,"style":1.36,"nodes":19511,"err":""}
+{"case":"json-pretty-100000","rep":1,"bytes":100062,"openMs":2572,"task":2.57,"thread":2.45,"script":0.24,"layout":0.26,"style":1.51,"nodes":19511,"err":""}
+{"case":"json-pretty-1000000","rep":0,"bytes":1000023,"openMs":2408,"task":2.39,"thread":2.3,"script":0.18,"layout":0.25,"style":1.41,"nodes":19511,"err":""}
+{"case":"json-pretty-1000000","rep":1,"bytes":1000023,"openMs":2832,"task":2.7,"thread":2.61,"script":0.25,"layout":0.23,"style":1.51,"nodes":19511,"err":""}
+{"case":"yaml-20000","rep":0,"bytes":20043,"openMs":909,"task":0.57,"thread":0.53,"script":0.07,"layout":0.04,"style":0.22,"nodes":8511,"err":""}
+{"case":"yaml-20000","rep":1,"bytes":20043,"openMs":519,"task":0.51,"thread":0.49,"script":0.06,"layout":0.04,"style":0.23,"nodes":8511,"err":""}
+{"case":"yaml-100000","rep":0,"bytes":100002,"openMs":1921,"task":1.9,"thread":1.86,"script":0.2,"layout":0.1,"style":1.14,"nodes":18854,"err":""}
+{"case":"yaml-100000","rep":1,"bytes":100002,"openMs":2051,"task":1.88,"thread":1.83,"script":0.21,"layout":0.1,"style":1.07,"nodes":18854,"err":""}
+{"case":"yaml-1000000","rep":0,"bytes":1000019,"openMs":2116,"task":2.11,"thread":2.04,"script":0.19,"layout":0.1,"style":1.15,"nodes":18854,"err":""}
+{"case":"yaml-1000000","rep":1,"bytes":1000019,"openMs":2314,"task":2.22,"thread":2.08,"script":0.21,"layout":0.29,"style":1.16,"nodes":18854,"err":""}
+{"case":"csv-20000","rep":0,"bytes":20002,"openMs":179,"task":0.19,"thread":0.19,"script":0.06,"layout":0.02,"style":0.03,"nodes":3016,"err":""}
+{"case":"csv-20000","rep":1,"bytes":20002,"openMs":161,"task":0.17,"thread":0.16,"script":0.05,"layout":0.02,"style":0.02,"nodes":3016,"err":""}
+{"case":"csv-100000","rep":0,"bytes":100054,"openMs":622,"task":0.66,"thread":0.65,"script":0.19,"layout":0.07,"style":0.09,"nodes":12718,"err":""}
+{"case":"csv-100000","rep":1,"bytes":100054,"openMs":641,"task":0.64,"thread":0.61,"script":0.17,"layout":0.06,"style":0.08,"nodes":12718,"err":""}
+{"case":"csv-1000000","rep":0,"bytes":1000055,"openMs":358,"task":0.34,"thread":0.31,"script":0.03,"layout":0.02,"style":0.03,"nodes":939,"err":""}
+{"case":"csv-1000000","rep":1,"bytes":1000055,"openMs":262,"task":0.27,"thread":0.25,"script":0.03,"layout":0.02,"style":0.02,"nodes":939,"err":""}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1108
+ 3:16  up 1 day,  6:35, 1 user, load averages: 42.99 38.43 41.17

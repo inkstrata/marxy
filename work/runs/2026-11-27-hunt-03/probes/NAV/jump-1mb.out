@@ -1,0 +1,12 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/jump.mjs --browser chromium
+=== md-headings 1 MB bytes 1000045 headings 12272 target Heading 12252 at char 998398
+fill @Heading target: wall 5593ms task 5588ms script 1210ms layout 1271ms(171) style#174 nodes 174005
+ rows ["Heading 12252line 49009|null","Heading 12252line 49009|true"]
+Enter (jump): wall 2460ms task 1993ms script 491ms layout 282ms(26) style#30 nodes 178165
+ at 500 {"blocks":24544}
+ at 3000 {"blocks":24544}
+ at 10000 {"blocks":24544}
+ at 25000 {"blocks":24544}
+ landed {"blocks":24544}
+ +8s {"blocks":24544}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1059

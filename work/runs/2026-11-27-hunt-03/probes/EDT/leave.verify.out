@@ -1,0 +1,6 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/EDT/leave.verify.mjs --browser chromium
+1000000 leaves [{"wall":654,"cpuMs":1459},{"wall":598,"cpuMs":1368},{"wall":664,"cpuMs":1434},{"wall":619,"cpuMs":1409}] undo cpuMs 1692
+2000000 leaves [{"wall":788,"cpuMs":1773},{"wall":738,"cpuMs":1632},{"wall":679,"cpuMs":1476},{"wall":649,"cpuMs":1452}] undo cpuMs 1821
+4900000 leaves [{"wall":632,"cpuMs":1414},{"wall":663,"cpuMs":1424},{"wall":918,"cpuMs":1720},{"wall":880,"cpuMs":1685}] undo cpuMs 1753
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1105
+ 3:07  up 1 day,  6:25, 1 user, load averages: 37.88 38.56 44.35

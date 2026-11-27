@@ -1,0 +1,381 @@
+Skip to content
+
+Read the Tea Leaves
+
+Software and other dark arts, by Nolan Lawson
+
+Search this blog Search
+
+home
+
+apps
+
+code
+
+talks
+
+about
+
+Previous post: « How to think about databasesNext post: Introducing the Cordova SQLite Plugin 2 »
+
+29Feb
+
+High-performance Web Worker messages
+
+Posted February 29, 2016 by Nolan Lawson in Webapps. Tagged: performance, web workers. 12 Comments
+
+Update: this blog post was based on the latest browsers as of early 2016. Things have changed, and in particular the benchmark shows that recent versions of Chrome do not exhibit the performance cliff for non-stringified postMessage() messages as described in this post.
+
+In recent posts and talks, I’ve explored how Web Workers can vastly improve the responsiveness of a web application, by moving work off the UI thread and thereby reducing DOM-blocking. In this post, I’ll delve a bit more deeply into the performance characteristics of postMessage(), which is the primary interface for communicating with Web Workers.
+
+Since Web Workers run in a separate thread (although not necessarily a separate process), and since JavaScript environments don’t share memory across threads, messages have to be explicitly sent between the main thread and the worker. As it turns out, the format you choose for this message can have a big impact on performance.
+
+TLDR: always use JSON.stringify() and JSON.parse() to communicate with a Web Worker. Be sure to fully stringify the message.
+
+I first came across this tip from IndexedDB spec author and Chrome developer Joshua Bell, who mentioned offhand:
+
+We know that serialization/deserialization is slow. It’s actually faster to JSON.stringify() then postMessage() a string than to postMessage() an object.
+
+This insight was further confirmed by Parashuram N., who demonstrated experimentally that stringify was a key factor in making a worker-based React implementation that improved upon vanilla React. He says:
+
+By “stringifying” all messages between the worker and the main thread, React implemented on a Web Worker [is] faster than the normal React version. The perf benefit of the Web Worker approach starts to increase as the number of nodes increases.
+
+Malte Ubl, tech lead of the AMP project, has also been experimenting with postMessage() in Web Workers. He had this to say:
+
+On phones, [stringifying] is quickly relevant, but not with just 3 or so fields. Just measured the other day. It is bad.
+
+This made me curious as to where, exactly, the tradeoffs lie with stringfying messages. So I decided to create a simple benchmark and run it on a variety of browsers. My tests confirmed that stringifying is indeed faster than sending raw objects, and that the message size has a dramatic impact on the speed of worker communication.
+
+Furthermore, the only real benefit comes if you stringify the entire message. Even a small object that wraps the stringified message (e.g. {msg: JSON.stringify(message)}) performs worse than the fully-stringified case. (These results differ between Chrome, Firefox, and Safari, but keep reading for the full analysis.)
+
+Test results
+
+In this test, I ran 50,000 iterations of postMessage() (both to and from the worker) and used console.time() to measure the total time spent posting messages back and forth. I also varied the number of keys in the object between 0 and 30 (keys and values were both just Math.random()).
+
+Clarification: the test does include the overhead of JSON.parse() and JSON.stringify(). The worker even re-stringifies the message when echoing it back.
+
+First, here are the results in Chrome 48 (running on a 2013 MacBook Air with Yosemite):
+
+And in Chrome 48 for Android (running on a Nexus 5 with Android 5.1):
+
+What’s clear from these results is that full stringification beats both partial stringification and no-stringification across all message sizes. The difference is fairly stark on desktop Chrome for small messages sizes, but this difference start to narrow as message size increases. On the Nexus 5, there’s no such dramatic swing.
+
+In Firefox 46 (also on the MacBook Air), stringification is still the winner, although by a smaller margin:
+
+In Safari 9, it gets more interesting. For Safari, at least, stringification is actually slower than posting raw messages:
+
+Based on these results, you might be tempted to think it’s a good idea to UA-sniff for Safari, and avoid stringification in that browser. However, it’s worth considering that Safari is consistently faster than Chrome (with or without stringification), and that it’s also faster than Firefox, at least for small message sizes. Here are the stringified results for all three browsers:
+
+So the fact that Safari is already fast for small messages would reduce the attractiveness of any UA-sniffing hack. Also notice that Firefox, to its credit, maintains a fairly consistent response time regardless of message size, and starts to actually beat both Safari and Chrome at the higher levels.
+
+Now, assuming we were to use the UA-sniffing approach, we could swap in the raw results for Safari (i.e. showing the fastest times for each browser), which gives us this:
+
+So it appears that avoiding stringification in Safari allows it to handily beat the other browsers, although it does start to converge with Firefox for larger message sizes.
+
+On a whim, I also tested Transferables, i.e. using ArrayBuffers as the data format to transfer the stringified JSON. In theory, Transferables can offer some performance gains when sending large data, because the ArrayBuffer is instantly zapped from one thread to the other, without any cloning or copying. (After transfer, the ArrayBuffer is unavailable to the sender thread.)
+
+As it turned out, though, this didn’t perform well in either Chrome or Firefox. So I didn’t explore it any further.
+
+Transferables might be useful for sending binary data that’s already in that format (e.g. Blobs, Files, etc.), but for JSON data it seems like a poor fit. On the bright side, they do have wide browser support, including Chrome, Firefox, Safari, IE, and Edge.
+
+Speaking of Edge, I would have run these tests in that browser, but unfortunately my virtual machine kept crashing due to the intensity of the tests, and I didn’t have an actual Windows device handy. Contributions welcome!
+
+Correction: this post originally stated that Safari doesn’t support Transferables. It does.
+
+Update: Boulos Dib has gracious run the numbers for Edge 13, and they look very similar to Safari (in that raw objects are faster than stringification):
+
+Conclusion
+
+Based on these tests, my recommendation would be to use stringification across the board, or to UA-sniff for Safari and avoid stringification in that browser (but only if you really need maximum performance!).
+
+Another takeaway is that, in general, message sizes should be kept small. Firefox seems to be able to maintain a relatively speedy delivery regardless of the message size, but Safari and Chrome tend to slow down considerably as the message size increases. For very large messages, it may even make sense to save the data to IndexedDB from the worker, and then simply fetch the saved data from the main thread, but I haven’t verified this idea with a benchmark.
+
+The full results for my tests are available in this spreadsheet. I encourage anybody who wants to reproduce these results to check out the test suite and offer a pull request or the results from their own browser.
+
+And if you’d like a simple Web Worker library that makes use of stringification, check out promise-worker.
+
+Update: Chris Thoburn has offered another Web Worker performance test that adds some additional ways of sending messages, like MessageChannels. Here are his own browser results.
+
+12 responses to this post.
+
+Posted by bahmutov on February 29, 2016 at 6:47 AM
+
+This is the way science and engineering is done – empirical data comes first. For Transferable objects, I have measured the impact when sending images for processing from the main thread to web workers. It has resulted in speed ups, see https://glebbahmutov.com/blog/fast-legoization/
+
+Posted by Nolan Lawson on March 1, 2016 at 6:11 AM
+
+Yep, I do think Transferables make sense for data that is already binary. Nice post. :)
+
+Posted by Parashuram on March 6, 2016 at 11:51 PM
+
+I tried transferrables for react-worker-dom too. Not only is it a pain to serialize the data, the perf benefits are lesser than JSON.stringify. http://github.com/web-perf/react-worker-dom
+
+Posted by rizthon on March 2, 2016 at 6:57 PM
+
+So it means the default serialization/deserialization is usually not as efficient as doing a JSON.stringify/parse? Sounds weird, unless stringifying the object has some limitations (maybe it’s not possible if there are circular references, while using the default serialization would work)?
+
+I never looked at web workers. As you said you can have “An optional array of Transferable objects to transfer ownership of. If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from and it becomes available only to the worker it was sent to.” https://developer.mozilla.org/en/docs/Web/API/Worker/postMessage It sounds like the idea is to not do any copy indeed, but potentially just play with pointers. You said it didn’t perform well, is it because it took time to convert your object to an ArrayBuffer?
+
+Posted by Udo Giacomozzi on October 14, 2016 at 1:50 PM
+
+I can’t tell for circular references (I guess you’re right), but the default serialization has no problems sending a RegExp object to the web worker, whereas JSON.stringify() of course can’t deal with them (get’s converted to “{}”).
+
+Posted by David Griebel on October 14, 2016 at 11:00 PM
+
+I have been using transferables with an add-on I wrote for Breeze.js to run inside a web worker. It takes 8 ms to stringify and convert an average sized request into an array buffer – the thread switch takes another 8-14 ms – compared to over 150ms to send an object via structured cloning (on Chrome)
+
+Great article, btw. I spent many, many weeks in the trenches begging, borrowing and stealing milliseconds from everyplace I could find them.
+
+Posted by Udo Giacomozzi on October 15, 2016 at 1:03 AM
+
+Sounds great! Is the code available somewhere? I’d live to see how it works and do some tests.
+
+Posted by fijiwebdesign on February 12, 2017 at 3:35 PM
+
+Thanks for the the thorough benchmarking. I’m writing a lib to wrap socket.io in a shared webworker and was about to do perf testing on the message passing but found your article.
+
+https://github.com/IguMail/socketio-shared-webworker
+
+I just added the serialization and will see how it performs. Most the data being sent is short messages..
+
+Posted by David Roon on October 3, 2017 at 1:18 AM
+
+very interesting analysis! Thanks!
+
+Just a question. What is the unit of the message size? kb? mb?
+
+Posted by evo on December 6, 2017 at 3:31 AM
+
+Nice one, can you also try one with SharedArrayBuffers that overcomes the problem with array buffer.
+
+Pingback from Web Worker 文献综述 | AlloyTeam on July 21, 2020 at 8:20 AM
+
+[…] 年的 High-performance Web Worker messages 进行了测试, 确实如此. 但是文章的测试结果也只能停留在 2016 年. 2019 年 […]
+
+Posted by Ben Wiley on October 12, 2021 at 6:32 PM
+
+Would be a good idea to put that update at the top of the post in bold and larger font size. I was about to ask the question you answered but I missed the update the first time I read the post. Important for folks reading this to understand that your prior advice no longer applies with recent browsers. Indeed it makes sense that browsers were able to adapt, since it’s completely insane that serialization, which needs to happen anyway when passing messages between workers, would take longer unless done manually. Perhaps it’s thanks to your post that they noticed this bug and improved.
+
+Comments are closed.
+
+Recent Posts
+
+The AI cost of JavaScript frameworks
+
+Do web components have a future if nobody is writing them?
+
+Why don’t more developers “use the platform”?
+
+Goodbye WordPress
+
+On not becoming a cyborg
+
+About Me
+
+I'm Nolan, a programmer from Seattle working at Socket. All opinions are my own. Photo by Cătălin Mariș.
+
+Archives
+
+October 2026 (3)
+
+September 2026 (1)
+
+August 2026 (3)
+
+May 2026 (1)
+
+March 2026 (1)
+
+February 2026 (4)
+
+January 2026 (2)
+
+December 2025 (4)
+
+November 2025 (1)
+
+August 2025 (1)
+
+June 2025 (1)
+
+April 2025 (1)
+
+January 2025 (1)
+
+December 2024 (2)
+
+October 2024 (2)
+
+September 2024 (3)
+
+August 2024 (1)
+
+July 2024 (1)
+
+March 2024 (1)
+
+January 2024 (1)
+
+December 2023 (4)
+
+August 2023 (2)
+
+January 2023 (2)
+
+December 2022 (1)
+
+November 2022 (2)
+
+October 2022 (2)
+
+June 2022 (4)
+
+May 2022 (3)
+
+April 2022 (1)
+
+February 2022 (1)
+
+January 2022 (1)
+
+December 2021 (3)
+
+September 2021 (1)
+
+August 2021 (6)
+
+February 2021 (2)
+
+January 2021 (2)
+
+December 2020 (1)
+
+July 2020 (1)
+
+June 2020 (1)
+
+May 2020 (2)
+
+February 2020 (1)
+
+December 2019 (1)
+
+November 2019 (1)
+
+September 2019 (1)
+
+August 2019 (2)
+
+June 2019 (4)
+
+May 2019 (3)
+
+February 2019 (2)
+
+January 2019 (1)
+
+November 2018 (1)
+
+September 2018 (5)
+
+August 2018 (1)
+
+May 2018 (1)
+
+April 2018 (1)
+
+March 2018 (1)
+
+January 2018 (1)
+
+December 2017 (1)
+
+November 2017 (2)
+
+October 2017 (1)
+
+August 2017 (1)
+
+May 2017 (1)
+
+March 2017 (1)
+
+January 2017 (1)
+
+October 2016 (1)
+
+August 2016 (1)
+
+June 2016 (1)
+
+April 2016 (1)
+
+February 2016 (2)
+
+December 2015 (1)
+
+October 2015 (1)
+
+September 2015 (1)
+
+July 2015 (1)
+
+June 2015 (2)
+
+October 2014 (1)
+
+September 2014 (1)
+
+April 2014 (1)
+
+March 2014 (1)
+
+December 2013 (2)
+
+November 2013 (3)
+
+August 2013 (1)
+
+May 2013 (3)
+
+January 2013 (1)
+
+December 2012 (1)
+
+November 2012 (1)
+
+October 2012 (1)
+
+September 2012 (3)
+
+June 2012 (2)
+
+March 2012 (3)
+
+February 2012 (1)
+
+January 2012 (1)
+
+November 2011 (1)
+
+August 2011 (1)
+
+July 2011 (1)
+
+June 2011 (3)
+
+May 2011 (2)
+
+April 2011 (4)
+
+March 2011 (1)
+
+Links
+
+Mastodon
+
+GitHub
+
+npm
+
+© 2011–2026 Nolan Lawson. RSS feed.

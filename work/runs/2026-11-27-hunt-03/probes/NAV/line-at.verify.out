@@ -1,0 +1,28 @@
+ 3:18  up 1 day,  6:37, 1 user, load averages: 36.63 38.00 40.66
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/line-at.verify.mjs --browser chromium
+=== md-headings 1 MB bytes 1000045 headings 12272
+Ctrl+K: wall 460ms task 505ms script 130ms layout 80ms(20) style#21 nodes 84595
+type @: wall 1396ms task 1429ms script 205ms layout 585ms(8) style#11 nodes 170816
+ options in DOM: 12272
+type e: wall 1938ms task 1959ms script 333ms layout 848ms(13) style#13 nodes 275342
+=== md-headings 2 MB bytes 2000065 headings 24409
+Ctrl+K: wall 439ms task 447ms script 132ms layout 63ms(17) style#18 nodes 159058
+type @: wall 2215ms task 2326ms script 311ms layout 1080ms(5) style#8 nodes 322091
+ options in DOM: 24409
+type e: wall 3765ms task 3807ms script 740ms layout 1742ms(6) style#6 nodes 540812
+=== md-headings 4 MB bytes 4000028 headings 48682
+Ctrl+K: wall 666ms task 743ms script 309ms layout 93ms(20) style#21 nodes 341072
+type @: wall 3562ms task 4180ms script 623ms layout 2038ms(9) style#12 nodes 635756
+ options in DOM: 48682
+type e: wall 7579ms task 8524ms script 1781ms layout 4107ms(6) style#6 nodes 1075641
+=== md-prose 5.4 MB bytes 5420972 headings 1289
+Ctrl+K: wall 417ms task 44ms script 23ms layout 4ms(2) style#4 nodes 2945
+type @: wall 6961ms task 6432ms script 6284ms layout 68ms(4) style#7 nodes 10518
+ options in DOM: 1289
+type e: wall 731ms task 330ms script 60ms layout 91ms(3) style#3 nodes 12974
+=== md-prose 10.8 MB bytes 10842861 headings 2577
+Ctrl+K: wall 435ms task 46ms script 23ms layout 6ms(2) style#4 nodes 2692
+type @: wall 13294ms task 12890ms script 12620ms layout 142ms(4) style#7 nodes 19515
+ options in DOM: 2577
+type e: wall 890ms task 448ms script 121ms layout 178ms(3) style#3 nodes 45396
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1119

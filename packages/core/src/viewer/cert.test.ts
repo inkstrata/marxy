@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { CERT_LIST_MAX, certDate, certKicker, certRows, readCertificates, type CertFacts, type CertFile } from './cert.ts';
+import { CERT_LIST_MAX, CERT_NODES_MAX, certDate, certKicker, certRows, readCertificates, type CertFacts, type CertFile } from './cert.ts';
 
 // The samples are built by fixtures/certs/make-certs.mjs, which also builds the variants below.
 const sample = (name: string): Uint8Array => new Uint8Array(readFileSync(new URL(`../../../../fixtures/certs/${name}`, import.meta.url)));
@@ -238,4 +238,43 @@ test('hostile input: mutated, cut and random DER and PEM never throw and finish 
   readCertificates(Uint8Array.of(0x30, 0x84, 0xff, 0xff, 0xff, 0xff));
   readCertificates(text('-----BEGIN CERTIFICATE-----\n'.repeat(40000)));
   assert.ok(Date.now() - t0 < 10_000);
+});
+
+test('the whole-tree check stops at its element limit across the file, and the card says so', () => {
+  // A real certificate with one more field in its body: a list of NULLs past the limit, then damage the walk would find.
+  const der = sample('tidemark-root.cer');
+  const at = (b: Uint8Array, h: number): { s: number; e: number } => {
+    const n = b[h + 1]! & 0x7f;
+    if (b[h + 1]! < 0x80) return { s: h + 2, e: h + 2 + b[h + 1]! };
+    let len = 0;
+    for (let i = 0; i < n; i++) len = len * 256 + b[h + 2 + i]!;
+    return { s: h + 2 + n, e: h + 2 + n + len };
+  };
+  const top = at(der, 0);
+  const tbs = at(der, top.s);
+  const wide = (count: number): Uint8Array => {
+    const list = new Uint8Array(count * 2 + 4);
+    for (let i = 0; i < count; i++) list[i * 2] = 0x05;
+    list.set([0x30, 0x80, 0x00, 0x00], count * 2);
+    const body = make.tlv(0x30, Buffer.concat([der.subarray(tbs.s, tbs.e), make.tlv(0xa4, list)]));
+    return new Uint8Array(make.tlv(0x30, Buffer.concat([body, der.subarray(tbs.e, top.e)])));
+  };
+  // Within the limit the damage is found.
+  assert.match(reason(wide(1000)), /indefinite/);
+  // Past it the walk stops before the damage: the facts are read, and the card says what was not checked.
+  const f = file(wide(CERT_NODES_MAX));
+  assert.ok(f.entries[0]!.ok);
+  assert.equal(f.stopped, true);
+  assert.equal(rowText(f, 'checked'), 'Only the first 100,000 elements were checked.');
+  assert.equal(rowText(f, 'subject'), 'Tidemark Root, Tidemark Harbour Works, GB');
+  // The limit is the file's: in a bundle, a certificate after one that spent it is not walked either.
+  const bundle = text(make.pem('CERTIFICATE', Buffer.from(wide(CERT_NODES_MAX))) + make.pem('CERTIFICATE', Buffer.from(wide(10))));
+  const b = file(bundle);
+  assert.deepEqual(b.entries.map((e) => e.ok), [true, true]);
+  assert.equal(b.stopped, true);
+  // An ordinary file is checked whole.
+  for (const name of ['tidemark-root.cer', 'tidemark-bundle.pem', 'tidemark-leaf.pem']) {
+    assert.equal(file(sample(name)).stopped, false, name);
+    assert.equal(rowText(file(sample(name)), 'checked'), undefined, name);
+  }
 });

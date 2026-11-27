@@ -1,0 +1,56 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/find.mjs --browser chromium
+=== md-prose 0.5 MB
+open: wall 2595ms task 2473ms script 340ms layout 362ms(201) style#397 nodes 23737
+ mounted after ~12s 1552:477676
+ blocks 5131
+mount-ready: wall 23ms task 1ms script 0ms layout 0ms(0) style#0 nodes 40778
+Mod+F: wall 167ms task 139ms script 9ms layout 17ms(1) style#2 nodes 40783
+type t: wall 471ms task 130ms script 82ms layout 1ms(4) style#5 nodes 41505
+type h: wall 461ms task 111ms script 64ms layout 1ms(4) style#5 nodes 42226
+type e: wall 469ms task 127ms script 70ms layout 2ms(4) style#5 nodes 42947
+type  : wall 451ms task 99ms script 64ms layout 1ms(4) style#5 nodes 43668
+ count 1 of 8112 / input=the 
+count: wall 6ms task 1ms script 0ms layout 0ms(0) style#0 nodes 43668
+Enter: wall 179ms task 16ms script 2ms layout 0ms(1) style#3 nodes 43669
+Enter: wall 201ms task 22ms script 3ms layout 0ms(1) style#3 nodes 43670
+Enter: wall 205ms task 19ms script 3ms layout 0ms(1) style#3 nodes 43671
+Shift+Enter: wall 191ms task 21ms script 4ms layout 0ms(1) style#3 nodes 43672
+Backspace: wall 470ms task 117ms script 75ms layout 1ms(4) style#5 nodes 44393
+Esc: wall 215ms task 205ms script 21ms layout 7ms(5) style#21 nodes 45603
+=== md-prose 1 MB
+open: wall 3678ms task 3653ms script 415ms layout 514ms(168) style#246 nodes 42451
+ mounted after ~12s 3103:955477
+ blocks 10259
+mount-ready: wall 59ms task 82ms script 9ms layout 24ms(4) style#10 nodes 59917
+Mod+F: wall 235ms task 234ms script 17ms layout 24ms(3) style#5 nodes 60161
+type t: wall 569ms task 587ms script 169ms layout 42ms(17) style#35 nodes 61999
+type h: wall 424ms task 409ms script 104ms layout 40ms(13) style#24 nodes 51571
+type e: wall 492ms task 516ms script 145ms layout 43ms(20) style#40 nodes 53397
+type  : wall 500ms task 531ms script 144ms layout 81ms(26) style#54 nodes 55329
+ count 1 of 16226 / input=the 
+count: wall 24ms task 34ms script 5ms layout 8ms(2) style#4 nodes 55350
+Enter: wall 268ms task 273ms script 53ms layout 30ms(13) style#30 nodes 56301
+Enter: wall 193ms task 159ms script 19ms layout 28ms(8) style#18 nodes 56379
+Enter: wall 198ms task 202ms script 49ms layout 31ms(11) style#24 nodes 57321
+Shift+Enter: wall 192ms task 146ms script 21ms layout 25ms(10) style#24 nodes 57408
+Backspace: wall 530ms task 522ms script 155ms layout 70ms(20) style#40 nodes 59254
+Esc: wall 227ms task 236ms script 16ms layout 13ms(7) style#25 nodes 60608
+=== md-prose 1.5 MB
+open: wall 3729ms task 3717ms script 322ms layout 438ms(145) style#179 nodes 52383
+ mounted after ~15s 4653:1432841
+ blocks 15389
+mount-ready: wall 19ms task 28ms script 3ms layout 7ms(2) style#4 nodes 66548
+Mod+F: wall 231ms task 247ms script 43ms layout 28ms(6) style#14 nodes 66638
+type t: wall 487ms task 490ms script 170ms layout 58ms(19) style#39 nodes 68135
+type h: wall 513ms task 497ms script 170ms layout 68ms(21) style#41 nodes 70324
+type e: wall 492ms task 484ms script 144ms layout 44ms(17) style#33 nodes 62816
+type  : wall 414ms task 395ms script 140ms layout 43ms(18) style#38 nodes 64868
+ count 1 of 24336 / input=the 
+count: wall 17ms task 21ms script 4ms layout 8ms(2) style#4 nodes 64921
+Enter: wall 189ms task 186ms script 51ms layout 19ms(7) style#17 nodes 65937
+Enter: wall 171ms task 155ms script 14ms layout 30ms(7) style#18 nodes 66004
+Enter: wall 190ms task 130ms script 11ms layout 29ms(9) style#21 nodes 66082
+Shift+Enter: wall 189ms task 191ms script 51ms layout 14ms(7) style#15 nodes 67086
+Backspace: wall 491ms task 486ms script 153ms layout 59ms(21) style#43 nodes 69161
+Esc: wall 238ms task 242ms script 27ms layout 10ms(5) style#21 nodes 70609
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1105

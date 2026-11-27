@@ -1,0 +1,133 @@
+uptime:  3:33  up 1 day,  6:51, 1 user, load averages: 37.24 31.83 35.46
+{
+ "size": 250034,
+ "label": "open",
+ "taskMs": 2349,
+ "scriptMs": 139,
+ "layoutMs": 148,
+ "recalcMs": 176,
+ "layouts": 45,
+ "nodes": 20128,
+ "wallMs": 4106,
+ "quiet": true,
+ "top": [
+  "2127 ms  (idle) :0",
+  "1157 ms  (program) :0",
+  "570 ms  (garbage collector) :0",
+  "192 ms  getBoundingClientRect :0",
+  "119 ms  isAscii packages/core/src/parse/byte-offsets.ts:136",
+  "68 ms  changesCommands http://127.0.0.1:1492/src/commands/changes.ts:132",
+  "62 ms  enter http://127.0.0.1:1492/node_modules/.vite/deps/mdast-util-from-markdown.js:1225",
+  "52 ms  get http://127.0.0.1:1492/node_modules/.vite/deps/chunk-22UTZQ6S.js:1039"
+ ]
+}
+{
+ "size": 250034,
+ "label": "reload",
+ "taskMs": 2418,
+ "scriptMs": 77,
+ "layoutMs": 226,
+ "recalcMs": 131,
+ "layouts": 43,
+ "nodes": 40075,
+ "wallMs": 4054,
+ "quiet": true,
+ "top": [
+  "1878 ms  (idle) :0",
+  "597 ms  (program) :0",
+  "478 ms  (garbage collector) :0",
+  "224 ms  getBoundingClientRect :0",
+  "186 ms  go http://127.0.0.1:1492/node_modules/.vite/deps/mdast-util-from-markdown.js:1181",
+  "153 ms  sliceChunks http://127.0.0.1:1492/node_modules/.vite/deps/mdast-util-from-markdown.js:1384",
+  "113 ms  markdownLineEnding http://127.0.0.1:1492/node_modules/.vite/deps/chunk-TMSDTAZJ.js:19",
+  "98 ms  replaceChildren :0"
+ ]
+}
+{
+ "size": 500004,
+ "label": "open",
+ "taskMs": 2937,
+ "scriptMs": 170,
+ "layoutMs": 286,
+ "recalcMs": 247,
+ "layouts": 81,
+ "nodes": 39001,
+ "wallMs": 5454,
+ "quiet": true,
+ "top": [
+  "2854 ms  (idle) :0",
+  "1628 ms  (program) :0",
+  "659 ms  getBoundingClientRect :0",
+  "222 ms  compile2 http://127.0.0.1:1492/node_modules/.vite/deps/mdast-util-from-markdown.js:1709",
+  "213 ms  (garbage collector) :0",
+  "139 ms  consume http://127.0.0.1:1492/node_modules/.vite/deps/mdast-util-from-markdown.js:1189",
+  "119 ms  subcontent http://127.0.0.1:1492/node_modules/.vite/deps/chunk-22UTZQ6S.js:1298",
+  "78 ms  headRowData http://127.0.0.1:1492/node_modules/.vite/deps/micromark-extension-gfm.js:1241"
+ ]
+}
+{
+ "size": 500004,
+ "label": "reload",
+ "taskMs": 4838,
+ "scriptMs": 280,
+ "layoutMs": 313,
+ "recalcMs": 289,
+ "layouts": 86,
+ "nodes": 77821,
+ "wallMs": 6399,
+ "quiet": true,
+ "top": [
+  "1827 ms  (program) :0",
+  "1758 ms  (idle) :0",
+  "409 ms  go http://127.0.0.1:1492/node_modules/.vite/deps/mdast-util-from-markdown.js:1181",
+  "377 ms  getBoundingClientRect :0",
+  "349 ms  (garbage collector) :0",
+  "206 ms  buildBlocksByRange http://127.0.0.1:1492/src/render/post.ts:77",
+  "146 ms  getAttribute :0",
+  "140 ms  closest :0"
+ ]
+}
+{
+ "size": 1000024,
+ "label": "open",
+ "taskMs": 12494,
+ "scriptMs": 1354,
+ "layoutMs": 767,
+ "recalcMs": 847,
+ "layouts": 225,
+ "nodes": 76752,
+ "wallMs": 14239,
+ "quiet": true,
+ "top": [
+  "6228 ms  (program) :0",
+  "2007 ms  (idle) :0",
+  "1800 ms  (garbage collector) :0",
+  "1634 ms  getBoundingClientRect :0",
+  "369 ms  closest :0",
+  "258 ms  subcontent http://127.0.0.1:1492/node_modules/.vite/deps/chunk-22UTZQ6S.js:1298",
+  "225 ms  (anon) http://127.0.0.1:1492/src/render/post.ts:78",
+  "204 ms  querySelectorAll :0"
+ ]
+}
+{
+ "size": 1000024,
+ "label": "reload",
+ "taskMs": 16678,
+ "scriptMs": 1525,
+ "layoutMs": 1016,
+ "recalcMs": 1054,
+ "layouts": 260,
+ "nodes": 153323,
+ "wallMs": 18857,
+ "quiet": true,
+ "top": [
+  "8509 ms  (program) :0",
+  "2407 ms  (idle) :0",
+  "2016 ms  getBoundingClientRect :0",
+  "1127 ms  (garbage collector) :0",
+  "804 ms  go http://127.0.0.1:1492/node_modules/.vite/deps/mdast-util-from-markdown.js:1181",
+  "342 ms  buildBlocksByRange http://127.0.0.1:1492/src/render/post.ts:77",
+  "296 ms  querySelectorAll :0",
+  "232 ms  resolveAllText http://127.0.0.1:1492/node_modules/.vite/deps/mdast-util-from-markdown.js:938"
+ ]
+}

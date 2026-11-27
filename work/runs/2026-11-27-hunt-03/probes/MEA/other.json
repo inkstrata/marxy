@@ -1,0 +1,1505 @@
+[
+ {
+  "kind": "txt",
+  "bytes": 1000000,
+  "fatal": "page.goto: Timeout 30000ms exceeded."
+ },
+ {
+  "kind": "txt",
+  "bytes": 4900006,
+  "name": "big-txt-4900k.txt",
+  "steps": {
+   "open": {
+    "firstMs": 423,
+    "completeMs": 103752,
+    "openReturnMs": 502,
+    "busyUntilIdleMs": 107748,
+    "taskMs": 106035,
+    "layouts": 944,
+    "longestMs": 7856,
+    "nodes": 371202
+   },
+   "key": {
+    "wallMs": 2382,
+    "taskMs": 1011,
+    "scriptMs": 56,
+    "layoutMs": 5,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 182,
+    "nodes": 371279
+   },
+   "scrollMid": {
+    "wallMs": 2102,
+    "taskMs": 805,
+    "scriptMs": 19,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 95,
+    "nodes": 371241
+   },
+   "scrollEnd": {
+    "wallMs": 1217,
+    "taskMs": 212,
+    "scriptMs": 25,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 185,
+    "nodes": 371241
+   },
+   "toSource": {
+    "wallMs": 6479,
+    "taskMs": 2566,
+    "scriptMs": 288,
+    "layoutMs": 7,
+    "layouts": 15,
+    "recalcs": 31,
+    "longestMs": 1431,
+    "nodes": 371327
+   },
+   "toRead": {
+    "wallMs": 7907,
+    "taskMs": 6719,
+    "scriptMs": 535,
+    "layoutMs": 3039,
+    "layouts": 9,
+    "recalcs": 25,
+    "longestMs": 5576,
+    "nodes": 371443
+   },
+   "reload": {
+    "wallMs": 134633,
+    "taskMs": 134129,
+    "scriptMs": 33218,
+    "layoutMs": 5172,
+    "layouts": 1136,
+    "recalcs": 1142,
+    "longestMs": 13928,
+    "nodes": 374845,
+    "neverQuiet": true
+   },
+   "find": {
+    "wallMs": 12435,
+    "taskMs": 10768,
+    "scriptMs": 3736,
+    "layoutMs": 57,
+    "layouts": 16,
+    "recalcs": 53,
+    "longestMs": 3711,
+    "nodes": 377470
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "code-ts",
+  "bytes": 1006322,
+  "name": "big-code-ts-1000k.ts",
+  "steps": {
+   "open": {
+    "firstMs": 141,
+    "completeMs": 187,
+    "openReturnMs": 174,
+    "busyUntilIdleMs": 1536,
+    "taskMs": 243,
+    "layouts": 17,
+    "longestMs": 146,
+    "nodes": 3437
+   },
+   "key": {
+    "wallMs": 1191,
+    "taskMs": 111,
+    "scriptMs": 37,
+    "layoutMs": 13,
+    "layouts": 9,
+    "recalcs": 12,
+    "longestMs": 0,
+    "nodes": 36046
+   },
+   "scrollMid": {
+    "wallMs": 1881,
+    "taskMs": 113,
+    "scriptMs": 28,
+    "layoutMs": 17,
+    "layouts": 11,
+    "recalcs": 16,
+    "longestMs": 0,
+    "nodes": 53786
+   },
+   "scrollEnd": {
+    "wallMs": 1264,
+    "taskMs": 48,
+    "scriptMs": 20,
+    "layoutMs": 5,
+    "layouts": 9,
+    "recalcs": 12,
+    "longestMs": 0,
+    "nodes": 54304
+   },
+   "toSource": {
+    "wallMs": 4656,
+    "taskMs": 1107,
+    "scriptMs": 700,
+    "layoutMs": 17,
+    "layouts": 19,
+    "recalcs": 47,
+    "longestMs": 143,
+    "nodes": 64033
+   },
+   "toRead": {
+    "wallMs": 2734,
+    "taskMs": 318,
+    "scriptMs": 66,
+    "layoutMs": 38,
+    "layouts": 18,
+    "recalcs": 66,
+    "longestMs": 77,
+    "nodes": 72391
+   },
+   "reload": {
+    "wallMs": 2191,
+    "taskMs": 438,
+    "scriptMs": 53,
+    "layoutMs": 18,
+    "layouts": 15,
+    "recalcs": 49,
+    "longestMs": 242,
+    "nodes": 81237
+   },
+   "find": {
+    "wallMs": 2082,
+    "taskMs": 624,
+    "scriptMs": 184,
+    "layoutMs": 90,
+    "layouts": 30,
+    "recalcs": 83,
+    "longestMs": 264,
+    "nodes": 94418
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "code-ts",
+  "bytes": 4906246,
+  "name": "big-code-ts-4900k.ts",
+  "steps": {
+   "open": {
+    "firstMs": 74,
+    "completeMs": 420,
+    "openReturnMs": 420,
+    "busyUntilIdleMs": 1761,
+    "taskMs": 435,
+    "layouts": 33,
+    "longestMs": 85,
+    "nodes": 5234
+   },
+   "key": {
+    "wallMs": 1132,
+    "taskMs": 11,
+    "scriptMs": 9,
+    "layoutMs": 0,
+    "layouts": 0,
+    "recalcs": 0,
+    "longestMs": 0,
+    "nodes": 5234
+   },
+   "scrollMid": {
+    "wallMs": 2094,
+    "taskMs": 3,
+    "scriptMs": 0,
+    "layoutMs": 0,
+    "layouts": 0,
+    "recalcs": 0,
+    "longestMs": 0,
+    "nodes": 5234
+   },
+   "scrollEnd": {
+    "wallMs": 2287,
+    "taskMs": 73,
+    "scriptMs": 0,
+    "layoutMs": 0,
+    "layouts": 0,
+    "recalcs": 0,
+    "longestMs": 0,
+    "nodes": 3002
+   },
+   "toSource": {
+    "wallMs": 2074,
+    "taskMs": 949,
+    "scriptMs": 15,
+    "layoutMs": 12,
+    "layouts": 14,
+    "recalcs": 110,
+    "longestMs": 707,
+    "nodes": 5288
+   },
+   "toRead": {
+    "wallMs": 1394,
+    "taskMs": 161,
+    "scriptMs": 73,
+    "layoutMs": 10,
+    "layouts": 7,
+    "recalcs": 11,
+    "longestMs": 66,
+    "nodes": 8208
+   },
+   "reload": {
+    "wallMs": 1759,
+    "taskMs": 581,
+    "scriptMs": 64,
+    "layoutMs": 7,
+    "layouts": 8,
+    "recalcs": 23,
+    "longestMs": 470,
+    "nodes": 10718
+   },
+   "find": {
+    "wallMs": 1657,
+    "taskMs": 298,
+    "scriptMs": 133,
+    "layoutMs": 58,
+    "layouts": 13,
+    "recalcs": 22,
+    "longestMs": 71,
+    "nodes": 17922
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "json-pretty",
+  "bytes": 1000023,
+  "name": "big-json-pretty-1000k.json",
+  "steps": {
+   "open": {
+    "firstMs": 291,
+    "completeMs": 1910,
+    "openReturnMs": 1910,
+    "busyUntilIdleMs": 3057,
+    "taskMs": 1933,
+    "layouts": 511,
+    "longestMs": 1632,
+    "nodes": 52364
+   },
+   "key": {
+    "wallMs": 1163,
+    "taskMs": 69,
+    "scriptMs": 11,
+    "layoutMs": 2,
+    "layouts": 2,
+    "recalcs": 5,
+    "longestMs": 0,
+    "nodes": 52407
+   },
+   "scrollMid": {
+    "wallMs": 1247,
+    "taskMs": 29,
+    "scriptMs": 3,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 52591
+   },
+   "scrollEnd": {
+    "wallMs": 1277,
+    "taskMs": 63,
+    "scriptMs": 7,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 60,
+    "nodes": 52591
+   },
+   "toSource": {
+    "wallMs": 2977,
+    "taskMs": 826,
+    "scriptMs": 325,
+    "layoutMs": 14,
+    "layouts": 19,
+    "recalcs": 45,
+    "longestMs": 285,
+    "nodes": 50309
+   },
+   "toRead": {
+    "wallMs": 3091,
+    "taskMs": 1894,
+    "scriptMs": 109,
+    "layoutMs": 210,
+    "layouts": 510,
+    "recalcs": 526,
+    "longestMs": 1789,
+    "nodes": 58428
+   },
+   "reload": {
+    "wallMs": 121477,
+    "taskMs": 121296,
+    "scriptMs": 22972,
+    "layoutMs": 4681,
+    "layouts": 961,
+    "recalcs": 11592,
+    "longestMs": 1030,
+    "nodes": 490166,
+    "neverQuiet": true
+   },
+   "find": {
+    "wallMs": 94184,
+    "taskMs": 93163,
+    "scriptMs": 18361,
+    "layoutMs": 3019,
+    "layouts": 642,
+    "recalcs": 3346,
+    "longestMs": 3676,
+    "nodes": 618407
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "json-pretty",
+  "bytes": 4900084,
+  "name": "big-json-pretty-4900k.json",
+  "steps": {
+   "open": {
+    "firstMs": 72,
+    "completeMs": 1924,
+    "openReturnMs": 1924,
+    "busyUntilIdleMs": 3215,
+    "taskMs": 1990,
+    "layouts": 522,
+    "longestMs": 1238,
+    "nodes": 51687
+   },
+   "key": {
+    "wallMs": 1108,
+    "taskMs": 37,
+    "scriptMs": 8,
+    "layoutMs": 1,
+    "layouts": 2,
+    "recalcs": 2,
+    "longestMs": 0,
+    "nodes": 51868
+   },
+   "scrollMid": {
+    "wallMs": 963,
+    "taskMs": 21,
+    "scriptMs": 2,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 51914
+   },
+   "scrollEnd": {
+    "wallMs": 943,
+    "taskMs": 12,
+    "scriptMs": 2,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 51914
+   },
+   "toSource": {
+    "wallMs": 1828,
+    "taskMs": 441,
+    "scriptMs": 160,
+    "layoutMs": 7,
+    "layouts": 15,
+    "recalcs": 38,
+    "longestMs": 164,
+    "nodes": 49725
+   },
+   "toRead": {
+    "wallMs": 2736,
+    "taskMs": 1518,
+    "scriptMs": 75,
+    "layoutMs": 174,
+    "layouts": 510,
+    "recalcs": 526,
+    "longestMs": 1448,
+    "nodes": 57844
+   },
+   "reload": {
+    "wallMs": 61864,
+    "taskMs": 60483,
+    "scriptMs": 3098,
+    "layoutMs": 1737,
+    "layouts": 1142,
+    "recalcs": 12448,
+    "longestMs": 562,
+    "nodes": 59367
+   },
+   "find": {
+    "wallMs": 2107,
+    "taskMs": 998,
+    "scriptMs": 181,
+    "layoutMs": 66,
+    "layouts": 32,
+    "recalcs": 69,
+    "longestMs": 271,
+    "nodes": 62307
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "json-minified",
+  "bytes": 1000050,
+  "name": "big-json-minified-1000k.json",
+  "steps": {
+   "open": {
+    "firstMs": 245,
+    "completeMs": 1302,
+    "openReturnMs": 1302,
+    "busyUntilIdleMs": 2382,
+    "taskMs": 1343,
+    "layouts": 11,
+    "longestMs": 1057,
+    "nodes": 48277
+   },
+   "key": {
+    "wallMs": 1183,
+    "taskMs": 43,
+    "scriptMs": 11,
+    "layoutMs": 1,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 48360
+   },
+   "scrollMid": {
+    "wallMs": 947,
+    "taskMs": 15,
+    "scriptMs": 2,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 48486
+   },
+   "scrollEnd": {
+    "wallMs": 925,
+    "taskMs": 10,
+    "scriptMs": 2,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 48486
+   },
+   "toSource": {
+    "wallMs": 1793,
+    "taskMs": 492,
+    "scriptMs": 251,
+    "layoutMs": 4,
+    "layouts": 16,
+    "recalcs": 38,
+    "longestMs": 100,
+    "nodes": 44314
+   },
+   "toRead": {
+    "wallMs": 2128,
+    "taskMs": 902,
+    "scriptMs": 87,
+    "layoutMs": 56,
+    "layouts": 10,
+    "recalcs": 26,
+    "longestMs": 830,
+    "nodes": 50149
+   },
+   "reload": {
+    "wallMs": 1834,
+    "taskMs": 643,
+    "scriptMs": 17,
+    "layoutMs": 281,
+    "layouts": 7,
+    "recalcs": 41,
+    "longestMs": 582,
+    "nodes": 51253
+   },
+   "find": {
+    "wallMs": 1501,
+    "taskMs": 209,
+    "scriptMs": 30,
+    "layoutMs": 48,
+    "layouts": 16,
+    "recalcs": 37,
+    "longestMs": 0,
+    "nodes": 56750
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "json-minified",
+  "bytes": 4900053,
+  "name": "big-json-minified-4900k.json",
+  "steps": {
+   "open": {
+    "firstMs": 98,
+    "completeMs": 1150,
+    "openReturnMs": 1150,
+    "busyUntilIdleMs": 2132,
+    "taskMs": 1183,
+    "layouts": 19,
+    "longestMs": 662,
+    "nodes": 48305
+   },
+   "key": {
+    "wallMs": 1108,
+    "taskMs": 28,
+    "scriptMs": 9,
+    "layoutMs": 1,
+    "layouts": 2,
+    "recalcs": 2,
+    "longestMs": 0,
+    "nodes": 48514
+   },
+   "scrollMid": {
+    "wallMs": 1235,
+    "taskMs": 28,
+    "scriptMs": 3,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 48514
+   },
+   "scrollEnd": {
+    "wallMs": 1263,
+    "taskMs": 13,
+    "scriptMs": 2,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 48514
+   },
+   "toSource": {
+    "wallMs": 1505,
+    "taskMs": 149,
+    "scriptMs": 40,
+    "layoutMs": 3,
+    "layouts": 16,
+    "recalcs": 38,
+    "longestMs": 82,
+    "nodes": 48769
+   },
+   "toRead": {
+    "wallMs": 1992,
+    "taskMs": 797,
+    "scriptMs": 66,
+    "layoutMs": 49,
+    "layouts": 10,
+    "recalcs": 26,
+    "longestMs": 753,
+    "nodes": 54604
+   },
+   "reload": {
+    "wallMs": 2750,
+    "taskMs": 1792,
+    "scriptMs": 27,
+    "layoutMs": 643,
+    "layouts": 11,
+    "recalcs": 60,
+    "longestMs": 1005,
+    "nodes": 46872
+   },
+   "find": {
+    "wallMs": 1217,
+    "taskMs": 193,
+    "scriptMs": 49,
+    "layoutMs": 69,
+    "layouts": 17,
+    "recalcs": 37,
+    "longestMs": 55,
+    "nodes": 52371
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "csv",
+  "bytes": 1000055,
+  "name": "big-csv-1000k.csv",
+  "steps": {
+   "open": {
+    "firstMs": 149,
+    "completeMs": 184,
+    "openReturnMs": 184,
+    "busyUntilIdleMs": 1151,
+    "taskMs": 196,
+    "layouts": 21,
+    "longestMs": 152,
+    "nodes": 8286
+   },
+   "key": {
+    "wallMs": 1139,
+    "taskMs": 11,
+    "scriptMs": 5,
+    "layoutMs": 1,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 8401
+   },
+   "scrollMid": {
+    "wallMs": 1246,
+    "taskMs": 30,
+    "scriptMs": 9,
+    "layoutMs": 3,
+    "layouts": 7,
+    "recalcs": 10,
+    "longestMs": 0,
+    "nodes": 9662
+   },
+   "scrollEnd": {
+    "wallMs": 942,
+    "taskMs": 19,
+    "scriptMs": 4,
+    "layoutMs": 2,
+    "layouts": 3,
+    "recalcs": 6,
+    "longestMs": 0,
+    "nodes": 10444
+   },
+   "toSource": {
+    "wallMs": 1917,
+    "taskMs": 198,
+    "scriptMs": 31,
+    "layoutMs": 5,
+    "layouts": 16,
+    "recalcs": 41,
+    "longestMs": 0,
+    "nodes": 3720
+   },
+   "toRead": {
+    "wallMs": 1029,
+    "taskMs": 64,
+    "scriptMs": 10,
+    "layoutMs": 8,
+    "layouts": 12,
+    "recalcs": 46,
+    "longestMs": 0,
+    "nodes": 6069
+   },
+   "reload": {
+    "wallMs": 1495,
+    "taskMs": 336,
+    "scriptMs": 31,
+    "layoutMs": 18,
+    "layouts": 18,
+    "recalcs": 60,
+    "longestMs": 241,
+    "nodes": 3106
+   },
+   "find": {
+    "wallMs": 1593,
+    "taskMs": 210,
+    "scriptMs": 32,
+    "layoutMs": 43,
+    "layouts": 19,
+    "recalcs": 46,
+    "longestMs": 0,
+    "nodes": 10365
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "csv",
+  "bytes": 4900007,
+  "name": "big-csv-4900k.csv",
+  "steps": {
+   "open": {
+    "firstMs": 77,
+    "completeMs": 282,
+    "openReturnMs": 282,
+    "busyUntilIdleMs": 1339,
+    "taskMs": 261,
+    "layouts": 34,
+    "longestMs": 0,
+    "nodes": 8323
+   },
+   "key": {
+    "wallMs": 1268,
+    "taskMs": 19,
+    "scriptMs": 9,
+    "layoutMs": 1,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 8438
+   },
+   "scrollMid": {
+    "wallMs": 1275,
+    "taskMs": 40,
+    "scriptMs": 14,
+    "layoutMs": 4,
+    "layouts": 7,
+    "recalcs": 10,
+    "longestMs": 0,
+    "nodes": 9699
+   },
+   "scrollEnd": {
+    "wallMs": 2560,
+    "taskMs": 125,
+    "scriptMs": 5,
+    "layoutMs": 2,
+    "layouts": 3,
+    "recalcs": 6,
+    "longestMs": 0,
+    "nodes": 3238
+   },
+   "toSource": {
+    "wallMs": 1554,
+    "taskMs": 204,
+    "scriptMs": 77,
+    "layoutMs": 5,
+    "layouts": 16,
+    "recalcs": 41,
+    "longestMs": 83,
+    "nodes": 3519
+   },
+   "toRead": {
+    "wallMs": 1275,
+    "taskMs": 113,
+    "scriptMs": 8,
+    "layoutMs": 9,
+    "layouts": 11,
+    "recalcs": 45,
+    "longestMs": 89,
+    "nodes": 5868
+   },
+   "reload": {
+    "wallMs": 1870,
+    "taskMs": 566,
+    "scriptMs": 56,
+    "layoutMs": 29,
+    "layouts": 28,
+    "recalcs": 145,
+    "longestMs": 404,
+    "nodes": 14311
+   },
+   "find": {
+    "wallMs": 1535,
+    "taskMs": 357,
+    "scriptMs": 49,
+    "layoutMs": 44,
+    "layouts": 26,
+    "recalcs": 70,
+    "longestMs": 0,
+    "nodes": 21502
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "jsonl",
+  "bytes": 1000017,
+  "name": "big-jsonl-1000k.jsonl",
+  "steps": {
+   "open": {
+    "firstMs": 75,
+    "completeMs": 150,
+    "openReturnMs": 150,
+    "busyUntilIdleMs": 1155,
+    "taskMs": 163,
+    "layouts": 30,
+    "longestMs": 82,
+    "nodes": 5695
+   },
+   "key": {
+    "wallMs": 1118,
+    "taskMs": 7,
+    "scriptMs": 3,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 5810
+   },
+   "scrollMid": {
+    "wallMs": 1245,
+    "taskMs": 30,
+    "scriptMs": 12,
+    "layoutMs": 2,
+    "layouts": 5,
+    "recalcs": 8,
+    "longestMs": 0,
+    "nodes": 6539
+   },
+   "scrollEnd": {
+    "wallMs": 1260,
+    "taskMs": 17,
+    "scriptMs": 4,
+    "layoutMs": 2,
+    "layouts": 2,
+    "recalcs": 5,
+    "longestMs": 0,
+    "nodes": 6982
+   },
+   "toSource": {
+    "wallMs": 2167,
+    "taskMs": 484,
+    "scriptMs": 107,
+    "layoutMs": 9,
+    "layouts": 18,
+    "recalcs": 46,
+    "longestMs": 126,
+    "nodes": 3658
+   },
+   "toRead": {
+    "wallMs": 1315,
+    "taskMs": 58,
+    "scriptMs": 7,
+    "layoutMs": 6,
+    "layouts": 13,
+    "recalcs": 47,
+    "longestMs": 0,
+    "nodes": 4990
+   },
+   "reload": {
+    "wallMs": 1439,
+    "taskMs": 256,
+    "scriptMs": 30,
+    "layoutMs": 23,
+    "layouts": 27,
+    "recalcs": 101,
+    "longestMs": 131,
+    "nodes": 3900
+   },
+   "find": {
+    "wallMs": 1633,
+    "taskMs": 191,
+    "scriptMs": 33,
+    "layoutMs": 36,
+    "layouts": 19,
+    "recalcs": 46,
+    "longestMs": 0,
+    "nodes": 10422
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "jsonl",
+  "bytes": 4900061,
+  "name": "big-jsonl-4900k.jsonl",
+  "steps": {
+   "open": {
+    "firstMs": 80,
+    "completeMs": 286,
+    "openReturnMs": 286,
+    "busyUntilIdleMs": 1378,
+    "taskMs": 298,
+    "layouts": 40,
+    "longestMs": 0,
+    "nodes": 5735
+   },
+   "key": {
+    "wallMs": 1159,
+    "taskMs": 15,
+    "scriptMs": 5,
+    "layoutMs": 2,
+    "layouts": 2,
+    "recalcs": 5,
+    "longestMs": 0,
+    "nodes": 5774
+   },
+   "scrollMid": {
+    "wallMs": 1439,
+    "taskMs": 46,
+    "scriptMs": 22,
+    "layoutMs": 3,
+    "layouts": 5,
+    "recalcs": 8,
+    "longestMs": 0,
+    "nodes": 6579
+   },
+   "scrollEnd": {
+    "wallMs": 1340,
+    "taskMs": 15,
+    "scriptMs": 4,
+    "layoutMs": 1,
+    "layouts": 2,
+    "recalcs": 5,
+    "longestMs": 0,
+    "nodes": 7022
+   },
+   "toSource": {
+    "wallMs": 2005,
+    "taskMs": 168,
+    "scriptMs": 70,
+    "layoutMs": 6,
+    "layouts": 16,
+    "recalcs": 42,
+    "longestMs": 75,
+    "nodes": 7507
+   },
+   "toRead": {
+    "wallMs": 1410,
+    "taskMs": 167,
+    "scriptMs": 10,
+    "layoutMs": 6,
+    "layouts": 13,
+    "recalcs": 47,
+    "longestMs": 74,
+    "nodes": 2427
+   },
+   "reload": {
+    "wallMs": 1791,
+    "taskMs": 601,
+    "scriptMs": 53,
+    "layoutMs": 25,
+    "layouts": 28,
+    "recalcs": 117,
+    "longestMs": 304,
+    "nodes": 2434
+   },
+   "find": {
+    "wallMs": 1819,
+    "taskMs": 391,
+    "scriptMs": 63,
+    "layoutMs": 48,
+    "layouts": 28,
+    "recalcs": 73,
+    "longestMs": 0,
+    "nodes": 8973
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "log",
+  "bytes": 1000050,
+  "name": "big-log-1000k.log",
+  "steps": {
+   "open": {
+    "firstMs": 58,
+    "completeMs": 95,
+    "openReturnMs": 79,
+    "busyUntilIdleMs": 1755,
+    "taskMs": 176,
+    "layouts": 23,
+    "longestMs": 60,
+    "nodes": 7583
+   },
+   "key": {
+    "wallMs": 1116,
+    "taskMs": 15,
+    "scriptMs": 3,
+    "layoutMs": 1,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 7736
+   },
+   "scrollMid": {
+    "wallMs": 1258,
+    "taskMs": 89,
+    "scriptMs": 21,
+    "layoutMs": 15,
+    "layouts": 5,
+    "recalcs": 10,
+    "longestMs": 0,
+    "nodes": 12576
+   },
+   "scrollEnd": {
+    "wallMs": 1272,
+    "taskMs": 85,
+    "scriptMs": 20,
+    "layoutMs": 11,
+    "layouts": 5,
+    "recalcs": 10,
+    "longestMs": 0,
+    "nodes": 16898
+   },
+   "toSource": {
+    "wallMs": 2542,
+    "taskMs": 252,
+    "scriptMs": 41,
+    "layoutMs": 8,
+    "layouts": 17,
+    "recalcs": 43,
+    "longestMs": 70,
+    "nodes": 8301
+   },
+   "toRead": {
+    "wallMs": 1283,
+    "taskMs": 69,
+    "scriptMs": 13,
+    "layoutMs": 10,
+    "layouts": 11,
+    "recalcs": 27,
+    "longestMs": 0,
+    "nodes": 8599
+   },
+   "reload": {
+    "wallMs": 1427,
+    "taskMs": 269,
+    "scriptMs": 35,
+    "layoutMs": 31,
+    "layouts": 23,
+    "recalcs": 72,
+    "longestMs": 122,
+    "nodes": 14119
+   },
+   "find": {
+    "wallMs": 1716,
+    "taskMs": 342,
+    "scriptMs": 59,
+    "layoutMs": 68,
+    "layouts": 23,
+    "recalcs": 62,
+    "longestMs": 108,
+    "nodes": 14496
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "log",
+  "bytes": 4900044,
+  "name": "big-log-4900k.log",
+  "steps": {
+   "open": {
+    "firstMs": 79,
+    "completeMs": 359,
+    "openReturnMs": 294,
+    "busyUntilIdleMs": 2437,
+    "taskMs": 487,
+    "layouts": 45,
+    "longestMs": 0,
+    "nodes": 8252
+   },
+   "key": {
+    "wallMs": 1135,
+    "taskMs": 27,
+    "scriptMs": 8,
+    "layoutMs": 1,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 8367
+   },
+   "scrollMid": {
+    "wallMs": 1293,
+    "taskMs": 120,
+    "scriptMs": 32,
+    "layoutMs": 17,
+    "layouts": 5,
+    "recalcs": 10,
+    "longestMs": 0,
+    "nodes": 13245
+   },
+   "scrollEnd": {
+    "wallMs": 1284,
+    "taskMs": 103,
+    "scriptMs": 18,
+    "layoutMs": 13,
+    "layouts": 4,
+    "recalcs": 9,
+    "longestMs": 0,
+    "nodes": 18047
+   },
+   "toSource": {
+    "wallMs": 1453,
+    "taskMs": 202,
+    "scriptMs": 90,
+    "layoutMs": 6,
+    "layouts": 17,
+    "recalcs": 42,
+    "longestMs": 87,
+    "nodes": 9576
+   },
+   "toRead": {
+    "wallMs": 1338,
+    "taskMs": 120,
+    "scriptMs": 11,
+    "layoutMs": 10,
+    "layouts": 11,
+    "recalcs": 27,
+    "longestMs": 81,
+    "nodes": 9894
+   },
+   "reload": {
+    "wallMs": 1429,
+    "taskMs": 373,
+    "scriptMs": 65,
+    "layoutMs": 33,
+    "layouts": 22,
+    "recalcs": 71,
+    "longestMs": 168,
+    "nodes": 15894
+   },
+   "find": {
+    "wallMs": 1612,
+    "taskMs": 361,
+    "scriptMs": 79,
+    "layoutMs": 57,
+    "layouts": 27,
+    "recalcs": 66,
+    "longestMs": 148,
+    "nodes": 22060
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "diff",
+  "bytes": 1000131,
+  "name": "big-diff-1000k.diff",
+  "steps": {
+   "open": {
+    "firstMs": 52,
+    "completeMs": 111,
+    "openReturnMs": 77,
+    "busyUntilIdleMs": 1452,
+    "taskMs": 205,
+    "layouts": 35,
+    "longestMs": 56,
+    "nodes": 5863
+   },
+   "key": {
+    "wallMs": 1131,
+    "taskMs": 10,
+    "scriptMs": 4,
+    "layoutMs": 0,
+    "layouts": 2,
+    "recalcs": 2,
+    "longestMs": 0,
+    "nodes": 5978
+   },
+   "scrollMid": {
+    "wallMs": 1237,
+    "taskMs": 79,
+    "scriptMs": 16,
+    "layoutMs": 5,
+    "layouts": 12,
+    "recalcs": 15,
+    "longestMs": 0,
+    "nodes": 4203
+   },
+   "scrollEnd": {
+    "wallMs": 1280,
+    "taskMs": 53,
+    "scriptMs": 18,
+    "layoutMs": 5,
+    "layouts": 17,
+    "recalcs": 22,
+    "longestMs": 0,
+    "nodes": 6418
+   },
+   "toSource": {
+    "wallMs": 1579,
+    "taskMs": 157,
+    "scriptMs": 56,
+    "layoutMs": 6,
+    "layouts": 16,
+    "recalcs": 43,
+    "longestMs": 64,
+    "nodes": 7343
+   },
+   "toRead": {
+    "wallMs": 1309,
+    "taskMs": 147,
+    "scriptMs": 10,
+    "layoutMs": 7,
+    "layouts": 15,
+    "recalcs": 31,
+    "longestMs": 60,
+    "nodes": 5908
+   },
+   "reload": {
+    "wallMs": 1371,
+    "taskMs": 261,
+    "scriptMs": 44,
+    "layoutMs": 14,
+    "layouts": 31,
+    "recalcs": 94,
+    "longestMs": 104,
+    "nodes": 8776
+   },
+   "find": {
+    "wallMs": 1576,
+    "taskMs": 253,
+    "scriptMs": 51,
+    "layoutMs": 40,
+    "layouts": 26,
+    "recalcs": 79,
+    "longestMs": 85,
+    "nodes": 15895
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "diff",
+  "bytes": 4900026,
+  "name": "big-diff-4900k.diff",
+  "steps": {
+   "open": {
+    "firstMs": 101,
+    "completeMs": 8298,
+    "openReturnMs": 282,
+    "busyUntilIdleMs": 9851,
+    "taskMs": 8507,
+    "layouts": 393,
+    "longestMs": 68,
+    "nodes": 5770
+   },
+   "key": {
+    "wallMs": 1205,
+    "taskMs": 41,
+    "scriptMs": 13,
+    "layoutMs": 2,
+    "layouts": 2,
+    "recalcs": 2,
+    "longestMs": 0,
+    "nodes": 5885
+   },
+   "scrollMid": {
+    "wallMs": 1538,
+    "taskMs": 133,
+    "scriptMs": 65,
+    "layoutMs": 12,
+    "layouts": 10,
+    "recalcs": 13,
+    "longestMs": 87,
+    "nodes": 6737
+   },
+   "scrollEnd": {
+    "wallMs": 1759,
+    "taskMs": 519,
+    "scriptMs": 193,
+    "layoutMs": 16,
+    "layouts": 13,
+    "recalcs": 18,
+    "longestMs": 230,
+    "nodes": 7575
+   },
+   "toSource": {
+    "wallMs": 2198,
+    "taskMs": 328,
+    "scriptMs": 138,
+    "layoutMs": 9,
+    "layouts": 15,
+    "recalcs": 39,
+    "longestMs": 164,
+    "nodes": 8237
+   },
+   "toRead": {
+    "wallMs": 1672,
+    "taskMs": 626,
+    "scriptMs": 25,
+    "layoutMs": 19,
+    "layouts": 15,
+    "recalcs": 31,
+    "longestMs": 340,
+    "nodes": 7670
+   },
+   "reload": {
+    "wallMs": 2014,
+    "taskMs": 752,
+    "scriptMs": 79,
+    "layoutMs": 42,
+    "layouts": 52,
+    "recalcs": 88,
+    "longestMs": 390,
+    "nodes": 9092
+   },
+   "find": {
+    "wallMs": 1885,
+    "taskMs": 431,
+    "scriptMs": 92,
+    "layoutMs": 47,
+    "layouts": 27,
+    "recalcs": 66,
+    "longestMs": 193,
+    "nodes": 15539
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "html",
+  "bytes": 1000154,
+  "name": "big-html-1000k.html",
+  "steps": {
+   "open": {
+    "firstMs": 222,
+    "completeMs": 1368,
+    "openReturnMs": 1368,
+    "busyUntilIdleMs": 2652,
+    "taskMs": 734,
+    "layouts": 26,
+    "longestMs": 221,
+    "nodes": 95399
+   },
+   "key": {
+    "wallMs": 1093,
+    "taskMs": 6,
+    "scriptMs": 4,
+    "layoutMs": 0,
+    "layouts": 0,
+    "recalcs": 0,
+    "longestMs": 0,
+    "nodes": 95399
+   },
+   "scrollMid": {
+    "wallMs": 948,
+    "taskMs": 1,
+    "scriptMs": 0,
+    "layoutMs": 0,
+    "layouts": 0,
+    "recalcs": 0,
+    "longestMs": 0,
+    "nodes": 95399
+   },
+   "scrollEnd": {
+    "wallMs": 919,
+    "taskMs": 1,
+    "scriptMs": 0,
+    "layoutMs": 0,
+    "layouts": 0,
+    "recalcs": 0,
+    "longestMs": 0,
+    "nodes": 95399
+   },
+   "toSource": {
+    "wallMs": 1722,
+    "taskMs": 488,
+    "scriptMs": 89,
+    "layoutMs": 4,
+    "layouts": 12,
+    "recalcs": 36,
+    "longestMs": 238,
+    "nodes": 42383
+   },
+   "toRead": {
+    "wallMs": 1263,
+    "taskMs": 223,
+    "scriptMs": 8,
+    "layoutMs": 99,
+    "layouts": 8,
+    "recalcs": 9,
+    "longestMs": 154,
+    "nodes": 49062
+   },
+   "reload": {
+    "wallMs": 1682,
+    "taskMs": 627,
+    "scriptMs": 6,
+    "layoutMs": 83,
+    "layouts": 9,
+    "recalcs": 12,
+    "longestMs": 438,
+    "nodes": 96922
+   },
+   "find": {
+    "wallMs": 1131,
+    "taskMs": 44,
+    "scriptMs": 12,
+    "layoutMs": 7,
+    "layouts": 11,
+    "recalcs": 19,
+    "longestMs": 0,
+    "nodes": 96969
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "html",
+  "bytes": 4900118,
+  "name": "big-html-4900k.html",
+  "steps": {
+   "open": {
+    "firstMs": 888,
+    "completeMs": 1104,
+    "openReturnMs": 1104,
+    "busyUntilIdleMs": 4414,
+    "taskMs": 3364,
+    "layouts": 33,
+    "longestMs": 878,
+    "nodes": 230050
+   },
+   "key": {
+    "wallMs": 1098,
+    "taskMs": 5,
+    "scriptMs": 3,
+    "layoutMs": 0,
+    "layouts": 0,
+    "recalcs": 0,
+    "longestMs": 0,
+    "nodes": 230050
+   },
+   "scrollMid": {
+    "wallMs": 936,
+    "taskMs": 1,
+    "scriptMs": 0,
+    "layoutMs": 0,
+    "layouts": 0,
+    "recalcs": 0,
+    "longestMs": 0,
+    "nodes": 230050
+   },
+   "scrollEnd": {
+    "wallMs": 938,
+    "taskMs": 1,
+    "scriptMs": 0,
+    "layoutMs": 0,
+    "layouts": 0,
+    "recalcs": 0,
+    "longestMs": 0,
+    "nodes": 230050
+   },
+   "toSource": {
+    "wallMs": 1895,
+    "taskMs": 566,
+    "scriptMs": 63,
+    "layoutMs": 3,
+    "layouts": 11,
+    "recalcs": 31,
+    "longestMs": 423,
+    "nodes": 230325
+   },
+   "toRead": {
+    "wallMs": 4210,
+    "taskMs": 2948,
+    "scriptMs": 10,
+    "layoutMs": 1569,
+    "layouts": 14,
+    "recalcs": 15,
+    "longestMs": 813,
+    "nodes": 459105
+   },
+   "reload": {
+    "wallMs": 6296,
+    "taskMs": 5302,
+    "scriptMs": 8,
+    "layoutMs": 1250,
+    "layouts": 14,
+    "recalcs": 16,
+    "longestMs": 2745,
+    "nodes": 656214
+   },
+   "find": {
+    "wallMs": 1247,
+    "taskMs": 66,
+    "scriptMs": 20,
+    "layoutMs": 9,
+    "layouts": 11,
+    "recalcs": 19,
+    "longestMs": 0,
+    "nodes": 656261
+   }
+  },
+  "errors": []
+ }
+]

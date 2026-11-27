@@ -1,0 +1,335 @@
+Docs.rs
+
+ropey-1.6.1
+
+ropey 1.6.1
+
+Permalink
+
+Docs.rs crate page
+
+MIT
+
+18 October 2026
+
+Links
+
+Repository
+
+crates.io
+
+Source
+
+Owners
+
+cessen
+
+archseer
+
+pascalkuthe
+
+Dependencies
+
+smallvec ^1.0.0
+
+normal
+
+str_indices ^0.4
+
+normal
+
+criterion ^0.3
+
+dev
+
+fnv ^1
+
+dev
+
+fxhash ^0.2
+
+dev
+
+proptest ^1.0
+
+dev
+
+rand ^0.8
+
+dev
+
+unicode-segmentation ^1.3
+
+dev
+
+Versions
+
+100%
+of the crate is documented
+
+Platform
+
+x86_64-unknown-linux-gnu
+
+Feature flags
+
+docs.rs
+
+About docs.rs
+
+Badges
+
+Builds
+
+Metadata
+
+Shorthand URLs
+
+Download
+
+Rustdoc JSON
+
+Build queue
+
+Privacy policy
+
+Rust
+
+Rust website
+
+The Book
+
+Standard Library API Reference
+
+Rust by Example
+
+The Cargo Guide
+
+Clippy Documentation
+
+Skip to main content
+Crate ropey
+
+ropey1.6.1
+
+All Items
+
+Sections
+
+A Basic Example
+
+Low-level APIs
+
+A Note About Line Breaks
+
+A Note About SIMD Acceleration
+
+Crate Items
+
+Modules
+
+Structs
+
+Enums
+
+Type Aliases
+
+Crate ropey Copy item path
+Source
+Expand description
+
+Ropey is a utf8 text rope for Rust. It is fast, robust, and can handle
+huge texts and memory-incoherent edits with ease.
+
+Ropey’s atomic unit of text is Unicode scalar values (or chars in Rust)
+encoded as utf8. All of Ropey’s editing and slicing operations are done
+in terms of char indices, which prevents accidental creation of invalid
+utf8 data.
+
+The library is made up of four main components:
+
+Rope: the main rope type.
+
+RopeSlice: an immutable view into part of a
+Rope.
+
+iter: iterators over Rope/RopeSlice data.
+
+RopeBuilder: an efficient incremental
+Rope builder.
+
+§A Basic Example
+
+Let’s say we want to open up a text file, replace the 516th line (the
+writing was terrible!), and save it back to disk. It’s contrived, but will
+give a good sampling of the APIs and how they work together.
+
+use std::fs::File;
+use std::io::{BufReader, BufWriter};
+use ropey::Rope;
+
+// Load a text file.
+let mut text = Rope::from_reader(
+BufReader::new(File::open("my_great_book.txt")?)
+)?;
+
+// Print the 516th line (zero-indexed) to see the terrible
+// writing.
+println!("{}", text.line(515));
+
+// Get the start/end char indices of the line.
+let start_idx = text.line_to_char(515);
+let end_idx = text.line_to_char(516);
+
+// Remove the line...
+text.remove(start_idx..end_idx);
+
+// ...and replace it with something better.
+text.insert(start_idx, "The flowers are... so... dunno.\n");
+
+// Print the changes, along with the previous few lines for context.
+let start_idx = text.line_to_char(511);
+let end_idx = text.line_to_char(516);
+println!("{}", text.slice(start_idx..end_idx));
+
+// Write the file back out to disk.
+text.write_to(
+BufWriter::new(File::create("my_great_book.txt")?)
+)?;
+
+More examples can be found in the examples directory of the git
+repository. Many of those examples demonstrate doing non-trivial things
+with Ropey such as grapheme handling, search-and-replace, and streaming
+loading of non-utf8 text files.
+
+§Low-level APIs
+
+Ropey also provides access to some of its low-level APIs, enabling client
+code to efficiently work with a Rope’s data and implement new
+functionality. The most important of those API’s are:
+
+The chunk_at_*()
+chunk-fetching methods of Rope and RopeSlice.
+
+The Chunks iterator.
+
+The functions in str_utils for operating on
+&str slices.
+
+Internally, each Rope stores text as a segemented collection of utf8
+strings. The chunk-fetching methods and Chunks iterator provide direct
+access to those strings (or “chunks”) as &str slices, allowing client
+code to work directly with the underlying utf8 data.
+
+The chunk-fetching methods and str_utils functions are the basic
+building blocks that Ropey itself uses to build much of its functionality.
+For example, the Rope::byte_to_char()
+method can be reimplemented as a free function like this:
+
+use ropey::{
+Rope,
+str_utils::byte_to_char_idx
+};
+
+fn byte_to_char(rope: &Rope, byte_idx: usize) -> usize {
+let (chunk, b, c, _) = rope.chunk_at_byte(byte_idx);
+c + byte_to_char_idx(chunk, byte_idx - b)
+}
+
+And this will be just as efficient as Ropey’s implementation.
+
+The chunk-fetching methods in particular are among the fastest functions
+that Ropey provides, generally operating in the sub-hundred nanosecond
+range for medium-sized (~200kB) documents on recent-ish computer systems.
+
+§A Note About Line Breaks
+
+Some of Ropey’s APIs use the concept of line breaks or lines of text.
+
+Ropey considers the start of the rope and positions immediately
+after line breaks to be the start of new lines. And it treats
+line breaks as being a part of the lines they mark the end of.
+
+For example, the rope "Hello" has a single line: "Hello". The
+rope "Hello\nworld" has two lines: "Hello\n" and "world". And
+the rope "Hello\nworld\n" has three lines: "Hello\n",
+"world\n", and "".
+
+Ropey can be configured at build time via feature flags to recognize
+different line breaks. Ropey always recognizes:
+
+U+000A — LF (Line Feed)
+
+U+000D U+000A — CRLF (Carriage Return + Line Feed)
+
+With the cr_lines feature, the following are also recognized:
+
+U+000D — CR (Carriage Return)
+
+With the unicode_lines feature, in addition to all of the
+above, the following are also recognized (bringing Ropey into
+conformance with
+Unicode Annex #14):
+
+U+000B — VT (Vertical Tab)
+
+U+000C — FF (Form Feed)
+
+U+0085 — NEL (Next Line)
+
+U+2028 — Line Separator
+
+U+2029 — Paragraph Separator
+
+(Note: unicode_lines is enabled by default, and always implies
+cr_lines.)
+
+CRLF pairs are always treated as a single line break, and are never split
+across chunks. Note, however, that slicing can still split them.
+
+§A Note About SIMD Acceleration
+
+Ropey has a simd feature flag (enabled by default) that enables
+explicit SIMD on supported platforms to improve performance.
+
+There is a bit of a footgun here: if you disable default features to
+configure line break behavior (as per the section above) then SIMD
+will also get disabled, and performance will suffer. So be careful
+to explicitly re-enable the simd feature flag (if desired) when
+doing that.
+
+Modules§
+
+iter
+
+Iterators over a Rope’s data.
+
+str_utils
+
+Utility functions for utf8 string slices.
+
+Structs§
+
+Rope
+
+A utf8 text rope.
+
+RopeBuilder
+
+An efficient incremental Rope builder.
+
+RopeSlice
+
+An immutable view into part of a Rope.
+
+Enums§
+
+Error
+
+Ropey’s error type.
+
+Type Aliases§
+
+Result
+
+Ropey’s result type.

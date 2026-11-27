@@ -1,0 +1,266 @@
+Commit
+de3ea3cb
+
+authored
+May 18, 2021
+by
+
+Brett Walker
+
+Browse files
+
+Truncate all non-blob markdown to 1MB by default
+
+and prepend a user message if the limit is over a
+certain threshold
+
+Changelog: security
+
+parent
+2bc7e57c
+
+Loading
+
+Loading
+
+Loading
+
+Loading
+
+app/helpers/markup_helper.rb
+
++1
+
+Changes for app/helpers/markup_helper.rb: 1 added line, 0 removed lines.
+
+Original line number
+Diff line number
+Diff line
+
+Loading
+
+@@ -118,6 +118,7 @@ def markdown_field(object, field, context = {})
+
+def markup(file_name, text, context = {})
+
+context[:project] ||= @project
+
+context[:text_source] ||= :blob
+
+html = context.delete(:rendered) || markup_unsafe(file_name, text, context)
+
+prepare_for_rendering(html, context)
+
+end
+
+Loading
+
+lib/banzai/filter/truncate_source_filter.rb
+
++19
+−2
+
+Changes for lib/banzai/filter/truncate_source_filter.rb: 19 added lines, 2 removed lines.
+
+Original line number
+Diff line number
+Diff line
+
+Loading
+
+@@ -3,12 +3,29 @@
+
+module Banzai
+
+module Filter
+
+class TruncateSourceFilter < HTML::Pipeline::TextFilter
+
+CHARACTER_COUNT_LIMIT = 1.megabyte
+
+USER_MSG_LIMIT = 10_000
+
+def call
+
+return text unless context.key?(:limit)
+
+# don't truncate if it's a :blob and no limit is set
+
+return text if context[:text_source] == :blob && !context.key?(:limit)
+
+limit = context[:limit] || CHARACTER_COUNT_LIMIT
+
+# no sense in allowing `truncate_bytes` to duplicate a large
+
+# string unless it's too big
+
+return text if text.bytesize <= limit
+
+# Use three dots instead of the ellipsis Unicode character because
+
+# some clients show the raw Unicode value in the merge commit.
+
+text.truncate_bytes(context[:limit], omission: '...')
+
+trunc = text.truncate_bytes(limit, omission: '...')
+
+# allows us to indicate to the user that what they see is a truncated copy
+
+if limit > USER_MSG_LIMIT
+
+trunc.prepend("_The text is longer than #{limit} characters and has been visually truncated._\n\n")
+
+end
+
+trunc
+
+end
+
+end
+
+end
+
+Loading
+
+spec/helpers/markup_helper_spec.rb
+
++7
+
+Changes for spec/helpers/markup_helper_spec.rb: 7 added lines, 0 removed lines.
+
+Original line number
+Diff line number
+Diff line
+
+Loading
+
+@@ -418,6 +418,13 @@
+
+describe '#markup' do
+
+let(:content) { 'Noël' }
+
+it 'sets the :text_source to :blob in the context' do
+
+context = {}
+
+helper.markup('foo.md', content, context)
+
+expect(context).to include(text_source: :blob)
+
+end
+
+it 'preserves encoding' do
+
+expect(content.encoding.name).to eq('UTF-8')
+
+expect(helper.markup('foo.rst', content).encoding.name).to eq('UTF-8')
+
+Loading
+
+spec/lib/banzai/filter/truncate_source_filter_spec.rb
+
++45
+−1
+
+Changes for spec/lib/banzai/filter/truncate_source_filter_spec.rb: 45 added lines, 1 removed line.
+
+Original line number
+Diff line number
+Diff line
+
+Loading
+
+@@ -8,12 +8,55 @@
+
+let(:short_text) { 'foo' * 10 }
+
+let(:long_text) { ([short_text] * 10).join(' ') }
+
+before do
+
+stub_const("#{described_class}::CHARACTER_COUNT_LIMIT", 50)
+
+stub_const("#{described_class}::USER_MSG_LIMIT", 20)
+
+end
+
+context 'when markdown belongs to a blob' do
+
+it 'does nothing when limit is unspecified' do
+
+output = filter(long_text)
+
+output = filter(long_text, text_source: :blob)
+
+expect(output).to eq(long_text)
+
+end
+
+it 'truncates normally when limit specified' do
+
+truncated = 'foofoof...'
+
+output = filter(long_text, text_source: :blob, limit: 10)
+
+expect(output).to eq(truncated)
+
+end
+
+end
+
+context 'when markdown belongs to a field (non-blob)' do
+
+it 'does nothing when limit is greater' do
+
+output = filter(long_text, limit: 1.megabyte)
+
+expect(output).to eq(long_text)
+
+end
+
+it 'truncates to the default when limit is unspecified' do
+
+stub_const("#{described_class}::USER_MSG_LIMIT", 200)
+
+truncated = 'foofoofoofoofoofoofoofoofoofoo foofoofoofoofoof...'
+
+output = filter(long_text)
+
+expect(output).to eq(truncated)
+
+end
+
+it 'prepends the user message' do
+
+truncated = <<~TEXT
+
+_The text is longer than 50 characters and has been visually truncated._
+
+foofoofoofoofoofoofoofoofoofoo foofoofoofoofoof...
+
+TEXT
+
+output = filter(long_text)
+
+expect(output).to eq(truncated.strip)
+
+end
+
+it 'does nothing to a short-enough text' do
+
+output = filter(short_text, limit: short_text.bytesize)
+
+Loading
+
+@@ -29,3 +72,4 @@
+
+expect(filter(utf8_text, limit: utf8_text.mb_chars.size)).not_to eq(utf8_text)
+
+end
+
+end
+
+end
+
+Loading

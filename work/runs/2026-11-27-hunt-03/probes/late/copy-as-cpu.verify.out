@@ -1,0 +1,8 @@
+ 7:02  up 1 day, 10:20, 1 user, load averages: 33.99 130.44 126.28
+md-prose 1000000 parse cpu 600 wall 2538 slack:cpu637ms/wall2873ms html:cpu151ms/wall629ms rich:cpu136ms/wall628ms
+md-prose 2000000 parse cpu 1262 wall 4964 slack:cpu1091ms/wall3655ms html:cpu223ms/wall662ms rich:cpu192ms/wall529ms
+md-prose 4900000 parse cpu 2658 wall 8022 slack:cpu2911ms/wall11426ms html:cpu641ms/wall3468ms rich:cpu693ms/wall4087ms
+md-technical 1000000 parse cpu 1057 wall 3879 slack:cpu1066ms/wall3584ms html:cpu299ms/wall1086ms rich:cpu234ms/wall849ms
+md-technical 2000000 parse cpu 2117 wall 7168 slack:cpu2992ms/wall12512ms html:cpu689ms/wall2749ms rich:cpu571ms/wall2276ms
+md-technical 4900000 parse cpu 7008 wall 29539 slack:cpu6162ms/wall19505ms html:cpu1264ms/wall3722ms rich:cpu1380ms/wall4175ms
+ 7:05  up 1 day, 10:23, 1 user, load averages: 29.51 93.21 111.85

@@ -1,0 +1,7 @@
+ 3:03  up 1 day,  6:21, 1 user, load averages: 24.94 37.32 45.67
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/EDT/copy-as-menu.verify.mjs --browser chromium
+250000 {"menu":"RecentPostgres 14 → 16 upgrade plandemo/plans/pg16-upgrade-plan.md3ySuggestedFin","notice":"Copied as Markdown","wallMs":1194,"taskMs":359,"scriptMs":7,"longtasksMs":[272]}
+500000 {"menu":"Openbig-md-prose-250k.md/demo/big-md-prose-250k.mdRecentPostgres 14 → 16 upgrade","notice":"Copied as Markdown","wallMs":1330,"taskMs":546,"scriptMs":8,"longtasksMs":[459,459]}
+1000000 {"menu":"Openbig-md-prose-250k.md/demo/big-md-prose-250k.mdbig-md-prose-500k.md/demo/big-","notice":"Copied as Markdown","wallMs":1905,"taskMs":1322,"scriptMs":10,"longtasksMs":[1023,1023,1023]}
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1103
+ 3:04  up 1 day,  6:22, 1 user, load averages: 40.98 39.50 45.98

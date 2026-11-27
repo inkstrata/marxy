@@ -1,0 +1,95 @@
+discuss.CodeMirror
+
+syntax highlighting not working on large documents
+
+v6
+
+pondorasti
+
+December 16, 2023, 1:49am
+
+1
+
+I’m trying to get syntax highlighting working for relatively large documents (1-2k LOC, max 5k LOC). I’ve noticed that the current behavior of the tokenizer is to always give up after a couple hundred LOC. This results in a lot of unstyled snippets.
+
+I put together a reproduction at cm-large-files-repro.vercel.app along with a public repository.
+
+In my case, I’m prioritizing accuracy over performance. The editor is always set to be readonly and having a initial slower load is fine. Is there a way to set a scanLimit, similar to what you did with the @codemirror/merge editor? Or any other way to workaround the lazy tokenizer?
+
+Thanks!
+
+marijn
+
+December 18, 2023, 6:20am
+
+2
+
+The highlighting in that example is working fine. But it parses most of that document as a JSX tag because you enabled TSX and are using an arrow function with a type parameter at line 183.
+
+marijn
+
+December 18, 2023, 7:45am
+
+3
+
+On closer look, TypeScript’s parser appears to have some messy heuristics to disambiguate type parameter lists from JSX tags. I haven’t been able to find a definitive source on how they are supposed to work, but I’ve added logic to @lezer/javascript 1.4.11 that makes <T,> and <T extends Foo> parse as type parameters.
+
+github.com/lezer-parser/javascript
+
+Use commas and 'extends' to disambiguate type parameter lists from JSX tags
+
+committed 07:41AM - 18 Dec 23 UTC
+
+marijnh
+
++50
+-6
+
+FIX: In TSX mode, parse `<T,>` or `<T extends U>` as type parameters,
+not JSX ta…gs.
+
+See https://discuss.codemirror.net/t/syntax-highlighting-not-working-on-large-documents/7579
+
+pondorasti
+
+December 20, 2023, 6:32pm
+
+4
+
+I bumped my demo project to @lezer/javascript 1.4.11 in 4a6945d. Here’s the preview deployments before and after applying the changes.
+
+before (1.4.9) - https://cm-large-files-repro-200kz7uvt-pondorasti.vercel.app/
+
+after (1.4.11) - https://cm-large-files-repro-9ierzmdaa-pondorasti.vercel.app/
+
+After applying the patch, the document gets parsed an extra 200 LOC, but it gets stuck at line 415:
+
+export const findIndex = <T>(
+
+I guess there’s still some edge cases with parsing <T> parameters? Thanks for taking the time to look into it so far!
+
+marijn
+
+December 20, 2023, 7:20pm
+
+5
+
+No, that’s simply not valid JSX. See this TS playground link.
+
+pondorasti
+
+December 21, 2023, 8:12pm
+
+6
+
+Ahh, you are so right! Thanks for all the help! After upgrading to the latest patch and correctly setting JSX based on file extension, I can confirm that all syntax highlighting is working as expected.
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Powered by Discourse, best viewed with JavaScript enabled

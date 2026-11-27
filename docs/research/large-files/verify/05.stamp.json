@@ -1,0 +1,70 @@
+{
+ "chapter": "05-typesetting.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "TYP-01": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "a1b88d259590"
+  },
+  "TYP-02": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "432029020ed1"
+  },
+  "TYP-03": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "4d9910167f7c"
+  },
+  "TYP-04": {
+   "tags": [
+    "confirmed",
+    "likely"
+   ],
+   "hash": "a751f8a06d48"
+  },
+  "TYP-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "d746a35e53c5"
+  },
+  "TYP-06": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "9756dc615245"
+  },
+  "TYP-07": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "7588452ae8cb"
+  },
+  "TYP-08": {
+   "tags": [
+    "confirmed",
+    "likely"
+   ],
+   "hash": "523c59ebc66f"
+  },
+  "TYP-09": {
+   "tags": [
+    "confirmed",
+    "unverified"
+   ],
+   "hash": "fb59d4b4e421"
+  },
+  "TYP-10": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "55c3094c944e"
+  }
+ }
+}

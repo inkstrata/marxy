@@ -1,0 +1,19 @@
+ 7:01  up 1 day, 10:19, 1 user, load averages: 82.23 165.12 136.99
+[15:01:34] big-md-headings-500k.md open
+[15:01:36]   open: {"firstMs":451,"completeMs":971,"openReturnMs":474,"busyUntilIdleMs":2186,"taskMs":1067,"layouts":58,"longestMs":454,"nodes":42049}
+[15:01:36] big-md-headings-500k.md key
+[15:01:47]   key: {"wallMs":1988,"taskMs":81,"scriptMs":56,"layoutMs":3,"layouts":3,"recalcs":3,"longestMs":0,"nodes":40773}
+[15:01:47] big-md-headings-500k.md scrollMid
+[15:01:48]   scrollMid: {"wallMs":914,"taskMs":11,"scriptMs":2,"layoutMs":0,"layouts":2,"recalcs":4,"longestMs":0,"nodes":41653}
+[15:01:48] big-md-headings-500k.md scrollEnd
+[15:01:49]   scrollEnd: {"wallMs":911,"taskMs":8,"scriptMs":1,"layoutMs":0,"layouts":2,"recalcs":4,"longestMs":0,"nodes":41665}
+[15:01:50] big-md-headings-500k.md toSource
+[15:01:52]   toSource: {"wallMs":2314,"taskMs":575,"scriptMs":99,"layoutMs":7,"layouts":16,"recalcs":51,"longestMs":64,"nodes":41102}
+[15:01:52] big-md-headings-500k.md toRead
+[15:01:54]   toRead: {"wallMs":1385,"taskMs":214,"scriptMs":12,"layoutMs":58,"layouts":14,"recalcs":32,"longestMs":163,"nodes":42894}
+[15:01:54] big-md-headings-500k.md editUndo
+[15:01:59]   editUndo: {"edit":{"wallMs":2446,"taskMs":1024,"scriptMs":60,"layoutMs":42,"layouts":29,"recalcs":81,"longestMs":222,"nodes":40657},"undo":{"wallMs":2007,"taskMs":672,"scriptMs":21,"layoutMs":6,"layouts":11,"recalcs":15,"longestMs":154,"nodes":42127}}
+[15:01:59] big-md-headings-500k.md reload
+[15:02:01]   reload: {"wallMs":1944,"taskMs":597,"scriptMs":25,"layoutMs":11,"layouts":13,"recalcs":15,"longestMs":127,"nodes":44953}
+[15:02:01] big-md-headings-500k.md find
+[15:02:03]   find: {"wallMs":1640,"taskMs":416,"scriptMs":66,"layoutMs":26,"layouts":28,"recalcs":66,"longestMs":155,"nodes":55162}

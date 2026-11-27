@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { inflateRawSync, gunzipSync } from 'node:zlib';
 import { archiveSums, archiveTree, entryBar, entryDate, initialFolds, ratioWords, shortSize, visibleRows } from './archive.ts';
 import { listArchiveBytes, type ArchiveEntryLike } from './archive-read.ts';
+import { cpuNow } from '../testing/cpu-clock.ts';
 
 const demo = (p: string): Uint8Array => new Uint8Array(readFileSync(new URL(`../../../../fixtures/demo/archives/${p}`, import.meta.url)));
 const inflate = async (u: Uint8Array, f: 'deflate-raw' | 'gzip'): Promise<Uint8Array> => new Uint8Array(f === 'gzip' ? gunzipSync(u) : inflateRawSync(u));
@@ -68,4 +69,58 @@ test('each row says why it cannot open, and its date as the archive gave it', ()
   assert.equal(shortSize(418), '418 bytes');
   assert.equal(shortSize(1), '1 byte');
   assert.equal(shortSize(20 * 1024 * 1024), '20.0 MB');
+});
+
+// The folder count as it was first written, joining every prefix of every path: the reference the tree of segments
+// must agree with on any listing.
+function joinedFolders(entries: readonly ArchiveEntryLike[]): number {
+  const folders = new Set<string>();
+  for (const e of entries) {
+    const segs = e.path.replace(/\/$/, '').split('/');
+    for (let i = 1; i < segs.length + (e.kind === 'dir' ? 1 : 0); i++) folders.add(segs.slice(0, i).join('/'));
+  }
+  return folders.size;
+}
+
+/** A small seeded generator (mulberry32), so a failure names the seed that made it. */
+function rng(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+test('folder counts and node paths agree with joining every prefix, on seeded listings with odd paths', () => {
+  const words = ['a', 'b', 'src', '', '.', 'x y', 'ä'];
+  for (let seed = 1; seed <= 1500; seed++) {
+    const next = rng(seed);
+    const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)]!;
+    const entries = Array.from({ length: 1 + Math.floor(next() * 30) }, (_, index) => {
+      const segs = Array.from({ length: 1 + Math.floor(next() * 5) }, () => pick(words));
+      const lead = next() < 0.05 ? '/' : '';
+      const dir = next() < 0.3;
+      return entry(`${lead}${segs.join('/')}${dir && next() < 0.8 ? '/' : ''}`, { index, kind: dir ? 'dir' : 'file' });
+    });
+    assert.equal(archiveSums({ entries, size: 1 } as never).folders, joinedFolders(entries), `seed ${seed}`);
+    const walk = (n: ReturnType<typeof archiveTree>, segs: string[]): void => {
+      for (const k of n.kids.values()) {
+        const at = [...segs, k.name];
+        assert.equal(k.path, `${at.join('/')}${k.dir ? '/' : ''}`, `seed ${seed}`);
+        walk(k, at);
+      }
+    };
+    walk(archiveTree(entries), []);
+  }
+});
+
+test('a listing of 100,000 entries 64 deep is summed without joining its paths again (4 s before)', () => {
+  const entries = Array.from({ length: 100_000 }, (_, index) => entry(`${'x/'.repeat(63)}${index}`, { index }));
+  const t = cpuNow();
+  const sums = archiveSums({ entries, size: 1 } as never);
+  const took = cpuNow() - t;
+  assert.deepEqual([sums.files, sums.folders], [100_000, 63]);
+  assert.ok(took < 1500, `${Math.round(took)} ms`);
 });

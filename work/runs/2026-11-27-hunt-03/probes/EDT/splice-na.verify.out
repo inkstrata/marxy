@@ -1,0 +1,4 @@
+non-ascii 1000000 splice cpu ms median 12.2 offsets Object
+non-ascii 2000000 splice cpu ms median 23.8 offsets Object
+non-ascii 4900000 splice cpu ms median 59.4 offsets Object
+ 3:03  up 1 day,  6:21, 1 user, load averages: 26.91 37.31 45.57

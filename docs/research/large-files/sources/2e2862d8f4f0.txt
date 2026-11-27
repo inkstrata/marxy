@@ -1,0 +1,552 @@
+Skip to main content
+
+Donate
+
+Team
+
+Blog
+
+Docs
+
+Store
+
+Playground
+
+Code Explorer
+
+Versions
+
+Version Switcher
+
+Selecting a version will take you to the chosen version of the ESLint docs.
+
+Version
+
+HEAD
+
+v10.15.0
+
+v9.39.5
+
+v8.57.1
+
+Previous Versions
+
+Team
+
+Blog
+
+Docs
+
+Store
+
+Playground
+
+Code Explorer
+
+Versions
+
+Version Switcher
+
+Selecting a version will take you to the chosen version of the ESLint docs.
+
+Version
+
+HEAD
+
+v10.15.0
+
+v9.39.5
+
+v8.57.1
+
+Previous Versions
+
+Versions
+
+Version Switcher
+
+Selecting a version will take you to the chosen version of the ESLint docs.
+
+Version
+
+HEAD
+
+v10.15.0
+
+v9.39.5
+
+v8.57.1
+
+Previous Versions
+
+Index
+
+Search
+
+Results will be shown and updated as you type.
+
+Clear search
+
+Powered by
+
+Use ESLint in Your Project
+
+Getting Started
+
+Core Concepts
+
+Glossary
+
+Configure ESLint
+
+Configuration Files
+
+Configure Language Options
+
+Configure Rules
+
+Configure Plugins
+
+Configure a Parser
+
+Combine Configs
+
+Ignore Files
+
+Debug Your Configuration
+
+Configuration Migration Guide
+
+Command Line Interface Reference
+
+Rules Reference
+
+MCP Server Setup
+
+Feature Flags
+
+Formatters Reference
+
+Bulk Suppressions
+
+Integrations
+
+Migrate to v10.x
+
+Version Support
+
+Troubleshooting
+
+Circular fixes detected …
+
+TypeError: context.getScope is not a function
+
+Extend ESLint
+
+Ways to Extend ESLint
+
+Create Plugins
+
+Custom Rule Tutorial
+
+Custom Rules
+
+Custom Processors
+
+Languages
+
+Migration to Flat Config
+
+Share Configurations
+
+Custom Formatters
+
+Custom Parsers
+
+Stats Data
+
+integrate ESLint
+
+Integrate with the Node.js API Tutorial
+
+Node.js API Reference
+
+Contribute to ESLint
+
+Code of Conduct
+
+AI Usage Policy
+
+Report Bugs
+
+Propose a New Rule
+
+Propose a Rule Change
+
+Request a Change
+
+Architecture
+
+Set up a Development Environment
+
+Run the Tests
+
+Package.json Conventions
+
+Work on Issues
+
+Submit a Pull Request
+
+Contribute to Core Rules
+
+Governance
+
+Report a Security Vulnerability
+
+Maintain ESLint
+
+How ESLint is Maintained
+
+Manage Issues and Pull Requests
+
+Review Pull Requests
+
+Manage Releases
+
+Working Groups
+
+Index
+
+Search
+
+Results will be shown and updated as you type.
+
+Clear search
+
+Powered by
+
+Use ESLint in Your Project
+
+Getting Started
+
+Core Concepts
+
+Glossary
+
+Configure ESLint
+
+Configuration Files
+
+Configure Language Options
+
+Configure Rules
+
+Configure Plugins
+
+Configure a Parser
+
+Combine Configs
+
+Ignore Files
+
+Debug Your Configuration
+
+Configuration Migration Guide
+
+Command Line Interface Reference
+
+Rules Reference
+
+MCP Server Setup
+
+Feature Flags
+
+Formatters Reference
+
+Bulk Suppressions
+
+Integrations
+
+Migrate to v10.x
+
+Version Support
+
+Troubleshooting
+
+Circular fixes detected …
+
+TypeError: context.getScope is not a function
+
+Extend ESLint
+
+Ways to Extend ESLint
+
+Create Plugins
+
+Custom Rule Tutorial
+
+Custom Rules
+
+Custom Processors
+
+Languages
+
+Migration to Flat Config
+
+Share Configurations
+
+Custom Formatters
+
+Custom Parsers
+
+Stats Data
+
+integrate ESLint
+
+Integrate with the Node.js API Tutorial
+
+Node.js API Reference
+
+Contribute to ESLint
+
+Code of Conduct
+
+AI Usage Policy
+
+Report Bugs
+
+Propose a New Rule
+
+Propose a Rule Change
+
+Request a Change
+
+Architecture
+
+Set up a Development Environment
+
+Run the Tests
+
+Package.json Conventions
+
+Work on Issues
+
+Submit a Pull Request
+
+Contribute to Core Rules
+
+Governance
+
+Report a Security Vulnerability
+
+Maintain ESLint
+
+How ESLint is Maintained
+
+Manage Issues and Pull Requests
+
+Review Pull Requests
+
+Manage Releases
+
+Working Groups
+
+no-restricted-syntax
+
+Disallow specified syntax
+
+Table of Contents
+
+Rule Details
+
+Options
+
+When Not To Use It
+
+Related Rules
+
+Version
+
+Resources
+
+JavaScript has a lot of language features, and not everyone likes all of them. As a result, some projects choose to disallow the use of certain language features altogether. For instance, you might decide to disallow the use of try-catch or class, or you might decide to disallow the use of the in operator.
+
+Rather than creating separate rules for every language feature you want to turn off, this rule allows you to configure the syntax elements you want to restrict use of. For the JavaScript language, these elements are represented by their ESTree node types. For example, a function declaration is represented by FunctionDeclaration and the with statement is represented by WithStatement. You may use Code Explorer to determine the nodes that represent your code.
+
+You can also specify AST selectors to restrict, allowing much more precise control over syntax patterns.
+
+Note: This rule can be used with any language you lint using ESLint. To see what type of nodes your code in another language consists of, you can use:
+
+typescript-eslint Playground if you’re using ESLint with typescript-eslint.
+
+ESLint Code Explorer if you’re using ESLint to lint JavaScript, JSON, Markdown, or CSS.
+
+Rule Details
+
+This rule disallows specified (that is, user-defined) syntax.
+
+Options
+
+This rule takes a list of strings, where each string is an AST selector:
+
+{
+"rules": {
+"no-restricted-syntax": ["error", "FunctionExpression", "WithStatement", "BinaryExpression[operator='in']"]
+}
+}
+
+1
+2
+3
+4
+5
+
+Copy code to clipboard
+
+Alternatively, the rule also accepts objects, where the selector and an optional custom message are specified:
+
+{
+"rules": {
+"no-restricted-syntax": [
+"error",
+{
+"selector": "FunctionExpression",
+"message": "Function expressions are not allowed."
+},
+{
+"selector": "CallExpression[callee.name='setTimeout'][arguments.length!=2]",
+"message": "setTimeout must always be invoked with two arguments."
+}
+]
+}
+}
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+
+Copy code to clipboard
+
+If a custom message is specified with the message property, ESLint will use that message when reporting occurrences of the syntax specified in the selector property.
+
+The string and object formats can be freely mixed in the configuration as needed.
+
+Examples of incorrect code for this rule with the "FunctionExpression", "WithStatement", BinaryExpression[operator='in'] options:
+
+Open in Playground
+
+/* eslint no-restricted-syntax: ["error", "FunctionExpression", "WithStatement", "BinaryExpression[operator='in']"] */
+
+with (me) {
+dontMess();
+}
+
+const doSomething = function () {};
+
+foo in bar;
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+
+Examples of correct code for this rule with the "FunctionExpression", "WithStatement", BinaryExpression[operator='in'] options:
+
+Open in Playground
+
+/* eslint no-restricted-syntax: ["error", "FunctionExpression", "WithStatement", "BinaryExpression[operator='in']"] */
+
+me.dontMess();
+
+function doSomething() {};
+
+foo instanceof bar;
+
+1
+2
+3
+4
+5
+6
+7
+
+When Not To Use It
+
+If you don’t want to restrict your code from using any JavaScript features or syntax, you should not use this rule.
+
+Related Rules
+
+no-alert
+
+no-console
+
+no-debugger
+
+no-restricted-properties
+
+Version
+
+This rule was introduced in ESLint v1.4.0.
+
+Resources
+
+Rule source
+
+Tests source
+
+Edit this page
+
+Table of Contents
+
+Rule Details
+
+Options
+
+When Not To Use It
+
+Related Rules
+
+Version
+
+Resources
+
+Social Media
+
+© OpenJS Foundation and ESLint contributors, www.openjsf.org. Content licensed under MIT License.
+
+Theme Switcher
+
+Light
+
+System
+
+Dark
+
+Change Language
+
+Language Switcher
+
+Selecting a language will take you to the ESLint website in that language.
+
+Language
+
+🇺🇸 English (US)
+(Latest)

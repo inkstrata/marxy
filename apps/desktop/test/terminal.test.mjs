@@ -6,8 +6,8 @@ import { strict as assert } from 'node:assert';
 import { existsSync, readFileSync } from 'node:fs';
 import { after, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { bootTwoPanes, closeHarness } from './support/two-pane.mjs';
+import { openBrowser } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -20,7 +20,7 @@ const fenced = `# Notes\n\nRun it:\n\n\`\`\`console\n$ ls\na b\n$ pwd\n/r\n$ ech
 const files = { '/r/shell.session': fixture, '/r/notes.md': fenced, '/r/plain.txt': '$ ls\na b\n$ pwd\n/r\n', '/r/quoted.txt': 'To list the folder, type this:\n$ ls\nand it prints\n$ pwd\nthen the folder.\n', '/r/2026-10-13-deploy.txt': 'Last login: Mon Oct 13 21:02:44 on ttys004\nWelcome to deploy-box\n\nops@deploy-box ~/api % git pull --ff-only\nUpdating 4c1e9a2..b7d03f1\nops@deploy-box ~/api % make deploy ENV=staging\n==> building api:b7d03f1\n', '/r/a.term': '$ ls\na b\n', '/r/bare.term': 'just output\nmore output\n' };
 
 async function withPage(fn) {
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     await fn(await browser.newPage({ viewport: { width: 1280, height: 900 } }));
   } finally {

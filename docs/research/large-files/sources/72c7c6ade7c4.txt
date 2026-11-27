@@ -1,0 +1,659 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+remarkjs
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+remark
+
+Overview
+
+Repositories
+
+Discussions
+
+Packages
+
+People
+
+More
+
+Overview
+
+Repositories
+
+Discussions
+
+Packages
+
+People
+
+Improving perfomance of react-markdown with very large texts - consider virtualization
+
+#1027
+
+Answered
+
+by
+ChristianMurphy
+
+joepio
+
+asked this question in
+Q&A
+
+Improving perfomance of `react-markdown` with very large texts - consider virtualization
+
+#1027
+
+joepio
+
+Aug 12, 2022
+·
+4 comments
+·
+10 replies
+
+Answered
+
+by
+ChristianMurphy
+
+Return to top
+
+Discussion options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+joepio
+
+Aug 12, 2022
+
+I'm working on a tool that converts webpages to markdown. For very large pages, the (rendering?) performance of react-markdown becomes pretty bad. I'm not entirely sure where most time is spent (parsing / transforming / compiling / rendering), but I suppose we could speed up things further if we use virtualization.
+
+I.e. render only things that are close to the actual viewport. This would speed things up even for very very large documents. We could render chunks using InteractionObserver, keep track of scroll position to prevent janky texts. Still, It would probably be difficult, but I think it could drastically improve performance in larger markdown documents.
+
+Not sure if this usecase is extremely rare, and therefore not worth it, though!
+
+Any other ideas?
+
+edit: rewrote most of the post to make it clear this is about react-markdown
+
+3
+You must be logged in to vote
+
+All reactions
+
+Answered by
+
+ChristianMurphy
+
+Aug 12, 2022
+
+Hi @joepio!
+
+Improving performance and supporting larger documents is a goal of the community, and is something which is already actively being worked on.
+
+@wooorm has been working on refactoring https://github.com/micromark/micromark which is the parser backing remark, to further improve performance.
+
+If you're interested in supporting these efforts consider contributing development resources and/or sponsoring the community https://github.com/sponsors/unifiedjs or https://opencollective.com/unified
+
+Improve rendering performance.
+
+I take your meaning, subtle clarification on terminology.
+
+micromark and remark do parsing (text to AST), transforming (AST to AST), and compiling (AST to text).
+
+T…
+
+View full answer
+
+Replies:
+
+4 comments
+
+·
+
+10 replies
+
+Oldest
+
+Newest
+
+Top
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+ChristianMurphy
+
+Aug 12, 2022
+
+Maintainer
+
+Hi @joepio!
+
+Improving performance and supporting larger documents is a goal of the community, and is something which is already actively being worked on.
+
+@wooorm has been working on refactoring https://github.com/micromark/micromark which is the parser backing remark, to further improve performance.
+
+If you're interested in supporting these efforts consider contributing development resources and/or sponsoring the community https://github.com/sponsors/unifiedjs or https://opencollective.com/unified
+
+Improve rendering performance.
+
+I take your meaning, subtle clarification on terminology.
+
+micromark and remark do parsing (text to AST), transforming (AST to AST), and compiling (AST to text).
+
+There are performance gains to be made in each.
+
+Remark does not render (text to graphic/raster) though, that would be handled by a browser (for HTML) or by a framework like React, Vue, or Svelte for JS/serverside rendering.
+
+Remark and micromark don't have much, if any control, over rendering performance.
+
+Even if we can speed it up with factor 10, large pages will still be slow.
+
+Right, computers have limited memory and limited CPU, there will always be a page large enough to slow the machine down. No amount of performance optimization will change that.
+
+Use some form of virtualization. I.e. render only things that are close to the actual viewport. This would speed things up even for very very large documents. We could render chunks using InteractionObserver
+
+Thanks for sharing the idea, though it doesn't really fit with remark or micromark for a few reasons.
+
+remark isn't a renderer
+
+remark is used as often, if not more often, serverside where there is no concept of a viewport
+
+the full markdown document needs to be parsed before compiling HTML/JS output, due to features that need lookahead or look behind, like definition links https://spec.commonmark.org/0.30/#link-reference-definitions where the two parts of the link could be on opposite sides of a massive document.
+
+Marked as answer
+
+3
+You must be logged in to vote
+
+👍
+1
+
+All reactions
+
+👍
+1
+
+0 replies
+
+Answer selected by
+ChristianMurphy
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+joepio
+
+Aug 12, 2022
+
+Author
+
+Thanks for the quick and very thorough reply, @ChristianMurphy!
+
+I was sent to this discussions board from the react-markdown repo (the ask a question link when creating a new issue links to this board), I didn't realize that I was in the remark discussion board. So consider my points only to be applicable to react-markdown.
+
+I think we can consider react-markdown a renderer, though, and here the InteractionObserver / virtualization approach could make sense. I'll update my OP to clarify it.
+
+the full markdown document needs to be parsed before compiling HTML/JS output, due to features that need lookahead or look behind, like definition links https://spec.commonmark.org/0.30/#link-reference-definitions where the two parts of the link could be on opposite sides of a massive document.
+
+Well, if parsing is only a small fraction of the performance cost, then this will not be a problem for virtualization, since we could only chunk and virtualize the rendering / compiling part. That's a big if, though, we'd need metrics on where the bottlenecks are to make sure virtualization would actually help here.
+
+1
+You must be logged in to vote
+
+All reactions
+
+3 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+ChristianMurphy
+
+Aug 12, 2022
+
+Maintainer
+
+Thanks for the clarification.
+
+All of the points from https://github.com/orgs/remarkjs/discussions/1027#discussioncomment-3385057 still hold.
+
+react-markdown compiles to hyperscript, React itself still handles the rendering.
+
+react-markdown and its sibling project react-remark can also be used server side.
+
+Markdown still has features that require look ahead or look behind for parsing.
+
+virtualization approach could make sense.
+
+In some limited cases, react-markdown could be wrapped with virtualization.
+
+It's important to be aware of the limitations/caveats though.
+
+Virtualization relies on consistent content structure, like lists or tables. (e.g. https://github.com/bvaughn/react-window)
+
+Markdown is not that, any content type can appear anywhere and could be any size, there isn't a good way to chunk pure commonmark.
+
+You could diverge from commonmark, and try to break the document into section chunks. (for example building off https://github.com/jake-low/remark-sectionize)
+
+Because that is non-standard markdown, it wouldn't live in react-markdown core, instead living in a plugin. (more information on how plugins work here: https://unifiedjs.com/learn/)
+
+Sectioning would still have the limitation that you'd need to pre-determine the size of each section to be able to render, which could easily negate the benefit of virtualization.
+
+That's a big if, though, we'd need metrics on where the bottlenecks are to make sure virtualization would actually help here.
+
+Agreed.
+
+Profiling and metrics of where the bottlenecks are in your content pipeline would be critical to determining what will actually improve performance.
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+remcohaszing
+
+Aug 12, 2022
+
+Maintainer
+
+Would remarkjs/react-markdown#703 help with your situation? It won’t enhance performance for the initial render, but it will enhance performance for content changes.
+
+👍
+1
+
+All reactions
+
+👍
+1
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+joepio
+
+Aug 12, 2022
+
+Author
+
+Thanks again for the replies and the help @ChristianMurphy and @remcohaszing.
+
+I think this makes it clear that the virtualization approach is not realistic!
+
+Would remarkjs/react-markdown#703 help with your situation? It won’t enhance performance for the initial render, but it will enhance performance for content changes.
+
+Nope, unfortunately my usecase depends on the initial render.
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+danny-avila
+
+Dec 4, 2023
+
+This is the only mention I've found of virtualization and react-markdown anywhere on the internet so going to ask this here.
+
+Has anyone successfully virtualized a list of items rendering react-markdown? I will say I tried and failed using many virtualization libraries, but maybe someone has an example? Curious if you tried this @joepio. Maybe InteractionObserver is the way?
+
+To be clear, this is referring to a a list of div containers, each with react-markdown within them
+
+1
+You must be logged in to vote
+
+All reactions
+
+7 replies
+
+Show 2 previous replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+ashot
+
+Dec 16, 2023
+
+@danny-avila I'm interested in this, danny did you have any luck?
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+ashot
+
+Dec 16, 2023
+
+I used this library and its worked great for me, thanks for the tip!
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+danny-avila
+
+Dec 17, 2023
+
+Yes intersection observer is key for this! However I noticed some rendering issues that are not straightforward to debug, but I may still enable this as an experimental feature for my app, which is especially useful for mobile users in my case
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+ashot
+
+Dec 19, 2023
+
+the key for me was not to prerender enough elements to cover the initial screen load + give an accurate (dynamic) estimate of each element height
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+vlrevolution
+
+Mar 30, 2024
+
+Yeah, layoutshifts will be really bad with virtualized markdown rendering, as there are vast differences in lines of raw text and the fully renderedm markdown. Kinda impossible to know the height before rendering it, right?
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+sosojustdo
+
+Oct 10, 2025
+
+I also encountered a similar problem. I am currently working on a markdown preview. When faced with a large volume of markdown text content, react-markdown rendering is too slow. Later, I switched to using a markdown text streaming interface provided by the server. The front-end planned to use stramdown, but encountered a base64 format image, which caused the image to not display properly.
+
+2
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Sign up for free
+to join this conversation on GitHub.
+Already have an account?
+Sign in to comment
+
+Category
+
+🙏
+
+Q&A
+
+Labels
+
+None yet
+
+7 participants
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

@@ -202,3 +202,63 @@ test('an RFC 2231 continuation of 200,000 characters reads', () => {
   const m = parseMessage(enc(`From: a@b\nContent-Type: text/plain; name*0="${long}"; name*1="b"\n\nhi`));
   assert.equal(m.parts[0]!.params.name, `${long}b`);
 });
+
+test('a part of exactly the most headers reads them all and says nothing; one more is left out and said', () => {
+  const headers = (n: number): string => Array.from({ length: n }, (_, i) => `X-H${i}: v${i}`).join('\n');
+  const exact = parseMessage(enc(`${headers(MAIL_LIMITS.headers)}\n\nbody`));
+  assert.equal(exact.headers.length, MAIL_LIMITS.headers);
+  assert.deepEqual(exact.capped, []);
+  assert.equal(exact.root.text(), 'body');
+  const over = parseMessage(enc(`${headers(MAIL_LIMITS.headers + 1)}\n\nbody`));
+  assert.equal(over.headers.length, MAIL_LIMITS.headers);
+  assert.equal(over.headers.at(-1)!.name, `X-H${MAIL_LIMITS.headers - 1}`);
+  assert.deepEqual(over.capped, ['Only the first 1,000 headers of a part are read.']);
+  // A folded last header is still one header.
+  const folded = parseMessage(enc(`${headers(MAIL_LIMITS.headers - 1)}\nX-Last: a\n  b\n\nbody`));
+  assert.equal(folded.headers.at(-1)!.raw, 'a b');
+  assert.deepEqual(folded.capped, []);
+});
+
+test('headers past their byte limit are not read, and that is said', () => {
+  const pad = 'y'.repeat(MAIL_LIMITS.headerBytes);
+  const m = parseMessage(enc(`Subject: kept\nX-Pad: ${pad}\nX-After: lost\n\nbody`));
+  assert.equal(m.subject, 'kept');
+  assert.equal(m.headers.find((h) => h.name === 'X-After'), undefined);
+  assert.ok(m.headers.find((h) => h.name === 'X-Pad')!.raw.length < MAIL_LIMITS.headerBytes);
+  assert.deepEqual(m.capped, ['A part\'s headers past 256 KB are not read.']);
+  assert.equal(m.root.text(), 'body');
+  // Just under the limit, nothing is said.
+  const under = parseMessage(enc(`Subject: kept\nX-Pad: ${'y'.repeat(MAIL_LIMITS.headerBytes - 40)}\nX-After: here\n\nbody`));
+  assert.equal(under.headers.find((h) => h.name === 'X-After')?.raw, 'here');
+  assert.deepEqual(under.capped, []);
+});
+
+test('twelve levels of unended parts around 64 MB find their delimiters once, not once per level (13 s before)', () => {
+  let head = '';
+  for (let d = 0; d < MAIL_LIMITS.depth; d++) head += `${d === 0 ? '' : `--b${d - 1}\n`}Content-Type: multipart/mixed; boundary=b${d}\n\n`;
+  head += `--b${MAIL_LIMITS.depth - 1}\nContent-Type: text/plain\n\n`;
+  const top = enc(head);
+  const bytes = new Uint8Array(MAIL_LIMITS.messageBytes).fill(0x0a);
+  bytes.set(top, 0);
+  for (let i = top.length; i < bytes.length; i += 2) bytes[i] = 0x61;
+  const t0 = cpuNow();
+  const m = parseMessage(bytes);
+  const ms = cpuNow() - t0;
+  assert.equal(m.parts.length, MAIL_LIMITS.depth + 1);
+  assert.equal(m.parts.at(-1)!.size, bytes.length - top.length);
+  assert.deepEqual(m.capped, []);
+  assert.ok(ms < 2000, `${Math.round(ms)} ms`);
+});
+
+test('past the most lines beginning with two dashes, a part whose end was not found is left out, and that is said', () => {
+  const dashes = '--x\n'.repeat(MAIL_LIMITS.dashLines + 1);
+  const m = parseMessage(enc(`Content-Type: multipart/mixed; boundary=b\n\n--b\n\nfirst\n--b\n\n${dashes}--b\n\nthird\n--b--\n`));
+  assert.deepEqual(m.parts.map((p) => p.id), ['1', '1.1']);
+  assert.equal(m.parts[1]!.text(), 'first');
+  assert.deepEqual(m.capped, ['Past 1,000,000 lines beginning “--”, a part whose end was not found is not read.']);
+  // Under the limit the same message reads whole.
+  const fewer = parseMessage(enc(`Content-Type: multipart/mixed; boundary=b\n\n--b\n\nfirst\n--b\n\n${'--x\n'.repeat(1000)}--b\n\nthird\n--b--\n`));
+  assert.deepEqual(fewer.parts.map((p) => p.id), ['1', '1.1', '1.2', '1.3']);
+  assert.equal(fewer.parts[3]!.text(), 'third');
+  assert.deepEqual(fewer.capped, []);
+});

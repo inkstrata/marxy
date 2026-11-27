@@ -1,0 +1,378 @@
+Skip to content
+
+Tauri
+
+GuidesReferencesBlogReleases
+
+SearchCtrlK
+Cancel
+
+GitHub Discord Twitter Bluesky Mastodon RSS
+Select language EnglishFrançaisEspañol简体中文日本語German
+
+Menu
+
+Guides
+
+References
+
+Blog
+
+Quick Start
+
+What is Tauri?
+
+Prerequisites
+
+Create a Project
+
+Project Structure
+
+Frontend Configuration
+
+Overview
+
+Leptos
+
+Next.js
+
+Nuxt
+
+Qwik
+
+SvelteKit
+
+Trunk
+
+Vite
+
+Upgrade & Migrate
+
+Overview
+
+Upgrade from Tauri 1.0
+
+Upgrade from Tauri 2.0 Beta
+
+Core Concepts
+
+Overview
+
+Tauri Architecture
+
+Process Model
+
+App Size
+
+Inter-Process Communication
+
+Overview
+
+Brownfield Pattern
+
+Isolation Pattern
+
+Security
+
+Overview
+
+Permissions
+
+Command Scopes
+
+Capabilities
+
+Asset protocol scope
+
+Content Security Policy (CSP)
+
+HTTP Headers
+
+Tauri Ecosystem Security
+
+Application Lifecycle Threats
+
+Future Work
+
+Runtime Authority
+
+Develop
+
+Overview
+
+Configuration Files
+
+Calling Rust from the Frontend
+
+Calling the Frontend from Rust
+
+Embedding Additional Files
+
+Embedding External Binaries
+
+State Management
+
+Updating Dependencies
+
+App Icons
+
+Debug
+
+Overview
+
+CrabNebula DevToolsNew
+
+Linux Graphics Issues
+
+Debug in Neovim
+
+Debug in JetBrains IDEs
+
+Debug in VS Code
+
+Plugins
+
+Overview
+
+Mobile Plugin Development
+
+Tests
+
+Overview
+
+Mock Tauri APIs
+
+WebDriver
+
+Overview
+
+Manual setup
+
+Continuous Integration
+
+Example
+
+Selenium
+
+WebdriverIO
+
+Distribute
+
+Overview
+
+App Store
+
+AppImage
+
+AUR
+
+CrabNebula Cloud
+
+Debian
+
+DMG
+
+Flathub
+
+Google Play
+
+macOS Application Bundle
+
+Microsoft Store
+
+RPM
+
+Snapcraft
+
+Windows Installer
+
+Sign
+
+macOS
+
+Windows
+
+Linux
+
+iOS
+
+Android
+
+Pipelines
+
+CrabNebula Cloud
+
+GitHub
+
+Learn
+
+Overview
+
+Node.js as a sidecar
+
+Splashscreen
+
+System Tray
+
+Window Customization
+
+Multi-Window on Mobile
+
+File Associations on Mobile
+
+Security
+
+Using Plugin Permissions
+
+Capabilities for Different Windows and Platforms
+
+Writing Plugin Permissions
+
+Window Menu
+
+Plugins
+
+Overview
+
+Autostart
+
+Barcode Scanner
+
+Biometric
+
+Command Line Interface (CLI)
+
+Clipboard
+
+Deep Linking
+
+Dialog
+
+File System
+
+Geolocation
+
+Global Shortcut
+
+Haptics
+
+HTTP Client
+
+Localhost
+
+Logging
+
+NFC
+
+Notifications
+
+Opener
+
+OS Information
+
+Persisted Scope
+
+Positioner
+
+Process
+
+Shell
+
+Single Instance
+
+SQL
+
+Store
+
+Stronghold
+
+Updater
+
+Upload
+
+Websocket
+
+Window State
+
+About
+
+About Tauri
+
+The Tauri Book
+
+Tauri Governance
+
+Tauri Philosophy
+
+Trademark Guidelines
+
+GitHub Discord Twitter Bluesky Mastodon RSS
+Select language EnglishFrançaisEspañol简体中文日本語German
+
+On this page
+
+Overview
+
+Events
+
+Commands
+
+Footnotes
+
+On this page
+
+Overview
+
+Events
+
+Commands
+
+Footnotes
+
+Inter-Process Communication
+
+Inter-Process Communication (IPC) allows isolated processes to communicate securely and is key to building more complex applications.
+
+Learn more about the specific IPC patterns in the following guides:
+
+Brownfield
+
+Isolation
+
+Tauri uses a particular style of Inter-Process Communication called Asynchronous Message Passing, where processes exchange requests and responses serialized using some simple data representation. Message Passing should sound familiar to anyone with web development experience, as this paradigm is used for client-server communication on the internet.
+
+Message passing is a safer technique than shared memory or direct function access because the recipient is free to reject or discard requests as it sees fit. For example, if the Tauri Core process determines a request to be malicious, it simply discards the requests and never executes the corresponding function.
+
+In the following, we explain Tauri’s two IPC primitives - Events and Commands - in more detail.
+
+Events
+Section titled “Events”
+
+Events are fire-and-forget, one-way IPC messages that are best suited to communicate lifecycle events and state changes. Unlike Commands, Events can be emitted by both the Frontend and the Tauri Core.
+
+Events sent between the Core and the Webview.
+
+Under the hood, events still utilize Commands, and the access to the events API is controlled by the Event permissions.
+
+Commands
+Section titled “Commands”
+
+Tauri also provides a foreign function interface-like abstraction on top of IPC messages1. The primary API, invoke, is similar to the browser’s fetch API and allows the Frontend to invoke Rust functions, pass arguments, and receive data.
+
+Because this mechanism uses a JSON-RPC like protocol under the hood to serialize requests and responses, all arguments and return data must be serializable to JSON.
+
+IPC messages involved in a command invocation.
+
+Footnotes
+Section titled “Footnotes”
+
+Because Commands still use message passing under the hood, they do not share the same security pitfalls as real FFI interfaces do. ↩
+
+Edit page
+Last updated: Aug 20, 2026
+
+PreviousApp Size NextBrownfield Pattern
+
+Support on Open CollectiveSponsor on GitHub
+
+© 2026 Tauri Contributors. CC-BY / MIT
