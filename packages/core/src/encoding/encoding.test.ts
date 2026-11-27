@@ -218,3 +218,17 @@ test('the table of a big Shift_JIS file is runs of equal steps, and finds the pa
   const back = parseDecodedFrame(decodedFrame(d));
   assert.deepEqual(back.map, d.map);
 });
+
+test('a frame that is cut short or claims more than it holds is refused, not read short', () => {
+  const frame = decodedFrame(decodeBytes(Uint8Array.from([0x61, 0x93, 0xfa, 0x62, 0x93, 0xfa, 0x93, 0xfa]), 'shift_jis'));
+  const head = new DataView(frame.buffer).getUint32(0, true);
+  assert.throws(() => parseDecodedFrame(frame.subarray(0, 4 + head + 6)), /cut short/);
+  assert.throws(() => parseDecodedFrame(frame.subarray(0, 12 + head + 3 * 4)), /cut short/);
+  const huge = frame.slice();
+  new DataView(huge.buffer).setUint32(4 + head, 0xffffffff, true);
+  assert.throws(() => parseDecodedFrame(huge), /index length/);
+  const runs = frame.slice();
+  new DataView(runs.buffer).setUint32(8 + head + 3 * 4, 0xffffff, true);
+  assert.throws(() => parseDecodedFrame(runs), /runs length/);
+  assert.throws(() => parseDecodedFrame(new Uint8Array(2)), /head length/);
+});

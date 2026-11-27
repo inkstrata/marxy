@@ -307,7 +307,7 @@ request (`decode_text`).
 
 - One OS watch per canonical root, shared and reference-counted.
 - A folder watch rescans the folder on each signal and every 2 s, diffing a snapshot of its regular
-  files. After a scan the watch rests three times as long as the scan took (at most 2 s) and folds what signals in the rest into one scan, so a busy writer in a folder of 50,000 files does not hold a core; a small folder rests for milliseconds. A scan lists each folder once; on Windows that one listing also gives each file's id, size and write time, and only a reparse point (a link, a junction, a cloud placeholder) is asked of the file itself. A tree watch gathers events for 50 ms, re-examines only the reported paths, rescans when the
+  files. After a scan the watch rests three times as long as the scan took (at most 5 s) and folds what signals in the rest into one scan (in a folder that scans slowly, a save by another program can show up to about 5 s plus one scan late), so a busy writer in a folder of 50,000 files does not hold a core; a small folder rests for milliseconds. A scan lists each folder once; on Windows that one listing also gives each file's id, size and write time, and only a reparse point (a link, a junction, a cloud placeholder) is asked of the file itself. A tree watch gathers events for 50 ms, re-examines only the reported paths, rescans when the
   OS reports lost events, reconciles quietly every 60 s, and stops with a refusal past 200,000 files.
 - A tree watch is also given the folders the index walk left out through a `.gitignore`, a `.ignore` or a deny glob
   (`ignore` on `watch_root`, replaced by `watch_ignore`): they are not listed, counted or reported, and only folders

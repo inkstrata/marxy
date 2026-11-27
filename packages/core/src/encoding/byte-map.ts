@@ -183,13 +183,18 @@ const encoder = new TextEncoder();
 /** `decode_text`'s answer: the head's length (u32 LE), the head, the table's index (length in u32s, then the u32s LE), its runs (length in bytes, then the bytes), then the text. */
 export function parseDecodedFrame(body: Uint8Array): DecodedText {
   const view = new DataView(body.buffer, body.byteOffset, body.byteLength);
+  const bad = (what: string): Error => new Error(`decode_text: the frame is cut short or its ${what} is wrong`);
+  if (body.byteLength < 4) throw bad('head length');
   const n = view.getUint32(0, true);
+  if (n > body.byteLength - 12) throw bad('head length');
   const head = JSON.parse(utf8.decode(body.subarray(4, 4 + n))) as { found: EncodingFound; map: { kind: string; unit?: number; count?: string } };
   const t = view.getUint32(4 + n, true);
+  if (t > (body.byteLength - 12 - n) / 4) throw bad('index length');
   const index = new Uint32Array(t);
   for (let i = 0; i < t; i++) index[i] = view.getUint32(8 + n + i * 4, true); // scale: the index is one entry per 64 records
   const r = view.getUint32(8 + n + t * 4, true);
   const runsAt = 12 + n + t * 4;
+  if (r > body.byteLength - runsAt) throw bad('runs length');
   const runs = body.slice(runsAt, runsAt + r);
   const text = body.slice(runsAt + r);
   const map: ByteMap =
