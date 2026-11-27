@@ -24,14 +24,8 @@ fn file_offset(d: &Decoded, b: usize) -> u64 {
             };
             (bom + units as u64 * *unit as u64).min(d.found.file_bytes)
         }
-        ByteMap::Table(pairs) => {
-            let (mut u0, mut f0) = (0u64, bom);
-            for p in pairs.chunks(2) {
-                if p[0] as usize > b {
-                    break;
-                }
-                (u0, f0) = (p[0] as u64, p[1] as u64);
-            }
+        ByteMap::Table(t) => {
+            let (u0, f0) = t.seek(false, b as u64);
             (f0 + (b as u64 - u0)).min(d.found.file_bytes)
         }
     }
@@ -289,9 +283,9 @@ fn the_frame_carries_the_head_the_table_and_the_text() {
     assert_eq!(head["found"]["how"], "bom");
     assert_eq!(head["map"]["kind"], "units");
     assert_eq!(head["map"]["count"], "utf16");
-    let t = u32::from_le_bytes([f[4 + n], f[5 + n], f[6 + n], f[7 + n]]) as usize;
-    assert_eq!(t, 0);
-    assert_eq!(&f[8 + n..], d.text.as_slice());
+    // No table: an empty index and no runs.
+    assert_eq!(&f[4 + n..12 + n], &[0u8; 8]);
+    assert_eq!(&f[12 + n..], d.text.as_slice());
 }
 
 #[test]
@@ -346,4 +340,145 @@ fn short_and_mixed_legacy_text_is_not_taken_for_utf8() {
     let d = decode(&bytes, None).unwrap();
     assert_eq!((d.found.label.as_str(), d.found.how), ("utf-8", How::Utf8));
     assert_eq!(d.text, bytes);
+}
+
+/// The pairs the map was once made of, a byte at a time: the reference the compact table must agree with.
+fn pairs_by_hand(body: &[u8], enc: &'static Encoding, bom: u32) -> Vec<(u32, u32)> {
+    let mut decoder = enc.new_decoder_without_bom_handling();
+    let (mut out, mut pairs, mut delta) = (0usize, Vec::new(), -(bom as i64));
+    let mut buf = [0u8; 64];
+    for i in 0..body.len() {
+        let before = out;
+        let (_, _, written, _) =
+            decoder.decode_to_utf8(&body[i..=i], &mut buf, i + 1 == body.len());
+        out += written;
+        let f = (i + 1) as i64 + bom as i64;
+        if out > before && out as i64 - f != delta {
+            delta = out as i64 - f;
+            pairs.push((out as u32, f as u32));
+        }
+    }
+    pairs
+}
+
+fn mixed_japanese(lines: usize) -> String {
+    let mut s = String::new();
+    for i in 0..lines {
+        s.push_str(&format!("{i:04} abc 日本語のテキスト、ｱｲｳ half-width, "));
+        s.push_str(&"あ".repeat(i % 7 * 20));
+        s.push_str(
+            " end
+",
+        );
+    }
+    s
+}
+
+#[test]
+fn the_compact_table_finds_the_same_pairs_as_one_pair_per_change() {
+    for (enc, bom) in [
+        (encoding_rs::SHIFT_JIS, 0u32),
+        (encoding_rs::GBK, 0),
+        (encoding_rs::EUC_KR, 0),
+        (encoding_rs::SHIFT_JIS, 3),
+    ] {
+        let text = mixed_japanese(300);
+        let (bytes, _, _) = enc.encode(&text);
+        let (out, table) = decode_mapped(&bytes, enc, bom);
+        let pairs = pairs_by_hand(&bytes, enc, bom);
+        let unmapped = |p: &(u32, u32), by_file: bool| u64::from(if by_file { p.1 } else { p.0 });
+        for by_file in [false, true] {
+            let top = if by_file {
+                bytes.len() as u64 + u64::from(bom)
+            } else {
+                out.len() as u64
+            };
+            let mut seen = 0;
+            for v in 0..=top + 2 {
+                while seen < pairs.len() && unmapped(&pairs[seen], by_file) <= v {
+                    seen += 1;
+                }
+                let want = seen.checked_sub(1).map_or((0, u64::from(bom)), |i| {
+                    (u64::from(pairs[i].0), u64::from(pairs[i].1))
+                });
+                assert_eq!(
+                    table.seek(by_file, v),
+                    want,
+                    "{} by_file={by_file} at {v}",
+                    enc.name()
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn a_big_multi_byte_file_keeps_a_map_far_smaller_than_itself() {
+    // Pure Japanese: a pair for every character, every step the same.
+    let pure = "吾輩は猫である。名前はまだ無い。".repeat(40_000);
+    let (bytes, _, _) = encoding_rs::SHIFT_JIS.encode(&pure);
+    let d = decode(&bytes, Some("shift_jis")).unwrap();
+    let ByteMap::Table(t) = &d.map else {
+        panic!("a table")
+    };
+    assert!(
+        t.byte_len() < bytes.len() / 1000,
+        "{} bytes of map for {}",
+        t.byte_len(),
+        bytes.len()
+    );
+    // Mixed ASCII and Japanese, steps that do not repeat much: still not a multiple of the file.
+    let mixed = mixed_japanese(4_000);
+    let (bytes, _, _) = encoding_rs::SHIFT_JIS.encode(&mixed);
+    let d = decode(&bytes, Some("shift_jis")).unwrap();
+    let ByteMap::Table(t) = &d.map else {
+        panic!("a table")
+    };
+    assert!(
+        t.byte_len() < bytes.len() / 2,
+        "{} bytes of map for {}",
+        t.byte_len(),
+        bytes.len()
+    );
+    // What the window receives is the text and a map: a frame no larger than the text and a fraction of the file.
+    let frame = commands::frame(&d);
+    assert!(
+        frame.len() < d.text.len() + bytes.len() / 2 + 1024,
+        "{} byte frame",
+        frame.len()
+    );
+}
+
+/// Run with `cargo test --release decode_cost -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn decode_cost_measure() {
+    let text = "吾輩は猫である。名前はまだ無い。どこで生れたかとんと見当がつかぬ。
+"
+    .repeat(75_000);
+    let (bytes, _, _) = encoding_rs::SHIFT_JIS.encode(&text);
+    let t0 = std::time::Instant::now();
+    let d = decode(&bytes, Some("shift_jis")).unwrap();
+    let frame = commands::frame(&d);
+    println!(
+        "{} file bytes: decode+frame {:?}, frame {} bytes",
+        bytes.len(),
+        t0.elapsed(),
+        frame.len()
+    );
+}
+
+#[test]
+fn read_with_encoding_counts_a_bounded_prefix_of_a_big_file() {
+    let text = "吾輩は猫である。名前はまだ無い。
+"
+    .repeat(150_000);
+    let (bytes, _, _) = encoding_rs::SHIFT_JIS.encode(&text);
+    assert!(bytes.len() > 3 * READING_BYTES);
+    let r = readings(&bytes);
+    assert_eq!(r.counted, READING_BYTES as u64);
+    assert!(r.rows.len() >= CANDIDATES.len());
+    // The sample still comes from the whole file's first byte above 7F, and Shift_JIS reads it.
+    let row = r.rows.iter().find(|x| x.label == "shift_jis").unwrap();
+    assert!(row.sample.contains("吾輩"));
 }

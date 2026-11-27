@@ -6,7 +6,7 @@
 // it weighs short text differently, so on such files the two can say different encodings. A save in a multi-byte legacy
 // encoding is refused here (the page has no encoder for them); Rust writes it.
 
-import type { ByteMap, Deciding, DecodedText, EncodingFound, EncodingHow, EncodingReading, EncodingReadings, Evidence } from './byte-map.ts';
+import { createTableBuilder, type ByteMap, type Deciding, type DecodedText, type EncodingFound, type EncodingHow, type EncodingReading, type EncodingReadings, type Evidence } from './byte-map.ts';
 
 export const CANDIDATES: readonly (readonly [string, string])[] = [
   ['utf-8', 'UTF-8'],
@@ -28,6 +28,8 @@ const OTHER_NAMES: Readonly<Record<string, string>> = { 'utf-32le': 'UTF-32 LE',
 
 export const GUESS_BYTES = 1024 * 1024;
 export const COUNT_BYTES = 8 * 1024 * 1024;
+/** Rust's `READING_BYTES`: Read with encoding... counts unreadable bytes in the first this many, once per candidate. */
+export const READING_BYTES = 1024 * 1024;
 /** Rust's `MIN_GUESS_BYTES`: fewer bytes above 7F, with no UTF-8 beyond ASCII, are stray bytes in UTF-8. */
 export const MIN_GUESS_BYTES = 4;
 const SAMPLE_BYTES = 120;
@@ -284,7 +286,7 @@ function decodeBody(body: Uint8Array, label: string, bom: number): { text: Uint8
   // Multi-byte: a byte at a time, so each character's bytes in the file are known (Rust's `decode_mapped`).
   const d = decoderFor(label);
   const parts: Uint8Array[] = [];
-  const pairs: number[] = [];
+  const table = createTableBuilder(bom);
   let u = 0;
   let delta = -bom;
   for (let i = 0; i < body.length; i++) {
@@ -296,7 +298,7 @@ function decodeBody(body: Uint8Array, label: string, bom: number): { text: Uint8
     const f = i + 1 + bom;
     if (u - f !== delta) {
       delta = u - f;
-      pairs.push(u, f);
+      table.push(u, f);
     }
   }
   const text = new Uint8Array(u);
@@ -305,7 +307,7 @@ function decodeBody(body: Uint8Array, label: string, bom: number): { text: Uint8
     text.set(p, at);
     at += p.length;
   }
-  return { text, map: { kind: 'table', pairs: Uint32Array.from(pairs) } };
+  return { text, map: { kind: 'table', table: table.finish() } };
 }
 
 /** `text` as `label`'s bytes, without a BOM; throws a plain sentence when a character has none there. */
@@ -451,9 +453,10 @@ function sampleRange(u: Uint8Array): [number, number] {
 }
 
 /** Each candidate's reading of the same few bytes, and how many bytes of the file it cannot read: Rust's `readings`. */
-export function readingsOf(bytes: Uint8Array): EncodingReadings {
-  const [start, end] = sampleRange(bytes);
-  const sample = bytes.subarray(start, end);
+export function readingsOf(whole: Uint8Array): EncodingReadings {
+  const bytes = whole.subarray(0, READING_BYTES);
+  const [start, end] = sampleRange(whole);
+  const sample = whole.subarray(start, end);
   const found = sniff(bytes).label;
   const labels = CANDIDATES.map(([l]) => l);
   if (!labels.includes(found)) labels.push(found);
@@ -468,5 +471,5 @@ export function readingsOf(bytes: Uint8Array): EncodingReadings {
     const controls = text.match(/[\u0080-\u009f]/g)?.length ?? 0;
     return { label, name: nameOf(label), sample: text.replace(/[\r\n]+$/, ''), unreadable: countUnreadable(bytes.subarray(own && own.label === label ? own.len : 0), label), controls };
   });
-  return { rows, counted: Math.min(bytes.length, COUNT_BYTES), sampleAt: start };
+  return { rows, counted: bytes.length, sampleAt: start };
 }
