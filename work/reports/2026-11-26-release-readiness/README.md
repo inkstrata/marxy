@@ -11,6 +11,7 @@ owning one area, with this file as the plan that came out of it. The investigato
 | [04-feature-completeness.md](04-feature-completeness.md) | the docs' claims against the code; the everyday path; against v0.1.0 |
 | [05-outstanding-work.md](05-outstanding-work.md) | every open item in `work/`, GitHub and the code, deduplicated; the unlanded Windows branches |
 | [06-hands-on.md](06-hands-on.md) | 18 demo files and the everyday path in the browser build, headless WebKit |
+| [07-macos-one-mb.md](07-macos-one-mb.md) | A 1 MB Markdown open on macOS, WebKit and Chrome (2026-11-27, after the report) |
 
 ## Bottom line
 

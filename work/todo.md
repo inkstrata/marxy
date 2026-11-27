@@ -9,7 +9,7 @@ the rows that landed: F1 to F4, F7, W1 to W4, P1, P2 and S1 to S7; round 10 (mas
 
 Moved into the repository on 2026-11-26 with the reader architecture. Until then this tracker lived beside a Windows
 checkout with no remote; the branch names in it (`budgets-4`, `geometry-table` and the rest) are branches of that
-checkout, and none is on GitHub yet (row M1).
+checkout, and none is on GitHub; on 2026-11-27 the owner chose not to recover them.
 
 Rows B1 to B16 came from the first bug hunt (2026-11-27). Their ids such as `EXP-02` are findings in
 `runs/2026-11-27-hunt-01/findings.md` and `verification.md`, and their probe paths are under that folder.
@@ -18,24 +18,19 @@ Rows B1 to B16 came from the first bug hunt (2026-11-27). Their ids such as `EXP
 
 | # | What | Why | Size | Branch |
 | --- | --- | --- | --- | --- |
-| M1 | Push the Windows checkout's unlanded branches to GitHub as `agent/<name>`: round 16's integration (`1f141eb1`: `budgets-4`, `budgets-5`, `teardown-2`), wave 5's (`0a9eeb68`: `geometry-table`, `near-typeset`), `web-shell` and `open-with`; rebase each on `main` | That work exists on one disk only; `main` here is wave 4 | S | |
-| M2 | Run the app on macOS by hand, on the release dry-run DMG: the checklist in `reports/2026-11-26-release-readiness/README.md`, step 5 (opening from Finder and the Dock, the demo tour, Cmd keys, quits with an unsaved edit, light and dark, full screen, a tagged and an iCloud file) | The import built and passed its checks on macOS, but no person has used the Mac build | S | |
 | M3 | First Linux build and run (Linux CI runner and a desktop) | Never built on Linux; `cfg(unix)` paths such as the save sweep have run nowhere | M | |
-| M4 | 14 browser test files fail on macOS WebKit, alone as well as in the suite (2026-11-26): capability (`frame-fonts`, `frame-media`, `frame-viewers`: macOS WebKit draws or plays what Windows WebKit could not), layout and metrics (`page-states`, `splice-all`, `source-fold-stale`, `source-structure`, `leave-split`, `demo-tour`), timing (`large-open-panel`, `markdown-lines`, `tail-follow`, `frame-pdf`), and `operations-copy` (two lazy highlight chunks, javascript and css, load when none are expected; fails alone on main too). Logs in `runs/2026-11-26-import/` | The suite has only ever been green on Windows; CI runs it there until these pass, then adds `browser` to the macOS job | M | |
+| M4 | 14 browser test files fail on macOS WebKit, alone as well as in the suite (2026-11-26): capability (`frame-fonts`, `frame-media`, `frame-viewers`: macOS WebKit draws or plays what Windows WebKit could not), layout and metrics (`page-states`, `splice-all`, `source-structure`, `leave-split`, `demo-tour`), timing (`large-open-panel`, `markdown-lines`, `tail-follow`, `frame-pdf`), and `operations-copy` (two lazy highlight chunks, javascript and css, load when none are expected; fails alone on main too), and `reading-lines` (find, the level filter and a jump to a byte: a 30 s wait times out; fails alone on main too, 2026-11-27). Logs in `runs/2026-11-26-import/` | The suite has only ever been green on Windows; CI runs it there until these pass, then adds `browser` to the macOS job | M | |
 | M5 | 14 browser test files fail on a hosted Windows runner (GitHub's `windows-latest`, 2026-11-26), all green on the Windows desktop: timing budgets (`archive-page`, `data-tree-budget` ×2, `left-search-big`, `paragraph-restyle`, `large-open-panel`, `progressive-large`, `frame-pdf`, `tail-follow`), layout or environment (`demo-tour`, `frame-viewers`, `source-place`, `reading-rows`: a ResizeObserver warning, `operations-copy`: a drag fetched two grammar chunks, `pane-close-guard`). Five overlap M4 (`demo-tour`, `frame-viewers`, `frame-pdf`, `large-open-panel`, `tail-follow`). The suite took 103 minutes there. Logs in `runs/2026-11-26-import/logs/verify-ci-windows-*` | CI runs no browser suite until these pass on a hosted runner (or the budgets scale with the machine); a person runs it on a Windows desktop | M | |
 
 ## Release
 
 The first tag of the reader architecture: v0.2.0, a macOS pre-release. The plan, its order and gates, and the
-investigation behind these rows are in `reports/2026-11-26-release-readiness/`. M1, M2 and round 16 (P11, P12, F24)
-are part of it; R10 and R11 block the tag only if they turn out real. R1 (macOS CI) landed with #774.
+investigation behind these rows are in `reports/2026-11-26-release-readiness/`. The hand run on the Mac was done on
+2026-11-27 and round 16 (P11, P12, F24) is not waited for; R10 and R11 turned out real; each is fixed on a branch of its own. R1 (macOS CI) landed with #774.
 
 | # | What | Why | Size | Branch |
 | --- | --- | --- | --- | --- |
-| R9 | Dry run of `release.yml` by `workflow_dispatch` on the version branch: size, seal and notices of the artifact, then install from a download on a clean account | The workflow has not run since v0.1.0 | S | |
-| R11 | A page that was open when Source was entered, edited and shown again keeps line breaks and hyphens that a fresh render does not give, and keeps them after the typesetter reports idle (`source-fold-stale`, about 1 run in 5 alone; pane open then Source before its first typesetting is done; it matches once the typesetting is done before Source, and a relayout also makes it match). Real but small: the lines are valid, only differently broken. `paste-source` was a test reading too early and is fixed | A stale page after a Source round trip | S | |
-| R12 | The macOS pasteboard test has never run: `cargo test -- --ignored pasteboard_live` | Copy as HTML, RTF and text to other apps is unproved on a Mac | S | |
-| R13 | A 1 MB Markdown file takes about 78 s to open (Windows: the progressive mount lays out per chunk); never measured on macOS. On macOS (hunt-02 CMD-03) a 1 MB file with hard breaks, links, lists and tables keeps tasks over 50 ms coming for 20 s after it opens (36 tasks, 2.4 s), a plain 1 MB file none, and a 3 MB rich file takes over 10 s: content, not size; probe `runs/2026-11-27-hunt-02/probes/CMD/busy.verify.mjs` | Long files are a stated use | M | |
+| R13 | A 1 MB Markdown file shows its text in 1 to 4.4 s on macOS, but the main thread stays busy long after: 22 s in Chrome, 42 s until WebKit has set every paragraph, with 50 to 100 ms frames meanwhile (Windows Edge: 78 s, the progressive mount laying out per chunk). Switching back to its tab costs 27.8 s more in Chrome. Measured 2026-11-27, `reports/2026-11-26-release-readiness/07-macos-one-mb.md`; the real app window not measured. On macOS (hunt-02 CMD-03) a 1 MB file with hard breaks, links, lists and tables keeps tasks over 50 ms coming for 20 s after it opens (36 tasks, 2.4 s), a plain 1 MB file none, and a 3 MB rich file takes over 10 s: content, not size; probe `runs/2026-11-27-hunt-02/probes/CMD/busy.verify.mjs` | Long files are a stated use | M | |
 
 ## Next
 
@@ -108,7 +103,7 @@ touch none of the files M1's branches change and were started that day. Q3, Q4, 
 | P5 | `one-view`: split the view's main function (Q6); routing keys once is Q2 | See S9 | L, gradual |
 | P6 | `invites`: `.ics` and `.vcf` as cards; the usable parser is MPL or large | Held | S |
 | P7 | `read-aloud`: the page read by a local Windows voice | Held | M |
-| R15 | iCloud Drive placeholder ("dataless") files are not recognised: a read, the index walk or a save may stall while the file downloads | Unverified; try it in M2 | S |
+| R15 | iCloud Drive placeholder ("dataless") files are not recognised: a read, the index walk or a save may stall while the file downloads | Unverified; try it by hand on the Mac | S |
 | B14 | A SQLite view stopped at the 2 s cap exports to CSV with no word that rows are missing | S2, kept out of Next to hold it near fifteen rows; `viewers/sqlite.ts:640` drops `got.stopped`, which the Rust side sets (`sqlite.rs:818`); code reading, the browser build has no SQLite engine; hunt-01 VWR-01 | S |
 | B15 | Save in the Export panel can be pressed twice and opens two save dialogs | S3; no busy guard while an export runs; hunt-01 EXP-05, probe `probes/EXP/b-double-save.verify.mjs` | S |
 | B16 | X-ray "As written" drops a leading BOM | S3; `new TextDecoder()` strips it; hunt-01 RDR-01, probe `probes/RDR/xray-bom.verify.mjs` | S |
