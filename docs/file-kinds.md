@@ -185,12 +185,12 @@ or code page:
 | Log | logs | time, level and spacing classes, an error rule on error lines, level counts |
 | Terminal | sessions | command, continuation and output lines; copy commands or output |
 | Diff | patches | added and removed lines inside hunks, changed words marked |
-| Data tree | JSON, JSON with comments, JSON5, YAML, TOML, XML | a foldable tree two levels open; a list of three or more same-keyed maps as a table; a Keys card |
+| Data tree | JSON, JSON with comments, JSON5, YAML, TOML, XML | a foldable tree two levels open (the first 300 branches of a long list; the rest start folded); a list of three or more same-keyed maps as a table; a Keys card |
 | Records | JSON Lines | a table of every record, keys as columns, as the Table reading draws its rows |
 | Table | CSV, TSV | header and every row, a field with a line break in it one row; sorting, the row filter and find go through every row and change the view, never the file; a Columns card |
 | Verse | plain text of short lines in stanzas | stanzas, a number every fifth line |
 | Prose | plain text of wrapped paragraphs | paragraphs, a wrap undone |
-| Written | anything else, and a data file or notebook that does not parse (under 256 KB; from there it is shown as Lines, with why it is not a tree in its head) | every line numbered, as written |
+| Written | anything else, and a data file or notebook that does not parse (under 256 KB; from there it is shown as Lines, with why it is not a tree in its head, and in any encoding: a Latin-1 or UTF-16 file's lines are its decoded text) | every line numbered, as written |
 | Lines | a log, plain text, code or Markdown from 5 MB | every line numbered, as written, only the lines on screen drawn; a log's time in the comment colour, a warning or error level in bold, ANSI colour drawn in the theme's tones; find, the level filter and the Outline read every line; Markdown's headings listed from a scan, and Show rendered (`g r`) draws its page |
 | Notebook | `.ipynb` | Markdown cells rendered, code cells as fences, text, HTML and image outputs; scripts named, never run |
 | Conversation | JSON Lines agent sessions | turns of text, thinking and tool calls with results; a result that names no id answers the turn's first call that named none, whether it is a block in a prompt, a `tool_result` line of its own or a `role: tool` line |

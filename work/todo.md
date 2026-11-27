@@ -88,7 +88,6 @@ touch none of the files M1's branches change and were started that day. Q3, Q4, 
 | # | What | Why | Size |
 | --- | --- | --- | --- |
 | F5 | Place restore failed once under full-check load (94 of 95), not reproduced in 4 runs | Watch; give it a wait or find the race if it returns | S |
-| B22 | A broken (unparseable) data file of 256 KB or more that is not UTF-8 still draws every line | `written()` path: `unreadable` (`reading/index.ts`) windows UTF-8 files only, so a Latin-1 or UTF-16 file keeps the all-lines page and its 30 elements a line | S |
 | F6 | Facts readers for wma, ac3, amr | Only if such files turn up | S |
 | S10 | Watch: the 2 s flat poll stats symlink targets, SMB included; needs a rule for which links are followed (`src-tauri` watch) | Polling a share costs | M |
 | S9 | `createRenderedView` is about 2,600 lines; listeners added far outnumber those removed (`view/rendered-view.ts`) | Goes with P3 and P5 | L |

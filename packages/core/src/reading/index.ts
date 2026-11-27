@@ -12,7 +12,7 @@ import { lineOfByte, parseJsonFrom, scanJson, type Cut, type JsonStream } from '
 import { fileTypeFor, guessedFromBytes } from '../kind/registry.ts';
 import { NOTEBOOK_MAX_BYTES, notebookReading } from './notebook.ts';
 import { accountHtml } from './account.ts';
-import { indexLines, isUtf8, linesAccount, linesTier, renderedChosen, type LinesTier, type ReadingLines } from './lines.ts';
+import { indexLines, isUtf8, LINES_READ_ONLY_FROM, linesAccount, linesTier, renderedChosen, type LinesTier, type ReadingLines } from './lines.ts';
 import {
   drawnColumns,
   columnTotal,
@@ -197,10 +197,41 @@ export const WRITTEN_LINES_FROM = 256 * 1024;
 
 /** A data file that did not parse: its lines as written, drawn all at once when short and windowed when long. */
 function unreadable(t: Text, path: string, bytes: Uint8Array, format: string, failed: NonNullable<Reading['failed']>, note: string, account: readonly string[]): Reading {
-  if (bytes.length < WRITTEN_LINES_FROM || bytes.length >= 0xffffffff || !isUtf8(bytes)) return written(t, format, failed, note, account);
-  const made = linesReading(path, bytes, 'text');
+  if (bytes.length < WRITTEN_LINES_FROM || bytes.length >= 0xffffffff) return written(t, format, failed, note, account);
+  const made = isUtf8(bytes) ? linesReading(path, bytes, 'text') : decodedLinesReading(t, bytes);
   const html = `<div class="marxy-reading marxy-lines" data-marxy-reading="lines">${accountHtml(account, esc(note))}<div class="marxy-lines-body" data-marxy-lines></div></div>`;
   return { ...made, html, format, failed };
+}
+
+/**
+ * The lines of a file that is not UTF-8 (Latin-1, UTF-16 ...), as `written` reads them: each line is the file's bytes from where
+ * the decoded text's line begins to where it ends, and its text is the decoded text, so what a line says and the byte it stands
+ * on are as the all-lines page has them. A last empty line is none.
+ */
+function decodedLinesReading(t: Text, bytes: Uint8Array): Reading {
+  let n = t.starts.length;
+  if (n > 1 && t.starts[n - 1] === t.ends[n - 1]) n--;
+  const starts = new Uint32Array(n);
+  const ends = new Uint32Array(n);
+  for (let i = 0; i < n; i++) {
+    starts[i] = t.offsets.at(t.starts[i]!);
+    ends[i] = t.offsets.at(t.ends[i]!);
+  }
+  const lines: ReadingLines = {
+    bytes,
+    starts,
+    ends,
+    count: n,
+    log: false,
+    markdown: false,
+    readOnly: bytes.length >= LINES_READ_ONLY_FROM,
+    ranks: null,
+    seedRanks: null,
+    shape: null,
+    headings: null,
+    decoded: (i) => t.text.slice(t.starts[i], t.ends[i]),
+  };
+  return { id: 'lines', name: 'lines', format: 'text', html: '', contents: null, failed: null, lines };
 }
 
 /** The last lines indexed for each path, held weakly: a log that grew is indexed from where the last index ended. */
@@ -221,6 +252,12 @@ function linesReading(path: string, bytes: Uint8Array, tier: LinesTier): Reading
 // ---- the data tree ------------------------------------------------------------------------------------------------
 
 const FOLD_DEPTH = 2;
+/**
+ * Branches drawn open, in all. A list of a thousand maps opens each to its fields and draws the whole of it before the first
+ * paint, and an open branch is most of what the page spends on a tree; the first of them fill the screen, and the rest are
+ * one click each. A tree small enough to read at a glance is unchanged.
+ */
+const OPEN_BRANCHES_MAX = 300;
 const TABLE_MIN = 3;
 
 /** Where a tree's offsets fall in the file: a byte, and the line it is on. */
@@ -324,6 +361,8 @@ interface TreeInput {
 interface Draw {
   readonly p: Place;
   left: number;
+  /** Branches that may still be drawn open. */
+  openLeft: number;
   shown: number;
   readonly cut: ReadonlyMap<TreeNode, Cut>;
   readonly base: TreeNode;
@@ -515,7 +554,7 @@ function nodeHtml(d: Draw, node: TreeNode, depth: number, index: number | null, 
   const kind = node.kind === 'list' ? '[ ]' : node.kind === 'element' ? '' : '{ }';
   const table = tableKeys(node) !== null;
   const meta = `<span class="marxy-tree-meta">${kind ? `${kind} ` : ''}${count(node, entriesOf(d, node))}${table ? ' · as a table' : ''}</span>`;
-  const open = depth < FOLD_DEPTH ? ' open' : '';
+  const open = depth < FOLD_DEPTH && d.openLeft-- > 0 ? ' open' : '';
   const body = entriesHtml(d, node, depth, path, node === d.base ? d.start : 0);
   return `<details class="marxy-tree-branch"${open}${spanAt(p, node.start, node.end)}><summary>${keyHtml(node, index)}${attrsHtml(node)} ${meta}</summary><div class="marxy-tree-kids">${body}</div></details>`;
 }
@@ -555,7 +594,7 @@ function treeReading(input: TreeInput): Reading {
   const { p, rootKind, total, from, entries, entryCount } = input;
   const capped = total > TREE_MAX_VALUES;
   const top = from.path.length === 0 && rootKind !== 'element' && rootKind !== 'scalar';
-  const d: Draw = { p, left: TREE_MAX_VALUES, shown: 0, cut: input.cut, base: input.base, start: input.start, offset: input.offset, stopped: false };
+  const d: Draw = { p, left: TREE_MAX_VALUES, openLeft: OPEN_BRANCHES_MAX, shown: 0, cut: input.cut, base: input.base, start: input.start, offset: input.offset, stopped: false };
   const drawn: string[] = [];
   if (top) {
     // The root map or list is the page itself, not a node on it: its entries are drawn at the top, and a root map's

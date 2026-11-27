@@ -9,6 +9,7 @@ import { partReading } from './parts.ts';
 import { describeColumn, READING_MAX_COLUMNS, READING_MAX_ROWS, readingOf, TREE_MAX_VALUES, WRITTEN_LINES_FROM } from './index.ts';
 import { indexSome, parseSome, READING_MAX_KEYS, recordRows } from './rows.ts';
 import { parseJson, parseToml, parseXml, parseYaml, TOML_MAX_KEY_STEPS, TREE_MAX_DEPTH, TreeError } from './tree.ts';
+import { lineText } from './lines.ts';
 import { cpuNow } from '../testing/cpu-clock.ts';
 
 const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
@@ -199,6 +200,34 @@ test('a data file that does not parse is windowed lines from exactly 256 KiB, an
   assert.equal(readingOf('b.json', broken(WRITTEN_LINES_FROM - 1))!.id, 'written');
   assert.equal(readingOf('b.json', broken(WRITTEN_LINES_FROM))!.id, 'lines');
   assert.ok(readingOf('b.json', broken(WRITTEN_LINES_FROM))!.failed, 'the reason is kept');
+});
+
+test('a broken data file that is not UTF-8 is windowed lines too, its lines decoded and standing on the file\'s own bytes', () => {
+  const rows = Array.from({ length: 12_000 }, (_, i) => `  {"id": ${i}, "name": "caf\u00e9 ${i}"},`);
+  const text = `[\n${rows.join('\n')}\n  stray words`;
+  // Latin-1: one byte a character, and the é is a byte (0xE9) UTF-8 would not have.
+  const latin = Uint8Array.from(text, (c) => c.charCodeAt(0));
+  assert.ok(latin.length > WRITTEN_LINES_FROM);
+  const a = readingOf('b.json', latin)!;
+  assert.equal(a.id, 'lines');
+  assert.ok(a.failed, 'the reason is kept');
+  assert.equal(a.html.includes('marxy-written-line'), false, 'no line is drawn up front');
+  const lines = a.lines!;
+  assert.equal(lines.count, 12_002);
+  // What the byte decodes to is the reading's call (the sniffer's); that it is one character, not a UTF-8 error, is the point.
+  assert.match(lineText(lines, 5), /^ {2}\{"id": 4, "name": "caf[^\ufffd] 4"\},$/);
+  assert.equal(lines.bytes[lines.starts[5]! + 1], 0x20, 'a line starts on the file\'s byte');
+  assert.equal(latin.subarray(lines.starts[5]!, lines.ends[5]!).indexOf(0xe9), `  {"id": 4, "name": "caf`.length, 'and its é is the file\'s one byte');
+  assert.equal(lineText(lines, 12_001), '  stray words');
+  // UTF-16 with a byte-order mark: two bytes a character, so a line's bytes are twice its characters.
+  const units = [0xfeff, ...[...text].map((c) => c.charCodeAt(0))];
+  const wide = new Uint8Array(units.length * 2);
+  units.forEach((u, i) => new DataView(wide.buffer).setUint16(i * 2, u, true));
+  const b = readingOf('b.json', wide)!;
+  assert.equal(b.id, 'lines');
+  assert.equal(b.lines!.count, 12_002);
+  assert.equal(lineText(b.lines!, 5), `  {"id": 4, "name": "caf\u00e9 4"},`);
+  assert.equal(b.lines!.ends[5]! - b.lines!.starts[5]!, 2 * `  {"id": 4, "name": "caf\u00e9 4"},`.length);
 });
 
 test('a broken data fence of 300 KB in Markdown is still set as written, never as lines', () => {
