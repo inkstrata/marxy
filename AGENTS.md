@@ -114,8 +114,10 @@ changing structure, adding a mechanism, or fixing a bug that crosses modules.
    says what changed for the reader, the tests run with counts, and anything not done or not checked. It
    removes the rows it finishes from `work/todo.md`.
 5. Someone who did not write it reviews the pull request's diff. CI runs `pnpm verify` on macOS.
-6. The owner merges. Do not merge into `main` yourself, and do not merge or remove a branch another
-   session is working on.
+6. The orchestrator or agent that owns the pull request merges it once confidence is high (the reviewer
+   approved the diff, the tests prove the change, nothing is left unchecked) and CI is green. A pull
+   request that needs the owner's approval (CODEOWNERS paths, or a review the owner requested) waits for
+   it. Do not merge or remove a branch another session is working on.
 
 A run of several branches built together (a wave or a round) keeps its account, rules, briefs, reports,
 reviews and logs in `work/runs/<date>-<kind>-<nn>/`; when it lands, its pull request adds a row to
