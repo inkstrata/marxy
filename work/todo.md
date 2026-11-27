@@ -69,14 +69,12 @@ Files of 1 to 5 MB fail or crawl (the owner, 2026-11-27). The account, the measu
 `docs/big-files.md` (both with the `agent/scale-guard` pull request). Rows L1 to L19 are hunt 03's verified findings
 (`runs/2026-11-27-hunt-03/`); L20 to L28 are the structural work the research recommends, which removes whole classes of
 them. Numbers are headless Chromium on a loaded Mac unless said; growth is per doubling of the file (2 is linear).
-Six were fixed before this section landed, so their ids are gaps: L1 by #804 (layout reads between a batch's writes) and
-#807 (the Chromium restyle), its remainder being the grid pass (L30, with #808) and R13; L4 and L6 by #806; L12 by #797;
-L13 by #805; L14 by #798.
+Eight were fixed before this section landed, so their ids are gaps: L1 by #804 (layout reads between a batch's writes)
+and #807 (the Chromium restyle), its remainder being the grid pass (L30) and R13; L2 and L3 by #808, which added L30 and
+L31; L4 and L6 by #806; L12 by #797; L13 by #805; L14 by #798.
 
 | # | What | Why | Size | Branch |
 | --- | --- | --- | --- | --- |
-| L2 | A block-dense 1 MB Markdown file shows its first text only after one 12-14 s task (2 MB: 70 s of CPU, 920,000 nodes) | S1 freeze; the first mount is cut by bytes, not by nodes (`render/progressive.ts`); hunt-03 RDR-04, probe `probes/RDR/a.verify.mjs` | M | |
-| L3 | Plain text below the lines threshold grows 3.7-4.3x per doubling: 2.9, 11.5 and 42.7 s of main-thread work to open 0.5, 1 and 2 MB, 253 s at 5.1 MB, and a line appended on disk to 1 MB costs 16.7 s; at 5.3 MB (read as lines) it opens in 0.26 s | S1 freeze; after every idle chunk the mount forces a layout of the article (`render/progressive.ts:183`; 1.5 s of the open at 1 MB, 4.5 s at 2 MB) and the chunk size, set by that read, falls toward 4 blocks, so both the chunks and each one's layout grow; style and layout are the rest (6.1-24.8 s), with `buildBlocksByRange` (`render/post.ts:111`) 0.5-1.4 s. Hunt-03 MEA-02, MEA-09, MEA-11, profile `probes/MEA/txt-profile.verify.mjs`. Text has nothing to lose in the lines reading; with L21 it can switch far lower than 5 MiB | S | |
 | L5 | Opening a second or third 2 MB Markdown file takes 35-52 s (1 MB: 3.6 s), with 1,100-1,450 layouts against about 150; not the first file's mount still running | S1 freeze; cause not isolated (profile the second open); hunt-03 NAV-04, probe `probes/NAV/*.verify.mjs` | M | |
 | L7 | Find on a page still mounting counts only what is mounted and says nothing (2 MB: "1 of 21,072" of 32,442), and from 0.75 MB every key in the field costs about 0.5 s | S2 wrong result; find walks the DOM (`find/`); hunt-03 NAV-01, NAV-05. The fix is L23's find over the model | M | |
 | L8 | End on a page still mounting stops short (2 MB: at 1.34 MB of 2.0); reaching the end takes about seven presses over 60 s | S2; the jump goes to the last mounted block; hunt-03 NAV-03. Jump by byte through the geometry table (E22) | S | |

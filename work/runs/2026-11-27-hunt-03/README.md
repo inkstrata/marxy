@@ -49,7 +49,7 @@ account, the measurements and the order of the work are in `../../reports/2026-1
 | VWR (readings, viewers) | 2 | 2 | 0 | 0 | 2 (L12, L15) | 0 |
 | **All** | **38** | **33** | **1** | **4** | **19** | **6** |
 
-L1, L4, L6, L12, L13 and L14 were fixed by other branches before this landed (`triage.md`, "Fixed before the rows landed").
+L1 to L4, L6 and L12 to L14 were fixed by other branches before this landed (`triage.md`, "Fixed before the rows landed").
 
 Most productive: measurement (the open cliff on every prose-like shape, and the plain-text cliff below the lines
 threshold) and find and place (every finding confirmed, two S1). The read path's two whole-parse findings are the

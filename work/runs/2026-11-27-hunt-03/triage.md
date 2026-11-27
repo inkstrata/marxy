@@ -55,11 +55,13 @@ machine whose load average stood at 30 to 120, and the verifiers measured CPU or
 
 ## Fixed before the rows landed
 
-The same day, other branches fixed six rows while this pull request waited, so they never reached `todo.md`:
+The same day, other branches fixed eight rows while this pull request waited, so they never reached `todo.md`:
 
 - **L1** by #804 (a typesetting batch writes its breaks and hangs without a layout read between) and #807 (the Chromium
   restyle of the whole page on each insertion, from one `:has()` rule with its siblings: md-technical at 500 KB from
   18.5 s to 2.1 s). What is left is the grid pass after a dense page is whole (L30, added by #808) and R13.
+- **L2 and L3** by #808 (the mount cuts chunks by elements, one insertion each, with no layout read). It added L30 and
+  L31 (plain text with no blank lines parsed behind the page as one paragraph).
 - **L4 and L6** by #806. L6 was not what MEA-03 said: the probe's change left text after the closing bracket, so the
   file no longer parsed and was drawn as lines, which costs the same on a fresh open; a valid change reloads like the
   open. The "twice the nodes after a reload" above is garbage not yet collected: with a forced collection the count
@@ -68,7 +70,6 @@ The same day, other branches fixed six rows while this pull request waited, so t
 - **L13** by #805 (Shift_JIS and GBK guessed before UTF-8 is assumed).
 - **L14** by #798 (spreads into calls replaced by chunked helpers across `apps/desktop/src` and `packages/core/src`).
 
-In flight when this landed: L2 and L3 (#808).
 
 ## Not reached
 
