@@ -86,7 +86,9 @@ const ADVANCE_STYLE = [
  * the same string, the same advance. It reads style, so it is called before the batch writes anything (a style
  * read after the breaks went in restyled the article once more per batch). The edge is in it because the
  * engine gives a glyph's box as two edges in single precision, so its width moves in the sixth digit with where
- * on the page it sits.
+ * on the page it sits. The key holds the paragraph's edge, not the glyph's own place on its line: a first line's
+ * `text-indent`, or the padding or border of an inline element the line starts with, moves the glyph off that
+ * edge, and its advance can then differ from the cached one in that sixth digit (no corpus page does).
  */
 export function advanceStyle(el: Element, edge: number): string {
   const cs = getComputedStyle(el);
@@ -141,9 +143,16 @@ export function applyHang(
       wraps.push({ span: wrapGrapheme(node, offset, grapheme, keep), fraction, key });
     }
   }
-  for (const { span, key } of wraps) if (!advances.has(key)) advances.set(key, measureAdvance(span));
-  for (const { span, fraction, key } of wraps) {
-    const advance = advances.get(key)!;
+  // Reads, then writes. An advance of 0 (a glyph that paints no box) is not kept: the next span is measured itself.
+  const measured = wraps.map(({ span, key }) => {
+    const known = advances.get(key);
+    if (known !== undefined) return known;
+    const advance = measureAdvance(span);
+    if (advance > 0) advances.set(key, advance);
+    return advance;
+  });
+  wraps.forEach(({ span, fraction }, i) => {
+    const advance = measured[i]!;
     if (advance > 0) span.style.marginInlineStart = `${-(fraction * advance)}px`;
-  }
+  });
 }

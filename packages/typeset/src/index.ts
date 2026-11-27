@@ -337,8 +337,12 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   const inputTypes = ['wheel', 'touchmove', 'keydown'] as const;
   const downTypes = ['mousedown', 'touchstart'] as const;
   const upTypes = ['mouseup', 'touchend', 'touchcancel', 'blur'] as const;
+  // A face that finishes loading changes the advance of every glyph set in it: the hang advances read
+  // with the fallback face are forgotten, so the next batch reads them again. What is set already stays.
+  const onFacesLoaded = (): void => fonts.advances.clear();
   const listen = (on: boolean): void => {
     const add = on ? 'addEventListener' : 'removeEventListener';
+    article.ownerDocument.fonts?.[add]('loadingdone', onFacesLoaded);
     win?.[add]('pointermove', onPointerMove, { capture: true, passive: true });
     for (const t of inputTypes) win?.[add](t, onInput, { capture: true, passive: true });
     for (const t of downTypes) win?.[add](t, onDown, { capture: true, passive: true });

@@ -45,3 +45,48 @@ test('a hung glyph seen before in the same style is not measured again', async (
   assert.equal(result.unmeasured, 0, 'every hung glyph is pulled into the margin');
   await page.close();
 });
+
+test('a face that finishes loading makes the next batch measure its hung glyphs again', async () => {
+  const page = await harness.open(renderCorpus('15-prose-volume.md'), { extraCss: '.marxy-article { max-width: 30ch !important; }' });
+  const reads = await page.evaluate(async () => {
+    let reads = 0;
+    const own = Range.prototype.getClientRects;
+    Range.prototype.getClientRects = function () {
+      if (this.startContainer instanceof Element && this.startContainer.classList.contains('marxy-hang')) reads++;
+      return own.call(this);
+    };
+    const controller = window.typeset.attach(document.getElementById('doc'), {
+      lineBox: window.lineBox, glueStretchEm: 0.6, hyphenate: true, lastLineMinWidth: 0.33, hanging: 'left', scheduler: window.immediateScheduler(),
+    });
+    await controller.done;
+    const first = reads;
+    // Set again with nothing loaded: every advance is known.
+    reads = 0;
+    controller.relayout('resize');
+    await controller.done;
+    const again = reads;
+    // A face finished loading (the page's own fonts are loaded already; the event is what the typesetter hears).
+    document.fonts.dispatchEvent(new Event('loadingdone'));
+    reads = 0;
+    controller.relayout('resize');
+    await controller.done;
+    Range.prototype.getClientRects = own;
+    return { first, again, afterLoad: reads };
+  });
+  assert.ok(reads.first > 0, `the first set measures: ${JSON.stringify(reads)}`);
+  assert.equal(reads.again, 0, `nothing new to measure: ${JSON.stringify(reads)}`);
+  assert.ok(reads.afterLoad > 0, `after a face loads the advances are read again: ${JSON.stringify(reads)}`);
+  await page.close();
+});
+
+test('two line starts in one text node, set in place, hang one glyph, not an empty span', async () => {
+  const page = await harness.open('<p id="p">“One two<span class="marxy-lb"></span> <span class="marxy-lb"></span>“Three four</p>');
+  const result = await page.evaluate(async () => {
+    const { applyHang } = await import('/src/hang.ts');
+    const p = document.getElementById('p');
+    applyHang([p], () => true);
+    return [...p.querySelectorAll('.marxy-hang')].map((s) => s.textContent);
+  });
+  assert.deepEqual(result, ['“', '“']);
+  await page.close();
+});
