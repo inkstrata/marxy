@@ -19,6 +19,7 @@ import { applyDocumentMutation } from '../commands/edits.ts';
 import { bindFocus, focusRules } from '../pane/focus.ts';
 import { installPaneKeys, isAltGraphText, isMacOptionText, pageModalOpen } from '../pane/keys.ts';
 import type { AppHandle } from '../app.ts';
+import { isMac } from '../platform.ts';
 
 export type PaletteCloser = () => void;
 
@@ -39,10 +40,6 @@ export function setPaletteOpener(open: PaletteOpener): void {
 
 export function openPalette(query?: string): void {
   paletteOpener(query);
-}
-
-function isMac(): boolean {
-  return typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 }
 
 const NO_SHELL: AppContext['shell'] = { clipboardWrite: async () => {} };
