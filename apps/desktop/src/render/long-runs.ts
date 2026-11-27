@@ -8,6 +8,12 @@
 // inside the run. Code is cut too: the page holds a code piece's text, a long token and all, in the parser's 64 KB text
 // nodes until highlight.ts has split it into lines (it elides a long line then), and a 2 MB one-line log or minified
 // bundle took minutes to lay out in that time. The pass that splits the lines drops the breaks with the text it replaces.
+// The breaks bound line breaking, not shaping: with kerning on, the engine still shapes the whole run as one piece
+// (a 400 KB paragraph took 1.8 s with the breaks and 30 ms with kerning off, in Chromium). So the element that holds a cut run
+// also gets `marxy-long-run`, which the base sheet gives `font-kerning: none`; prose with spaces keeps its kerning.
+
+/** The class on an element holding a run that was cut; the base sheet turns kerning off for it. */
+export const LONG_RUN_CLASS = 'marxy-long-run';
 
 /** The longest run of non-space characters left unbroken, and the distance between the breaks put in a longer one (a cut moves back to a cluster boundary, so a piece is at most this long). */
 export const RUN_CHARS = 4096;
@@ -81,6 +87,7 @@ export function guardLongRuns(root: ParentNode): number {
     }
     if (!cutAny) continue;
     frag.append(doc.createTextNode(data.slice(from)));
+    node.parentElement?.classList.add(LONG_RUN_CLASS);
     node.replaceWith(frag);
   }
   return breaks;

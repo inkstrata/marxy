@@ -219,7 +219,7 @@ Folders under `apps/desktop/src/`:
 | `app.ts`, `boot.ts`, `main.ts`, `close.ts`, `save.ts`, `title.ts` | composition root, boot, quit and close, save, window title |
 | `document/` | the store, the open path, encodings, live reload, scratch documents, entries held in memory, fork and new files |
 | `view/` | Read's page in a pane: show, mode switching, progressive mount; a table reading's rows, its sort and its row filter; a big file's lines |
-| `render/` | rendering passes: highlighting and its worker, colour tiers, maths, images, diagrams, long lines, incremental replacement, invisible characters, link labels |
+| `render/` | rendering passes: highlighting and its worker, colour tiers, maths, images, diagrams, long lines (a run of more than 4096 characters with no space gets a `<wbr>` every 4096 and `font-kerning: none` through `marxy-long-run`, in Markdown, mail and Word/RTF pages), incremental replacement, invisible characters, link labels |
 | `source/` | the CodeMirror editor and its frame, language support, replace, folding, editorconfig, stray bytes, notes about a file |
 | `selection/` | the Markdown cursor, pointer selection, the verb bar and verb menu, the key dispatcher |
 | `parts/` | the parts cursor over readings and viewers |
