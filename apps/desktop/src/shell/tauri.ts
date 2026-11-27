@@ -21,6 +21,7 @@ import { createEarlyBuffer, eventsForWatch, isNotWatching, refusalForWatch } fro
 import type { CommandRun } from '../app-types.ts';
 import type { FontFacts, GlyphFacts } from '@marxy/core/src/viewer/font.ts';
 import type { Envelope, MediaFacts } from '@marxy/core/src/viewer/media.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 /** Session-only `marxy-file:` roots. Rust also records each one; this copy is the app's check. */
 const assetScopes = new Set<string>();
@@ -640,7 +641,7 @@ export const shell: Pick<
       }
       const mine = eventsForWatch(payload, key);
       if (mine.length === 0) return;
-      pending.push(...mine);
+      pushAll(pending, mine);
       if (timer !== undefined) clearTimeout(timer);
       timer = setTimeout(flush, 25);
     };

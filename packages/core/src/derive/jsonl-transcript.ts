@@ -21,6 +21,7 @@
 //
 // Nothing about a line's session, model, cost, token use or time is read into the tree.
 import type { Source } from '../contracts/ast.ts';
+import { pushAll } from '../util/spread.ts';
 import type {
   DerivedText,
   DerivedTextRole,
@@ -604,8 +605,8 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
       turnFor('agent', lineSrc);
       call.from.push(src(block.s, block.e));
       call.src = hull(call.from);
-      call.children.push(...leaves);
-      call.unshown.push(...unshown);
+      pushAll(call.children, leaves);
+      pushAll(call.unshown, unshown);
       call.answered = true;
       call.failed = failed;
       return leaves.length;
@@ -691,7 +692,7 @@ export function createTranscriptDeriver(bytes: Uint8Array, file: string): Transc
     }
     // Counted on the turn the line went into; a line that showed nothing is dropped and counted as a whole instead.
     const into = turn as WTurn | null;
-    if (made > 0 && into !== null && unshown.length > 0) into.unshown.push(...unshown);
+    if (made > 0 && into !== null && unshown.length > 0) pushAll(into.unshown, unshown);
     return made;
   };
 

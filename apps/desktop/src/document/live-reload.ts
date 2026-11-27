@@ -19,6 +19,7 @@ import { paneOf, type NoticeTarget } from '../notices/index.ts';
 import type { RenderedView } from '../view/rendered-view.ts';
 import { encodingChoiceOf, heldEncoding, lookForStore } from './encoding.ts';
 import { reparsedAst, type DocumentStore } from './store.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 export interface LiveReloadDeps {
   readonly shell: Pick<AppShell, 'watch' | 'readFile' | 'peekFile' | 'mark' | 'allowAssetScope' | 'markOpened' | 'decodeText'> &
@@ -509,7 +510,7 @@ export async function watchDocument(
     try {
       const watch = await shell.watch(dirname(file), (events) => {
         if (waiting !== null && quiet(events)) {
-          waiting.push(...events);
+          pushAll(waiting, events);
           return;
         }
         const batch = [...events];

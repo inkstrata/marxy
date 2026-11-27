@@ -156,3 +156,14 @@ test('convertClipboard: markdown beside html is kept byte for byte; html convert
   // Nothing readable survives the sanitiser: fall back to the text flavour.
   assert.deepEqual(await run({ text: 'fallback', html: '<div><script>1</script></div>' }), { kind: 'text', markdown: 'fallback' });
 });
+
+test('a paste of 800,000 sibling blocks, a deep run of nested wrappers and a table 800,000 rows long converts whole', async () => {
+  // Past WebKit's limit on a call's arguments (about 640,000 here), which a spread of that many blocks or rows hits.
+  const many = (html) => page.evaluate((h) => window.marxyPaste.htmlToMarkdown(h), html);
+  const siblings = await many(`<div>${'<hr>'.repeat(800000)}</div>`);
+  assert.equal(siblings.split('\n\n').length, 800000);
+  const nested = await many('<div><p>'.repeat(2000) + '<div>deep</div>' + '</p></div>'.repeat(2000));
+  assert.match(nested, /deep/);
+  const rows = await many(`<table>${'<tr><td>x</td></tr>'.repeat(800000)}</table>`);
+  assert.equal(rows.split('\n').length, 800002);
+});

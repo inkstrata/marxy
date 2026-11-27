@@ -21,6 +21,7 @@ import { clampToMain } from '../pane/divider.ts';
 import { keepTwoColumns } from '../pane/narrow.ts';
 import type { AppPanes } from '../pane/index.ts';
 import type { ReadingPersistence } from '../position/reading-persistence.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 type AppPane = AppPanes['panes'][number];
 
@@ -259,7 +260,7 @@ export async function launch(d: LaunchDeps): Promise<{ readonly rest: Promise<vo
       at = pos;
       break;
     }
-    notices.push(...probed.notices);
+    pushAll(notices, probed.notices);
   }
   // None can be read: the normal empty state, and what happened.
   if (at < 0) {
@@ -278,7 +279,7 @@ export async function launch(d: LaunchDeps): Promise<{ readonly rest: Promise<vo
     await inMode(panes.panes[0], first);
     const others = order.slice(at + 1).map((i) => saved.columns[i]!);
     const more = await survey(shell, others);
-    notices.push(...more.notices);
+    pushAll(notices, more.notices);
     if (!narrow && firstIndex === 0 && more.alive.length === 1) {
       const right = more.alive[0]!.column;
       await panes.openIn('other', right.path);

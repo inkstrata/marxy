@@ -34,6 +34,7 @@ import type { PanelContext, PanelDef, PaneView, RowEvent } from '../types.ts';
 import { empty, fld, h, hint, lab, mark, row, scrollWithin, sec, sg, tool } from '../ui.ts';
 import { describeRow } from '../aria.ts';
 import { WINDOW_FROM, windowOf, windowRows, type RowWindow } from '../row-window.ts';
+import { appendAll, minOf } from '@marxy/core/src/util/spread.ts';
 
 export interface OutlineState {
   q: string;
@@ -340,7 +341,7 @@ function renderMarkdown(ctx: Ctx, pane: PaneView, body: HTMLElement, top: HTMLEl
     st.order = shown.map((r) => r.start);
   } else {
     const els = shown.map(make);
-    body.append(...els);
+    appendAll(body, els);
     const put: PutLine = (ins, t) => {
       if (t < els.length) els[t]!.before(ins);
       else els[els.length - 1]?.after(ins);
@@ -844,7 +845,7 @@ const panel: PanelDef<OutlineState> = {
           ctx.redraw();
         } },
         { title: 'Fold every row to its top level', run: () => {
-          const min = Math.min(...rows.map((r) => r.level));
+          const min = minOf(rows.map((r) => r.level));
           for (const r of rows) if (r.level === min && r.kids) ctx.st.shut.add(`${path}#${r.key}`);
           ctx.redraw();
         } },

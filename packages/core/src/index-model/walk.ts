@@ -4,6 +4,7 @@ import { isDeniedName } from './deny.ts';
 import { type IgnoreRule, isIgnored, parseIgnore } from './ignore.ts';
 import type { IndexCandidate } from './entry.ts';
 import { joinPath, pathUnder } from './paths.ts';
+import { pushAll } from '../util/spread.ts';
 
 /** One directory listing. The host fills this from `readdir`; the model does not import `node:`. */
 export interface WalkEntry {
@@ -88,6 +89,6 @@ export function collectFiles(root: string, reader: DirectoryReader, options: Wal
 function loadIgnore(reader: DirectoryReader, absDir: string, relDir: string, rules: IgnoreRule[]): void {
   for (const name of ['.gitignore', '.ignore'] as const) {
     const text = reader.readText(joinPath(absDir, name));
-    if (text !== undefined) rules.push(...parseIgnore(text, relDir));
+    if (text !== undefined) pushAll(rules, parseIgnore(text, relDir));
   }
 }

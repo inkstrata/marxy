@@ -1058,7 +1058,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     const bg = background;
     if (bg === null || bg.mine !== generation || found.length === 0) return;
     reopenDone();
-    queue.push(...found);
+    for (const p of found) queue.push(p);
     for (const p of found) observer?.observe(p);
     if (!bg.running) {
       bg.running = true;
