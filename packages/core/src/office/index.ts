@@ -9,6 +9,7 @@ import { readOdf } from './odf.ts';
 import { readRtf, type RtfOptions } from './rtf.ts';
 import { readSlides } from './slides.ts';
 import { readWord } from './word.ts';
+import { OFFICE_LIMITS } from './xml.ts';
 import { pushAll } from '../util/spread.ts';
 
 export { IMAGE_SCHEME, escapeText, sourceRangeOf, writeMarkdown, type OfficeMarks, type OfficeMarkdown, type SourceSpan } from './markdown.ts';
@@ -42,19 +43,25 @@ export const LEGACY_FILE_MAX = 64 * 1024 * 1024;
 /** Reads the file whose parts `read` hands over. Throws `OfficeError` with the sentence the page says. */
 export async function readOffice(format: Exclude<OfficeFormat, 'rtf' | 'doc' | 'ppt'>, read: PartRead): Promise<OfficeReading> {
   const doc = format === 'docx' ? await readWord(read) : format === 'pptx' ? await readSlides(read) : await readOdf(format, read);
-  return { doc, words: countWords(doc.blocks), ...writeMarkdown(doc) };
+  return reading(doc);
 }
 
 /** The shell's reading of a .doc or .ppt as the page's. Throws `OfficeError` when it is not the shape the page knows. */
 export function readLegacyOffice(r: LegacyOffice): OfficeReading {
   const doc = legacyDoc(r);
-  return { doc, words: countWords(doc.blocks), ...writeMarkdown(doc) };
+  return reading(doc);
 }
 
 /** Reads an RTF file's bytes, as Source holds them. Throws `OfficeError` with the sentence the page says. */
 export function readRtfOffice(bytes: Uint8Array, options: RtfOptions = {}): OfficeReading {
   const doc = readRtf(bytes, options);
-  return { doc, words: countWords(doc.blocks), ...writeMarkdown(doc) };
+  return reading(doc);
+}
+
+/** The page's reading of `doc`: its Markdown, written to the block cap, and the sentences of every cap it met. */
+function reading(doc: OfficeDoc): OfficeReading {
+  const written = writeMarkdown(doc, { blocks: OFFICE_LIMITS.blocks });
+  return { ...written, doc: written.cut.length > 0 ? { ...doc, cut: [...(doc.cut ?? []), ...written.cut] } : doc, words: countWords(doc.blocks) };
 }
 
 const n = (x: number): string => x.toLocaleString('en-GB');

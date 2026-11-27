@@ -31,6 +31,8 @@ export const OFFICE_LIMITS = {
   /** Bytes of XML parsed and of attribute names and values held, across every part: what reading may take in memory. */
   bytes: 128 * 1024 * 1024,
   depth: 256,
+  /** Top-level blocks (paragraphs, headings, tables, lists) written to the page: the rest are left out, with a line saying so. */
+  blocks: 20_000,
 } as const;
 
 export const newBudget = (): XmlBudget => ({ elements: OFFICE_LIMITS.elements, chars: OFFICE_LIMITS.chars, bytes: OFFICE_LIMITS.bytes });

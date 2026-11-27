@@ -6,6 +6,7 @@
 // by the bytes they span, for the page to set apart once rendered. Pure.
 import { inlineText, type Block, type Inline, type OfficeDoc, type Run } from './model.ts';
 import { maxOf } from '../util/spread.ts';
+import { figure } from '../util/budget.ts';
 
 export interface OfficeMarks {
   /** A comment or speaker notes: the Markdown bytes its blocks were written to. */
@@ -61,6 +62,8 @@ export function sourceRangeOf(spans: readonly SourceSpan[], ms: number, me: numb
 
 export interface OfficeMarkdown extends OfficeMarks {
   readonly markdown: string;
+  /** What was left unwritten at the `blocks` cap, as the sentence the page shows above the text; empty when nothing was. */
+  readonly cut: readonly string[];
 }
 
 /** The scheme an image is written under: the sanitiser drops it, and the page puts the picture or its words there. */
@@ -162,7 +165,11 @@ function paraLines(kids: readonly Inline[], ctx: Omit<InlineCtx, 'br'>): string[
 
 const hasText = (kids: readonly Inline[]): boolean => kids.some((k) => k.t === 'image' || k.t === 'note' || (k.t === 'link' ? hasText(k.kids) : k.t === 'run' && k.text.trim() !== ''));
 
-export function writeMarkdown(doc: Pick<OfficeDoc, 'blocks' | 'notes' | 'images' | 'sources'>): OfficeMarkdown {
+/**
+ * The document as Markdown. With `blocks` set, only that many of its top-level blocks are written (a Word document of
+ * 150,000 paragraphs took seconds to render and drew a page too big to scroll), and `cut` says how many were left out.
+ */
+export function writeMarkdown(doc: Pick<OfficeDoc, 'blocks' | 'notes' | 'images' | 'sources'>, options: { readonly blocks?: number } = {}): OfficeMarkdown {
   const alt = (i: number): string => doc.images[i]?.alt ?? '';
   // A note's label is the writer's own, so nothing a reader handed over is written into the Markdown as it stands.
   const labels = new Map(doc.notes.map((n, i) => [n.label, `n${i + 1}`]));
@@ -278,7 +285,9 @@ export function writeMarkdown(doc: Pick<OfficeDoc, 'blocks' | 'notes' | 'images'
     }
   };
 
-  write(doc.blocks, '', '');
+  const most = options.blocks ?? Number.POSITIVE_INFINITY;
+  const left = doc.blocks.length - most;
+  write(left > 0 ? doc.blocks.slice(0, most) : doc.blocks, '', '');
   // Marks after the last block name the end.
   for (const id of marks) anchors.push({ id, at: bytes });
   marks = [];
@@ -287,5 +296,6 @@ export function writeMarkdown(doc: Pick<OfficeDoc, 'blocks' | 'notes' | 'images'
     write(n.blocks, `[^n${i + 1}]: `, '    ');
   });
   spans.sort((a, b) => a.ms - b.ms || b.me - a.me);
-  return { markdown: parts.join(''), asides, slides, anchors, spans };
+  const cut = left > 0 ? [`Only the first ${figure(most)} paragraphs, headings, tables and lists are shown; ${figure(left)} more are left out.`] : [];
+  return { markdown: parts.join(''), cut, asides, slides, anchors, spans };
 }

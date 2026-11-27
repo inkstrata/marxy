@@ -355,3 +355,31 @@ test('a conversion whose pictures are not the ones it counted puts no image in t
     assert.deepEqual(got, { drawn: 0, imgs: 0, asked: [] });
   });
 });
+
+// 150,000 paragraphs: the page draws the first 20,000 and says so; the first text shows within seconds, and the window answers.
+const BIG = '/r/docs/big.docx';
+test('a Word document of 150,000 paragraphs opens on its first 20,000, says the rest are left out, and the window stays responsive', async () => {
+  const body = Array.from({ length: 150_000 }, (_, i) => `<w:p><w:r><w:t>paragraph ${i}</w:t></w:r></w:p>`).join('');
+  await withFrame({ files: { ...FILES, [BIG]: docWith(body, '') }, open: ['/r/README.md'] }, async (page) => {
+    const t0 = Date.now();
+    await open(page, BIG);
+    await page.waitForSelector('.marxy-office .marxy-article > p:not(.marxy-office-cut)', { timeout: 60_000 });
+    const first = Date.now() - t0;
+    // The bound is generous for a loaded machine: drawing all of it took 6 s, and a document of 450,000 short paragraphs never finished.
+    assert.ok(first < 30_000, `first text after ${first} ms`);
+    const shape = await page.evaluate(() => {
+      const a = document.querySelector('.marxy-office .marxy-article');
+      return {
+        paras: a.querySelectorAll(':scope > p:not(.marxy-office-cut)').length,
+        last: a.querySelector(':scope > p:not(.marxy-office-cut):last-of-type')?.textContent,
+        cut: a.querySelector(':scope > .marxy-office-cut')?.textContent,
+      };
+    });
+    assert.equal(shape.paras, 20_000);
+    assert.equal(shape.last, 'paragraph 19999');
+    assert.equal(shape.cut, 'Only the first 20,000 paragraphs, headings, tables and lists are shown; 130,000 more are left out.');
+    // A timer asked for in the page fires soon: nothing holds the window for long once the page is up.
+    const late = await page.evaluate(() => new Promise((done) => { const t = performance.now(); setTimeout(() => done(performance.now() - t), 0); }));
+    assert.ok(late < 2_000, `a timer waited ${late} ms`);
+  });
+});

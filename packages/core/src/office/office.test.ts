@@ -6,7 +6,7 @@ import { renderSafeHtml } from '../render/pipeline.ts';
 import { escapeText, IMAGE_SCHEME, officeAccount, officeFormatOf, officeHeadLine, readOffice, writeMarkdown } from './index.ts';
 import { run } from './model.ts';
 import { deckParts, odpParts, odtParts, partsReader, storedZip, wordParts } from './testing/samples.ts';
-import { OfficeError, readXml, type XmlBudget } from './xml.ts';
+import { OFFICE_LIMITS, OfficeError, readXml, type XmlBudget } from './xml.ts';
 
 const html = (md: string): string => renderSafeHtml(md, { file: 'office.md' }).html;
 /** The text a reader sees: tags gone, the five escapes undone, and the page's typography (curly quotes, a dash for two
@@ -197,4 +197,18 @@ test('formats by name; the samples pack as zips', () => {
   assert.equal(officeFormatOf('old.xls'), null);
   const zip = storedZip(wordParts());
   assert.deepEqual([...zip.subarray(0, 4)], [0x50, 0x4b, 0x03, 0x04]);
+});
+
+test('a document of more paragraphs than the page draws is written to the cap, and the page says what was left out', async () => {
+  const paras = OFFICE_LIMITS.blocks + 500;
+  const parts = wordParts();
+  parts['word/document.xml'] = `<?xml version="1.0"?><w:document xmlns:w="w"><w:body>${Array.from({ length: paras }, (_, i) => `<w:p><w:r><w:t>para ${i}</w:t></w:r></w:p>`).join('')}</w:body></w:document>`;
+  const r = await readOffice('docx', partsReader(parts));
+  assert.equal(r.markdown.split('\n').filter((l) => l.startsWith('para ')).length, OFFICE_LIMITS.blocks);
+  assert.match(r.markdown, new RegExp(`para ${OFFICE_LIMITS.blocks - 1}\\n`));
+  assert.doesNotMatch(r.markdown, new RegExp(`para ${OFFICE_LIMITS.blocks}\\n`));
+  assert.deepEqual(r.doc.cut, ['Only the first 20,000 paragraphs, headings, tables and lists are shown; 500 more are left out.']);
+  assert.equal(r.words, paras * 2, 'the count is of the whole document');
+  const short = await readOffice('docx', partsReader(wordParts()));
+  assert.equal(short.doc.cut, undefined, 'a document under the cap says nothing');
 });
