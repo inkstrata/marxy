@@ -35,7 +35,20 @@ export function cloneRangeInert(range: Range): DocumentFragment {
   };
   const root = range.commonAncestorContainer;
   if (root.nodeType === Node.TEXT_NODE) out.appendChild(target.createTextNode(textPart(root as CharacterData)));
-  else for (const child of root.childNodes) copy(child, out);
+  else {
+    // Only the children from the one holding the start to the one holding the end can intersect the range.
+    const childOf = (container: Node, offset: number, after: boolean): Node | null => {
+      if (container === root) return root.childNodes[after ? Math.min(offset, root.childNodes.length - 1) : offset] ?? null;
+      let n: Node | null = container;
+      while (n && n.parentNode !== root) n = n.parentNode;
+      return n;
+    };
+    const last = childOf(range.endContainer, range.endOffset, true);
+    for (let child = childOf(range.startContainer, range.startOffset, false); child; child = child.nextSibling) {
+      copy(child, out);
+      if (child === last) break;
+    }
+  }
   return out;
 }
 
