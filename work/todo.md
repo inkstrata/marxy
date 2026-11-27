@@ -102,8 +102,8 @@ L31; L4 and L6 by #806; L12 by #797; L13 by #805; L14 by #798.
 | W5 | Round 6 by eye: line icons, the room changes, top-edge wake and left-edge peek with a real pointer, Notepad writing during a 20 MB save, an SMB share | Ian |
 | W6 | Real files: an iPhone HEIC, real PSD and DDS files, WMA/AC3/AMR, a signed installer opened through the UI, and real `.doc`, `.ppt`, `.deb`, `.cab`, `.iso`, `.rar` | Ian |
 | W7 | Install round 9's build here: `builds\20261123-0631-ee56607d` | Ian's word |
-| W8 | A frames-only launch: no start-time run hit it, so the 2 s stall fix has not been seen in the real app | |
-| W9 | A file on a mapped network drive, a `subst` drive and a OneDrive placeholder still opens: the head read now compares the opened handle's final path | |
+| W8 | A frames-only launch: `check:tauri` judges the first launch's painted mark (text within 1500 ms of the render, a frames-only launch tagged `source=frame`), but no run has hit a frames-only launch yet; on an engine-paint launch (the only kind seen, 175 ms) it passes with or without the 2 s stall fix | |
+| W9 | A file in a OneDrive placeholder (cloud-only) still opens: the head read compares the opened handle's final path; a subst drive and a network path are in check:tauri | Ian |
 | B11 | Go on the search page does nothing (the owner's report). Not reproduced in the browser build or in Playwright WebKit with Mac keys (alone and in a split, docked): `o` on a hit, the foot's `o go` button, a click, a double-click, Cmd-click (opens beside), a click on a file row, Enter on a hit (verb menu, then Go) and the Line's `#` all go; Enter with Replace filled replaces, as meant. Two presses do nothing by design: Enter in the Find field only moves the cursor into the list, and Cmd+Enter there is ignored (the panel's keys skip Cmd chords). Not tried: floating drawer, the real Mac window. Which key or click did the owner press? hunt-01 NAV-01, NAV-06 | Ian |
 
 ## Waiting on Ian
