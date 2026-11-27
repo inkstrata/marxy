@@ -5,7 +5,7 @@
 //   list        every worktree with its branch, state and uncommitted changes
 //   clean       remove the worktrees and branches whose work is in the base (lists them; --apply does it)
 //   todo        the tracker's open rows; --check compares them with the branches
-//   installer   build, sign and keep a Windows installer of a ref (scripts/installer-windows.ps1)
+//   installer   build, keep and install the app from a ref (scripts/installer-macos.mjs, scripts/installer-windows.ps1)
 //   ask         questions for the owner, answered on a page (scripts/ask.mjs)
 // usage: node scripts/work.mjs [status|init|start <name>|list|clean|todo|installer|ask] [options]; --help lists them
 import { execFile, spawnSync } from 'node:child_process';
@@ -27,7 +27,7 @@ const USAGE = `usage: pnpm work [command] [options]
   list [--dirty]                 every worktree: branch, state, and with --dirty its uncommitted changes
   clean [--apply] [--keep a,b]   worktrees and branches whose commits are all in the base; nothing is removed without --apply
   todo [--check] [--file <path>] the tracker's rows; --check fails on a repeated id or a row whose branch has landed
-  installer [<arguments>]        scripts/installer-windows.ps1 with the workspace's paths (Windows); what follows goes to it as is
+  installer [<arguments>]        scripts/installer-macos.mjs (macOS) or installer-windows.ps1 (Windows) with the workspace's paths; what follows goes to it as is
   ask [<command>] [<set>]        questions for the owner on a page, and their answers (pnpm work ask --help); what follows goes to it as is
 options for every command (before installer or ask, not after): --base <ref> (default main), --root <dir> (another tree of the same repository)`;
 
@@ -325,11 +325,16 @@ function todo(ctx, o) {
 }
 
 function installer(ctx, o) {
+  const { ws } = ctx;
+  if (process.platform === 'darwin') {
+    const script = join(SCRIPT_ROOT, 'scripts', 'installer-macos.mjs');
+    const args = [script, '--repo', ws.main, '--worktree', join(ws.worktrees, 'app'), '--out', ws.builds, ...o.rest];
+    return spawnSync(process.execPath, args, { stdio: 'inherit' }).status ?? 1;
+  }
   if (process.platform !== 'win32') {
-    console.log('installer: Windows only; elsewhere run pnpm --filter @marxy/desktop bundle');
+    console.log('installer: macOS and Windows only; elsewhere run pnpm --filter @marxy/desktop bundle');
     return 1;
   }
-  const { ws } = ctx;
   const script = join(SCRIPT_ROOT, 'scripts', 'installer-windows.ps1');
   const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-Repo', ws.main, '-Worktree', join(ws.worktrees, 'exe'), '-OutRoot', ws.builds, ...o.rest];
   return spawnSync('powershell', args, { stdio: 'inherit' }).status ?? 1;

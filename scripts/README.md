@@ -27,7 +27,8 @@ lists or a list names a file that is gone.
 | `check.mjs` | `pnpm check` | runs the repository checks below, one line each |
 | `browser-tests.mjs` | `node scripts/browser-tests.mjs [--jobs n] test/<file>.test.mjs ...` | runs desktop browser test files over one shared dev server, build and WebKit |
 | `work.mjs` | `pnpm work` | the workspace, the tracker, starting and clearing worktrees ([docs/working.md](../docs/working.md)) |
-| `installer-windows.ps1` | `pnpm work installer` | builds, signs, keeps and installs a Windows installer of a ref |
+| `installer-macos.mjs` | `pnpm work installer` (macOS) | builds Marxy.app from a ref, checks its seal, keeps a copy, installs it, registers it with Launch Services and writes the `marxy` command |
+| `installer-windows.ps1` | `pnpm work installer` (Windows) | builds, signs, keeps and installs a Windows installer of a ref |
 | `ask.mjs` | `pnpm work ask` | questions for the owner as a page in the default theme, and their answers ([docs/working.md](../docs/working.md#questions-for-the-owner)) |
 
 ## Repository checks (run by `pnpm check`)

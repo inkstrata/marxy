@@ -11,7 +11,7 @@ change is tracked and carried to `main` is in [working.md](working.md).
 | Node | 24 or later | `engines` in `package.json`; tests use `node --test --experimental-strip-types` |
 | pnpm | 11.18.0 | `packageManager` in `package.json` |
 | Rust | stable, MSVC target on Windows | for `apps/desktop/src-tauri` |
-| C/C++ build tools | Visual Studio Build Tools, "Desktop development with C++" | `rusqlite` builds SQLite from source |
+| C/C++ build tools | Visual Studio Build Tools, "Desktop development with C++", on Windows; the Xcode Command Line Tools (`xcode-select --install`) on macOS | `rusqlite` builds SQLite from source |
 | WebView2 | ships with Windows 11 | the app's webview, and what `check:tauri` drives |
 | Playwright browsers | `pnpm exec playwright install webkit chromium` | WebKit for the browser tests and gates; Chromium for `gate-no-network`, the demo tour and a few tests |
 | Python 3 | optional | only `fixtures/media/make-xiph.py` and `fixtures/sheets/make-number-formats.py` |
@@ -87,8 +87,9 @@ pnpm --filter @marxy/desktop bundle   # vite build, release binary and installer
 | Output | Path |
 | --- | --- |
 | Front end | `apps/desktop/dist/` (only `index.html` ships; `app.html` is left out) |
-| Binary | `apps/desktop/src-tauri/target/release/marxy.exe` |
+| Binary | `apps/desktop/src-tauri/target/release/marxy.exe` (`marxy` on macOS) |
 | Windows installer (NSIS, per-user) | `apps/desktop/src-tauri/target/release/bundle/nsis/Marxy_<version>_x64-setup.exe` |
+| macOS app and disk image | `apps/desktop/src-tauri/target/release/bundle/macos/Marxy.app`, `bundle/dmg/Marxy_<version>_aarch64.dmg` |
 
 `build` ends with `scripts/smoke-cli-open.mjs`, which launches the binary in harness mode on a corpus
 file, an empty file, a missing file and no file, each with its own temporary `MARXY_DATA_DIR`, and
@@ -125,6 +126,42 @@ trusts the build only after the `.cer` is imported into its trusted roots and tr
 is a step for the machine's owner.
 
 ## An installer of a ref, kept and installed
+
+`pnpm work installer` runs `scripts/installer-macos.mjs` on macOS and `scripts/installer-windows.ps1` on
+Windows, with the workspace's paths.
+
+### macOS
+
+```bash
+pnpm work installer                                  # origin/main, installed in /Applications and opened
+pnpm work installer --ref agent/x --no-launch
+pnpm work installer --no-install --dmg               # build and keep the app and the DMG only
+```
+
+1. Fetches `origin`, resolves `--ref` (default `origin/main`, else `main`) to a commit and checks it
+   out, detached, in `<checkout>-wt/app`, the script's own worktree. A ref that lacks `main` gets it
+   merged in there, on no branch; a conflict, or local changes in that worktree, stops the run.
+2. `pnpm install` (offline first), the web build, then `tauri build --bundles app` (`app,dmg` with
+   `--dmg`; the DMG step drives Finder to lay out its window, so it is off by default).
+3. Checks the bundle: `codesign --verify --deep --strict`, sealed resources (`signingIdentity: "-"`
+   in `tauri.conf.json`; Apple silicon kills an unsealed bundle at launch), the bundle id and its
+   document types.
+4. Keeps `Marxy.app.zip` (zipped, so Launch Services never registers it), the DMG if made and a
+   `BUILD.txt` in `builds/<date>-<time>-<commit>/` in the main checkout.
+5. Unless `--no-install`: asks a running installed Marxy to quit (builds run from `target` folders are
+   left alone) and stops if it is still open, since it may be asking about unsaved changes; swaps the
+   new bundle into `/Applications` (`~/Applications` when that is not writable, and a stop when a copy
+   there cannot be replaced; `--dest` to choose), putting the old bundle back if the swap fails; checks it again, registers it with Launch Services so its file types
+   take effect at once and unregisters every other copy of the bundle id (the build folder, old
+   worktrees, DMGs once mounted; the build folder's bundle is deleted, as the zip keeps it), so
+   Finder's Open With offers only the installed one, and writes a `marxy` command to `~/.local/bin` when that is on the PATH
+   (`--cli-dir`, `--no-cli`). `marxy <files>` opens them in the installed app the way Finder would; a
+   file of that name the script did not write is left alone. Then opens the app unless `--no-launch`.
+
+The build is ad-hoc signed, not notarized; built on the machine it runs on, it carries no quarantine flag
+and opens without a Gatekeeper prompt.
+
+### Windows
 
 ```bash
 pnpm work installer                                  # main, self-signed, installed for this user and opened

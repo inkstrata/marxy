@@ -1,6 +1,6 @@
 [tools]
 node = "24"
-pnpm = "latest"
+pnpm = "11.18.0" # the packageManager pin in package.json
 rust = "stable"
 python = "3.13"
 uv = "latest"
