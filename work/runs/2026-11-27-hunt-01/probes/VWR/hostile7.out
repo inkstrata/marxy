@@ -1,0 +1,7 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/VWR/hostile7.mjs --browser chrome
+/h/ok.pdf          opened alive 1074ms "h › ok.pdf Read Source Page of 1 389 % Fit width Fit page PDF 1.4 · 71 × 71 mm" 
+/h/huge-box.pdf    opened alive 710ms "h › huge-box.pdf Read Source Page of 1 25 % Fit width Fit page PDF 1.4 · 3527778 × 3527778" 
+/h/zero-box.pdf    opened alive 711ms "h › zero-box.pdf Read Source Page of 3 127 % Fit width Fit page PDF 1.4 · Letter" 
+/h/neg-box.pdf     opened alive 717ms "h › neg-box.pdf Read Source Page of 2 500 % Fit width Fit page PDF 1.4 · 35 × 35 mm" 
+/h/many.pdf        opened alive 882ms "h › many.pdf Read Source Page of 20,000 389 % Fit width Fit page PDF 1.4 · 71 × 71 mm" 
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0900

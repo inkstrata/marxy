@@ -1,0 +1,7 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/EDT/edt02.verify.mjs --browser chromium --out /private/tmp/claude-501/edtshots
+mode source
+1st: ["DoneOpened as a new document (not saved)Dismiss","Needs youUntitled has changes that are not saved.Save and closeClose without savingDismiss"]
+after click: ["DoneOpened as a new document (not saved)Dismiss"] closes 0
+2th request: ["DoneOpened as a new document (not saved)Dismiss","Needs youUntitled has changes that are not saved.Save and closeClose without savingDismiss"] closes 0
+3th request: ["DoneOpened as a new document (not saved)Dismiss"] closes 1
+0 pictures in /private/tmp/claude-501/edtshots

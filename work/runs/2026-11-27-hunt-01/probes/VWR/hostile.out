@@ -1,0 +1,24 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/VWR/hostile.mjs --browser chrome
+/h/many.zip        opened alive 1641ms "h › many.zip Read Source A ZIP archive: 60,000 files in 50 folders. 6.0 MB in the file, 5" 
+/h/deep.zip        opened alive 717ms "h › deep.zip Read Source A ZIP archive: 1 file, all inside a0/a1/a2/a3/a4/a5/a6/a7/a8/a9/" 
+/h/huge.png        opened alive 716ms "h › huge.png Read Source AN IMAGE THAT WOULD NOT DRAW huge.png /h/ size 45 bytes kind " 
+/h/zero.png        opened alive 726ms "h › zero.png Read Source AN IMAGE THAT WOULD NOT DRAW zero.png /h/ size 45 bytes kind " 
+/h/junk.pdf        opened alive 2336ms "h › junk.pdf Read Source A PDF THE APP CANNOT READ junk.pdf /h/ size 55 bytes kind a P" 
+/h/empty.pdf       opened alive 866ms "h › empty.pdf Read Source UTF-8 0 bytes 0 lines 10 20 30 40 50 60 70 80 90 100 110 1 Ln " 
+/h/junk.ttf        opened alive 744ms "h › junk.ttf Read Source NOT A FONT THE APP READS junk.ttf /h/ size 312 bytes kind a f" 
+/h/junk.woff2      opened alive 727ms "h › junk.woff2 Read Source WOFF2 The webview would not draw this face: Invalid font data " 
+/h/junk.wav        opened alive 747ms "h › junk.wav Read Source Not valid UTF-8 · 60 bytes 80 bytes 1 line 10 20 30 40 50 60 70 8" 
+/h/empty.mp3       opened alive 726ms "h › empty.mp3 Read Source UTF-8 0 bytes 0 lines 10 20 30 40 50 60 70 80 90 100 110 1 Ln " 
+/h/junk.sqlite     opened alive 1219ms "h › junk.sqlite Read Source A DATABASE THE APP CANNOT READ junk.sqlite /h/ size 216 by" 
+/h/junk.docx       opened alive 750ms "h › junk.docx Read Source A WORD DOCUMENT THE APP CANNOT READ junk.docx /h/ size 540 b" 
+/h/bomb.docx       opened alive 716ms "h › bomb.docx Read Source A WORD DOCUMENT THE APP CANNOT READ bomb.docx /h/ size 38.2 " 
+/h/junk.xlsx       opened alive 723ms "h › junk.xlsx Read Source A WORKBOOK THE APP CANNOT READ junk.xlsx /h/ size 141 bytes " 
+/h/junk.pptx       opened alive 718ms "h › junk.pptx Read Source PowerPoint deck · 0 slides" 
+/h/junk.eml        TIMEOUT open TIMEOUT alive 25914ms "TIMEOUT text" 
+/h/junk.msg        TIMEOUT open TIMEOUT alive 35728ms "TIMEOUT text" 
+/h/junk.ico        TIMEOUT open TIMEOUT alive 35726ms "TIMEOUT text" 
+/h/junk.gif        TIMEOUT open TIMEOUT alive 35720ms "TIMEOUT text" 
+/h/junk.jpg        TIMEOUT open TIMEOUT alive 27983ms "TIMEOUT text" 
+/Users/<user>/Dev/marxy-wt/hunt-01/apps/desktop:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @marxy/desktop@0.2.0 shots: `node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/VWR/hostile.mjs --browser chrome`
+Exit status 129

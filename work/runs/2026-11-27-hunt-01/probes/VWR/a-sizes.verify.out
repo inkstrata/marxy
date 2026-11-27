@@ -1,0 +1,10 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/VWR/a-sizes.verify.mjs --browser chromium
+eml 50000 opened alive 786ms draw viewers/mail.ts:332=571ms | (program) :-1=166ms | (idle) :-1=18ms | over frame/crumbs.ts:165=5ms
+eml 100000 opened alive 1441ms draw viewers/mail.ts:332=1387ms | (program) :-1=30ms | draw left/frame.ts:294=4ms | (garbage collector) :-1=3ms
+eml 200000 opened alive 2922ms draw viewers/mail.ts:332=2864ms | (program) :-1=31ms | (garbage collector) :-1=9ms | latin1 viewers/mail.ts:49=5ms
+eml 400000 opened alive 7815ms draw viewers/mail.ts:332=7730ms | (program) :-1=31ms | (garbage collector) :-1=23ms | latin1 viewers/mail.ts:49=15ms
+rtf 50000 opened alive 2910ms draw viewers/office.ts:280=2779ms | (program) :-1=31ms | (idle) :-1=31ms | main deps/mdast-util-from-markdown.js?v=e322de23:1163=25ms
+rtf 100000 opened alive 7214ms draw viewers/office.ts:280=7064ms | (program) :-1=42ms | go deps/mdast-util-from-markdown.js?v=e322de23:1180=20ms | consume deps/mdast-util-from-markdown.js?v=e322de23:1188=16ms
+rtf 200000 opened alive 14835ms draw viewers/office.ts:280=14579ms | (garbage collector) :-1=41ms | (program) :-1=40ms | go deps/mdast-util-from-markdown.js?v=e322de23:1180=40ms
+rtf 400000 opened alive 22804ms draw viewers/office.ts:280=22339ms | go deps/mdast-util-from-markdown.js?v=e322de23:1180=92ms | consume deps/mdast-util-from-markdown.js?v=e322de23:1188=58ms | (program) :-1=56ms
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0901

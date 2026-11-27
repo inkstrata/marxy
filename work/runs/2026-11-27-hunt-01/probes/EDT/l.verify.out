@@ -1,0 +1,6 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/EDT/l.verify.mjs --browser chromium --out /private/tmp/claude-501/edtshots
+/demo/x.py pasted -> "x = 1\n```\ndef foo_bar(x):\n    return x * 2  # *double*\n```\n" | wanted tail "def foo_bar(x):\n    return x * 2  # *double*\n"
+/demo/x.json pasted -> "x = 1\n```\ndef foo_bar(x):\n    return x * 2  # *double*\n```\n{\\\n\"a_b\": \\[1, 2\\],\\\n}\n" | wanted tail "{\n  \"a_b\": [1, 2],\n}"
+/demo/x.csv pasted -> "x = 1\n```\ndef foo_bar(x):\n    return x * 2  # *double*\n```\n{\\\n\"a_b\": \\[1, 2\\],\\\n}\n| 1 | 2 |\n| --- | --- |\n" | wanted tail "1\t2"
+/demo/x.txt pasted -> "x = 1\n```\ndef foo_bar(x):\n    return x * 2  # *double*\n```\n{\\\n\"a_b\": \\[1, 2\\],\\\n}\n| 1 | 2 |\n| --- | --- |\nHello **bold** and [link](https://e.org/)\n" | wanted tail "Hello bold and link"
+0 pictures in /private/tmp/claude-501/edtshots

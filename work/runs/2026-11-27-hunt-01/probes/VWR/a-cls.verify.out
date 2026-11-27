@@ -1,0 +1,6 @@
+mail-line in mail-text 100000 5ms h=18 ws=normal ow=normal hy=manual wb=normal
+mail-line in mail-text 200000 7ms h=18 ws=normal ow=normal hy=manual wb=normal
+bare p in article 100000 1384ms h=54735 ws=normal ow=break-word hy=manual wb=normal
+bare p in article 200000 2739ms h=109275 ws=normal ow=break-word hy=manual wb=normal
+office-doc article p 100000 1439ms h=54735 ws=normal ow=break-word hy=manual wb=normal
+office-doc article p 200000 2856ms h=109275 ws=normal ow=break-word hy=manual wb=normal

@@ -1,0 +1,13 @@
+readonly(): false
+copy: Ok(4)
+READER SEES: /var/folders/z7/8x0c_cyd03sb7j1mgs3ryxrm0000gn/T/tmp.6p2vLx96W5/.doc.md.marxy-tmp-1-0-0: Operation not permitted (os error 1)  (kind PermissionDenied)
+cleanup remove_file(tmp): Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+temp still present: true
+rename tmp over target: Err(Os { code: 1, kind: PermissionDenied, message: "Operation not permitted" })
+target contents: Ok("old\n")
+total 16
+drwx------@    4 ian  staff  -        128 Nov 27 00:53 .
+drwx------@ 1657 ian  staff  sunlnk 53024 Nov 27 00:53 ..
+-rw-r--r--@    1 ian  staff  uchg       4 Nov 27 00:53 .doc.md.marxy-tmp-1-0-0
+-rw-r--r--@    1 ian  staff  uchg       4 Nov 27 00:53 doc.md
+cleanup: "/var/folders/z7/8x0c_cyd03sb7j1mgs3ryxrm0000gn/T/tmp.6p2vLx96W5": No such file or directory (os error 2)

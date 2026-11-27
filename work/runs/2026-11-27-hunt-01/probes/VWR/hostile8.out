@@ -1,0 +1,8 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/VWR/hostile8.mjs --browser chrome
+/h/cell.csv        opened alive 823ms "h › cell.csv Read Source How this is shown a b xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" 
+/h/wide.csv        opened alive 734ms "h › wide.csv Read Source How this is shown c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 c10 c11 c12 c13 c" 
+/h/long.log        opened alive 1484ms "h › long.log Read Source 2026-11-27 10:00:00 INFO xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" 
+/h/many.log        opened alive 1286ms "h › many.log Read Source Lines 1 2026-11-27 10:00:00 INFO hello 2 2026-11-27 10:00:00 INFO" 
+/h/tall.csv        opened alive 878ms "h › tall.csv Read Source How this is shown a b 1 2 1 2 1 2 1 2 1 2 1 2 1 2 1 2 1 2 1 2 1 2" 
+/h/quote.csv       opened alive 756ms "h › quote.csv Read Source How this is shown a b not read as fields · \"x,x,x,x,x,x,x,x,x,x," 
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0900

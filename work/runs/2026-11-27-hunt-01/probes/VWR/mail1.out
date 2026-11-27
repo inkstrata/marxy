@@ -1,0 +1,27 @@
+words adjacent "ab"
+words split utf8 "�"
+words mixed "x a b y"
+words lang "hi"
+addr quoted comma [{"name":"Doe, Jo","address":"jo@x.org"},{"name":"","address":"b@y.org"}]
+addr group [{"name":"","address":"a@x.org"},{"name":"","address":"b@x.org"}]
+addr comment [{"name":"","address":"jo@x.org"}]
+addr escaped [{"name":"a\"b","address":"q@x.org"}]
+date1 {"raw":"Fri, 21 Nov 1997 09:55:06 -0600","when":{"year":1997,"month":11,"day":21,"weekday":5,"hour":9,"minute":55,"second":6,"zone":"-0600"}}
+date2 {"raw":"21 Nov 97 09:55 EST","when":{"year":1997,"month":11,"day":21,"weekday":5,"hour":9,"minute":55,"second":null,"zone":"-0500"}}
+date3 {"raw":"Thu, 31 Feb 2024 10:00:00 +0000","when":{"year":2024,"month":2,"day":31,"weekday":6,"hour":10,"minute":0,"second":0,"zone":"+0000"}}
+date4 {"raw":"Mon, 1 Jan 2024 24:00:00 +0000","when":{"year":2024,"month":1,"day":1,"weekday":1,"hour":24,"minute":0,"second":0,"zone":"+0000"}}
+date5 {"raw":"Mon, 1 Jan 2024 10:00:00 +9999","when":{"year":2024,"month":1,"day":1,"weekday":1,"hour":10,"minute":0,"second":0,"zone":"+9999"}}
+qp soft "ab=� c"
+qp bad "a=ZZb=4"
+b64 ws "hello"
+b64 nopad "hello"
+b64 url []
+charset latin1 "é€"
+charset bad "�"
+charset 2022 "あ"
+rfc2231 {"value":"attachment","params":{"filename":"€ rates.txt"}}
+rfc2231 cont {"value":"attachment","params":{"filename":"€.txt"}}
+param dup {"value":"a","params":{"name":"x"}}
+msg {"subject":"hé","text":"café continued","atts":[{"n":"....evil.sh","t":"application/octet-stream","b":"hi"}]}
+prefix boundary "real"
+trailing blank "line\r\n"
