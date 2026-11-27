@@ -1,0 +1,14 @@
+✔ opened at 80 % of the bytes, the block holding that byte is on the reading line, then and after completion (64545.6391ms)
+✔ a live reload at 1 MB keeps the reading byte within one block (33686.7593ms)
+✔ commitEdit of a one-byte change at 1 MB keeps the reading position (11255.2296ms)
+✔ a resize while a repaint holds the reading position does not put another in its place (55349.3365ms)
+widened with 2964 paragraphs set: worst frame 1518 ms
+✔ widening a 1 MB page set throughout holds no frame long (127890.8121ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 294926.1548

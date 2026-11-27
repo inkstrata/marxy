@@ -1,0 +1,40 @@
+verify-turn: slot a, typeset-view, pnpm verify --tier changed --base agent/drop-floor (2026-11-25T22:28:07-08:00)
+$ node scripts/verify.mjs "--tier" "changed" "--base" "agent/drop-floor"
+verify changed in C:\Dev\reader\worktrees\typeset-view
+11 files changed against agent/drop-floor; unit suites: desktop, core, scripts; browser files: 76
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\typeset-view-2026-11-26T06-28-08
+
+PASS    install        0.4s      
+PASS    typecheck      11.1s     
+PASS    lint           2.3s      
+PASS    check          11.6s     10 pass, 0 fail
+PASS    golden         1.6s      
+PASS    fidelity       13.7s     
+PASS    licences       0.7s      
+verify: holding place 1 of 2 (--no-lock skips it)
+
+PASS    unit-core      196.3s    4238 pass, 0 fail, 3 skip
+PASS    unit-scripts   25.4s     271 pass, 0 fail
+PASS    unit-desktop   44.4s     1258 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 86.7s     44 pass, 0 fail, 1 skip
+PASS    browser        822.9s    522 pass, 0 fail
+
+step                  result  wall    tests
+--------------------  ------  ------  -------------------------
+install               pass    0.4s
+typecheck             pass    11.1s
+lint                  pass    2.3s
+check                 pass    11.6s   10 pass, 0 fail
+golden                pass    1.6s
+fidelity              pass    13.7s
+licences              pass    0.7s
+unit-core             pass    196.3s  4238 pass, 0 fail, 3 skip
+unit-scripts          pass    25.4s   271 pass, 0 fail
+unit-desktop          pass    44.4s   1258 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    86.7s   44 pass, 0 fail, 1 skip
+browser               pass    822.9s  522 pass, 0 fail
+--------------------  ------  ------  -------------------------
+total                         1217.0s
+
+verify changed: 12/12 steps passed
+verify-turn: exit 0 (2026-11-25T22:48:25-08:00)

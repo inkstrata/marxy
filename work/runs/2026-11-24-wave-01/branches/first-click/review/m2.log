@@ -1,0 +1,39 @@
+﻿✔ a margin note goes below the code or table that runs into the margin beside it, and the notes keep their order (4340.0678ms)
+✔ Metadata’s Footnotes row says where the notes are as a resize moves them in and out of the margin (2770.3038ms)
+✔ a note opened under its line and then moved into the margin leaves its number no longer marked open (8501.1338ms)
+✖ the first click on a long page with notes shows the bar and leaves the margin notes where they are (30924.1283ms)
+✖ a margin note whose markup changes without a change of text is copied again at the next relayout (40772.9838ms)
+✔ margin notes follow their lines when the page above them changes height (21310.589ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 4
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 109595.4985
+
+✖ failing tests:
+
+test at test\margin-notes.test.mjs:9:28
+✖ the first click on a long page with notes shows the bar and leaves the margin notes where they are (30924.1283ms)
+  page.goto: Timeout 30000ms exceeded.
+  Call log:
+  [2m  - navigating to "http://127.0.0.1:5173/app.html", waiting until "load"[22m
+  
+      at bootTwoPanes (C:\Dev\reader\worktrees\first-click\apps\desktop\test\support\two-pane.mjs:100:14)
+      at async withFrame (C:\Dev\reader\worktrees\first-click\apps\desktop\test\support\frame.mjs:31:5)
+      at async TestContext.<anonymous> (C:\Dev\reader\worktrees\first-click\apps\desktop\test\margin-notes.test.mjs:105:3) {
+    name: 'TimeoutError',
+    log: [ '  - navigating to "http://127.0.0.1:5173/app.html", waiting until "load"' ]
+  }
+
+test at test\margin-notes.test.mjs:9:28
+✖ a margin note whose markup changes without a change of text is copied again at the next relayout (40772.9838ms)
+  page.waitForFunction: Timeout 5000ms exceeded.
+      at C:\Dev\reader\worktrees\first-click\apps\desktop\test\margin-notes.test.mjs:141:13
+      at async withFrame (C:\Dev\reader\worktrees\first-click\apps\desktop\test\support\frame.mjs:35:5)
+      at async TestContext.<anonymous> (C:\Dev\reader\worktrees\first-click\apps\desktop\test\margin-notes.test.mjs:127:3) {
+    name: 'TimeoutError',
+    log: []
+  }

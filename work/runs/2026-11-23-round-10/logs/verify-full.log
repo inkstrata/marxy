@@ -1,0 +1,82 @@
+﻿node : $ node scripts/verify.mjs "--tier" "full"
+At line:1 char:452
++ ... p install --offline *> $null; node $p verify --tier full 2>&1 | Out-F ...
++                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ node scripts/..."--tier" "full":String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+verify full in C:\Dev\reader\worktrees\round10
+19 files changed against master; unit suites: desktop, scripts; browser files: 257; rust changed
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\round10-2026-11-23T18-46-00
+
+PASS    install        0.4s      
+PASS    typecheck      12.1s     
+PASS    lint           2.2s      
+PASS    check          12.0s     10 pass, 0 fail
+PASS    golden         1.6s      
+PASS    fidelity       19.5s     
+PASS    licences       0.8s      
+PASS    unit-core      217.7s    4292 pass, 0 fail, 3 skip
+PASS    unit-theme     46.5s     305 pass, 0 fail
+PASS    unit-typeset   47.6s     80 pass, 0 fail
+PASS    unit-scripts   93.3s     251 pass, 0 fail
+FAIL    unit-desktop   325.2s    1314 pass, 1 fail, 1 skip
+PASS    lint-rust      56.7s     
+FAIL    browser        2161.7s   2466 pass, 1 fail, 4 skip
+PASS    cargo          97.5s     604 pass, 0 fail, 5 skip
+PASS    build          396.2s    
+PASS    tauri          93.8s     117 pass, 0 fail
+
+step          result  wall     tests
+------------  ------  -------  -------------------------
+install       pass    0.4s
+typecheck     pass    12.1s
+lint          pass    2.2s
+check         pass    12.0s    10 pass, 0 fail
+golden        pass    1.6s
+fidelity      pass    19.5s
+licences      pass    0.8s
+unit-core     pass    217.7s   4292 pass, 0 fail, 3 skip
+unit-theme    pass    46.5s    305 pass, 0 fail
+unit-typeset  pass    47.6s    80 pass, 0 fail
+unit-scripts  pass    93.3s    251 pass, 0 fail
+unit-desktop  FAIL    325.2s   1314 pass, 1 fail, 1 skip
+lint-rust     pass    56.7s
+browser       FAIL    2161.7s  2466 pass, 1 fail, 4 skip
+cargo         pass    97.5s    604 pass, 0 fail, 5 skip
+build         pass    396.2s
+tauri         pass    93.8s    117 pass, 0 fail
+------------  ------  -------  -------------------------
+total                 3585.0s
+
+--- unit-desktop (C:\Users\<user>\AppData\Local\Temp\marxy-verify\round10-2026-11-23T18-46-00\12-unit-desktop.log)
+✖ a wait that saw frames but no paint entry marks painted source=frame and first_text at its frame (273.7891ms)
+  AssertionError [ERR_ASSERTION]: first_text is the frame time (128 ms), not the fallback
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/round10/apps/desktop/src/startup/measure.test.ts:77:12)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\round10-2026-11-23T18-46-00\14-browser.log)
+ℹ duration_ms 2160154.0711
+
+✖ failing tests:
+
+test at test\transform-sheet.test.mjs:16:28
+✖ the sheet on the whole document reads the store's parse (no parse is made), a selection parses its own text, and the output is the same (1380.2769ms)
+  page.evaluate: TypeError: Module name, 'undefined' does not resolve to a valid URL.
+      at C:\Dev\reader\worktrees\round10\apps\desktop\test\transform-sheet.test.mjs:726:16
+      at withApp (C:\Dev\reader\worktrees\round10\apps\desktop\test\transform-sheet.test.mjs:110:11)
+      at async TestContext.<anonymous> (C:\Dev\reader\worktrees\round10\apps\desktop\test\transform-sheet.test.mjs:725:3) {
+    log: []
+  }
+
+verify full: 15/17 steps passed; failed: unit-desktop, browser; rerun with --from unit-desktop
+[ELIFECYCLE] Command failed with exit code 1.
+exit 1

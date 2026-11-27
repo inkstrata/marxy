@@ -1,0 +1,65 @@
+full verify on 978b8251 2026-11-24T20:39:26-08:00
+$ node scripts/verify.mjs "--tier" "full"
+verify full in C:\Dev\reader\worktrees\wave1
+319 files changed against master; unit suites: desktop, core, theme, typeset, scripts; browser files: 265; rust changed; unmapped: AGENTS.md, apps/desktop/README.md, apps/desktop/package.json, apps/desktop/src/library/checks-digest.ts, apps/desktop/src/library/checks.test.ts, ...
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\wave1-2026-11-25T04-39-27
+
+PASS    install        0.4s      
+PASS    typecheck      11.3s     
+PASS    lint           2.2s      
+PASS    check          11.0s     10 pass, 0 fail
+PASS    golden         1.6s      
+PASS    fidelity       13.4s     
+PASS    licences       0.7s      
+PASS    unit-core      188.5s    4234 pass, 0 fail, 3 skip
+PASS    unit-theme     42.7s     305 pass, 0 fail
+PASS    unit-typeset   43.7s     80 pass, 0 fail
+PASS    unit-scripts   57.3s     281 pass, 0 fail
+PASS    unit-desktop   47.8s     1256 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 86.0s     44 pass, 0 fail, 1 skip
+PASS    lint-rust      57.3s     
+FAIL    browser        2115.5s   2502 pass, 2 fail, 4 skip
+PASS    cargo          86.6s     624 pass, 0 fail, 5 skip
+PASS    build          313.0s    
+PASS    tauri          94.3s     117 pass, 0 fail
+
+step                  result  wall     tests
+--------------------  ------  -------  -------------------------
+install               pass    0.4s
+typecheck             pass    11.3s
+lint                  pass    2.2s
+check                 pass    11.0s    10 pass, 0 fail
+golden                pass    1.6s
+fidelity              pass    13.4s
+licences              pass    0.7s
+unit-core             pass    188.5s   4234 pass, 0 fail, 3 skip
+unit-theme            pass    42.7s    305 pass, 0 fail
+unit-typeset          pass    43.7s    80 pass, 0 fail
+unit-scripts          pass    57.3s    281 pass, 0 fail
+unit-desktop          pass    47.8s    1256 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    86.0s    44 pass, 0 fail, 1 skip
+lint-rust             pass    57.3s
+browser               FAIL    2115.5s  2502 pass, 2 fail, 4 skip
+cargo                 pass    86.6s    624 pass, 0 fail, 5 skip
+build                 pass    313.0s
+tauri                 pass    94.3s    117 pass, 0 fail
+--------------------  ------  -------  -------------------------
+total                         3173.2s
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\wave1-2026-11-25T04-39-27\15-browser.log)
+  AssertionError [ERR_ASSERTION]: no token span with text inline
+      at expectToken (file:///C:/Dev/reader/worktrees/wave1/apps/desktop/test/source-looks.test.mjs:91:10)
+      at async TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/wave1/apps/desktop/test/source-looks.test.mjs:123:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+verify full: 17/18 steps passed; failed: browser; rerun with --from browser
+[ELIFECYCLE] Command failed with exit code 1.
+exit 1 2026-11-24T21:32:20-08:00

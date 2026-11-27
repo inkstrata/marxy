@@ -1,0 +1,30 @@
+✔ opened at 80 % of the bytes, the block holding that byte is on the reading line, then and after completion (27184.6578ms)
+✔ a live reload at 1 MB keeps the reading byte within one block (25439.1237ms)
+✔ commitEdit of a one-byte change at 1 MB keeps the reading position (12839.4272ms)
+✔ a resize while a repaint holds the reading position does not put another in its place (70052.1698ms)
+widened with 2964 paragraphs set: worst frame 4341 ms
+✖ widening a 1 MB page set throughout holds no frame long (129035.4854ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 265274.4204
+
+✖ failing tests:
+
+test at test\progressive-large.test.mjs:20:47
+✖ widening a 1 MB page set throughout holds no frame long (129035.4854ms)
+  AssertionError [ERR_ASSERTION]: a frame waited 4341 ms; the bound is 3000 ms
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/typeset-waste/apps/desktop/test/progressive-large.test.mjs:319:12)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

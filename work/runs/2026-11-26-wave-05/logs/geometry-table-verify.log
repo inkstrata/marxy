@@ -1,0 +1,40 @@
+verify-turn: slot a, geometry-table, pnpm verify --tier changed (2026-11-26T07:53:09-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\geometry-table
+20 files changed against master; unit suites: desktop, core, scripts; browser files: 77
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\geometry-table-2026-11-26T15-53-10
+
+PASS    install        0.4s      
+PASS    typecheck      11.2s     
+PASS    lint           2.3s      
+PASS    check          11.2s     10 pass, 0 fail
+PASS    golden         1.6s      
+PASS    fidelity       13.6s     
+PASS    licences       0.9s      
+verify: holding place 1 of 2 (--no-lock skips it)
+
+PASS    unit-core      200.8s    4249 pass, 0 fail, 3 skip
+PASS    unit-scripts   25.9s     271 pass, 0 fail
+PASS    unit-desktop   43.5s     1270 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 88.5s     44 pass, 0 fail, 1 skip
+PASS    browser        835.7s    512 pass, 0 fail
+
+step                  result  wall    tests
+--------------------  ------  ------  -------------------------
+install               pass    0.4s
+typecheck             pass    11.2s
+lint                  pass    2.3s
+check                 pass    11.2s   10 pass, 0 fail
+golden                pass    1.6s
+fidelity              pass    13.6s
+licences              pass    0.9s
+unit-core             pass    200.8s  4249 pass, 0 fail, 3 skip
+unit-scripts          pass    25.9s   271 pass, 0 fail
+unit-desktop          pass    43.5s   1270 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    88.5s   44 pass, 0 fail, 1 skip
+browser               pass    835.7s  512 pass, 0 fail
+--------------------  ------  ------  -------------------------
+total                         1235.5s
+
+verify changed: 12/12 steps passed
+verify-turn: exit 0 (2026-11-26T08:13:46-08:00)

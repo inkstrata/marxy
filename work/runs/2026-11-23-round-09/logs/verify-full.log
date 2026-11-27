@@ -1,0 +1,96 @@
+﻿node.exe : $ node scripts/verify.mjs "--tier" "full" "--logs" 
+"C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs"
+At C:\Users\<user>\AppData\Roaming\fnm\aliases\default\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ node scripts/...rify-full-logs":String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+verify full in C:\Dev\reader\worktrees\round9
+106 files changed against master; unit suites: desktop, core, theme, typeset, scripts; browser files: 256; rust changed; unmapped: apps/desktop/scripts/real-window-fixtures.mjs, apps/desktop/scripts/real-window-fixtures.test.mjs, apps/desktop/scripts/smoke-cli-open.mjs, apps/desktop/scripts/smoke-verdict.mjs, apps/desktop/scripts/smoke-verdict.test.mjs, ...
+logs in C:\Dev\reader\next-wave-2026-11-19\round9\verify-full-logs
+
+PASS    install        0.4s      
+PASS    typecheck      12.3s     
+PASS    lint           2.4s      
+PASS    check          12.5s     10 pass, 0 fail
+PASS    golden         2.1s      
+PASS    fidelity       28.1s     
+PASS    licences       2.2s      
+FAIL    unit-core      207.3s    4291 pass, 1 fail, 3 skip
+PASS    unit-theme     45.0s     305 pass, 0 fail
+PASS    unit-typeset   45.2s     80 pass, 0 fail
+FAIL    unit-scripts   83.1s     249 pass, 2 fail
+PASS    unit-desktop   323.9s    1315 pass, 0 fail, 1 skip
+PASS    lint-rust      56.1s     
+FAIL    browser        2194.9s   2463 pass, 1 fail, 4 skip
+PASS    cargo          29.9s     597 pass, 0 fail, 5 skip
+PASS    build          363.2s    
+PASS    tauri          94.6s     117 pass, 0 fail
+
+step          result  wall     tests
+------------  ------  -------  -------------------------
+install       pass    0.4s
+typecheck     pass    12.3s
+lint          pass    2.4s
+check         pass    12.5s    10 pass, 0 fail
+golden        pass    2.1s
+fidelity      pass    28.1s
+licences      pass    2.2s
+unit-core     FAIL    207.3s   4291 pass, 1 fail, 3 skip
+unit-theme    pass    45.0s    305 pass, 0 fail
+unit-typeset  pass    45.2s    80 pass, 0 fail
+unit-scripts  FAIL    83.1s    249 pass, 2 fail
+unit-desktop  pass    323.9s   1315 pass, 0 fail, 1 skip
+lint-rust     pass    56.1s
+browser       FAIL    2194.9s  2463 pass, 1 fail, 4 skip
+cargo         pass    29.9s    597 pass, 0 fail, 5 skip
+build         pass    363.2s
+tauri         pass    94.6s    117 pass, 0 fail
+------------  ------  -------  -------------------------
+total                 3503.0s
+
+--- unit-core (C:\Dev\reader\next-wave-2026-11-19\round9\verify-full-logs\08-unit-core.log)
+      'csv',            'csx',         'ctp',           'cts',        'cue',
+      'cur',            'cxx',         'cyp',           'cypher',     'd',
+      'dart',           'db',          'dds',           'deb',        'desktop',
+      'diff',           'dita',        'ditamap',       'dm',         'dme',
+      ... 478 more items
+    ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+C:\Dev\reader\worktrees\round9\packages\core:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @marxy/core@0.0.0 test: `node --test --experimental-strip-types "src/**/*.test.ts"`
+Exit status 1
+
+--- unit-scripts (C:\Dev\reader\next-wave-2026-11-19\round9\verify-full-logs\11-unit-scripts.log)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:787:18)
+      at Test.postRun (node:internal/test_runner/test:1247:19)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'real-window-fixtures.mjs' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+--- browser (C:\Dev\reader\next-wave-2026-11-19\round9\verify-full-logs\14-browser.log)
+  AssertionError [ERR_ASSERTION]: ends after a break: "a = 1\n" against "a = 1\r\n" (first difference at 5)
+      at same (file:///C:/Dev/reader/worktrees/round9/apps/desktop/test/fence-copy.test.mjs:133:10)
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/round9/apps/desktop/test/fence-copy.test.mjs:206:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: undefined,
+    operator: 'fail',
+    diff: 'simple'
+  }
+
+verify full: 14/17 steps passed; failed: unit-core, unit-scripts, browser; rerun with --from unit-core
+[ELIFECYCLE] Command failed with exit code 1.

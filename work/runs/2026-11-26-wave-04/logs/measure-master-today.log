@@ -1,0 +1,76 @@
+  warming the dev server
+  long-reference: open 1/3
+  long-reference: open 2/3
+  long-reference: open 3/3
+  long-reference: first click
+  long-reference: cursor keys
+  long-reference: undo 1/3
+measure-interactions: long-reference: undo 1/3: page.waitForSelector: Timeout 15000ms exceeded.
+  long-reference: undo 2/3
+measure-interactions: long-reference: undo 2/3: page.waitForSelector: Timeout 15000ms exceeded.
+  long-reference: undo 3/3
+measure-interactions: long-reference: undo 3/3: page.waitForSelector: Timeout 15000ms exceeded.
+  long-reference: reload 1/3
+  long-reference: reload 2/3
+  long-reference: reload 3/3
+  long-reference: tabs
+  long-reference: Source and Read
+  long-reference-plain: open 1/3
+  long-reference-plain: open 2/3
+  long-reference-plain: open 3/3
+  long-reference-plain: undo 1/3
+  long-reference-plain: undo 2/3
+  long-reference-plain: undo 3/3
+  long-reference-plain: reload 1/3
+  long-reference-plain: reload 2/3
+  long-reference-plain: reload 3/3
+  short-document: open 1/3
+  short-document: open 2/3
+  short-document: open 3/3
+  short-document: first click
+  short-document: cursor keys
+  short-document: undo 1/3
+  short-document: undo 2/3
+  short-document: undo 3/3
+  short-document: reload 1/3
+  short-document: reload 2/3
+  short-document: reload 3/3
+  short-document: tabs
+  short-document: Source and Read
+measure-interactions: b0d9cb52, 2026-11-26T08:46:20.786Z, win32-x64, 16 x AMD Ryzen 7 8845HS w/ Radeon 780M Graphics, 31 GB, msedge 158.0.4370.33, 3 runs
+
+long-reference
+  open               nodes 10080  layouts 355  recalcs 592  firstContentMs 227.8  taskMs 1768.81  scriptMs 373.05  layoutMs 326.54  styleMs 252.31  longestTaskMs 234  settleMs 1976.7
+  cursor key (j)     layouts 4  recalcs 5  handlerMs 22.75  taskMs 23.27  scriptMs 6.24  layoutMs 2.1
+  first click        layouts 6  recalcs 9  handlerMs 9.5  taskMs 46.5  scriptMs 9.96  layoutMs 4.07  styleMs 9.96
+  reload from disk   removedTop 2465  addedTop 2467  layouts 489  recalcs 819  taskMs 3036.87  scriptMs 718.02  layoutMs 456.33  styleMs 417.12  longestTaskMs 248
+  tab switch to it   layouts 486  recalcs 854  shownMs 598  taskMs 3078.47  scriptMs 711.79  layoutMs 457.93
+  tab switch away    layouts 58  recalcs 118  shownMs 164  taskMs 220.12  scriptMs 32.41  layoutMs 10.38
+  Source to Read     layouts 10  recalcs 17  shownMs 16.5  taskMs 49.32  scriptMs 16.16  layoutMs 5.23
+  Read to Source     layouts 10  recalcs 19  shownMs 26  taskMs 75.29  scriptMs 26.51  layoutMs 8.8
+
+long-reference-plain
+  open               nodes 9841  layouts 367  recalcs 633  firstContentMs 225  taskMs 1831.04  scriptMs 389.03  layoutMs 331.06  styleMs 266.84  longestTaskMs 231  settleMs 2288.9
+  undo               removedTop 3  addedTop 3  layouts 72  recalcs 82  taskMs 340.85  scriptMs 14.23  layoutMs 51.69  styleMs 99.77  longestTaskMs 119
+  reload from disk   removedTop 0  addedTop 2  layouts 70  recalcs 74  taskMs 297.87  scriptMs 13.74  layoutMs 46.34  styleMs 33.27  longestTaskMs 62
+
+short-document
+  open               nodes 1908  layouts 80  recalcs 142  firstContentMs 86.4  taskMs 276.75  scriptMs 42.44  layoutMs 61.39  styleMs 36.52  longestTaskMs 91  settleMs 444.9
+  cursor key (j)     layouts 4  recalcs 5  handlerMs 12.85  taskMs 8.13  scriptMs 2.3  layoutMs 0.46
+  first click        layouts 6  recalcs 9  handlerMs 5.2  taskMs 15.41  scriptMs 3.63  layoutMs 2.41  styleMs 2.61
+  undo               removedTop 198  addedTop 198  layouts 77  recalcs 126  taskMs 228.95  scriptMs 51.93  layoutMs 25.81  styleMs 39.74  longestTaskMs 55
+  reload from disk   removedTop 200  addedTop 202  layouts 74  recalcs 119  taskMs 202.76  scriptMs 46.5  layoutMs 26.2  styleMs 38.01  longestTaskMs 0
+  tab switch to it   layouts 85  recalcs 165  shownMs 177  taskMs 276.49  scriptMs 54.96  layoutMs 29.53
+  tab switch away    layouts 70  recalcs 132  shownMs 137  taskMs 161.52  scriptMs 31.06  layoutMs 17.6
+  Source to Read     layouts 16  recalcs 18  shownMs 33.8  taskMs 53.03  scriptMs 4.34  layoutMs 11.42
+  Read to Source     layouts 9  recalcs 12  shownMs 13.8  taskMs 33.24  scriptMs 6.52  layoutMs 2.92
+
+no number for: long-reference/undo
+
+Counts first; they do not depend on the machine. removedTop/addedTop: top-level nodes of the article taken out and put in.
+taskMs, scriptMs, layoutMs, styleMs and the counts run from the action until the main thread has been idle for about a second,
+  so they include typesetting that follows it: not the time until the page shows it. A cursor key: the 150 ms after each press.
+shownMs: until the tab or mode is current and two frames have painted. firstContentMs: until the article holds the text.
+handlerMs: event handlers only (a click sees handlers of 16 ms or more). longestTaskMs: tasks of 50 ms or more only.
+record written to C:\Dev\reader\work\wave4\interactions-master-b0d9cb52-today.json
+measure-interactions: no number for long-reference/undo

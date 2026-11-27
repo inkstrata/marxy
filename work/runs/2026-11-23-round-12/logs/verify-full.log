@@ -1,0 +1,62 @@
+$ node scripts/verify.mjs "--tier" "full"
+verify full in C:\Dev\reader\worktrees\round12
+23 files changed against master; unit suites: desktop, scripts; browser files: 258; rust changed; unmapped: apps/desktop/test/support/tauri-core-stub.mjs
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\round12-2026-11-24T00-37-32
+
+PASS    install        0.4s      
+PASS    typecheck      11.0s     
+PASS    lint           2.2s      
+PASS    check          11.0s     10 pass, 0 fail
+PASS    golden         1.6s      
+PASS    fidelity       17.9s     
+PASS    licences       0.7s      
+PASS    unit-core      193.6s    4292 pass, 0 fail, 3 skip
+PASS    unit-theme     39.8s     305 pass, 0 fail
+PASS    unit-typeset   43.8s     80 pass, 0 fail
+PASS    unit-scripts   75.3s     261 pass, 0 fail
+PASS    unit-desktop   297.9s    1315 pass, 0 fail, 1 skip
+PASS    lint-rust      58.3s     
+FAIL    browser        2160.7s   2476 pass, 1 fail, 4 skip
+PASS    cargo          87.4s     621 pass, 0 fail, 5 skip
+PASS    build          317.5s    
+PASS    tauri          92.9s     117 pass, 0 fail
+
+step          result  wall     tests
+------------  ------  -------  -------------------------
+install       pass    0.4s
+typecheck     pass    11.0s
+lint          pass    2.2s
+check         pass    11.0s    10 pass, 0 fail
+golden        pass    1.6s
+fidelity      pass    17.9s
+licences      pass    0.7s
+unit-core     pass    193.6s   4292 pass, 0 fail, 3 skip
+unit-theme    pass    39.8s    305 pass, 0 fail
+unit-typeset  pass    43.8s    80 pass, 0 fail
+unit-scripts  pass    75.3s    261 pass, 0 fail
+unit-desktop  pass    297.9s   1315 pass, 0 fail, 1 skip
+lint-rust     pass    58.3s
+browser       FAIL    2160.7s  2476 pass, 1 fail, 4 skip
+cargo         pass    87.4s    621 pass, 0 fail, 5 skip
+build         pass    317.5s
+tauri         pass    92.9s    117 pass, 0 fail
+------------  ------  -------  -------------------------
+total                 3411.8s
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\round12-2026-11-24T00-37-32\14-browser.log)
+test at test\markdown-lines.test.mjs:11:28
+✖ g r shows it rendered and the Outline becomes the parsed one; g r again comes back to lines (262108.9505ms)
+  page.waitForSelector: Timeout 180000ms exceeded.
+  Call log:
+    - waiting for locator('.marxy-article .marxy-lines-row') to be visible
+  
+      at C:\Dev\reader\worktrees\round12\apps\desktop\test\markdown-lines.test.mjs:144:16
+      at async withMarkdown (C:\Dev\reader\worktrees\round12\apps\desktop\test\markdown-lines.test.mjs:51:5)
+      at async TestContext.<anonymous> (C:\Dev\reader\worktrees\round12\apps\desktop\test\markdown-lines.test.mjs:114:3) {
+    name: 'TimeoutError',
+    log: [ "  - waiting for locator('.marxy-article .marxy-lines-row') to be visible" ]
+  }
+
+verify full: 16/17 steps passed; failed: browser; rerun with --from browser
+[ELIFECYCLE] Command failed with exit code 1.
+exit 1

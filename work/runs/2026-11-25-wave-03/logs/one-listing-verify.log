@@ -1,0 +1,32 @@
+verify-turn: slot a, one-listing, pnpm verify --tier changed (2026-11-25T15:12:50-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\one-listing
+3 files changed against master; unit suites: none; browser files: 0; rust changed
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\one-listing-2026-11-25T23-12-52
+
+PASS    install        0.5s      
+PASS    typecheck      19.9s     
+PASS    lint           3.4s      
+PASS    check          18.3s     10 pass, 0 fail
+PASS    golden         2.6s      
+PASS    fidelity       19.6s     
+PASS    licences       1.2s      
+PASS    lint-rust      3.0s      
+PASS    cargo          17.2s     628 pass, 0 fail, 5 skip
+
+step       result  wall   tests
+---------  ------  -----  ------------------------
+install    pass    0.5s
+typecheck  pass    19.9s
+lint       pass    3.4s
+check      pass    18.3s  10 pass, 0 fail
+golden     pass    2.6s
+fidelity   pass    19.6s
+licences   pass    1.2s
+lint-rust  pass    3.0s
+cargo      pass    17.2s  628 pass, 0 fail, 5 skip
+---------  ------  -----  ------------------------
+total              85.7s
+
+verify changed: 9/9 steps passed
+verify-turn: exit 0 (2026-11-25T15:14:17-08:00)

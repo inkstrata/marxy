@@ -1,0 +1,57 @@
+verify-turn: slot b, verify-defaults, pnpm verify --tier changed (2026-11-24T17:21:51-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\verify-defaults
+18 files changed against master; unit suites: desktop, core, theme, typeset, scripts; browser files: 41; unmapped: AGENTS.md, apps/desktop/README.md, apps/desktop/package.json, pnpm-workspace.yaml
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\verify-defaults-2026-11-25T01-21-52
+
+PASS    install        0.5s      
+PASS    typecheck      13.6s     
+PASS    lint           2.8s      
+PASS    check          13.6s     10 pass, 0 fail
+PASS    golden         2.0s      
+PASS    fidelity       21.0s     
+PASS    licences       0.8s      
+PASS    unit-core      211.9s    4316 pass, 0 fail, 3 skip
+PASS    unit-theme     62.1s     305 pass, 0 fail
+PASS    unit-typeset   61.8s     80 pass, 0 fail
+PASS    unit-scripts   31.0s     245 pass, 0 fail
+PASS    unit-desktop   58.4s     1296 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 201.1s    44 pass, 0 fail, 1 skip
+FAIL    browser        600.4s    485 pass, 1 fail, 3 skip
+
+step                  result  wall    tests
+--------------------  ------  ------  -------------------------
+install               pass    0.5s
+typecheck             pass    13.6s
+lint                  pass    2.8s
+check                 pass    13.6s   10 pass, 0 fail
+golden                pass    2.0s
+fidelity              pass    21.0s
+licences              pass    0.8s
+unit-core             pass    211.9s  4316 pass, 0 fail, 3 skip
+unit-theme            pass    62.1s   305 pass, 0 fail
+unit-typeset          pass    61.8s   80 pass, 0 fail
+unit-scripts          pass    31.0s   245 pass, 0 fail
+unit-desktop          pass    58.4s   1296 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    201.1s  44 pass, 0 fail, 1 skip
+browser               FAIL    600.4s  485 pass, 1 fail, 3 skip
+--------------------  ------  ------  -------------------------
+total                         1281.0s
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\verify-defaults-2026-11-25T01-21-52\14-browser.log)
+  AssertionError [ERR_ASSERTION]: no token span with text inline
+      at expectToken (file:///C:/Dev/reader/worktrees/verify-defaults/apps/desktop/test/source-looks.test.mjs:91:10)
+      at async TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/verify-defaults/apps/desktop/test/source-looks.test.mjs:123:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+verify changed: 13/14 steps passed; failed: browser; rerun with --from browser
+[ELIFECYCLE] Command failed with exit code 1.
+verify-turn: exit 1 (2026-11-24T17:43:13-08:00)

@@ -1,0 +1,54 @@
+﻿node.exe : $ node scripts/verify.mjs "--tier" "full" "--from" "unit-core" "--logs" 
+"C:\\Dev\\reader\\next-wave-2026-11-19\\round9\\verify-full-logs-2"
+At C:\Users\<user>\AppData\Roaming\fnm\aliases\default\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ node scripts/...fy-full-logs-2":String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+verify full in C:\Dev\reader\worktrees\round9
+109 files changed against master; unit suites: desktop, core, theme, typeset, scripts; browser files: 256; rust changed; unmapped: apps/desktop/README.md, apps/desktop/scripts/real-window-fixtures.mjs, apps/desktop/scripts/real-window-fixtures.test.mjs, apps/desktop/scripts/smoke-cli-open.mjs, apps/desktop/scripts/smoke-verdict.mjs, ...
+logs in C:\Dev\reader\next-wave-2026-11-19\round9\verify-full-logs-2
+
+PASS    unit-core      192.8s    4292 pass, 0 fail, 3 skip
+PASS    unit-theme     45.4s     305 pass, 0 fail
+PASS    unit-typeset   45.8s     80 pass, 0 fail
+PASS    unit-scripts   82.4s     251 pass, 0 fail
+PASS    unit-desktop   328.3s    1315 pass, 0 fail, 1 skip
+PASS    lint-rust      4.2s      
+FAIL    browser        2222.5s   2460 pass, 4 fail, 4 skip
+PASS    cargo          14.2s     597 pass, 0 fail, 5 skip
+PASS    build          255.7s    
+PASS    tauri          95.0s     117 pass, 0 fail
+
+step          result  wall     tests
+------------  ------  -------  -------------------------
+unit-core     pass    192.8s   4292 pass, 0 fail, 3 skip
+unit-theme    pass    45.4s    305 pass, 0 fail
+unit-typeset  pass    45.8s    80 pass, 0 fail
+unit-scripts  pass    82.4s    251 pass, 0 fail
+unit-desktop  pass    328.3s   1315 pass, 0 fail, 1 skip
+lint-rust     pass    4.2s
+browser       FAIL    2222.5s  2460 pass, 4 fail, 4 skip
+cargo         pass    14.2s    597 pass, 0 fail, 5 skip
+build         pass    255.7s
+tauri         pass    95.0s    117 pass, 0 fail
+------------  ------  -------  -------------------------
+total                 3286.4s
+
+--- browser (C:\Dev\reader\next-wave-2026-11-19\round9\verify-full-logs-2\07-browser.log)
+      at file:///C:/Dev/reader/worktrees/round9/apps/desktop/test/studio-tone-type-page.test.mjs:68:12
+      at async withFrame (file:///C:/Dev/reader/worktrees/round9/apps/desktop/test/support/frame.mjs:35:5)
+      at async TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/round9/apps/desktop/test/studio-tone-type-page.test.mjs:53:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '#dbcaaa',
+    expected: '#b6ad9c',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+verify full: 9/10 steps passed; failed: browser; rerun with --from browser
+[ELIFECYCLE] Command failed with exit code 1.

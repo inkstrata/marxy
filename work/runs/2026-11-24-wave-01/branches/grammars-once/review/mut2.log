@@ -1,0 +1,25 @@
+﻿✖ under the release CSP every KaTeX face loads from a woff2 file, and no woff or ttf file is asked for (39134.899ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 40014.778
+
+✖ failing tests:
+
+test at test\math-fonts.test.mjs:18:28
+✖ under the release CSP every KaTeX face loads from a woff2 file, and no woff or ttf file is asked for (39134.899ms)
+  AssertionError [ERR_ASSERTION]: every declared source is a woff2 file: http://127.0.0.1:56465/assets/KaTeX_AMS-Regular-DMm9YOAa.wof,http://127.0.0.1:56465/assets/KaTeX_AMS-Regular-DRggAlZN.ttf,http://127.0.0.1:56465/assets/KaTeX_Caligraphic-Bold-BEiXGLv,http://127.0.0.1:56465/assets/KaTeX_Caligraphic-Bold-ATXxdsX,http://127.0.0.1:56465/assets/KaTeX_Caligraphic-Regular-CTRA,http://127.0.0.1:56465/assets/KaTeX_Caligraphic-Regular-wX97,http://127.0.0.1:56465/assets/KaTeX_Fraktur-Bold-BsDP51OF.wo,http://127.0.0.1:56465/assets/KaTeX_Fraktur-Bold-BdnERNNW.tt,http://127.0.0.1:56465/assets/KaTeX_Fraktur-Regular-Dxdc4cR9,http://127.0.0.1:56465/assets/KaTeX_Fraktur-Regular-CB_wures,http://127.0.0.1:56465/assets/KaTeX_Main-Bold-Jm3AIy58.woff,http://127.0.0.1:56465/assets/KaTeX_Main-Bold-waoOVXN0.ttf,http://127.0.0.1:56465/assets/KaTeX_Main-BoldItalic-SpSLRI95,http://127.0.0.1:56465/assets/KaTeX_Main-BoldItalic-DzxPMmG6,http://127.0.0.1:56465/assets/KaTeX_Main-Italic-BMLOBm91.wof,http://127.0.0.1:56465/assets/KaTeX_Main-Italic-3WenGoN9.ttf,http://127.0.0.1:56465/assets/KaTeX_Main-Regular-Dr94JaBh.wo,http://127.0.0.1:56465/assets/KaTeX_Main-Regular-ypZvNtVU.tt,http://127.0.0.1:56465/assets/KaTeX_Math-BoldItalic-iY-2wyZ7,http://127.0.0.1:56465/assets/KaTeX_Math-BoldItalic-B3XSjfu4,http://127.0.0.1:56465/assets/KaTeX_Math-Italic-DA0__PXp.wof,http://127.0.0.1:56465/assets/KaTeX_Math-Italic-flOr_0UB.ttf,http://127.0.0.1:56465/assets/KaTeX_SansSerif-Bold-DbIhKOiC.,http://127.0.0.1:56465/assets/KaTeX_SansSerif-Bold-CFMepnvq.,http://127.0.0.1:56465/assets/KaTeX_SansSerif-Italic-DN2j7da,http://127.0.0.1:56465/assets/KaTeX_SansSerif-Italic-YYjJ1zS,http://127.0.0.1:56465/assets/KaTeX_SansSerif-Regular-CS6fqU,http://127.0.0.1:56465/assets/KaTeX_SansSerif-Regular-BNo7hR,http://127.0.0.1:56465/assets/KaTeX_Script-Regular-D5yQViql.,http://127.0.0.1:56465/assets/KaTeX_Script-Regular-C5JkGWo-.,http://127.0.0.1:56465/assets/KaTeX_Size1-Regular-C195tn64.w,http://127.0.0.1:56465/assets/KaTeX_Size1-Regular-Dbsnue_I.t,http://127.0.0.1:56465/assets/KaTeX_Size2-Regular-oD1tc_U0.w,http://127.0.0.1:56465/assets/KaTeX_Size2-Regular-B7gKUWhC.t,http://127.0.0.1:56465/assets/KaTeX_Size3-Regular-CTq5MqoE.w,http://127.0.0.1:56465/assets/KaTeX_Size3-Regular-DgpXs0kz.t,http://127.0.0.1:56465/assets/KaTeX_Size4-Regular-BF-4gkZK.w,http://127.0.0.1:56465/assets/KaTeX_Size4-Regular-DWFBv043.t,http://127.0.0.1:56465/assets/KaTeX_Typewriter-Regular-C0xS9,http://127.0.0.1:56465/assets/KaTeX_Typewriter-Regular-D3Ib7
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/grammars-once/apps/desktop/test/math-fonts.test.mjs:79:12)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

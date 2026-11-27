@@ -1,0 +1,72 @@
+﻿node.exe : $ node scripts/verify.mjs "--tier" "full"
+At C:\Users\<user>\AppData\Roaming\fnm\aliases\default\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ node scripts/..."--tier" "full":String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+verify full in C:\Dev\reader\worktrees\wave5
+36 files changed against master; unit suites: desktop, core, typeset, scripts; browser files: 271
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\wave5-2026-11-26T16-59-11
+
+PASS    install        0.4s      
+PASS    typecheck      11.2s     
+PASS    lint           2.2s      
+PASS    check          11.9s     10 pass, 0 fail
+PASS    golden         1.6s      
+PASS    fidelity       13.4s     
+PASS    licences       0.7s      
+verify: holding place 1 of 2 (--no-lock skips it)
+
+PASS    unit-core      198.9s    4249 pass, 0 fail, 3 skip
+PASS    unit-theme     50.6s     305 pass, 0 fail
+PASS    unit-typeset   49.7s     103 pass, 0 fail
+PASS    unit-scripts   62.4s     289 pass, 0 fail
+PASS    unit-desktop   42.8s     1270 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 89.4s     44 pass, 0 fail, 1 skip
+PASS    lint-rust      55.3s     
+FAIL    browser        2154.4s   2538 pass, 5 fail, 4 skip
+PASS    cargo          93.4s     643 pass, 0 fail, 6 skip
+PASS    build          319.0s    
+PASS    tauri          95.8s     117 pass, 0 fail
+
+step                  result  wall     tests
+--------------------  ------  -------  -------------------------
+install               pass    0.4s
+typecheck             pass    11.2s
+lint                  pass    2.2s
+check                 pass    11.9s    10 pass, 0 fail
+golden                pass    1.6s
+fidelity              pass    13.4s
+licences              pass    0.7s
+unit-core             pass    198.9s   4249 pass, 0 fail, 3 skip
+unit-theme            pass    50.6s    305 pass, 0 fail
+unit-typeset          pass    49.7s    103 pass, 0 fail
+unit-scripts          pass    62.4s    289 pass, 0 fail
+unit-desktop          pass    42.8s    1270 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    89.4s    44 pass, 0 fail, 1 skip
+lint-rust             pass    55.3s
+browser               FAIL    2154.4s  2538 pass, 5 fail, 4 skip
+cargo                 pass    93.4s    643 pass, 0 fail, 6 skip
+build                 pass    319.0s
+tauri                 pass    95.8s    117 pass, 0 fail
+--------------------  ------  -------  -------------------------
+total                         3253.3s
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\wave5-2026-11-26T16-59-11\15-browser.log)
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\splice-all.test.mjs:16:28
+✖ a tick, undo, redo and a Source commit on a long page keep the cursor, an open find, the set type and the place (11958.4155ms)
+  page.waitForFunction: Timeout 10000ms exceeded.
+      at TestContext.<anonymous> (C:\Dev\reader\worktrees\wave5\apps\desktop\test\splice-all.test.mjs:341:18) {
+    name: 'TimeoutError',
+    log: []
+  }
+
+verify full: 17/18 steps passed; failed: browser; rerun with --from browser
+[ELIFECYCLE] Command failed with exit code 1.
+exit 1

@@ -1,0 +1,21 @@
+$ pnpm lint   (in .)
+
+$ biome check . && pnpm -r lint
+Checked 1601 files in 442ms. No fixes applied.
+Scope: 5 of 6 workspace projects
+packages/core lint$ biome check --formatter-enabled=false .
+packages/shell-api lint$ biome check --formatter-enabled=false .
+packages/typeset lint$ biome check --formatter-enabled=false .
+packages/theme lint$ biome check --formatter-enabled=false . && node scripts/lint-default-theme.mjs
+packages/shell-api lint: Checked 3 files in 8ms. No fixes applied.
+packages/shell-api lint: Done
+packages/typeset lint: Checked 23 files in 33ms. No fixes applied.
+packages/theme lint: Checked 84 files in 94ms. No fixes applied.
+packages/core lint: Checked 425 files in 136ms. No fixes applied.
+packages/typeset lint: Done
+packages/core lint: Done
+packages/theme lint: theme lint ok
+packages/theme lint: Done
+apps/desktop lint$ biome check --formatter-enabled=false .
+apps/desktop lint: Checked 917 files in 309ms. No fixes applied.
+apps/desktop lint: Done

@@ -1,0 +1,1063 @@
+$ cargo test   (in apps/desktop/src-tauri)
+
+   Compiling cfg-if v1.0.5
+   Compiling siphasher v1.0.3
+   Compiling memchr v2.8.3
+   Compiling litemap v0.8.3
+   Compiling writeable v0.6.4
+   Compiling serde_core v1.0.229
+   Compiling itoa v1.0.18
+   Compiling utf8_iter v1.0.4
+   Compiling libc v0.2.189
+   Compiling icu_properties_data v2.3.0
+   Compiling icu_normalizer_data v2.3.0
+   Compiling scopeguard v1.2.0
+   Compiling zmij v1.0.23
+   Compiling phf_shared v0.13.1
+   Compiling log v0.4.34
+   Compiling zerovec v0.11.8
+   Compiling num-conv v0.2.2
+   Compiling winnow v1.0.4
+   Compiling time-core v0.1.9
+   Compiling equivalent v1.0.2
+   Compiling toml_writer v1.1.2+spec-1.1.0
+   Compiling deranged v0.5.8
+   Compiling phf_generator v0.13.1
+   Compiling powerfmt v0.2.0
+   Compiling bytes v1.12.1
+   Compiling toml_parser v1.1.3+spec-1.1.0
+   Compiling phf_codegen v0.13.1
+   Compiling thiserror v2.0.20
+   Compiling phf_macros v0.13.1
+   Compiling zerotrie v0.2.5
+   Compiling typeid v1.0.3
+   Compiling serde_json v1.0.151
+   Compiling aho-corasick v1.1.5
+   Compiling tinystr v0.8.4
+   Compiling icu_locale_core v2.3.0
+   Compiling potential_utf v0.1.6
+   Compiling regex-syntax v0.8.11
+   Compiling icu_collections v2.3.0
+   Compiling web-time v1.1.0
+   Compiling base64 v0.23.1
+   Compiling fnv v1.0.7
+   Compiling http v1.5.0
+   Compiling parking_lot_core v0.9.12
+   Compiling phf v0.13.1
+   Compiling string_cache_codegen v0.6.1
+   Compiling lock_api v0.4.14
+   Compiling zerofrom v0.1.8
+   Compiling stable_deref_trait v1.2.1
+   Compiling icu_provider v2.3.1
+   Compiling simd-adler32 v0.3.10
+   Compiling objc2-encode v4.1.0
+   Compiling alloc-no-stdlib v3.0.0
+   Compiling once_cell v1.21.4
+   Compiling web_atoms v0.2.6
+   Compiling alloc-stdlib v0.3.0
+   Compiling bitflags v2.13.2
+   Compiling icu_properties v2.3.0
+   Compiling icu_normalizer v2.3.0
+   Compiling parking_lot v0.12.5
+   Compiling yoke v0.8.3
+   Compiling same-file v1.0.6
+   Compiling walkdir v2.5.0
+   Compiling brotli-decompressor v6.2.0
+   Compiling string_cache v0.9.0
+   Compiling getrandom v0.4.3
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling serde_spanned v1.1.1
+   Compiling dunce v1.0.5
+   Compiling regex-automata v0.4.18
+   Compiling form_urlencoded v1.2.2
+   Compiling uuid v1.26.1
+   Compiling toml v1.1.6+spec-1.1.0
+   Compiling anyhow v1.0.104
+   Compiling crc32fast v1.5.2
+   Compiling selectors v0.38.0
+   Compiling glob v0.3.4
+   Compiling adler2 v2.0.1
+   Compiling ctor v1.0.13
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling brotli v9.1.0
+   Compiling cssparser v0.37.0
+   Compiling url v2.5.8
+   Compiling objc2-exception-helper v0.1.1
+   Compiling swift-rs v1.0.9
+   Compiling smallvec v1.16.1
+   Compiling indexmap v2.14.2
+   Compiling markup5ever v0.39.0
+   Compiling objc2 v0.6.4
+   Compiling cfb v0.14.0
+   Compiling html5ever v0.39.0
+   Compiling regex v1.13.1
+   Compiling jsonptr v0.7.1
+   Compiling time v0.3.55
+   Compiling erased-serde v0.4.10
+   Compiling quick-xml v0.42.0
+   Compiling schemars v0.8.22
+   Compiling dom_query v0.28.0
+   Compiling cargo_metadata v0.19.2
+   Compiling serde-untagged v0.1.9
+   Compiling json-patch v4.2.0
+   Compiling urlpattern v0.6.0
+   Compiling infer v0.22.0
+   Compiling serde v1.0.229
+   Compiling miniz_oxide v0.9.1
+   Compiling serde_with v3.23.0
+   Compiling pin-project-lite v0.2.17
+   Compiling option-ext v0.2.0
+   Compiling block2 v0.6.2
+   Compiling plist v1.10.1
+   Compiling objc2-core-foundation v0.3.2
+   Compiling foldhash v0.2.0
+   Compiling miniz_oxide v0.8.9
+   Compiling tracing-core v0.1.36
+   Compiling zlib-rs v0.6.8
+   Compiling hashbrown v0.17.1
+   Compiling embed-resource v3.0.11
+   Compiling tracing v0.1.44
+   Compiling dirs-sys v0.5.0
+   Compiling fdeflate v0.3.7
+   Compiling heck v0.5.0
+   Compiling simdutf8 v0.1.5
+   Compiling percent-encoding v2.3.2
+   Compiling core-foundation-sys v0.8.7
+   Compiling objc2-foundation v0.3.2
+   Compiling objc2-core-graphics v0.3.2
+   Compiling encoding_rs v0.8.44
+   Compiling dirs v7.0.0
+   Compiling tauri-winres v0.3.6
+   Compiling cargo_toml v1.0.1
+   Compiling bytemuck v1.25.2
+   Compiling core-foundation v0.10.1
+   Compiling tauri-utils v2.10.2
+   Compiling time-macros v0.2.32
+   Compiling raw-window-handle v0.6.2
+   Compiling jxl-bitstream v1.1.0
+   Compiling dpi v0.1.2
+   Compiling crossbeam-utils v0.8.23
+   Compiling flate2 v1.1.10
+   Compiling getrandom v0.2.17
+   Compiling byteorder v1.5.0
+   Compiling foreign-types-shared v0.3.1
+   Compiling rand_core v0.6.4
+   Compiling foreign-types v0.5.0
+   Compiling png v0.18.1
+   Compiling crossbeam-channel v0.5.17
+   Compiling cookie v0.18.2
+   Compiling wry v0.57.1
+   Compiling num-traits v0.2.19
+   Compiling jxl-oxide-common v1.0.0
+   Compiling core-graphics-types v0.2.0
+   Compiling objc2-quartz-core v0.3.2
+   Compiling jxl-grid v0.6.2
+   Compiling dispatch2 v0.3.1
+   Compiling objc2-app-kit v0.3.2
+   Compiling semver v1.0.28
+   Compiling sha2 v0.10.9
+   Compiling zerocopy v0.8.57
+   Compiling core-graphics v0.25.0
+   Compiling ico v0.6.0
+   Compiling rand_chacha v0.3.1
+   Compiling jxl-coding v1.0.1
+   Compiling jxl-threadpool v1.0.0
+   Compiling typenum v1.20.1
+   Compiling rand v0.8.8
+   Compiling libm v0.2.16
+   Compiling num-complex v0.4.6
+   Compiling keyboard-types v0.8.3
+   Compiling socket2 v0.6.5
+   Compiling mio v1.2.3
+   Compiling hybrid-array v0.4.15
+   Compiling phf_shared v0.11.3
+   Compiling zune-core v0.5.3
+   Compiling reborrow v0.5.5
+   Compiling pulp-wasm-simd-flag v0.1.1
+   Compiling serialize-to-javascript v0.1.2
+   Compiling phf_generator v0.11.3
+   Compiling zune-jpeg v0.5.15
+   Compiling pulp v0.22.3
+   Compiling tokio v1.53.1
+   Compiling getrandom v0.3.4
+   Compiling jxl-modular v0.11.3
+   Compiling jxl-image v0.13.0
+   Compiling zune-inflate v0.2.54
+   Compiling tauri-build v2.7.4
+   Compiling tauri-plugin v2.6.3
+   Compiling tauri-codegen v2.7.4
+   Compiling bit_field v0.10.3
+   Compiling embed_plist v1.2.2
+   Compiling fax v0.2.7
+   Compiling half v2.7.1
+   Compiling quick-error v2.0.1
+   Compiling weezl v0.1.12
+   Compiling mime v0.3.17
+   Compiling pxfm v0.1.30
+   Compiling lebe v0.5.3
+   Compiling alloc-no-stdlib v2.0.4
+   Compiling alloc-stdlib v0.2.4
+   Compiling tiff v0.11.3
+   Compiling jxl-vardct v0.11.1
+   Compiling phf_codegen v0.11.3
+   Compiling crypto-common v0.2.2
+   Compiling block-buffer v0.12.1
+   Compiling qoi v0.4.1
+   Compiling errno v0.3.14
+   Compiling byteorder-lite v0.1.0
+   Compiling const-oid v0.10.2
+   Compiling objc2-web-kit v0.3.2
+   Compiling tao v0.37.2
+   Compiling muda v0.20.0
+   Compiling window-vibrancy v0.8.1
+   Compiling exr v1.74.2
+   Compiling moxcms v0.8.1
+   Compiling tauri-runtime v2.12.2
+   Compiling digest v0.11.3
+   Compiling tauri-runtime-wry v2.12.3
+   Compiling rustix v1.1.5
+   Compiling jxl-frame v0.13.3
+   Compiling unicode_names2_generator v4.0.0
+   Compiling brotli-decompressor v5.0.3
+   Compiling security-framework-sys v2.17.0
+   Compiling cpufeatures v0.3.1
+   Compiling base64ct v1.8.3
+   Compiling zeroize v1.9.1
+   Compiling fastrand v2.5.0
+   Compiling bumpalo v3.20.3
+   Compiling tempfile v3.27.0
+   Compiling pem-rfc7468 v1.0.0
+   Compiling zopfli v0.8.4
+   Compiling sha2 v0.11.1
+   Compiling security-framework v3.7.0
+   Compiling unicode_names2 v4.0.0
+   Compiling nix v0.31.3
+   Compiling httparse v1.10.1
+   Compiling jxl-color v0.11.0
+   Compiling font-types v0.12.7
+   Compiling tauri v2.12.5
+   Compiling tauri-macros v2.7.4
+   Compiling tauri-plugin-fs v2.5.2
+   Compiling image v0.25.10
+   Compiling tauri-plugin-dialog v2.7.3
+   Compiling tauri-plugin-clipboard-manager v2.3.3
+   Compiling typed-path v0.13.0
+   Compiling debug_unsafe v0.1.4
+   Compiling atoi_simd v0.18.1
+   Compiling native-tls v0.2.18
+   Compiling jxl-render v0.12.4
+   Compiling phf v0.11.3
+   Compiling marxy v0.1.0 (/Users/<user>/Dev/marxy-wt/reader-architecture/apps/desktop/src-tauri)
+   Compiling read-fonts v0.46.0
+   Compiling lzma-rust2 v0.25.0
+   Compiling libsqlite3-sys v0.39.1
+   Compiling zip v9.3.0
+   Compiling arboard v3.6.1
+   Compiling ureq-proto v0.7.1
+   Compiling der v0.8.3
+   Compiling rfd v0.16.0
+   Compiling jxl-jbr v0.2.1
+   Compiling rustls-pki-types v1.15.1
+   Compiling codepage v0.1.3
+   Compiling hashlink v0.12.2
+   Compiling notify-types v2.1.0
+   Compiling toml_datetime v0.7.5+spec-1.1.0
+   Compiling fsevent-sys v4.1.0
+   Compiling filetime v0.2.29
+   Compiling utf8-zero v0.8.1
+   Compiling fallible-streaming-iterator v0.1.9
+   Compiling fast-float2 v0.2.4
+   Compiling winnow v0.7.15
+   Compiling tinyvec v1.13.3
+   Compiling fallible-iterator v0.3.0
+   Compiling calamine v0.38.0
+   Compiling bzip2-rs v0.1.2
+   Compiling jxl-oxide v0.12.6
+   Compiling rusqlite v0.41.1
+   Compiling ureq v3.5.1
+   Compiling tar v0.4.46
+   Compiling toml v0.9.12+spec-1.1.0
+   Compiling notify v8.2.0
+   Compiling sevenz-rust2 v0.25.0
+   Compiling wuff v0.2.9
+   Compiling chardetng v0.1.17
+   Compiling imagesize v0.13.0
+   Compiling deflate64 v0.1.12
+   Compiling ruzstd v0.9.1
+   Compiling tauri-plugin-single-instance v2.4.5
+   Compiling skrifa v0.49.0
+warning: function `heif_sized` is never used
+   --> src/facts/isobmff.rs:490:12
+    |
+490 |     pub fn heif_sized(major: &[u8; 4], width: u32, height: u32) -> Vec<u8> {
+    |            ^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `marxy` (bin "marxy" test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 38.17s
+     Running unittests src/main.rs (target/debug/deps/marxy-f27c7f4e51d4cb14)
+
+running 656 tests
+test archive::cab::tests::an_lzx_entry_is_listed_and_refused_with_a_sentence ... ok
+test archive::cab::tests::a_stored_cabinet_lists_and_reads_its_entries ... ok
+test archive::iso::tests::a_folder_that_points_back_at_the_root_is_listed_once_and_not_followed ... ok
+test archive::iso::tests::dates_turn_from_their_zone_to_utc ... ok
+test archive::ar::tests::a_data_tar_packed_another_way_is_said_plainly_and_its_member_still_listed ... ok
+test archive::cab::tests::mszip_blocks_unpack_and_a_later_block_reaches_back_into_the_one_before ... ok
+test archive::iso::tests::an_image_lists_its_folders_and_files_and_reads_one ... ok
+test archive::rar::tests::a_rar4_unicode_name_is_decoded ... ok
+test archive::iso::tests::joliet_names_are_used_when_the_image_has_them ... ok
+test archive::rar::tests::a_rar4_archive_lists_names_sizes_dates_and_encryption_and_refuses_its_bytes ... ok
+test archive::ar::tests::a_deb_lists_its_members_and_the_files_of_its_control_and_data_tars ... ok
+test archive::rar::tests::a_rar5_archive_lists_names_sizes_dates_links_and_encryption ... ok
+test archive::sevenz::tests::a_block_whose_dictionaries_together_pass_the_cap_is_refused ... ok
+test archive::sevenz::tests::a_block_whose_dictionary_is_too_big_is_refused_when_read ... ok
+test archive::ar::tests::a_truncated_or_lying_ar_lists_what_came_first ... ok
+test archive::sevenz::tests::a_header_declaring_too_many_entries_or_blocks_is_refused_before_the_crate_sizes_them ... ok
+test archive::cab::tests::a_huge_declared_count_or_a_cut_file_stops_without_reading_past_the_end ... ok
+test archive::sevenz::tests::a_header_packed_with_a_filter_chain_is_refused_before_anything_parses_it ... ok
+test archive::iso::tests::huge_declared_folders_and_files_and_a_cut_image_stop_with_a_sentence ... ok
+test archive::sevenz::tests::a_damaged_block_or_header_says_so ... ok
+test archive::sevenz::tests::an_encrypted_or_oversized_header_is_refused_before_anything_is_listed ... ok
+test archive::sevenz::tests::an_unread_coder_or_an_encrypted_entry_is_listed_and_refused_with_its_reason ... ok
+test archive::sevenz::tests::links_and_devices_are_shown_never_followed ... ok
+test archive::sevenz::tests::the_hand_writer_makes_what_the_reader_reads ... ok
+test archive::sevenz::tests::folders_and_empty_files_between_solid_entries_keep_the_rest_in_place ... ok
+test archive::sevenz::tests::an_entry_past_its_caps_is_refused ... ok
+test archive::sevenz::tests::write_the_demo_7z ... ignored
+test archive::sevenz::tests::the_index_keeps_the_parsed_header_for_later_reads ... ok
+test archive::rar::tests::encrypted_names_cut_files_and_huge_sizes_end_in_a_sentence ... ok
+test archive::tar::tests::a_damaged_tar_lists_what_came_before_the_damage ... ok
+test archive::sevenz::tests::stored_lzma_and_lzma2_entries_list_and_read ... ok
+test archive::sevenz::tests::the_listing_stops_at_its_caps_and_counts_what_it_leaves_out ... ok
+test archive::tar::tests::a_pax_mtime_wins_and_a_sparse_entry_is_not_a_file ... ok
+test archive::sevenz::tests::any_entry_of_a_solid_block_reads_and_its_heads_take_one_pass ... ok
+test archive::tar::tests::a_plain_tar_seeks_to_where_each_entry_begins ... ok
+test archive::tar::tests::a_compressed_walk_stops_at_the_stream_cap_and_a_read_past_it_is_refused ... ok
+test archive::tar::tests::an_entry_over_the_cap_is_refused_by_declaration_and_a_short_one_is_damaged ... ok
+test archive::tar::tests::a_plain_tar_a_gzip_tar_and_the_committed_bz2_and_xz_tars_list_and_read ... ok
+test archive::tar::tests::the_caps_stop_the_listing_and_say_so ... ok
+test archive::tar::tests::the_header_check_reads_octal_and_base_256_sizes ... ok
+test archive::tar::tests::hostile_names_list_as_plain_relative_paths_and_read_back_by_index ... ok
+test archive::tests::a_frame_header_says_its_content_size_in_each_width ... ok
+test archive::tar::tests::a_head_past_the_stream_cap_says_so_and_heads_before_it_are_read ... ok
+test archive::tests::a_tar_header_is_told_by_ustar_or_by_its_checksum ... ok
+test archive::tests::a_prefix_shifts_every_offset_and_the_directory_by_its_length ... ok
+test archive::tests::a_lone_zst_is_its_one_file_and_a_tar_zst_lists_its_tar ... ok
+test archive::tests::dates_are_civil_and_zoned_only_when_known ... ok
+test archive::tests::a_want_that_does_not_match_is_refused_and_the_call_goes_on ... ok
+test archive::tests::heads_stop_at_the_budget_and_leave_the_rest_out ... ok
+test archive::tests::numbers_and_sizes_read_the_way_the_page_does ... ok
+test archive::tests::sanitising_drops_everything_that_could_name_a_place ... ok
+test archive::tests::sanitising_says_when_it_changed_more_than_slashes ... ok
+test archive::tests::heads_of_a_lone_gz_and_a_file_that_is_no_archive ... ok
+test archive::tar::tests::the_committed_bz2_and_xz_tars_list_and_read ... ok
+test archive::sevenz::tests::the_demo_7z_holds_the_demo_fonts ... ok
+test archive::tests::the_index_is_kept_for_four_archives_and_dropped_when_one_changes ... ok
+test archive::tests::ten_heads_of_a_tar_gz_take_one_walk ... ok
+test archive::tests::whole_says_whether_the_entry_ended_and_the_bytes_are_its_beginning ... ok
+test archive::tests::the_shared_table_lists_entry_by_entry_and_heads_match_it ... ok
+test archive::zip::tests::a_cp437_name_without_the_utf8_flag_reads_in_cp437 ... ok
+test archive::zip::tests::a_bad_crc_a_wrong_length_a_flag_and_a_method_are_each_turned_away ... ok
+test archive::zip::tests::a_head_of_an_encrypted_entry_or_an_unread_method_is_a_refusal ... ok
+test archive::zip::tests::a_dictionary_or_window_over_the_cap_is_refused_before_the_decoder_is_made ... ok
+test archive::zip::tests::a_read_by_offset_refuses_a_header_that_names_another_entry ... ok
+test archive::zip::tests::a_small_zstandard_entry_with_an_8_mb_window_and_no_content_size_reads ... ok
+test archive::zip::tests::a_damaged_stream_in_each_method_is_named ... ok
+test archive::zip::tests::a_unicode_path_longer_than_the_name_cap_is_skipped ... ok
+test archive::zip::tests::a_zip_behind_a_prefix_and_an_empty_zip_still_list ... ok
+test archive::zip::tests::a_zstandard_window_is_held_to_twice_the_declared_size_within_8_and_32_mb ... ok
+test archive::sevenz::tests::a_zeroed_or_wrong_signature_header_is_damaged_at_once ... ok
+test archive::zip::tests::a_split_zip_and_a_damaged_directory_are_named ... ok
+test archive::zip::tests::a_zstandard_window_past_what_the_declared_size_needs_is_refused_before_decoding ... ok
+test archive::zip::tests::comments_count_against_what_a_listing_may_hold ... ok
+test archive::zip::tests::deflate64_bzip2_lzma_zstandard_and_xz_entries_read_and_are_checked ... ok
+test archive::zip::tests::hostile_names_list_as_plain_relative_paths_and_read_back_by_index ... ok
+test archive::zip::tests::it_lists_names_sizes_dates_and_folders_and_reads_stored_and_deflated ... ok
+test archive::zip::tests::the_caps_stop_the_listing_and_say_so ... ok
+test archive::zip::tests::the_system_that_wrote_an_entry_is_named ... ok
+test archive::zip::tests::zip64_fields_extended_times_and_unicode_names_parse ... ok
+test atomic_write::sweep_tests::a_folder_a_link_or_a_hard_link_with_a_leftovers_name_stays ... ok
+test archive::zip::tests::a_flipped_byte_anywhere_in_a_stream_never_panics ... ok
+test atomic_write::sweep_tests::a_folder_is_swept_only_at_its_first_save_in_a_run ... ok
+test atomic_write::sweep_tests::a_leftover_is_removed_after_a_new_file_is_made_in_its_folder ... ok
+test atomic_write::sweep_tests::a_folder_this_run_never_saved_to_is_untouched ... ok
+test atomic_write::sweep_tests::a_leftover_whose_process_is_gone_is_removed_after_a_save_in_its_folder ... ok
+test atomic_write::sweep_tests::a_name_close_to_a_staging_name_but_not_one_stays ... ok
+test atomic_write::sweep_tests::the_name_a_leftover_is_moved_to_is_never_taken_for_one ... ok
+test archive::ar::tests::a_zstandard_bomb_in_the_data_tar_stops_at_the_stream_cap ... ok
+test atomic_write::sweep_tests::the_staging_names_marxy_writes_parse_back_to_this_process ... ok
+test atomic_write::tests::a_dangling_symlink_is_refused ... ok
+test atomic_write::tests::a_directory_is_not_a_document ... ok
+test atomic_write::tests::a_failed_save_leaves_no_staging_file_and_the_old_bytes_intact ... ok
+test atomic_write::tests::a_hard_linked_document_is_refused ... ok
+test atomic_write::sweep_tests::a_staging_file_of_a_running_process_or_of_this_one_stays ... ok
+test atomic_write::tests::a_long_document_name_still_gets_a_staging_name_that_fits ... ok
+test atomic_write::tests::a_new_file_is_created ... ok
+test atomic_write::tests::a_read_only_destination_is_refused ... ok
+test atomic_write::tests::a_file_whose_group_differs_from_the_process_keeps_its_group_on_save ... ok
+test atomic_write::tests::a_reader_holding_the_file_open_still_sees_the_old_bytes ... ok
+test atomic_write::tests::a_save_into_a_directory_whose_group_differs_from_the_users_own_succeeds ... ok
+test archive::tests::a_zstd_bomb_stops_at_the_entry_cap_and_a_wide_window_is_refused_before_it_is_made ... ok
+test atomic_write::tests::an_unwritable_directory_is_refused_and_the_old_bytes_survive ... ok
+test atomic_write::tests::a_successful_save_leaves_no_staging_file ... ok
+test atomic_write::tests::refuse_ownership_change_refuses_a_uid_mismatch ... ok
+test archive::ar::tests::many_data_tars_unpack_only_the_first_and_share_one_stream_budget ... ok
+test atomic_write::tests::the_staging_file_is_in_the_destinations_own_directory ... ok
+test atomic_write::tests::a_symlinked_document_is_saved_through_the_link ... ok
+test atomic_write::unless_changed_tests::a_file_changed_underneath_is_refused_and_keeps_the_other_programs_bytes ... ok
+test atomic_write::unless_changed_tests::a_file_removed_after_the_check_is_caught_before_the_rename ... ok
+test atomic_write::tests::extended_attributes_survive_the_save_on_macos ... ok
+test atomic_write::tests::the_destinations_mode_survives_the_save ... ok
+test atomic_write::unless_changed_tests::a_file_made_at_a_free_name_while_the_save_staged_is_not_replaced ... ok
+test atomic_write::unless_changed_tests::a_file_renamed_into_place_after_the_check_is_caught_before_the_rename ... ok
+test atomic_write::unless_changed_tests::a_removed_file_is_made_again ... ok
+test atomic_write::unless_changed_tests::a_rename_into_place_with_the_same_length_and_write_time_is_caught_by_which_file_it_is ... ok
+test atomic_write::unless_changed_tests::a_zero_identity_is_unknown_and_never_tells_two_files_apart ... ok
+test atomic_write::unless_changed_tests::a_utf16_file_changed_underneath_is_left_byte_for_byte_by_the_refused_save ... ok
+test atomic_write::unless_changed_tests::sha256_is_the_same_however_the_bytes_arrive ... ok
+test atomic_write::unless_changed_tests::a_write_after_the_check_is_caught_before_the_rename ... ok
+test atomic_write::unless_changed_tests::sha256_on_the_cpus_instructions_matches_the_portable_rounds ... ok
+test atomic_write::unless_changed_tests::the_expectation_reads_from_the_webviews_hex_and_refuses_anything_else ... ok
+test atomic_write::unless_changed_tests::a_save_with_no_expectation_writes_as_before ... ok
+test atomic_write::write_new_tests::a_creator_that_appears_before_the_commit_is_not_replaced ... ok
+test atomic_write::unless_changed_tests::an_unchanged_file_is_saved ... ok
+test atomic_write::unless_changed_tests::the_save_replaces_the_file_while_it_still_holds_the_check_handle ... ok
+test atomic_write::write_new_tests::a_failed_write_new_leaves_no_staging_file ... ok
+test atomic_write::tests::hostile_payloads_survive_a_round_trip ... ok
+test atomic_write::unless_changed_tests::sha256_matches_the_published_test_vectors ... ok
+test atomic_write::write_new_tests::a_creator_that_appears_before_the_link_fallback_is_not_replaced ... ok
+test atomic_write::write_new_tests::the_new_file_is_an_ordinary_one_with_one_name ... ok
+test atomic_write::write_new_tests::when_neither_exclusive_way_is_available_it_fails_saying_so_and_writes_nothing ... ok
+test atomic_write::write_new_tests::the_exclusive_rename_refuses_a_file_a_folder_a_link_and_a_dangling_link ... ok
+test atomic_write::write_new_tests::write_new_onto_a_case_variant_of_an_existing_name_fails_on_a_case_insensitive_volume ... ok
+test atomic_write::write_new_tests::write_new_onto_a_dangling_symlink_fails_exists_and_creates_nothing_at_its_destination ... ok
+test atomic_write::write_new_tests::write_new_onto_a_folder_fails_exists_and_the_folder_is_unchanged ... ok
+test atomic_write::write_new_tests::when_the_exclusive_rename_is_unsupported_link_and_unlink_create_the_file ... ok
+test atomic_write::write_new_tests::write_new_onto_a_free_name_writes_the_bytes ... ok
+test atomic_write::write_new_tests::write_new_onto_an_existing_file_fails_exists_and_the_file_is_unchanged ... ok
+test atomic_write::write_new_tests::write_new_onto_a_symlink_fails_exists_and_neither_the_link_nor_its_file_changes ... ok
+test archive::zip::tests::deflate64_and_bzip2_bombs_are_cut_at_the_entry_cap ... ok
+test commands::archive::tests::a_lone_gz_a_cut_7z_and_random_bytes ... ok
+test archive::zip::tests::a_zip_bomb_is_refused_by_its_declaration_or_by_its_output ... ok
+test commands::archive::tests::archives_are_read_only_for_what_the_page_opened ... ok
+test commands::archive::tests::the_committed_bz2_and_xz_single_files_list_and_read ... ok
+test commands::archive::tests::the_heads_frame_is_the_json_lines_then_each_heads_bytes ... ok
+test commands::chars::tests::names_are_said_in_lower_case_with_letters_and_code_points_as_written ... ok
+test commands::archive::tests::hostile_names_create_nothing_on_disk ... ok
+test commands::archive::tests::heads_are_read_only_for_what_the_page_opened ... ok
+test commands::fs::tests::a_relative_path_is_refused_never_read_against_the_working_folder ... ok
+test atomic_write::write_new_tests::the_real_not_supported_errnos_take_the_fallback_and_the_volume_refusal ... ok
+test commands::fs::tests::allow_asset_scope_on_a_file_is_invalid ... ok
+test commands::fs::tests::allow_asset_scope_on_a_missing_path_is_invalid ... ok
+test commands::fs::tests::allow_asset_scope_refuses_a_drive_root_and_the_home_folder ... ok
+test commands::fs::tests::image_size_on_corpus_png_is_1200_by_400 ... ok
+test commands::fs::tests::image_size_on_missing_path_is_not_found ... ok
+test commands::fs::tests::image_size_on_text_source_is_none ... ok
+test commands::fs::tests::allow_asset_scope_on_a_directory_is_that_directory_and_no_wider ... ok
+test commands::fs::tests::a_file_named_like_a_denied_folder_is_listed_and_stated ... ok
+test commands::fs::tests::map_image_size_error_format_miss_is_none ... ok
+test commands::fs::tests::map_image_size_error_permission_denied_is_io ... ok
+test commands::fs::tests::image_size_on_unreadable_file_is_io_not_none ... ok
+test commands::font::tests::facts_and_glyphs_are_read_only_for_what_the_page_opened ... ok
+test commands::fs::tests::image_size_reads_an_svg_file_by_its_extension ... ok
+test commands::fs::tests::read_dir_lists_one_level_with_mtime_and_skips_node_modules ... ok
+test commands::fs::tests::read_head_refuses_a_folder_and_reports_a_missing_file ... ok
+test commands::fs::tests::read_head_is_capped_whatever_the_caller_asks_for ... ok
+test commands::fs::tests::read_dir_skips_a_denied_name_in_any_case ... ok
+test commands::archive::tests::previews_read_heads_and_whole_entries_and_create_nothing_on_disk ... ok
+test commands::fs::tests::read_dir_omits_every_symlink ... ok
+test commands::fs::tests::read_head_refuses_a_symlink ... ok
+test commands::fs::tests::read_head_returns_at_most_the_bytes_asked_for ... ok
+test commands::fs::tests::read_head_refuses_a_named_pipe_without_opening_it ... ok
+test commands::fs::tests::read_regular_file_says_what_failed_by_code ... ok
+test commands::fs::tests::stat_file_omits_what_read_dir_omits ... ok
+test commands::fs::tests::read_regular_file_still_follows_a_symlink_to_a_regular_file ... ok
+test commands::fs::tests::real_path_resolves_links_and_dots_as_the_os_does_and_rejects_a_missing_path ... ok
+test commands::fs::tests::read_regular_file_refuses_a_pipe_a_device_and_a_file_over_the_ceiling ... ok
+test commands::fs::tests::svg_one_side_uses_the_view_box_ratio ... ok
+test commands::fs::tests::svg_percent_falls_back_to_view_box ... ok
+test commands::fs::tests::svg_prolog_comments_and_inner_elements_do_not_confuse_the_root ... ok
+test commands::fs::tests::svg_units_become_pixels ... ok
+test commands::fs::tests::svg_view_box_only ... ok
+test commands::fs::tests::svg_width_and_height_attributes ... ok
+test commands::fs::tests::svg_without_a_size_or_a_root_is_none ... ok
+test commands::fs::tests::the_deny_list_is_the_index_walkers ... ok
+test commands::fs::tests::stat_file_reports_a_file_a_folder_and_a_missing_path ... ok
+test commands::fs::tests::stat_file_says_when_a_file_was_made_where_the_platform_keeps_it ... ok
+test commands::fs::tests::stat_file_refuses_a_symlink_to_a_file_or_a_folder ... ok
+test archive::tar::tests::a_long_name_or_pax_header_over_1_mb_is_refused_before_the_crate_reads_it ... ok
+test commands::fs::tests::the_head_open_refuses_a_symlink_and_does_not_block_on_a_pipe ... ok
+test commands::image::tests::facts_are_read_only_for_what_the_page_opened ... ok
+test commands::os::tests::a_file_reaches_the_system_as_one_argument_never_through_a_shell ... ok
+test commands::media::tests::facts_and_envelopes_are_read_only_for_what_the_page_opened ... ok
+test commands::os::tests::a_refused_url_never_reaches_the_opener ... ok
+test commands::os::tests::a_file_that_begins_mz_is_a_program_whatever_its_name ... ok
+test commands::os::tests::a_template_without_file_gets_the_path_appended ... ok
+test commands::os::tests::a_template_substitutes_file_and_line_inside_one_token ... ok
+test commands::os::tests::no_template_uses_the_platform_opener ... ok
+test commands::os::tests::notepad_gets_the_path_as_one_argument ... ok
+test commands::os::tests::open_external_allows_https_and_mailto ... ok
+test commands::os::tests::open_external_hands_shell_metacharacters_to_the_opener_unaltered ... ok
+test commands::os::tests::open_external_refuses_a_quote ... ok
+test commands::os::tests::open_external_refuses_control_characters_and_whitespace ... ok
+test commands::os::tests::open_external_refuses_file_scheme ... ok
+test commands::os::tests::open_external_refuses_javascript ... ok
+test commands::os::tests::open_in_default_app_never_hands_over_a_program ... ok
+test commands::os::tests::open_external_refuses_what_is_not_a_well_formed_url ... ok
+test commands::os::tests::shell_syntax_in_the_template_or_the_path_stays_literal ... ok
+test commands::os::tests::the_modern_installer_and_script_kinds_are_programs_too ... ok
+test commands::os::tests::the_template_comes_from_external_editor_only ... ok
+test commands::run::tests::a_folder_that_is_not_there_is_refused_before_the_program_is_blamed ... ok
+test commands::recent::tests::a_file_outside_the_excluded_folders_is_recorded_and_the_rest_are_not ... ok
+test commands::run::tests::a_program_not_on_the_path_is_not_found ... ok
+test atomic_write::write_new_tests::concurrent_creators_at_one_name_have_exactly_one_winner ... ok
+test commands::run::tests::an_empty_program_is_refused ... ok
+test commands::run::tests::an_unknown_command_id_is_refused ... ok
+test commands::run::tests::commands_are_read_as_the_page_lists_them ... ok
+test commands::run::tests::errors_reach_the_page_with_a_code ... ok
+test commands::run::tests::output_past_the_cap_is_refused ... ok
+test commands::run::tests::past_fifty_commands_none_is_read ... ok
+test commands::run::tests::the_exit_code_and_stderr_are_said ... ok
+test commands::run::tests::the_folder_is_the_one_asked_for ... ok
+test commands::run::tests::the_folder_the_page_asks_for_must_be_one_the_reader_opened ... ok
+test commands::run::tests::the_frame_is_the_head_then_stdout ... ok
+test commands::run::tests::the_input_goes_to_stdin_and_stdout_comes_back ... ok
+test commands::run::tests::the_working_directory_is_kept_out_of_the_program_search ... ok
+test commands::search::tests::a_bom_prefixed_file_counts_the_bom_in_the_offset_and_not_in_the_preview ... ok
+test commands::search::tests::a_cancelled_search_stops_before_the_next_file ... ok
+test commands::search::tests::a_denied_name_in_any_case_is_never_read ... ok
+test commands::search::tests::a_file_named_like_a_denied_folder_is_read ... ok
+test commands::search::tests::a_file_outside_every_root_or_a_relative_path_is_never_read ... ok
+test commands::held::tests::a_name_that_does_not_match_an_encrypted_entry_and_one_too_big_are_refused ... ok
+test commands::search::tests::a_file_read_ahead_stops_once_the_outcome_is_settled ... ok
+test commands::search::tests::a_file_under_a_deny_listed_directory_is_never_read ... ok
+test commands::search::tests::a_hit_limit_is_truncated_without_a_stop ... ok
+test commands::run::tests::a_run_past_the_limit_is_stopped ... ok
+test commands::held::tests::an_entry_is_read_once_and_the_kept_ones_are_bounded ... ok
+test commands::search::tests::a_long_line_is_cut_to_160_characters_around_the_match ... ok
+test commands::search::tests::a_missing_path_or_a_directory_is_skipped ... ok
+test commands::search::tests::a_multibyte_character_before_the_match_counts_its_bytes_and_one_utf16_unit ... ok
+test commands::search::tests::a_hit_straddling_a_chunk_edge_of_a_big_file_is_found_once ... ok
+test commands::search::tests::a_named_pipe_is_skipped_without_opening_it ... ok
+test commands::search::tests::a_path_outside_every_root_is_never_opened ... ok
+test commands::search::tests::a_root_inside_a_deny_listed_name_still_searches_its_own_files ... ok
+test commands::search::tests::a_root_that_is_itself_a_symlink_is_searched_through_its_own_path ... ok
+test commands::search::tests::a_search_over_its_time_budget_says_so ... ok
+test commands::search::tests::a_symlink_that_leaves_the_root_is_never_followed ... ok
+test commands::search::tests::a_utf16_file_is_binary_at_any_size ... ok
+test commands::search::tests::binary_files_are_skipped_and_counted ... ok
+test commands::search::tests::cancel_reaches_only_a_running_token ... ok
+test archive::zip::tests::an_honest_zstandard_entry_near_the_entry_cap_still_reads ... ok
+test commands::search::tests::crlf_lines_are_numbered_by_their_line_feeds_and_the_preview_drops_the_return ... ok
+test commands::search::tests::per_file_and_limit_are_respected_and_say_truncated ... ok
+test commands::search::tests::search_bench ... ignored
+test commands::search::tests::search_bench_repository ... ignored
+test commands::search::tests::smart_case_both_ways ... ok
+test commands::search::tests::the_shared_cases_pass ... ok
+test commands::search::tests::a_multibyte_character_split_by_a_chunk_edge_still_matches ... ok
+test commands::tables::tests::export_reads_a_cell_whole_after_the_page_read_it_cut ... ok
+test commands::held::tests::each_kind_read_from_the_archive_is_the_file_read_from_disk ... ok
+test commands::tables::tests::write_the_demo_tables ... ignored
+test data_dir::tests::a_root_is_gone_only_when_its_parent_is_there_to_say_so ... ok
+test data_dir::tests::a_volume_that_is_not_mounted_is_not_gone ... ok
+test data_dir::tests::each_data_folder_runs_as_its_own_instance ... ok
+test data_dir::tests::only_the_index_services_names_are_indexes ... ok
+test data_dir::tests::the_sweep_removes_the_indexes_of_gone_roots_and_nothing_else ... ok
+test decode::psd::tests::a_blank_composite_falls_to_the_thumbnail_or_says_there_is_no_preview ... ok
+test decode::psd::tests::a_thumbnail_is_enlarged_to_the_file_only_within_the_budget_and_never_stretched ... ok
+test decode::psd::tests::packbits_is_bounded_both_ways ... ok
+test decode::psd::tests::the_composite_is_chosen_when_the_file_says_it_is_real ... ok
+test decode::raw::tests::a_raf_preview_comes_from_its_header ... ok
+test decode::raw::tests::a_tiff_with_no_jpeg_has_no_preview ... ok
+test decode::raw::tests::the_largest_baseline_preview_is_chosen_and_the_sensor_data_never ... ok
+test commands::tables::tests::tables_are_read_only_for_what_the_page_opened ... ok
+test decode::tests::a_decode_reads_the_handle_it_is_given_not_the_path ... ok
+test decode::tests::a_header_past_the_pixel_budget_is_refused ... ok
+test decode::tests::a_raw_file_decodes_to_its_largest_preview_turned_upright ... ok
+test decode::tests::a_tiff_turned_by_its_orientation_comes_out_upright ... ok
+test decode::tests::a_truncated_dds_and_a_damaged_psd_are_decode_errors ... ok
+test decode::svgz::tests::an_svgz_unpacks_and_a_bomb_is_refused_at_the_cap ... ok
+test decode::tests::exr_and_hdr_decode_from_linear_light ... ok
+test decode::tests::jpeg_xl_decodes ... ok
+test decode::tests::pnm_farbfeld_dds_and_psd_decode_to_their_pixels ... ok
+test decode::tests::tiff_tga_and_qoi_decode_to_their_pixels ... ok
+test decode::tests::what_no_decoder_reads_is_left_to_the_webview ... ok
+test decode::tiff::tests::a_value_past_the_cap_or_the_end_is_refused ... ok
+test decode::tiff::tests::values_are_read_inline_and_by_offset_and_a_loop_ends_the_chain ... ok
+test detect::tests::a_message_with_no_extension_is_found_from_its_headers ... ok
+test detect::tests::a_shebang_names_its_interpreter_through_env_and_its_flags ... ok
+test detect::tests::a_text_pnm_header_under_a_pnm_name_is_the_picture ... ok
+test detect::tests::every_fixture_gives_its_recorded_signals ... ok
+test detect::tests::fonts_and_media_are_named_by_their_magic ... ok
+test detect::tests::modelines_in_emacs_and_vim_forms ... ok
+test detect::tests::the_text_test_reads_marks_nul_and_utf8 ... ok
+test encoding::tests::a_choice_reads_the_same_bytes_another_way_and_says_what_it_would_have_been ... ok
+test encoding::tests::a_multi_byte_encoding_keeps_a_table_of_where_each_character_starts ... ok
+test encoding::tests::a_save_writes_the_files_encoding_or_says_which_character_it_cannot ... ok
+test encoding::tests::read_with_encoding_reads_the_same_bytes_each_way ... ok
+test encoding::tests::the_frame_carries_the_head_the_table_and_the_text ... ok
+test encoding::tests::utf16_be_and_utf32_from_their_boms_map_two_or_four_bytes_to_a_unit ... ok
+test encoding::tests::utf16_le_from_its_bom_is_a_fact_and_reads_right ... ok
+test encoding::tests::utf8_with_a_stray_byte_is_still_utf8_and_keeps_the_byte ... ok
+test encoding::tests::valid_utf8_is_left_as_it_is ... ok
+test encoding::tests::windows_1252_with_no_bom_is_guessed_and_says_the_byte_that_decided ... ok
+test facts::exif::tests::values_are_formatted_for_reading ... ok
+test facts::icc::tests::the_description_is_read_from_v2_and_v4_profiles ... ok
+test facts::isobmff::tests::a_grid_counts_its_tiles_and_its_output ... ok
+test decode::tests::an_svgz_is_answered_as_its_svg_and_a_bomb_is_refused ... ok
+test facts::isobmff::tests::an_iloc_of_empty_extents_by_the_thousand_is_read_in_bounded_time ... ok
+test facts::isobmff::tests::brands_name_the_family ... ok
+test facts::isobmff::tests::clap_crops_the_shown_size_and_the_coded_size_is_kept_for_the_budget ... ok
+test facts::isobmff::tests::transforms_map_to_exif_orientations ... ok
+test facts::media::tests::a_flac_behind_an_id3_tag_is_still_flac ... ok
+test facts::media::tests::a_flac_says_its_streaminfo_and_vorbis_comments ... ok
+test facts::media::tests::a_fragmented_mp4_counts_its_frames_for_an_average_rate ... ok
+test facts::media::tests::a_prores_movie_says_its_codec_rate_sound_and_title ... ok
+test facts::isobmff::tests::a_grid_of_tens_of_thousands_of_tiles_is_judged_at_once ... ok
+test facts::media::tests::a_truncated_aiff_has_no_track_and_no_panic ... ok
+test facts::media::tests::a_wav_envelope_shows_the_three_strikes ... ok
+test facts::media::tests::a_wav_says_its_pcm_length_and_info_tags ... ok
+test facts::media::tests::a_wav_with_an_absurd_channel_count_has_no_envelope ... ok
+test facts::media::tests::a_webm_says_its_tracks_and_length ... ok
+test facts::media::tests::an_aifc_names_its_big_endian_unsigned_and_float_forms_with_their_bits ... ok
+test facts::media::tests::an_aiff_says_its_channels_rate_and_length ... ok
+test facts::media::tests::an_aiff_takes_its_first_comm_and_reads_an_id3_chunk ... ok
+test facts::media::tests::an_aiff_with_no_channels_or_an_absurd_rate_says_neither_and_gives_no_length ... ok
+test facts::media::tests::an_envelope_of_more_channels_than_it_reads_is_empty_without_reading ... ok
+test facts::media::tests::an_mp3_says_its_tags_and_length ... ok
+test facts::media::tests::an_ogg_opus_says_its_channels_its_length_less_the_pre_skip_and_its_tags ... ok
+test facts::media::tests::an_ogg_vorbis_says_its_rate_channels_length_and_tags_but_never_a_picture ... ok
+test facts::media::tests::ogg_and_flac_are_sniffed_from_their_first_bytes ... ok
+test facts::media::tests::the_demo_aiff_and_mka_say_their_facts ... ok
+test facts::media::tests::what_is_not_media_is_none ... ok
+test facts::tests::a_dds_header_the_decoder_refuses_is_refused_by_the_facts_too ... ok
+test facts::tests::a_header_past_the_pixel_budget_is_not_shown_and_says_why ... ok
+test facts::tests::a_heic_cropped_by_clap_gives_the_shown_size_and_a_truncated_one_gives_no_facts ... ok
+test facts::tests::a_heic_with_the_codec_absent_says_what_draws_it_and_one_past_the_budget_is_refused ... ok
+test facts::tests::a_psd_thumbnail_is_sized_as_it_is_drawn_and_said ... ok
+test facts::tests::a_raw_file_gives_the_sensors_size_its_orientation_and_shows_its_preview ... ok
+test facts::tests::a_rotated_jpeg_gives_its_stored_size_orientation_exif_location_and_profile ... ok
+test facts::tests::an_svg_gives_its_size_from_its_root_element ... ok
+test atomic_write::write_new_tests::an_exfat_volume_refuses_with_the_volume_message_and_writes_nothing ... ok
+test facts::tests::heic_and_avif_give_the_primary_items_facts_and_heic_says_how_it_is_shown ... ok
+test facts::tests::the_decoded_formats_give_their_facts ... ok
+test facts::tests::the_pnm_family_farbfeld_dds_svgz_and_psd_give_their_size_and_depth ... ok
+test facts::tests::the_webviews_formats_give_their_facts ... ok
+test facts::tests::what_is_not_an_image_these_readers_know_has_no_facts ... ok
+test commands::search::tests::chunked_results_equal_the_whole_file_results_for_every_chunk_size ... ok
+test file_scheme::tests::a_cache_that_cannot_be_written_still_returns_the_decode ... ok
+test file_scheme::tests::a_decode_is_cached_by_path_mtime_and_size_and_trimmed_to_its_cap ... ok
+test file_scheme::tests::a_decoded_request_for_a_tiff_answers_a_png ... ok
+test file_scheme::tests::a_decoded_request_with_no_decoder_for_the_file_is_unsupported ... ok
+test commands::held::tests::reading_entries_creates_nothing_on_disk_and_runs_nothing ... ok
+test file_scheme::tests::a_decoder_that_panics_refuses_that_file_and_the_next_still_decodes ... ok
+test file_scheme::tests::a_fifo_in_an_opened_folder_is_refused_without_waiting ... ok
+test file_scheme::tests::a_file_in_an_opened_folder_is_served_whole_with_its_type ... ok
+test file_scheme::tests::a_folder_too_wide_to_open_is_refused ... ok
+test file_scheme::tests::a_file_named_like_a_denied_folder_is_served ... ok
+test file_scheme::tests::a_multi_range_is_satisfied_by_any_of_its_ranges_and_the_unit_has_no_case ... ok
+test file_scheme::tests::a_link_inside_an_opened_folder_that_leads_out_is_refused ... ok
+test file_scheme::tests::a_range_header_is_read_as_one_byte_range ... ok
+test file_scheme::tests::a_path_outside_the_opened_set_is_refused ... ok
+test file_scheme::tests::a_share_or_device_path_the_set_does_not_spell_never_reaches_the_disk ... ok
+test file_scheme::tests::a_range_is_answered_with_206_and_its_content_range ... ok
+test file_scheme::tests::a_working_folder_must_be_an_opened_folder ... ok
+test file_scheme::tests::an_open_ended_range_of_a_large_sparse_file_reads_only_the_cap ... ok
+test file_scheme::tests::an_image_the_page_measured_below_a_dot_folder_is_served ... ok
+test file_scheme::tests::an_unchanged_file_is_not_sent_again ... ok
+test file_scheme::tests::only_the_apps_origin_may_read_across_origins_and_a_file_never_runs ... ok
+test file_scheme::tests::the_length_headers_follow_the_bytes_read ... ok
+test file_scheme::tests::the_type_comes_from_the_extension_else_the_magic ... ok
+test facts::tests::what_is_not_drawn_after_all_says_why ... ok
+test font::blocks::tests::blocks_are_ordered_and_found ... ok
+test font::stand_in::stand_in_matches_what_the_readers_say ... ok
+test font::tests::a_collection_reads_each_face ... ok
+test font::tests::a_glyph_says_its_number_advance_and_outline ... ok
+test font::tests::a_truetype_font_says_its_names_units_and_coverage ... ok
+test font::tests::a_variable_font_says_its_axes_and_named_instances ... ok
+test font::tests::a_woff1_claiming_gigabytes_is_refused_before_anything_is_inflated ... ok
+test font::tests::what_is_not_a_font_is_none_and_a_broken_one_says_why ... ok
+test font::tests::woff2_is_decoded_here_and_its_own_directory_listed ... ok
+test font::tests::woff_is_inflated_and_cff_is_read ... ok
+test legacy_office::props::tests::a_filetime_is_an_iso_time ... ok
+test legacy_office::tests::a_1_or_an_8_is_a_picture_only_where_word_marks_it_special ... ok
+test file_scheme::tests::whole_file_reads_take_turns ... ok
+test file_scheme::tests::dot_files_and_denied_folders_below_an_opened_folder_are_refused_unless_opened_themselves ... ok
+test legacy_office::tests::a_deck_of_three_slides_lists_three_with_their_titles ... ok
+test legacy_office::tests::a_field_shows_its_result_and_hidden_text_is_left_out ... ok
+test legacy_office::tests::a_deck_whose_edit_chain_does_not_read_is_found_by_its_records ... ok
+test legacy_office::tests::a_file_or_stream_past_its_cap_is_refused ... ok
+test legacy_office::tests::a_piece_past_the_stream_is_cut_not_read ... ok
+test commands::search::tests::a_hit_near_the_end_of_a_40_mb_file_is_found_with_its_line_and_offset ... ok
+test legacy_office::tests::a_word_97_document_reads_with_headings_bold_a_table_a_list_and_a_link ... ok
+test legacy_office::tests::an_8_bit_piece_and_a_utf_16_piece_both_decode ... ok
+test legacy_office::tests::an_embedded_object_is_named_never_run ... ok
+test legacy_office::tests::an_encrypted_deck_says_so ... ok
+test legacy_office::tests::an_encrypted_document_says_so ... ok
+test legacy_office::tests::a_flood_of_paragraphs_stops_at_the_paragraph_cap ... ok
+test legacy_office::tests::drawings_nested_past_the_depth_cap_are_cut_not_followed ... ok
+test legacy_office::tests::line_breaks_count_against_the_text_cap ... ok
+test legacy_office::tests::a_property_page_named_a_million_times_is_read_once ... ok
+test archive::tar::tests::a_long_tail_after_the_end_blocks_is_not_unpacked_for_its_length ... ok
+test legacy_office::tests::pieces_that_name_the_same_text_again_stop_at_the_text_cap ... ok
+test legacy_office::tests::a_container_of_millions_of_records_is_walked_not_gathered ... ok
+test legacy_office::tests::shape_properties_claiming_thousands_each_cost_what_their_bytes_hold ... ok
+test legacy_office::tests::slides_sharing_one_large_record_stop_at_the_step_budget ... ok
+test legacy_office::tests::the_demo_document_and_deck_are_what_the_builders_make ... ok
+test legacy_office::tests::the_reading_is_the_office_page_shape ... ok
+test legacy_office::tests::damaged_streams_never_panic ... ok
+test legacy_office::tests::what_is_not_a_document_says_so ... ok
+test outlook::lzfu::tests::a_stored_body_and_a_literal_packing_read_back ... ok
+test outlook::lzfu::tests::a_wrong_crc_is_refused ... ok
+test outlook::lzfu::tests::the_declared_size_bounds_the_output_and_the_cap_bounds_the_declared_size ... ok
+test outlook::lzfu::tests::the_specs_example_unpacks ... ok
+test outlook::lzfu::tests::truncated_or_unknown_streams_are_damaged_never_a_panic ... ok
+test outlook::mime::tests::a_boundary_is_never_one_its_parts_hold ... ok
+test outlook::mime::tests::a_boundary_that_keeps_colliding_fails_after_three_scans ... ok
+test outlook::mime::tests::clipping_stops_at_a_character_boundary ... ok
+test outlook::mime::tests::values_stay_on_one_line_and_say_what_they_hold ... ok
+test outlook::rtf::tests::hostile_rtf_ends_without_a_panic ... ok
+test outlook::rtf::tests::wrapped_html_comes_back_out ... ok
+test outlook::rtf::tests::wrapped_text_and_rtf_that_wraps_nothing ... ok
+test outlook::tests::a_cycle_in_a_sector_chain_is_damage_not_a_hang ... ok
+test legacy_office::tests::many_distinct_text_boxes_on_a_slide_are_told_apart_in_linear_time ... ok
+test outlook::tests::a_header_that_lists_every_boundary_costs_one_scan ... ok
+test outlook::tests::a_lookup_is_charged_the_height_of_the_sibling_tree_whatever_its_order ... ok
+test outlook::tests::a_property_cannot_start_a_header_or_a_part ... ok
+test facts::media::tests::a_sampled_envelope_reads_a_bounded_number_of_bytes_however_wide_a_frame_is ... ok
+test outlook::tests::a_unicode_message_reads_as_its_headers_and_its_html ... ok
+test legacy_office::tests::truncated_and_damaged_files_never_panic_or_hang ... ok
+test outlook::tests::an_attached_message_is_a_message_inside_this_one ... ok
+test facts::tests::fuzzed_dds_and_psd_files_never_panic ... ok
+test outlook::tests::an_eight_bit_message_reads_in_its_code_page ... ok
+test outlook::tests::caps_on_recipients_attachments_and_the_message_say_what_they_cut ... ok
+test outlook::tests::an_attached_message_is_charged_once ... ok
+test outlook::tests::html_wrapped_in_rtf_comes_out_with_its_pictures_inline ... ok
+test legacy_office::tests::one_large_text_shared_by_every_slide_is_decoded_only_while_there_is_room ... ok
+test outlook::tests::messages_attached_past_eight_levels_are_left_out_and_said ... ok
+test outlook::tests::damaged_bytes_anywhere_never_panic ... ok
+test commands::search::tests::a_file_over_the_open_limit_is_skipped_and_one_at_it_is_not ... ok
+test outlook::tests::rtf_that_wraps_no_html_or_fails_its_check_leaves_the_plain_text ... ok
+test outlook::tests::opening_many_streams_is_charged_whatever_they_hold ... ok
+test outlook::tests::streams_that_declare_more_than_the_file_could_hold_are_refused ... ok
+test outlook::tests::the_demo_message_is_what_the_builder_makes ... ok
+test outlook::tests::the_frame_carries_the_facts_then_the_message ... ok
+test outlook::tests::the_headers_it_travelled_with_are_kept_and_the_body_ones_replaced ... ok
+test outlook::tests::what_is_no_message_or_a_damaged_one_says_so ... ok
+test pasteboard::cf_html::tests::a_fragment_with_a_bom_loses_only_the_bom ... ok
+test pasteboard::cf_html::tests::a_good_header_gives_the_whole_html ... ok
+test pasteboard::cf_html::tests::a_trailing_nul_is_outside_the_range ... ok
+test pasteboard::cf_html::tests::build_header_is_fixed_width ... ok
+test pasteboard::cf_html::tests::build_writes_byte_exact_offsets ... ok
+test pasteboard::cf_html::tests::missing_fields_are_refused ... ok
+test pasteboard::cf_html::tests::non_utf8_bytes_pass_through_for_the_caller_to_refuse ... ok
+test pasteboard::cf_html::tests::offsets_out_of_range_are_refused ... ok
+test pasteboard::cf_html::tests::real_world_header_with_source_url_and_short_numbers ... ok
+test pasteboard::cf_html::tests::the_header_ends_at_the_html_so_markup_cannot_add_fields ... ok
+test pasteboard::cf_html::tests::whole_range_missing_or_minus_one_falls_back_to_the_fragment ... ok
+test pasteboard::macos::tests::pasteboard_live ... ignored, writes the real pasteboard; run on a Mac: cargo test -- --ignored pasteboard_live
+test pasteboard::tests::a_concealed_marker_on_any_item_refuses_the_read ... ok
+test pasteboard::tests::a_failed_write_leaves_the_clipboard_empty ... ok
+test pasteboard::tests::a_huge_rep_the_platform_can_size_is_skipped_without_a_copy ... ok
+test pasteboard::tests::a_read_uses_one_snapshot_so_a_later_copy_is_not_read ... ok
+test pasteboard::tests::a_worker_that_blocks_times_out_and_is_left_behind ... ok
+test pasteboard::tests::a_write_cannot_forge_or_drop_the_markers_in_any_case ... ok
+test pasteboard::tests::an_oversized_rep_is_skipped_and_reported_and_the_rest_returns ... ok
+test pasteboard::tests::concealed_refused_unread ... ok
+test pasteboard::tests::one_item_every_rep ... ok
+test pasteboard::tests::only_text_html_rtf_and_url_can_be_written ... ok
+test pasteboard::tests::reads_only_requested ... ok
+test pasteboard::tests::text_crosses_as_utf8_and_png_as_base64 ... ok
+test pasteboard::tests::the_source_is_the_bundle_identifier ... ok
+test pasteboard::tests::transient_marked ... ok
+test pasteboard::win_types::tests::a_lone_surrogate_becomes_bytes_that_are_not_utf8 ... ok
+test pasteboard::win_types::tests::a_write_of_an_unmapped_type_is_refused ... ok
+test pasteboard::win_types::tests::a_write_plans_every_format_and_the_markers ... ok
+test pasteboard::win_types::tests::decode_reads_each_body ... ok
+test pasteboard::win_types::tests::enumeration_stops_at_the_cap_and_lists_each_type_once ... ok
+test pasteboard::win_types::tests::every_type_maps_both_ways ... ok
+test pasteboard::win_types::tests::raw_cap_allows_for_how_each_body_is_held ... ok
+test pasteboard::win_types::tests::synthesized_text_forms_are_not_listed_and_others_keep_their_names ... ok
+test pasteboard::win_types::tests::the_exclusion_marker_lists_as_concealed ... ok
+test remote::tests::a_name_that_resolves_to_this_machine_is_refused_at_connect ... ok
+test remote::tests::a_redirect_is_followed_only_to_the_same_host_over_https ... ok
+test remote::tests::addresses_that_are_not_the_public_internet_are_private ... ok
+test remote::tests::every_host_refusal_says_the_same_thing ... ok
+test remote::tests::only_an_image_is_accepted ... ok
+test remote::tests::only_https_to_a_host_on_the_network_is_fetched ... ok
+test remote::tests::the_agent_never_uses_a_proxy_from_the_environment ... ok
+test remote::tests::the_scheme_serves_what_is_held_and_nothing_else ... ok
+test remote::tests::what_is_held_is_bounded ... ok
+test scope::key_tests::a_check_does_the_same_work_whatever_the_set_holds_and_rebuilds_nothing ... ok
+test scope::key_tests::a_place_key_that_is_a_bare_root_still_covers_what_is_under_it ... ok
+test scope::key_tests::a_thousand_opens_rebuild_the_place_keys_only_when_a_place_is_added ... ok
+test outlook::tests::a_long_name_and_a_long_value_are_cut_and_charged ... ok
+test scope::tests::a_dot_dot_is_refused_even_when_it_lands_inside ... ok
+test scope::tests::a_drive_or_share_root_is_never_a_root_and_a_file_is_not_one ... ok
+test scope::tests::a_file_the_reader_opened_is_read_but_its_neighbours_are_not ... ok
+test scope::tests::a_file_under_a_chosen_root_is_read_and_one_beside_it_is_refused ... ok
+test scope::tests::a_folder_swapped_for_a_link_after_the_check_is_refused_by_the_head_read ... ok
+test scope::tests::a_folder_swapped_for_a_link_after_the_check_is_refused_by_the_image_measure ... ok
+test scope::tests::a_folder_swapped_for_a_link_after_the_check_is_refused_by_the_listing ... ok
+test scope::tests::a_folder_swapped_for_a_link_after_the_check_is_refused_by_the_stat ... ok
+test scope::tests::a_folder_swapped_for_a_link_after_the_check_is_refused_by_the_write_hold ... ok
+test scope::tests::a_head_read_in_scope_or_refused_adds_nothing_to_the_set ... ok
+test scope::tests::a_head_through_a_link_inside_a_root_that_leads_out_is_refused ... ok
+test scope::tests::a_link_inside_a_root_that_leads_out_is_refused ... ok
+test scope::tests::a_missing_file_the_reader_opened_says_not_found_and_a_missing_one_outside_says_outside ... ok
+test scope::tests::a_relative_path_is_invalid_before_scope_is_asked ... ok
+test scope::tests::a_repository_marker_that_is_a_link_out_is_not_probed ... ok
+test scope::tests::a_repository_probe_stops_at_the_nearest_repository ... ok
+test scope::tests::a_root_is_read_only_and_a_picked_folder_is_written ... ok
+test scope::tests::a_root_reached_through_a_link_is_held_by_both_spellings ... ok
+test scope::tests::a_root_the_index_lets_go_of_is_no_longer_read ... ok
+test scope::tests::a_root_the_reader_also_chose_stays_when_the_index_lets_go_of_it ... ok
+test scope::tests::marxys_own_folders_are_always_in_scope ... ok
+test scope::tests::nothing_is_in_scope_before_the_reader_opens_or_chooses_it ... ok
+test scope::tests::reading_a_head_never_makes_a_file_servable ... ok
+test scope::tests::the_repository_marker_above_an_opened_file_may_be_probed_and_nothing_else_there ... ok
+test tables::formats::tests::a_biff_stream_that_is_not_one_or_is_encrypted_has_no_formats ... ok
+test tables::formats::tests::a_biff_streams_cells_stop_at_the_cap ... ok
+test tables::formats::tests::an_ods_writes_its_data_styles_as_format_codes ... ok
+test tables::formats::tests::an_xls_names_each_number_cells_format_from_its_xf ... ok
+test tables::formats::tests::ods_dates_and_times_read_as_serials ... ok
+test tables::formats::tests::the_demo_ods_shows_its_percentages_decimals_and_dates ... ok
+test tables::formats::tests::the_demo_xls_shows_its_builtin_formats ... ok
+test tables::sheets::tests::a_small_ods_passes_the_extent_check ... ok
+test tables::sheets::tests::a_workbook_stops_at_its_cell_cap_and_says_where ... ok
+test commands::run::tests::a_grandchild_is_ended_with_the_run_on_unix ... ok
+test tables::sheets::tests::an_ods_that_repeats_into_millions_of_cells_is_refused_before_it_is_expanded ... ok
+test tables::sheets::tests::an_ods_reads_the_same_page_with_merges_from_its_spans ... ok
+test tables::sheets::tests::an_ods_with_repeated_text_is_counted_by_its_bytes ... ok
+test tables::sheets::tests::an_xls_reads_its_biff_cells_and_its_compound_directory ... ok
+test tables::sheets::tests::bytes_that_are_not_a_workbook_are_none ... ok
+test tables::sqlite::tests::a_database_another_program_holds_is_read_from_a_copy_in_memory ... FAILED
+test tables::sqlite::tests::a_database_is_read_in_place_and_nothing_beside_it_changes ... FAILED
+test tables::sqlite::tests::a_journal_linked_in_after_the_open_is_not_read ... FAILED
+test tables::sqlite::tests::a_journal_linked_in_between_the_check_and_the_open_is_not_read ... FAILED
+test tables::sqlite::tests::a_journal_of_its_own_beside_the_database_is_read ... FAILED
+test tables::sqlite::tests::a_journal_symlinked_in_between_the_check_and_the_open_is_not_read ... FAILED
+test tables::sqlite::tests::a_log_that_claims_more_than_a_copy_may_hold_is_refused ... ok
+test tables::sqlite::tests::a_log_that_is_another_files_second_name_is_not_read ... FAILED
+test tables::sqlite::tests::a_row_past_i64_is_refused_not_wrapped_to_the_first_page ... FAILED
+test tables::sqlite::tests::a_view_that_runs_too_long_is_stopped_and_says_so ... FAILED
+test tables::sqlite::tests::a_wal_database_reads_with_its_log_and_alone_without_it_writing_nothing ... FAILED
+test tables::sqlite::tests::a_wal_database_with_no_index_beside_it_is_read_without_making_one ... FAILED
+test tables::sqlite::tests::an_entry_held_in_memory_is_read_and_nothing_is_written_to_it ... ok
+test tables::sqlite::tests::an_shm_is_read_for_its_header_only ... ok
+test tables::sqlite::tests::an_shm_or_log_that_is_a_link_out_is_not_read ... FAILED
+test tables::sqlite::tests::an_shm_that_is_another_files_second_name_is_not_read ... FAILED
+test tables::sqlite::tests::bytes_without_sqlites_header_are_not_a_database ... FAILED
+test tables::sqlite::tests::nothing_can_be_written_through_the_reader ... FAILED
+test tables::sqlite::tests::text_past_the_cap_is_cut_and_a_without_rowid_table_reads_in_key_order ... FAILED
+test tables::sqlite::tests::the_log_laid_over_a_copy_matches_what_sqlite_reads ... ok
+test tables::tests::text_is_cut_at_the_cap_and_says_how_much_more ... ok
+test tables::wal::tests::a_forged_log_claiming_terabytes_is_refused_before_it_allocates ... ok
+test tables::wal::tests::a_log_within_the_cap_is_applied ... ok
+test tests::a_drop_keeps_files_and_drops_folders_and_missing_paths ... ok
+test tests::a_refusal_payload_carries_the_key_the_reason_and_no_events ... ok
+test tests::a_refused_watchs_late_cleanup_leaves_a_newer_watch_of_the_same_tree_alone ... ok
+test tests::a_relative_document_path_is_made_absolute_against_the_launch_directory ... ok
+test tests::a_release_build_refuses_a_local_server_that_a_debug_build_loads_from ... ok
+test tests::a_repeated_close_request_quits_and_a_first_or_stale_one_asks_the_webview ... ok
+test tests::a_save_dialog_starts_in_the_folder_the_default_path_names_and_only_if_it_exists ... ok
+test tests::a_tree_watch_and_a_folder_watch_of_one_directory_have_different_keys ... ok
+test tests::a_tree_watchs_refusal_forgets_its_entry_before_it_tells_the_webview ... ok
+test tests::a_watch_that_ended_itself_leaves_no_entry_for_a_later_call_to_share ... ok
+test tests::an_fs_watch_payload_carries_the_watch_key_and_its_events ... ok
+test tests::an_open_before_the_webview_listens_is_queued_once ... ok
+test outlook::tests::mini_streams_are_charged_for_each_mini_sector_cfb_reads ... ok
+test tests::copy_with_html_is_one_write_that_keeps_the_plain_text ... ok
+test tests::every_menu_item_resolves_to_an_action_and_no_two_share_a_key ... ok
+test tests::percent_decode_undoes_encode_uri_component ... ok
+test tests::resolve_watch_key_falls_back_to_the_recorded_canonical_key_when_the_root_is_gone ... ok
+test tests::resolve_watch_key_with_no_recording_falls_back_to_the_raw_root ... ok
+test tests::settings_is_in_the_marxy_menu_and_runs_its_registry_command ... ok
+test tests::the_last_unwatch_drops_its_recordings_before_the_stop_so_a_new_watch_keeps_its_own ... ok
+test tests::the_menu_lists_no_documents_tabs_or_windows ... ok
+test tests::the_watch_commands_run_their_bodies_off_the_runtime_workers ... ok
+test tests::the_window_navigates_only_within_the_app ... ok
+test tests::unwatch_refuses_a_root_with_a_nul_so_it_cannot_name_a_tree_watchs_key ... ok
+test watch::tests::a_broken_symlink_in_the_watched_root_does_not_fail_open ... ok
+test watch::tests::a_file_named_like_a_denied_folder_is_watched ... ok
+test watch::tests::a_link_to_a_directory_or_a_dangling_link_is_not_recorded ... ok
+test watch::tests::a_new_link_is_never_the_destination_of_a_rename ... ok
+test watch::tests::a_running_watch_dropped_without_stop_still_ends_its_loop ... ok
+test watch::tests::a_vanished_symlink_target_directory_does_not_kill_the_poll ... ok
+test watch::tests::a_write_two_directories_down_is_not_watched ... ok
+test watch::tests::an_edit_of_a_target_in_another_directory_is_modified_on_the_link ... ok
+test watch::tests::an_edit_of_a_target_in_the_same_directory_is_modified_on_the_link ... ok
+test tables::sheets::tests::an_xlsx_reads_its_saved_values_formulas_formats_merges_and_hidden_sheets ... ok
+test watch::tests::an_unreadable_or_skipped_subdirectory_does_not_fail_the_scan ... ok
+test watch::tests::atomic_save_of_a_target_still_reloads_the_link ... ok
+test watch::tests::delete_while_open_is_gone ... ok
+test watch::tests::in_place_write_while_open_reloads ... ok
+test watch::tests::move_while_open_follows ... ok
+test watch::tests::removing_the_link_is_removed_on_the_link ... ok
+test watch::tests::removing_the_watched_directory_reports_removed_once ... ok
+test watch::tests::renaming_the_target_of_a_link_is_removed_on_the_link_and_never_follows ... ok
+test watch::tests::renaming_the_watched_directory_reports_removed ... ok
+test watch::tests::the_comparison_does_not_resolve_a_link ... ok
+test watch::tests::the_one_listing_scan_equals_the_per_file_scan_field_for_field ... ok
+test watch::tests::two_renames_never_share_one_destination ... ok
+test watch::tests::write_temp_then_rename_while_open_reloads ... ok
+test watch_notify::tests::a_reconcile_is_owed_after_a_burst_and_due_on_its_timer_spaced_by_its_cost ... ok
+test watch_notify::tests::a_rescan_flag_with_no_path_rescans_the_whole_root ... ok
+test watch_notify::tests::a_rescan_flag_with_paths_rescans_only_those_paths ... ok
+test watch::tests::an_edit_through_a_symlinked_document_reloads ... ok
+test tests::closing_a_refused_trees_handle_leaves_the_watch_that_replaced_it_held ... ok
+test watch_notify::tests::a_tree_thread_leaves_a_folder_out_and_takes_it_back_when_told ... ok
+test outlook::tests::a_real_shaped_large_message_reads_far_under_the_step_budget ... ok
+test watch_notify::tests::rss_of_a_fifty_thousand_file_tree_watch ... ignored
+test outlook::tests::storages_nested_thousands_deep_cost_one_step_each ... ok
+test watch_notify::tests::tree_thread_refuses_a_root_that_is_not_a_directory ... ok
+test outlook::tests::many_streams_sharing_the_head_of_one_long_chain_are_refused_by_what_cfb_would_walk ... ok
+test watch_notify::tests::tree_thread_reports_a_nested_file_then_stops ... ok
+test watch_notify::tests::tree_thread_that_outgrows_its_limit_refuses_once_and_goes_quiet ... ok
+test watch_tree::tests::a_case_only_rename_leaves_no_ghost_of_the_file_or_the_folder ... ok
+test watch_tree::tests::a_denied_name_in_any_case_is_never_listed ... ok
+test watch_tree::tests::a_file_created_two_directories_down_is_one_created ... ok
+test watch_tree::tests::a_file_in_a_new_directory_reported_by_its_directory_is_one_created ... ok
+test watch_tree::tests::a_file_moved_between_directories_is_renamed_from_to ... ok
+test watch_tree::tests::a_file_named_like_a_denied_folder_is_listed_and_reported ... ok
+test watch_tree::tests::a_folder_inside_a_folder_left_out_changes_nothing_when_the_outer_one_stays ... ok
+test watch_tree::tests::a_folder_is_left_out_whatever_its_spelling ... ok
+test watch_tree::tests::a_folder_left_out_has_no_files_in_the_snapshot_the_count_or_the_events ... ok
+test watch_tree::tests::a_folder_outside_the_root_cannot_be_named ... ok
+test watch_tree::tests::a_folder_that_stops_being_left_out_is_read_again_and_its_files_are_created ... ok
+test watch_tree::tests::a_scan_lists_each_folder_once_and_opens_only_reparse_entries ... ok
+test watch_tree::tests::a_symlinked_directory_is_not_descended ... ok
+test watch_tree::tests::a_tree_past_the_file_limit_is_refused ... ok
+test watch_tree::tests::a_tree_that_outgrows_the_limit_after_open_is_refused_and_keeps_its_snapshot ... ok
+test watch_tree::tests::every_regular_file_is_listed_and_reported_whatever_its_name ... ok
+test watch_tree::tests::files_under_denied_directories_are_never_reported ... ok
+test watch_notify::tests::tree_thread_reports_a_change_made_while_the_first_scan_ran ... ok
+test watch_tree::tests::paths_outside_the_root_are_ignored ... ok
+test watch_tree::tests::paths_under_denied_folders_do_not_count_toward_a_reconcile ... ok
+test watch_tree::tests::removing_a_directory_reports_each_file_under_it_removed_once ... ok
+test watch_tree::tests::the_deny_list_is_the_shells_one ... ok
+test watch_tree::tests::the_listing_scan_equals_the_per_file_scan_field_for_field ... ok
+test watch_tree::tests::write_temp_then_rename_two_levels_down_is_renamed_onto_the_path ... ok
+test window_state::tests::a_window_larger_than_its_screen_is_cut_to_it_at_the_corner ... ok
+test window_state::tests::a_window_on_a_screen_that_is_gone_is_placed_by_the_os_and_fits_the_one_left ... ok
+test window_state::tests::a_window_on_a_screen_that_is_there_comes_back_where_it_was ... ok
+test window_state::tests::a_window_whose_title_strip_is_off_every_screen_is_not_kept_there ... ok
+test window_state::tests::the_file_lives_in_the_data_folder ... ok
+test window_state::tests::the_file_reads_back_what_was_written_and_nothing_damaged ... ok
+test watch_notify::tests::the_flat_loop_scans_on_a_signal_and_rarely_when_idle ... ok
+test legacy_office::tests::sixteen_million_line_breaks_stop_at_the_paragraph_cap ... ok
+test commands::search::tests::the_threaded_search_equals_the_serial_one_for_every_worker_count ... ok
+test watch_tree::tests::one_changed_file_in_ten_thousand_costs_fewer_than_ten_stat_calls ... ok
+test watch_notify::tests::poll_thread_emits_modified_then_stops ... ok
+test watch_notify::tests::a_watch_the_os_let_go_of_is_reconciled_and_registered_again ... ok
+test watch_notify::tests::poll_thread_survives_and_still_stops_after_its_root_is_removed ... ok
+test outlook::tests::a_wide_directory_is_read_through_one_map_and_capped ... ok
+test scope::key_tests::the_kept_keys_judge_every_path_as_the_per_call_lists_did ... ok
+
+failures:
+
+---- tables::sqlite::tests::a_database_another_program_holds_is_read_from_a_copy_in_memory stdout ----
+
+thread 'tables::sqlite::tests::a_database_another_program_holds_is_read_from_a_copy_in_memory' (408391) panicked at src/tables/sqlite_tests.rs:249:51:
+called `Result::unwrap()` on an `Err` value: Refused("held.db is not where its name says")
+
+---- tables::sqlite::tests::a_database_is_read_in_place_and_nothing_beside_it_changes stdout ----
+
+thread 'tables::sqlite::tests::a_database_is_read_in_place_and_nothing_beside_it_changes' (408400) panicked at src/tables/sqlite_tests.rs:73:10:
+called `Result::unwrap()` on an `Err` value: Refused("gauges.sqlite is not where its name says")
+
+---- tables::sqlite::tests::a_journal_linked_in_after_the_open_is_not_read stdout ----
+
+thread 'tables::sqlite::tests::a_journal_linked_in_after_the_open_is_not_read' (408409) panicked at src/tables/sqlite_tests.rs:519:10:
+called `Result::unwrap()` on an `Err` value: Refused("gauges.sqlite is not where its name says")
+
+---- tables::sqlite::tests::a_journal_linked_in_between_the_check_and_the_open_is_not_read stdout ----
+
+thread 'tables::sqlite::tests::a_journal_linked_in_between_the_check_and_the_open_is_not_read' (408410) panicked at src/tables/sqlite_tests.rs:487:10:
+called `Result::unwrap()` on an `Err` value: Refused("gauges.sqlite is not where its name says")
+
+---- tables::sqlite::tests::a_journal_of_its_own_beside_the_database_is_read stdout ----
+
+thread 'tables::sqlite::tests::a_journal_of_its_own_beside_the_database_is_read' (408411) panicked at src/tables/sqlite_tests.rs:542:14:
+called `Result::unwrap()` on an `Err` value: Refused("gauges.sqlite is not where its name says")
+
+---- tables::sqlite::tests::a_journal_symlinked_in_between_the_check_and_the_open_is_not_read stdout ----
+
+thread 'tables::sqlite::tests::a_journal_symlinked_in_between_the_check_and_the_open_is_not_read' (408412) panicked at src/tables/sqlite_tests.rs:508:10:
+called `Result::unwrap()` on an `Err` value: Refused("gauges.sqlite is not where its name says")
+
+---- tables::sqlite::tests::a_log_that_is_another_files_second_name_is_not_read stdout ----
+
+thread 'tables::sqlite::tests::a_log_that_is_another_files_second_name_is_not_read' (408414) panicked at src/tables/sqlite_tests.rs:404:10:
+called `Result::unwrap()` on an `Err` value: Refused("journal.sqlite is not where its name says")
+
+---- tables::sqlite::tests::a_row_past_i64_is_refused_not_wrapped_to_the_first_page stdout ----
+
+thread 'tables::sqlite::tests::a_row_past_i64_is_refused_not_wrapped_to_the_first_page' (408415) panicked at src/tables/sqlite_tests.rs:58:10:
+called `Result::unwrap()` on an `Err` value: Refused("gauges.sqlite is not where its name says")
+
+---- tables::sqlite::tests::a_view_that_runs_too_long_is_stopped_and_says_so stdout ----
+
+thread 'tables::sqlite::tests::a_view_that_runs_too_long_is_stopped_and_says_so' (408416) panicked at src/tables/sqlite_tests.rs:278:42:
+called `Result::unwrap()` on an `Err` value: Refused("slow.sqlite is not where its name says")
+
+---- tables::sqlite::tests::a_wal_database_reads_with_its_log_and_alone_without_it_writing_nothing stdout ----
+
+thread 'tables::sqlite::tests::a_wal_database_reads_with_its_log_and_alone_without_it_writing_nothing' (408417) panicked at src/tables/sqlite_tests.rs:188:10:
+called `Result::unwrap()` on an `Err` value: Refused("journal.sqlite is not where its name says")
+
+---- tables::sqlite::tests::a_wal_database_with_no_index_beside_it_is_read_without_making_one stdout ----
+
+thread 'tables::sqlite::tests::a_wal_database_with_no_index_beside_it_is_read_without_making_one' (408418) panicked at src/tables/sqlite_tests.rs:214:10:
+called `Result::unwrap()` on an `Err` value: Refused("journal.sqlite is not where its name says")
+
+---- tables::sqlite::tests::an_shm_or_log_that_is_a_link_out_is_not_read stdout ----
+
+thread 'tables::sqlite::tests::an_shm_or_log_that_is_a_link_out_is_not_read' (408425) panicked at src/tables/sqlite_tests.rs:437:10:
+called `Result::unwrap()` on an `Err` value: Refused("journal.sqlite is not where its name says")
+
+---- tables::sqlite::tests::an_shm_that_is_another_files_second_name_is_not_read stdout ----
+
+thread 'tables::sqlite::tests::an_shm_that_is_another_files_second_name_is_not_read' (408429) panicked at src/tables/sqlite_tests.rs:380:10:
+called `Result::unwrap()` on an `Err` value: Refused("journal.sqlite is not where its name says")
+
+---- tables::sqlite::tests::bytes_without_sqlites_header_are_not_a_database stdout ----
+
+thread 'tables::sqlite::tests::bytes_without_sqlites_header_are_not_a_database' (408433) panicked at src/tables/sqlite_tests.rs:260:10:
+called `Result::unwrap()` on an `Err` value: Refused("vault.db is not where its name says")
+
+---- tables::sqlite::tests::nothing_can_be_written_through_the_reader stdout ----
+
+thread 'tables::sqlite::tests::nothing_can_be_written_through_the_reader' (408438) panicked at src/tables/sqlite_tests.rs:290:10:
+called `Result::unwrap()` on an `Err` value: Refused("gauges.sqlite is not where its name says")
+
+---- tables::sqlite::tests::text_past_the_cap_is_cut_and_a_without_rowid_table_reads_in_key_order stdout ----
+
+thread 'tables::sqlite::tests::text_past_the_cap_is_cut_and_a_without_rowid_table_reads_in_key_order' (408443) panicked at src/tables/sqlite_tests.rs:157:42:
+called `Result::unwrap()` on an `Err` value: Refused("cut.sqlite is not where its name says")
+
+
+failures:
+    tables::sqlite::tests::a_database_another_program_holds_is_read_from_a_copy_in_memory
+    tables::sqlite::tests::a_database_is_read_in_place_and_nothing_beside_it_changes
+    tables::sqlite::tests::a_journal_linked_in_after_the_open_is_not_read
+    tables::sqlite::tests::a_journal_linked_in_between_the_check_and_the_open_is_not_read
+    tables::sqlite::tests::a_journal_of_its_own_beside_the_database_is_read
+    tables::sqlite::tests::a_journal_symlinked_in_between_the_check_and_the_open_is_not_read
+    tables::sqlite::tests::a_log_that_is_another_files_second_name_is_not_read
+    tables::sqlite::tests::a_row_past_i64_is_refused_not_wrapped_to_the_first_page
+    tables::sqlite::tests::a_view_that_runs_too_long_is_stopped_and_says_so
+    tables::sqlite::tests::a_wal_database_reads_with_its_log_and_alone_without_it_writing_nothing
+    tables::sqlite::tests::a_wal_database_with_no_index_beside_it_is_read_without_making_one
+    tables::sqlite::tests::an_shm_or_log_that_is_a_link_out_is_not_read
+    tables::sqlite::tests::an_shm_that_is_another_files_second_name_is_not_read
+    tables::sqlite::tests::bytes_without_sqlites_header_are_not_a_database
+    tables::sqlite::tests::nothing_can_be_written_through_the_reader
+    tables::sqlite::tests::text_past_the_cap_is_cut_and_a_without_rowid_table_reads_in_key_order
+
+test result: FAILED. 634 passed; 16 failed; 6 ignored; 0 measured; 0 filtered out; finished in 10.01s
+
+error: test failed, to rerun pass `--bin marxy`

@@ -1,0 +1,21 @@
+$ pnpm gate:fidelity   (in .)
+
+$ pnpm --filter @marxy/core test:fidelity
+$ node ../../scripts/gate-fidelity.mjs
+fidelity: no production file under packages/core reads or imports apps/desktop
+fidelity: save-path case list is 59 (at least 14 required)
+fidelity: create-only case list is 15 of 59 save-path tests
+fidelity: refuse_ownership_change is proved (uid mismatch refuses; a different-group directory saves)
+fidelity: the save path's durability and refusal tests pass — test result: ok. 43 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.49s
+fidelity: 47 corpus files survive open → save byte-identically, including 12-crlf-and-bom.md and 13-no-trailing-newline.md
+fidelity: create-only symlink cases skipped: this machine refuses file symlinks (no Developer Mode), and a junction cannot link a file
+fidelity: 47 corpus files are created byte-identically at a free name by the create-only write (write_new), refused "exists" at a taken one (symlink cases skipped, see above)
+fidelity: save-after-operation — an edited document saves its spliced range and nothing else (2 documents, byte offsets over UTF-16 ones)
+fidelity: save-after-move — 16 section moves (move-section-up, move-section-down) over 2 fixtures save their two sections and nothing else, and keep the last byte and the line endings
+fidelity: save-after-front-matter-edit — 184 value edits (set-front-matter-value; YAML and TOML, quoted and commented, CRLF, CR and BOM) change that value's bytes and nothing else, leave every other key and the body as they were, and save that way
+fidelity: a save path with CRLF line endings rewritten to LF is caught (3 files differ, including 12-crlf-and-bom.md)
+fidelity: a save path with a trailing newline added to a file that had none is caught (7 files differ, including 01-long-technical.md)
+fidelity: a save path with a byte-order mark stripped is caught (2 files differ, including 12-crlf-and-bom.md)
+fidelity: create-only symlink cases skipped: this machine refuses file symlinks (no Developer Mode), and a junction cannot link a file
+fidelity: a create-only write that replaces is caught (92 problems, including: 01-long-technical.md (a second create-only write replaced the file))
+fidelity: ok

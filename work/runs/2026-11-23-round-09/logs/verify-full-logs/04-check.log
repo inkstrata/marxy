@@ -1,0 +1,15 @@
+$ pnpm check   (in .)
+
+$ node scripts/check.mjs
+✓ check-boundaries
+✓ check-registry
+✓ check-deps
+✓ check-one-parse
+✓ check-tokens
+✓ gate-font-attrs
+✓ gate-contrast
+✓ check-csp
+✓ check-commonplace
+✓ check-listeners
+
+check: 10/10 passed

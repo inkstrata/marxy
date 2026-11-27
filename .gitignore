@@ -9,6 +9,8 @@ out/
 !/fixtures/corpus/*.log
 # and so is the demo's build log, which the demo build reads
 !/fixtures/demo/**/*.log
+# and the run records' logs, which work/ cites as evidence
+!/work/runs/**/*.log
 .DS_Store
 /results/
 /apps/desktop/src-tauri/gen/schemas/

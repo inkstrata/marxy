@@ -1,0 +1,41 @@
+﻿✔ a margin note goes below the code or table that runs into the margin beside it, and the notes keep their order (4367.818ms)
+✔ Metadata’s Footnotes row says where the notes are as a resize moves them in and out of the margin (2617.9527ms)
+✔ a note opened under its line and then moved into the margin leaves its number no longer marked open (2395.2219ms)
+✖ the first click on a long page with notes shows the bar and leaves the margin notes where they are (2509.6123ms)
+✔ a margin note whose markup changes without a change of text is copied again at the next relayout (3118.909ms)
+✔ margin notes follow their lines when the page above them changes height (3195.2531ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 19139.8539
+
+✖ failing tests:
+
+test at test\margin-notes.test.mjs:9:28
+✖ the first click on a long page with notes shows the bar and leaves the margin notes where they are (2509.6123ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   added: 6,
+  +   removed: 6
+  -   added: 0,
+  -   removed: 0
+    }
+  
+      at file:///C:/Dev/reader/worktrees/first-click/apps/desktop/test/margin-notes.test.mjs:121:12
+      at async withFrame (file:///C:/Dev/reader/worktrees/first-click/apps/desktop/test/support/frame.mjs:35:5)
+      at async TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/first-click/apps/desktop/test/margin-notes.test.mjs:105:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { added: 6, removed: 6 },
+    expected: { added: 0, removed: 0 },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

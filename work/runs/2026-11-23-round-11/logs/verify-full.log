@@ -1,0 +1,76 @@
+$ node scripts/verify.mjs "--tier" "full"
+verify full in C:\Dev\reader\worktrees\round11
+29 files changed against master; unit suites: desktop, scripts; browser files: 257; rust changed; unmapped: apps/desktop/test/support/two-pane.mjs
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\round11-2026-11-23T22-46-59
+
+PASS    install        0.4s      
+PASS    typecheck      11.7s     
+PASS    lint           2.2s      
+PASS    check          11.2s     10 pass, 0 fail
+PASS    golden         1.5s      
+PASS    fidelity       17.0s     
+PASS    licences       0.6s      
+FAIL    unit-core      188.8s    4291 pass, 1 fail, 3 skip
+PASS    unit-theme     38.8s     305 pass, 0 fail
+PASS    unit-typeset   41.7s     80 pass, 0 fail
+PASS    unit-scripts   74.3s     261 pass, 0 fail
+PASS    unit-desktop   284.6s    1315 pass, 0 fail, 1 skip
+PASS    lint-rust      55.0s     
+FAIL    browser        2113.1s   2471 pass, 1 fail, 4 skip
+PASS    cargo          87.5s     610 pass, 0 fail, 5 skip
+PASS    build          325.3s    
+PASS    tauri          92.8s     117 pass, 0 fail
+
+step          result  wall     tests
+------------  ------  -------  -------------------------
+install       pass    0.4s
+typecheck     pass    11.7s
+lint          pass    2.2s
+check         pass    11.2s    10 pass, 0 fail
+golden        pass    1.5s
+fidelity      pass    17.0s
+licences      pass    0.6s
+unit-core     FAIL    188.8s   4291 pass, 1 fail, 3 skip
+unit-theme    pass    38.8s    305 pass, 0 fail
+unit-typeset  pass    41.7s    80 pass, 0 fail
+unit-scripts  pass    74.3s    261 pass, 0 fail
+unit-desktop  pass    284.6s   1315 pass, 0 fail, 1 skip
+lint-rust     pass    55.0s
+browser       FAIL    2113.1s  2471 pass, 1 fail, 4 skip
+cargo         pass    87.5s    610 pass, 0 fail, 5 skip
+build         pass    325.3s
+tauri         pass    92.8s    117 pass, 0 fail
+------------  ------  -------  -------------------------
+total                 3346.6s
+
+--- unit-core (C:\Users\<user>\AppData\Local\Temp\marxy-verify\round11-2026-11-23T22-46-59\08-unit-core.log)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+C:\Dev\reader\worktrees\round11\packages\core:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @marxy/core@0.0.0 test: `node --test --experimental-strip-types "src/**/*.test.ts"`
+Exit status 1
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\round11-2026-11-23T22-46-59\14-browser.log)
+    - waiting for locator('.marxy-notice .marxy-notice-dismiss').first()
+      - locator resolved to <button type="button" class="marxy-notice-dismiss" aria-label="Dismiss Not done: Nothing on the clipboard to transform">Dismiss</button>
+    - attempting click action
+      - waiting for element to be visible, enabled and stable
+  
+      at Object.close (C:\Dev\reader\worktrees\round11\apps\desktop\test\no-displacement.test.mjs:253:73)
+      at withApp.split (C:\Dev\reader\worktrees\round11\apps\desktop\test\no-displacement.test.mjs:348:23)
+      at async withApp (C:\Dev\reader\worktrees\round11\apps\desktop\test\no-displacement.test.mjs:301:5)
+      at async TestContext.<anonymous> (C:\Dev\reader\worktrees\round11\apps\desktop\test\no-displacement.test.mjs:337:7) {
+    name: 'TimeoutError',
+    log: [ "  - waiting for locator('.marxy-notice .marxy-notice-dismiss').first()", '    - locator resolved to <button type="button" class="marxy-notice-dismiss" aria-label="Dismiss Not done: Nothing on the clipboard to transform">Dismiss</button>', '  - attempting click action', '    - waiting for element to be visible, enabled and stable' ]
+  }
+
+verify full: 15/17 steps passed; failed: unit-core, browser; rerun with --from unit-core
+[ELIFECYCLE] Command failed with exit code 1.
+exit 1

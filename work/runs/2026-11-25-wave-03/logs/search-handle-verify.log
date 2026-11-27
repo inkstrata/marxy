@@ -1,0 +1,16 @@
+verify-turn: slot a, search-handle, pnpm verify --tier changed --from cargo (2026-11-25T15:40:15-08:00)
+$ node scripts/verify.mjs "--tier" "changed" "--from" "cargo"
+verify changed in C:\Dev\reader\worktrees\search-handle
+2 files changed against master; unit suites: none; browser files: 0; rust changed
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\search-handle-2026-11-25T23-40-16
+
+PASS    cargo          20.4s     628 pass, 0 fail, 6 skip
+
+step   result  wall   tests
+-----  ------  -----  ------------------------
+cargo  pass    20.4s  628 pass, 0 fail, 6 skip
+-----  ------  -----  ------------------------
+total          20.4s
+
+verify changed: 1/1 steps passed
+verify-turn: exit 0 (2026-11-25T15:40:36-08:00)

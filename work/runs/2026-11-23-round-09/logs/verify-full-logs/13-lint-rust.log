@@ -1,0 +1,3 @@
+$ pnpm lint:rust   (in .)
+
+$ cd apps/desktop/src-tauri && cargo fmt --check && cargo clippy --locked --quiet -- -D warnings

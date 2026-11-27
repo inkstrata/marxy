@@ -1,0 +1,919 @@
+﻿vite v7.3.6 building client environment for production...
+transforming...
+✓ 1596 modules transformed.
+rendering chunks...
+node.exe : [plugin vite:reporter] 
+At C:\Users\<user>\AppData\Roaming\fnm\aliases\default\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([plugin vite:reporter] :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(!) C:/Dev/reader/worktrees/grammars-once/apps/desktop/src/source/cm-position.ts is dynamically imported by 
+C:/Dev/reader/worktrees/grammars-once/apps/desktop/src/kinds/table-lens.ts, 
+C:/Dev/reader/worktrees/grammars-once/apps/desktop/src/proposals/inspector.ts but also statically imported by 
+C:/Dev/reader/worktrees/grammars-once/apps/desktop/src/source/frame.ts, 
+C:/Dev/reader/worktrees/grammars-once/apps/desktop/src/source/mode-switch.ts, 
+C:/Dev/reader/worktrees/grammars-once/apps/desktop/src/view/rendered-view.ts, dynamic import will not move module into 
+another chunk.
+
+[plugin vite:reporter] 
+(!) C:/Dev/reader/worktrees/grammars-once/apps/desktop/src/proposals/notes-in-place.ts is dynamically imported by 
+C:/Dev/reader/worktrees/grammars-once/apps/desktop/src/startup/idle-work.ts but also statically imported by 
+C:/Dev/reader/worktrees/grammars-once/apps/desktop/src/left/doc-shared.ts, 
+C:/Dev/reader/worktrees/grammars-once/apps/desktop/src/left/panels/metadata.ts, 
+C:/Dev/reader/worktrees/grammars-once/apps/desktop/src/proposals/index.ts, dynamic import will not move module into 
+another chunk.
+
+computing gzip size...
+../../../../work/wave1/grammars-once/dist-old-shape/assets/_marxy-grammar-not-allowed-CzDOTCnW.js            0.03 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/checks.worker-Cf6Nil2W.js                         0.41 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vue-interpolations-BJlTdk14.js                    0.42 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vue-directives-DcV8rNDO.js                        0.44 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/codeowners-CtwIM3TN.js                            0.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-template-C-Bx8omk.js                      0.64 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jinja-html-Bj0z0EfP.js                            0.68 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/shellsession-DSlzxnCM.js                          0.72 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/tsv-BFtm7NXx.js                                   0.74 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/markdown-vue-BcJEcD2L.js                          0.77 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ts-tags-DPc2rxIX.js                               0.79 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/markdown-nix-DExvXzfA.js                          0.86 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/html-derivative-BxANmYVz.js                       0.90 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vue-sfc-style-variable-injection-ByE1NjCy.js      0.95 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/git-rebase-DeZqv4fp.js                            0.99 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/qmldir-DXd9s5XC.js                                1.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-let-declaration-C3dznpY3.js               1.04 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/csv-D5aBhKLr.js                                   1.15 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-html-C3zYXI-j.js                          1.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/git-commit-CJPsQObV.js                            1.23 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/es-tag-xml-BlFZrkUP.js                            1.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-inline-style-DouDtJK_.js                  1.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/xsl-C6UUWSil.js                                   1.39 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/dotenv-Bea-FkXq.js                                1.43 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-inline-template-BbMa_9-z.js               1.43 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sparql-BJh4JEw-.js                                1.48 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ini-Dix3pTmg.js                                   1.53 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fortran-fixed-form-DFFnVrrY.js                    1.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/docker-DG9neUKd.js                                1.75 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/desktop-DZfyBMgF.js                               1.84 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/es-tag-glsl-Wjn0AXde.js                           1.88 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hxml-In6F2XHE.js                                  1.90 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/es-tag-css-BQbaqW60.js                            1.97 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wenyan-CYFFG9DK.js                                2.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-template-blocks-BVM1r0vg.js               2.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/es-tag-html-BgWYtIKg.js                           2.19 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jssm-CWE2S0Z5.js                                  2.24 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/reg-Cvyu2Gnx.js                                   2.35 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/edge-DTiORMU5.js                                  2.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/diff-jW5kmiru.js                                  2.57 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/gleam-BeBqoPwE.js                                 2.58 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hy-DI6mCUnw.js                                    2.65 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/erb-CnTCv1SO.js                                   2.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/json-B8JryHcM.js                                  2.83 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/openscad-CXHpNBsb.js                              2.83 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/log-CcaF_xNv.js                                   2.86 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cairo-BYiDgOF2.js                                 2.94 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/berry-CVKoklHx.js                                 3.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jsonl-9I_GBd5L.js                                 3.02 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jsonc-CvUCa1o5.js                                 3.11 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/logo-D9WQLoKQ.js                                  3.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/po-LG0lFwH4.js                                    3.24 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/json5-Cdatmj9n.js                                 3.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/mipsasm-yE_Aqo9y.js                               3.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/tasl-B9CVvjfG.js                                  3.29 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/rbs-BNdQsBCU.js                                   3.32 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/genie-DSsjfZMX.js                                 3.36 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/rel-BlqNHz8k.js                                   3.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vala-z59IxkFd.js                                  3.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/splunk-h-bNAnbk.js                                3.44 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fluent-Bwo2XpEt.js                                3.61 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ssh-config-CywOjoXH.js                            3.62 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jsonnet-XoenQ2oc.js                               3.62 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/kdl-CMbyIXjQ.js                                   3.63 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hurl-CxQrh4RI.js                                  3.66 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/narrat-DXUZ_ZkW.js                                3.68 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/turtle-DpRhbQZY.js                                3.70 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/zenscript-BIAKq-aR.js                             3.92 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ron-j5NfrB3z.js                                   3.92 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/gn-Dxr0sSUf.js                                    4.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/pascal-Sr-XLSE6.js                                4.15 kB
+../../../../work/wave1/grammars-once/dist-old-shape/fonts/Inter-OFL.txt                                      4.38 kB │ gzip:   1.97 kB
+../../../../work/wave1/grammars-once/dist-old-shape/fonts/Literata-OFL.txt                                   4.39 kB │ gzip:   1.98 kB
+../../../../work/wave1/grammars-once/dist-old-shape/fonts/JetBrainsMono-OFL.txt                              4.40 kB │ gzip:   1.97 kB
+../../../../work/wave1/grammars-once/dist-old-shape/fonts/AtkinsonHyperlegibleNext-OFL.txt                   4.43 kB │ gzip:   2.00 kB
+../../../../work/wave1/grammars-once/dist-old-shape/fonts/SourceSerif4-OFL.txt                               4.49 kB │ gzip:   2.02 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/nextflow-D9i3Mg89.js                              4.51 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/rosmsg-ZkSIzPhc.js                                4.53 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/http-CG3jvXcS.js                                  4.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/polar-DjOs3GWb.js                                 4.68 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sdbl-CvZs3G9c.js                                  4.71 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fennel-DBMsxtrh.js                                4.77 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/bibtex-DRcCXNgM.js                                4.80 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Size4-Regular-Dl5lxZxV.woff2                4.93 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/llvm-CQZjIlnZ.js                                  5.04 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wgsl-CxjTZs-b.js                                  5.15 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jinja-_wAcCy0T.js                                 5.17 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Size2-Regular-Dy4dx90m.woff2                5.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/gdresource-B0Kp4-ms.js                            5.29 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/qml-DmGQGbca.js                                   5.34 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/zig-bSFrHQ7n.js                                   5.34 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/bicep-jWz-hQ8I.js                                 5.39 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/xml-BkAJuBCc.js                                   5.39 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/awk-CrWgQKhV.js                                   5.47 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Size1-Regular-mCD8mA8B.woff2                5.47 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/lean-C4RHkN41.js                                  5.79 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/powerquery-DHf-dtTS.js                            5.91 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/shaderlab-CEJedz68.js                             5.93 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cypher-DYQk2G82.js                                5.96 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/coq-BIZj6HM_.js                                   6.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vb-A7jYO8Gn.js                                    6.08 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/gdshader-G7X6ysY3.js                              6.33 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ara-C1--7J61.js                                   6.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/verilog-jqltjd44.js                               6.41 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/clojure-KnfDkB_V.js                               6.42 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/postcss-GRRkWn2F.js                               6.42 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/toml-Ms459DBw.js                                  6.43 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/proto-dqx_Sj2i.js                                 6.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/chapel-D6IdCptL.js                                6.63 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/r-C2sK8mqY.js                                     6.74 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/talonscript-eRuyeYHl.js                           6.76 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Caligraphic-Regular-Di6jR-x-.woff2          6.91 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Caligraphic-Bold-Dq_IR9rO.woff2             6.91 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/riscv-C5dpdlr7.js                                 6.92 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/soy-DEV4yxgM.js                                   6.99 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/scheme-OJppFQF3.js                                7.17 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hlsl-MKeth5V9.js                                  7.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/qss-B7NnhfIi.js                                   7.48 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/prisma-HKDfktb8.js                                7.75 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/systemd-DKMPPZjB.js                               7.87 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/regexp-DK-WlHNu.js                                7.99 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/haml-C4vGXCDX.js                                  8.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vue-html-zEfNEgpj.js                              8.48 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/plsql-Dbm3tV2N.js                                 8.52 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/dart-ByalkS20.js                                  8.63 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/kotlin-BQy537ds.js                                8.79 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/make-DXVx14cr.js                                  8.97 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sas-DPMpzP9X.js                                   9.07 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/smithy-BVTkKWO9.js                                9.14 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sass-bfEVHPJ8.js                                  9.29 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/es-tag-sql-Bz5qf0fz.js                            9.33 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Script-Regular-D3wIWfF6.woff2               9.64 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/tex-DNkCctwf.js                                   9.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jison-B9XHrcYJ.js                                 9.69 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cmake-bh2MLnkv.js                                 9.86 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hcl-B6OePqme.js                                  10.06 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_SansSerif-Regular-DDBCnlJ7.woff2           10.34 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/pkl-CRusufhw.js                                  10.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/beancount-dPJi_gci.js                            10.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/nextflow-groovy-BtKenbWl.js                      10.44 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/dream-maker-DAHQwpwp.js                          10.47 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/raku-BMJwmrCS.js                                 10.48 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/yaml-Bopit2L3.js                                 10.51 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/rst-CM5ZfIVw.js                                  10.73 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/elm-juhG8vkV.js                                  10.98 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/just-De6xp6Wf.js                                 11.29 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Fraktur-Regular-CTYiF6lA.woff2             11.32 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Fraktur-Bold-CL6g_b3V.woff2                11.35 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/prolog-9JcfiY6I.js                               11.36 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/terraform-CAp711iT.js                            11.39 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/puppet-Di57VbSS.js                               11.44 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/gherkin-Cl2Fw-_0.js                              11.95 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wasm-CFi-k9--.js                                 12.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_SansSerif-Italic-C3H0VqGB.woff2            12.03 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hjson-D2jn7IRw.js                                12.06 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/surrealql-CWlK9SzL.js                            12.06 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/handlebars-BsldGL5W.js                           12.15 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_SansSerif-Bold-D1sUS0GD.woff2              12.22 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/apache-PcO-DBxQ.js                               12.46 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/bat-C1qk1Jq1.js                                  12.90 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fish-BxskpYPN.js                                 13.04 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/nsis-C1FUr9r5.js                                 13.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/v-DUsAht2M.js                                    13.33 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Typewriter-Regular-CO6r4hn1.woff2          13.57 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/pug-kUpeg2wB.js                                  13.85 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/smalltalk-De6KzMWc.js                            14.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/clarity-BJ-KISir.js                              14.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/nix-B6KHRV9s.js                                  14.73 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/rust-CxuBE0J8.js                                 15.07 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/kusto-Bh6esMjd.js                                15.18 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/lua-8Av-h-ns.js                                  15.54 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/actionscript-3-CqOcUQ0w.js                       15.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/abap-Dg923wIy.js                                 15.86 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/matlab-DzreyMvm.js                               16.09 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/luau-CmQFRJk_.js                                 16.14 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cue-WCin6O4e.js                                  16.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/elixir-DnIH90qd.js                               16.33 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Math-BoldItalic-CZnvNsCZ.woff2             16.40 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/solidity-SYSxO-p1.js                             16.41 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Math-Italic-t53AETM-.woff2                 16.44 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/odin-Bxc4S6Xn.js                                 16.52 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Main-BoldItalic-DxDJ3AOS.woff2             16.78 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Main-Italic-NWA7e6Wa.woff2                 16.99 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/move-DgW29s8x.js                                 17.66 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/graphql-B6XHM4uj.js                              18.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/liquid-VEiCTF4k.js                               18.09 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/svelte-B-Z8GLL9.js                               18.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/gdscript-DKyjuXKv.js                             19.09 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/groovy-DFxE31Qs.js                               19.18 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-expression-Cqz0-yJ_.js                   19.68 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/glimmer-js-F_qk9EQT.js                           20.08 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/glimmer-ts-Dhzi-GJU.js                           20.08 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/powershell-CUnxWBRw.js                           20.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/mdc-DRPSCe6f.js                                  20.18 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/viml-pbKHW3Ia.js                                 20.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/nushell-D7aJuCS6.js                              20.89 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wit-DDW3hD69.js                                  21.47 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/twig-BASaUynH.js                                 22.03 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/nim-BIk_v_3I.js                                  22.49 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/common-lisp-DXc9XcIM.js                          22.59 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vue-wTUnFF92.js                                  22.74 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sql-Dq2MiB0T.js                                  23.43 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cadence-BuaeHeSu.js                              23.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/astro-BWgTGUF8.js                                24.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/apl-Dz5ncP8G.js                                  24.04 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/templ-W185oS4p.js                                24.07 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vhdl-DJCsFYgn.js                                 24.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/purescript-BgpM7rDH.js                           24.69 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/moonbit-GUn1DCOq.js                              24.94 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/typespec-B09nCZui.js                             25.05 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fsharp-DRAF1jsN.js                               25.31 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Main-Bold-Cx986IdX.woff2                   25.32 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/marko-6XzqJfhW.js                                25.48 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Main-Regular-B22Nviop.woff2                26.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/c3-R-USHpyF.js                                   26.39 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/system-verilog-CG_VWOG3.js                       26.56 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/codeql-D164juXQ.js                               26.89 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/scss-n48HZsmL.js                                 27.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/java-BTDmaRNO.js                                 27.22 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/coffee-Bk-z6oI_.js                               27.43 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/razor-C2a5o_rD.js                                27.51 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_AMS-Regular-BQhdFMY1.woff2                 28.08 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/scala-DT3kbCHL.js                                28.89 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/crystal-Dvqzbpz8.js                              29.39 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/applescript-Ds_W2jPS.js                          29.58 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/stylus-CIg617SB.js                               31.08 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/julia-DmoNgct_.js                                31.11 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ahk-BJYYIeOs.js                                  31.44 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/bsl-BtUDvyR4.js                                  33.96 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/haxe-wmAaY_mP.js                                 35.96 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/erlang-DNeY46SW.js                               37.48 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/bird2-wc5D5_X9.js                                38.69 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cobol-DbURsbuN.js                                39.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/asm-CTFRnVOM.js                                  40.72 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/shellscript-DgJyDXW6.js                          41.48 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/haskell-BfdhR_WN.js                              41.49 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/perl-CP_GSK0L.js                                 43.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/d-DVc-yF-l.js                                    43.80 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ruby-_tqAIwBT.js                                 46.78 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/go-B7VTfpnm.js                                   46.82 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/apex-B4ts4Pdn.js                                 47.89 kB
+../../../../work/wave1/grammars-once/dist-old-shape/fonts/AtkinsonHyperlegibleNext.woff2                    48.19 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/css-Br67jR8j.js                                  49.05 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/imba-D-Pk5S0X.js                                 49.93 kB
+../../../../work/wave1/grammars-once/dist-old-shape/fonts/AtkinsonHyperlegibleNext-Italic.woff2             52.69 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/mermaid-B3PwCbv_.js                              54.82 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wikitext-Bx2qct8O.js                             55.89 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/stata-BcICKvEt.js                                57.00 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/html-BW_6VhB7.js                                 57.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ballerina-a0yOSyc5.js                            58.70 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/markdown-DX-TNHnc.js                             59.34 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ocaml-DTbn2Hv7.js                                62.45 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/mojo-CrzByxs8.js                                 69.52 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/python-B6Ihcp-E.js                               69.96 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/c-BG-tZi7o.js                                    72.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/latex-l4EWm08Q.js                                72.91 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vyper-DpazWNpx.js                                74.65 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hack-jRhjsWHJ.js                                 81.14 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/swift-CGD9CJBj.js                                87.24 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fortran-free-form-DB5N_DgY.js                    88.97 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/csharp-CFxe5pRo.js                               90.19 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/less-XNfgnZC7.js                                 97.64 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/blade-DFktsHST.js                               104.99 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/objective-c-BoaBTdtz.js                         105.42 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/php-CNeTOyEV.js                                 113.09 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/checks-digest-Ikgl6umr.js                       133.66 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/asciidoc-DaaWi4fn.js                            136.06 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/mdx-C2fqO2XY.js                                 136.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/pdfjs/jbig2_nowasm_fallback.js                         152.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/typst-WgWPixoo.js                               163.61 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/objective-cpp-DstR8hNy.js                       171.98 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/javascript-WyGyM1wV.js                          174.83 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/tsx-D6116Ycy.js                                 175.54 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jsx-8cLv2Six.js                                 177.80 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/typescript-BqvgUolh.js                          181.08 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-ts-CFY6PWHK.js                          181.71 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vue-vine-DQRWX4iy.js                            190.06 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/highlight.worker-CboHdbEQ.js                    217.17 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wolfram-pu21K997.js                             262.40 kB
+../../../../work/wave1/grammars-once/dist-old-shape/app.html                                               284.14 kB │ gzip:  62.00 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cpp-macro-BZgQtzzo.js                           284.35 kB
+../../../../work/wave1/grammars-once/dist-old-shape/index.html                                             287.67 kB │ gzip:  63.05 kB
+../../../../work/wave1/grammars-once/dist-old-shape/fonts/JetBrainsMono.ttf                                300.14 kB
+../../../../work/wave1/grammars-once/dist-old-shape/fonts/InterVariable.woff2                              352.24 kB
+../../../../work/wave1/grammars-once/dist-old-shape/pdfjs/openjpeg_nowasm_fallback.js                      445.78 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cpp-BcXlVGvE.js                                 501.32 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/emacs-lisp-Ckw2FTkV.js                          790.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/fonts/Literata-Italic.ttf                              902.73 kB
+../../../../work/wave1/grammars-once/dist-old-shape/fonts/Literata.ttf                                     955.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/fonts/SourceSerif4.ttf                               1,204.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/pdf.worker.min-Dkey6ZUl.mjs                   1,321.31 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/_marxy-grammar-not-allowed-nV-oXZZI.js            0.03 kB │ gzip:   0.05 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Main-Bold-BYZlubRd.js                       0.10 kB │ gzip:   0.11 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_AMS-Regular-B57jeKoV.js                     0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Main-Italic-qw2Z56bB.js                     0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Math-Italic-CrRopJxj.js                     0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Fraktur-Bold-CiY6aVVi.js                    0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Main-Regular-DP0PYLJu.js                    0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Size1-Regular-DRPhNnmo.js                   0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Size2-Regular-CJaqVvEs.js                   0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Size4-Regular-B80uMp68.js                   0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_SansSerif-Bold-DaoaSsXv.js                  0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Script-Regular-BQy4Z5sk.js                  0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Fraktur-Regular-Bcge_npK.js                 0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Main-BoldItalic-ccYx8BQX.js                 0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Math-BoldItalic-BNsaZ8oD.js                 0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Caligraphic-Bold-qyTe0onv.js                0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_SansSerif-Italic-DAvKdVIk.js                0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_SansSerif-Regular-DiuO_wOP.js               0.10 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Typewriter-Regular-B0rD59tH.js              0.11 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Caligraphic-Regular-pp7IvyPu.js             0.11 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/links-found-CvBYEkjD.js                           0.12 kB │ gzip:   0.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/CNS2-V-dCfqo40T.js                                0.19 kB │ gzip:   0.20 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Roman-DnHXR6l7.js                                 0.20 kB │ gzip:   0.20 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ETenms-B5-H-BzZ4AhXZ.js                           0.21 kB │ gzip:   0.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Katakana-DAOwL4Kx.js                              0.21 kB │ gzip:   0.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS-UCS2-HW-H-B8zS6eIn.js                      0.23 kB │ gzip:   0.23 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Hiragana-SlOREqc8.js                              0.24 kB │ gzip:   0.23 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Hankaku-DEGNjgYW.js                               0.25 kB │ gzip:   0.24 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/B5-V-DXxNzblx.js                                  0.26 kB │ gzip:   0.24 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/B5pc-V-3rYGCXTz.js                                0.26 kB │ gzip:   0.24 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/CNS1-V-DKqN3xhg.js                                0.26 kB │ gzip:   0.24 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/HKdla-B5-V-DQJJ6YQj.js                            0.27 kB │ gzip:   0.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/HKdlb-B5-V-CYlxYK5H.js                            0.27 kB │ gzip:   0.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/HKgccs-B5-V-K5rbfdHN.js                           0.27 kB │ gzip:   0.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/HKm314-B5-V-DwRzSn4U.js                           0.27 kB │ gzip:   0.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/HKm471-B5-V-BuCCmr0T.js                           0.27 kB │ gzip:   0.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniCNS-UCS2-V-D3Sfj2EK.js                         0.28 kB │ gzip:   0.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniCNS-UTF16-V-Dmbjz4kN.js                        0.28 kB │ gzip:   0.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/run-CRCVC1Rb.js                                   0.28 kB │ gzip:   0.20 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ETHK-B5-V-CK6Gn-X0.js                             0.28 kB │ gzip:   0.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ETen-B5-V-lsK--6ws.js                             0.28 kB │ gzip:   0.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/HKscs-B5-V-BkNzMdIz.js                            0.28 kB │ gzip:   0.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniCNS-UTF8-V-Bb9_NkEL.js                         0.28 kB │ gzip:   0.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KSC-V-DvgLrlsn.js                                 0.29 kB │ gzip:   0.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniCNS-UTF32-V-BEeaXjn5.js                        0.29 kB │ gzip:   0.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KSC-EUC-V-Cfips7rc.js                             0.29 kB │ gzip:   0.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniKS-UTF16-V-C_MrjnXJ.js                         0.29 kB │ gzip:   0.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KSC-Johab-V-5i3Ww42K.js                           0.29 kB │ gzip:   0.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KSCms-UHC-V-ByH1EwnX.js                           0.29 kB │ gzip:   0.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KSCpc-EUC-V-Br42V8j0.js                           0.29 kB │ gzip:   0.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniKS-UTF32-V-D4qIxY06.js                         0.29 kB │ gzip:   0.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/V-Bed61ggM.js                                     0.29 kB │ gzip:   0.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/78-V-CN-XT4b4.js                                  0.30 kB │ gzip:   0.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/EUC-V-CCWS2yCR.js                                 0.30 kB │ gzip:   0.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KSCms-UHC-HW-V-DOdnjGNo.js                        0.30 kB │ gzip:   0.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/RKSJ-V-B2d345lx.js                                0.30 kB │ gzip:   0.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniKS-UTF8-V-Bmp0XGCI.js                          0.30 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/78-EUC-V-DrXQhmwI.js                              0.30 kB │ gzip:   0.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/78-RKSJ-V-htrYsMm2.js                             0.30 kB │ gzip:   0.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ETenms-B5-V-Bqiio2H5.js                           0.30 kB │ gzip:   0.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GB-V-BE_WIIY8.js                                  0.31 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBT-V-K6xGIMvK.js                                 0.31 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GB-EUC-V-D5eFlqyo.js                              0.31 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBK-EUC-V-BJf431lk.js                             0.31 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBT-EUC-V-B4BDWqYy.js                             0.31 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniGB-UTF16-V-tQxPhUQr.js                         0.31 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniKS-UCS2-V-CYT09iLc.js                          0.31 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/WP-Symbol-17KLmSNF.js                             0.31 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBKp-EUC-V-Ciq1wrv6.js                            0.31 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBTpc-EUC-V-BYCEEZ-q.js                           0.31 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBpc-EUC-V-Blaz4gp-.js                            0.31 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniGB-UTF32-V-V0XmGU0y.js                         0.31 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniGB-UTF8-V-BunnL2fa.js                          0.31 kB │ gzip:   0.29 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniGB-UCS2-V-CVNnO9Uo.js                          0.33 kB │ gzip:   0.30 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/save-door-a_Ipngbh.js                             0.34 kB │ gzip:   0.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Ext-V-BmejSTBh.js                                 0.36 kB │ gzip:   0.30 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-GB1-0-DjNQX07S.js                           0.36 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Ext-RKSJ-V-CT8y-pNz.js                            0.36 kB │ gzip:   0.30 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBK2K-V-CccnO0BP.js                               0.36 kB │ gzip:   0.31 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-Japan1-0-heuRZLf-.js                        0.37 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-Japan1-1-691T0x2d.js                        0.37 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-Japan1-2-WXX9tucg.js                        0.38 kB │ gzip:   0.29 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-Japan1-3-ChEkDabs.js                        0.39 kB │ gzip:   0.29 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-Korea1-0-Cm8ZKzW0.js                        0.39 kB │ gzip:   0.29 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-GB1-1-BHNWPRys.js                           0.41 kB │ gzip:   0.30 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/NWP-V-BaBcusoh.js                                 0.41 kB │ gzip:   0.33 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vue-interpolations-CiJO6OZ_.js                    0.42 kB │ gzip:   0.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/90pv-RKSJ-V-DDTwjAby.js                           0.42 kB │ gzip:   0.35 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vue-directives-OHNAz0dh.js                        0.44 kB │ gzip:   0.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Add-V-CkZJvDkL.js                                 0.45 kB │ gzip:   0.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Add-RKSJ-V-D5K4qnes.js                            0.45 kB │ gzip:   0.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/78ms-RKSJ-V-CGUnrwMh.js                           0.46 kB │ gzip:   0.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/90ms-RKSJ-V-BbJ2kUzo.js                           0.46 kB │ gzip:   0.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/90msp-RKSJ-V-BJEwvFRS.js                          0.46 kB │ gzip:   0.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-CNS1-0-Y4v9WhYT.js                          0.49 kB │ gzip:   0.33 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-Japan1-4-D6n9nIIz.js                        0.52 kB │ gzip:   0.34 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/codeowners-Bp6g37R7.js                            0.55 kB │ gzip:   0.32 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-CNS1-1-CA3_y7cA.js                          0.57 kB │ gzip:   0.36 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/settings-DnJgnJan.js                              0.57 kB │ gzip:   0.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-CNS1-2-D-lL_VOa.js                          0.57 kB │ gzip:   0.36 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-Korea1-1-DoPIHyXX.js                        0.59 kB │ gzip:   0.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-Korea1-2-CTWLGqVa.js                        0.59 kB │ gzip:   0.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-CNS1-3-CupFU6tS.js                          0.61 kB │ gzip:   0.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-CNS1-4-vf7GLwDR.js                          0.61 kB │ gzip:   0.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-CNS1-5-D8xSS2NG.js                          0.61 kB │ gzip:   0.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-CNS1-6-CDkCAh7E.js                          0.61 kB │ gzip:   0.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-template-PU1Sa1kY.js                      0.64 kB │ gzip:   0.36 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-Japan1-5-DXVr2cSN.js                        0.65 kB │ gzip:   0.39 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jinja-html-BOhIQvd0.js                            0.67 kB │ gzip:   0.41 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-GB1-2-D9d0Ckl-.js                           0.69 kB │ gzip:   0.41 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-GB1-3-BYRoovxo.js                           0.70 kB │ gzip:   0.41 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/shellsession-BADoaaVG.js                          0.71 kB │ gzip:   0.43 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-Japan1-6-BQZq-dTI.js                        0.72 kB │ gzip:   0.42 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/outlook-CkpVZwMD.js                               0.72 kB │ gzip:   0.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/tsv-B_m7g4N7.js                                   0.74 kB │ gzip:   0.34 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/CNS2-H-D0Z739WQ.js                                0.74 kB │ gzip:   0.46 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/reading-filter-BAK8AGs3.js                        0.76 kB │ gzip:   0.45 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/markdown-vue-Cbnvtjg5.js                          0.77 kB │ gzip:   0.40 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GB-H-BSTeShdc.js                                  0.77 kB │ gzip:   0.51 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/RKSJ-H-Oxo990wh.js                                0.78 kB │ gzip:   0.64 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ts-tags-BUURwn69.js                               0.79 kB │ gzip:   0.45 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cert-C3rv4ioW.js                                  0.79 kB │ gzip:   0.53 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GB-EUC-H-B5fQ67nn.js                              0.80 kB │ gzip:   0.53 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/H-hyKhachc.js                                     0.81 kB │ gzip:   0.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBpc-EUC-H-jmuu2YHD.js                            0.81 kB │ gzip:   0.53 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/basho-old-pond-BbgAm8Vs.js                        0.82 kB │ gzip:   0.59 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/EUC-H-BCO5bU96.js                                 0.84 kB │ gzip:   0.57 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/emerson-self-reliance-C9oWmK85.js                 0.85 kB │ gzip:   0.53 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/markdown-nix-CTic1qqq.js                          0.86 kB │ gzip:   0.43 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-GB1-4-B-WtvVQl.js                           0.87 kB │ gzip:   0.48 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/html-derivative-DlHx6ybY.js                       0.90 kB │ gzip:   0.50 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-GB1-5-Dl4e4dfp.js                           0.91 kB │ gzip:   0.49 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS-UTF16-V-RRVOFgRf.js                        0.93 kB │ gzip:   0.69 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS2004-UTF16-V-CeB32kt-.js                    0.93 kB │ gzip:   0.70 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vue-sfc-style-variable-injection-0TgNoqMh.js      0.95 kB │ gzip:   0.43 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/blake-auguries-of-innocence-CaFKa5TZ.js           0.95 kB │ gzip:   0.56 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS-UCS2-V-dUhte8SP.js                         0.96 kB │ gzip:   0.71 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/li-bai-quiet-night-thought-BnmYt8wl.js            0.97 kB │ gzip:   0.69 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS-UTF32-V-B3Ajmqu1.js                        0.97 kB │ gzip:   0.71 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS-UTF8-V-DnPCZ6pL.js                         0.97 kB │ gzip:   0.73 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS-UCS2-HW-V-CqzsPfFb.js                      0.98 kB │ gzip:   0.73 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS2004-UTF32-V-Cf1hjj8x.js                    0.98 kB │ gzip:   0.71 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS2004-UTF8-V-CbbNUcYA.js                     0.98 kB │ gzip:   0.74 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJISX0213-UTF32-V-CNPC-NFy.js                   0.98 kB │ gzip:   0.71 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/git-rebase-r7XF79zn.js                            0.98 kB │ gzip:   0.44 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJISPro-UCS2-V-BybZC-RO.js                      0.99 kB │ gzip:   0.73 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJISX02132004-UTF32-V-CZd3IEAE.js               0.99 kB │ gzip:   0.72 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/qmldir-C8lEn-DE.js                                1.00 kB │ gzip:   0.45 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/mode-switch-C_POBjx1.js                           1.01 kB │ gzip:   0.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJISPro-UCS2-HW-V-CrswxqPR.js                   1.01 kB │ gzip:   0.75 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/CNS1-H-D_dSKHFy.js                                1.01 kB │ gzip:   0.69 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/90msp-RKSJ-H-n2szgTs8.js                          1.03 kB │ gzip:   0.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/90ms-RKSJ-H-DJ0fJQQD.js                           1.03 kB │ gzip:   0.82 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-let-declaration-tXF0G55Y.js               1.04 kB │ gzip:   0.52 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJISPro-UTF8-V-BgL8dGr5.js                      1.04 kB │ gzip:   0.77 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/dickinson-the-brain-is-wider-CvpEdYZj.js          1.04 kB │ gzip:   0.58 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/heraclitus-fragments-B-URBYPO.js                  1.12 kB │ gzip:   0.65 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/keats-negative-capability-C8ZG5CrG.js             1.13 kB │ gzip:   0.66 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/csv-fuZLfV_i.js                                   1.14 kB │ gzip:   0.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wordsworth-tintern-abbey-BZZJRz4c.js              1.16 kB │ gzip:   0.69 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/shakespeare-sonnet-55-kpK7c960.js                 1.19 kB │ gzip:   0.71 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-html-BSByieIc.js                          1.21 kB │ gzip:   0.61 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/dickinson-i-died-for-beauty-DiaCtOv5.js           1.23 kB │ gzip:   0.70 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/git-commit-F4YmCXRG.js                            1.23 kB │ gzip:   0.53 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/laozi-thirty-spokes-DNXgUCq0.js                   1.23 kB │ gzip:   0.78 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/es-tag-xml-BsowVsUr.js                            1.26 kB │ gzip:   0.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/83pv-RKSJ-H-DSGwGC-s.js                           1.28 kB │ gzip:   0.95 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/zhuangzi-butterfly-dream-weXlDx3e.js              1.31 kB │ gzip:   0.86 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/spinoza-omnia-praeclara-B9XQKPe7.js               1.34 kB │ gzip:   0.80 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/chunk-ZW2EUTPS--ykL5JvG.js                        1.34 kB │ gzip:   0.68 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/tasks-Y5cpjIKE.js                                 1.36 kB │ gzip:   0.74 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-inline-style-Dyf9gdtW.js                  1.37 kB │ gzip:   0.54 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/shelley-defence-of-poetry-BNVqQyeJ.js             1.38 kB │ gzip:   0.75 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/90pv-RKSJ-H-DEofV66V.js                           1.38 kB │ gzip:   1.05 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/xsl-CtQFsRM5.js                                   1.39 kB │ gzip:   0.52 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/file-B8l_xzt_.js                                  1.41 kB │ gzip:   0.78 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/dotenv-Da5cRb03.js                                1.42 kB │ gzip:   0.53 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-inline-template-CwFqsJJn.js               1.42 kB │ gzip:   0.62 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/block-editor-BHcF9CDp.js                          1.44 kB │ gzip:   0.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fence-lang-D_sOtkdk.js                            1.44 kB │ gzip:   0.79 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/morris-dream-of-john-ball-Du48lcau.js             1.47 kB │ gzip:   0.78 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sparql-rVzFXLq3.js                                1.48 kB │ gzip:   0.82 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/holderlin-halfte-des-lebens-Cpbn996A.js           1.51 kB │ gzip:   0.90 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/B5-H-DtoEPf6h.js                                  1.52 kB │ gzip:   1.15 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ini-BEwlwnbL.js                                   1.53 kB │ gzip:   0.50 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/leibniz-calculemus-C6jq_8fI.js                    1.53 kB │ gzip:   0.84 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/B5pc-H-Bq02FI5A.js                                1.54 kB │ gzip:   1.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/highlight-style-F9nq0_4p.js                       1.54 kB │ gzip:   0.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/woolf-modern-fiction-B5oVoHkJ.js                  1.57 kB │ gzip:   0.90 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ETen-B5-H-DFHsgjMu.js                             1.57 kB │ gzip:   1.19 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/links-CFD3shQI.js                                 1.62 kB │ gzip:   0.89 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/warm-EoQmey9z.js                                  1.64 kB │ gzip:   0.64 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/pater-conclusion-D98rf8a8.js                      1.65 kB │ gzip:   0.91 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/morris-the-ideal-book-7VABlVD2.js                 1.67 kB │ gzip:   0.91 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fortran-fixed-form-CkoXwp7k.js                    1.67 kB │ gzip:   0.69 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/woolf-the-common-reader-CR3d5CxE.js               1.69 kB │ gzip:   0.96 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/build-DxkYyO3A.js                                 1.69 kB │ gzip:   0.93 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/docker-BcOcwvcX.js                                1.74 kB │ gzip:   0.60 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/parmenides-the-goddess-CEOZUEi-.js                1.78 kB │ gzip:   1.08 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/whitman-crossing-brooklyn-ferry-aCQsTstG.js       1.79 kB │ gzip:   0.94 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/morris-kelmscott-aims-C2n16KCK.js                 1.81 kB │ gzip:   0.93 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/desktop-BmXAJ9_W.js                               1.83 kB │ gzip:   0.76 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/es-tag-glsl-DLdN9sAX.js                           1.87 kB │ gzip:   0.68 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hxml-2-FPmUDs.js                                  1.89 kB │ gzip:   0.90 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/diagram-C5OsXHOt.js                               1.93 kB │ gzip:   0.94 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/plato-the-cave-D1MUcA2-.js                        1.95 kB │ gzip:   1.05 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/schiller-der-mensch-spielt-Ce7F3YyX.js            1.96 kB │ gzip:   1.09 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/es-tag-css-DYk_Cdjv.js                            1.97 kB │ gzip:   0.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/lovelace-notes-C3VhEoZ3.js                        2.00 kB │ gzip:   1.05 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/pascal-roseau-pensant-Ck7WEcpr.js                 2.01 kB │ gzip:   1.10 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/rilke-archaischer-torso-apollos-BYCPAcX9.js       2.02 kB │ gzip:   1.14 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/marx-theses-on-feuerbach-H5LLbVgE.js              2.03 kB │ gzip:   1.09 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/doc-links-D6hnrsh4.js                             2.04 kB │ gzip:   1.18 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hegel-ich-das-wir-v1gYox3A.js                     2.05 kB │ gzip:   1.11 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-C_h2oulP.js                                 2.07 kB │ gzip:   1.29 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/failed-BjAcb4Ui.js                                2.14 kB │ gzip:   1.17 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wenyan-BV7otONQ.js                                2.16 kB │ gzip:   1.09 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-template-blocks-D4Ew2WDq.js               2.16 kB │ gzip:   0.75 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/montaigne-to-the-reader-dZcqKBE7.js               2.17 kB │ gzip:   1.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/es-tag-html-C8MztqGs.js                           2.19 kB │ gzip:   0.70 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/rumi-song-of-the-reed-uyfTpNXv.js                 2.20 kB │ gzip:   1.29 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jssm-C2t-YnRu.js                                  2.24 kB │ gzip:   0.62 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hegel-owl-of-minerva-H8Y9k7An.js                  2.26 kB │ gzip:   1.22 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/theme-DPjgWqfo.js                                 2.29 kB │ gzip:   0.75 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/reg-C-SQnVFl.js                                   2.35 kB │ gzip:   0.70 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/edge-FbVlp4U3.js                                  2.36 kB │ gzip:   0.70 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/outlook-rWhJZFbL.js                               2.38 kB │ gzip:   1.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/paste-BfYysOMJ.js                                 2.38 kB │ gzip:   1.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/HKm314-B5-H-DtRSbMII.js                           2.43 kB │ gzip:   1.83 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/CNS-EUC-H-c9lsmwdh.js                             2.45 kB │ gzip:   1.34 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/kant-was-ist-aufklarung-DGJDRqOK.js               2.51 kB │ gzip:   1.32 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KSC-H-DcDxRCG-.js                                 2.51 kB │ gzip:   1.76 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KSC-EUC-H-Cmj9C-FA.js                             2.53 kB │ gzip:   1.78 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/diff-D97Zzqfu.js                                  2.57 kB │ gzip:   0.70 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/gleam-BspZqrRM.js                                 2.58 kB │ gzip:   0.82 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/CNS-EUC-V-Bbo2MD5B.js                             2.63 kB │ gzip:   1.43 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hy-DFXneXwc.js                                    2.65 kB │ gzip:   1.18 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/erb-X6v9WG8k.js                                   2.66 kB │ gzip:   0.87 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KSCpc-EUC-H-Cr0UfqCq.js                           2.77 kB │ gzip:   1.95 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/json-Cp-IABpG.js                                  2.82 kB │ gzip:   0.78 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/openscad-C4EeE6gA.js                              2.82 kB │ gzip:   1.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/doc-shared-CIcfOHW8.js                            2.83 kB │ gzip:   1.49 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/log-2UxHyX5q.js                                   2.85 kB │ gzip:   0.90 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/apollo-11-luminary-Bqq8r3I6.js                    2.87 kB │ gzip:   1.65 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/clip-CEBiWlq3.js                                  2.87 kB │ gzip:   1.33 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/viewer-dialog-X2TGB0-v.js                         2.93 kB │ gzip:   1.40 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cairo-KRGpt6FW.js                                 2.94 kB │ gzip:   0.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/HKm471-B5-H-iV6cMKLM.js                           2.97 kB │ gzip:   2.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/berry-uYugtg8r.js                                 3.01 kB │ gzip:   0.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/lens-DfMKF53i.js                                  3.01 kB │ gzip:   1.39 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jsonl-DcaNXYhu.js                                 3.01 kB │ gzip:   0.79 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/roles-Daf8qgN_.js                                 3.04 kB │ gzip:   0.92 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/stray-bytes-W-536bDE.js                           3.11 kB │ gzip:   1.46 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jsonc-Des-eS-w.js                                 3.11 kB │ gzip:   0.80 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/HKgccs-B5-H-BLoiNwAj.js                           3.13 kB │ gzip:   2.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/logo-BtOb2qkB.js                                  3.13 kB │ gzip:   1.47 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/keats-ode-on-a-grecian-urn-CxICqcse.js            3.21 kB │ gzip:   1.64 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/po-BTJTHyun.js                                    3.24 kB │ gzip:   0.91 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/78-H-CMIl2hob.js                                  3.24 kB │ gzip:   2.33 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/json5-C9tS-k6U.js                                 3.25 kB │ gzip:   0.83 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/mipsasm-CKIfxQSi.js                               3.26 kB │ gzip:   1.18 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/78-RKSJ-H-DzOSeLOW.js                             3.27 kB │ gzip:   2.33 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/78-EUC-H-C42bVnG-.js                              3.28 kB │ gzip:   2.36 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/tasl-QIJgUcNo.js                                  3.29 kB │ gzip:   0.85 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Add-RKSJ-H-DasbRaOJ.js                            3.29 kB │ gzip:   2.35 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/HKdlb-B5-H-A61DiPnv.js                            3.29 kB │ gzip:   2.47 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Add-H-CCeqmLvx.js                                 3.30 kB │ gzip:   2.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/rbs-CpoqiR4B.js                                   3.31 kB │ gzip:   0.73 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/depth-fold-Dd-4onO4.js                            3.35 kB │ gzip:   1.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/genie-D0YGMca9.js                                 3.36 kB │ gzip:   1.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/rel-C3B-1QV4.js                                   3.37 kB │ gzip:   1.11 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vala-CsfeWuGM.js                                  3.37 kB │ gzip:   1.19 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/splunk-BtCnVYZw.js                                3.44 kB │ gzip:   1.52 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Ext-H--X61sLrE.js                                 3.45 kB │ gzip:   2.49 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Ext-RKSJ-H-C-uExnAR.js                            3.46 kB │ gzip:   2.46 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/78ms-RKSJ-H-rihZMBOQ.js                           3.61 kB │ gzip:   2.57 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fluent-C4IJs8-o.js                                3.61 kB │ gzip:   0.90 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/HKdla-B5-H-CuIpiAVw.js                            3.61 kB │ gzip:   2.72 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ssh-config-_ykCGR6B.js                            3.62 kB │ gzip:   1.60 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jsonnet-DFQXde-d.js                               3.62 kB │ gzip:   1.05 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/kdl-DV7GczEv.js                                   3.63 kB │ gzip:   1.04 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hurl-irOxFIW8.js                                  3.65 kB │ gzip:   1.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/marx-the-five-senses-B4biDYJK.js                  3.65 kB │ gzip:   1.77 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/narrat-DRg8JJMk.js                                3.67 kB │ gzip:   1.11 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/turtle-BsS91CYL.js                                3.70 kB │ gzip:   0.98 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/NWP-H-Ch9-m0p_.js                                 3.76 kB │ gzip:   2.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KSCms-UHC-H-bFBH_XqX.js                           3.79 kB │ gzip:   2.56 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KSCms-UHC-HW-H-Rp8aK5w-.js                        3.79 kB │ gzip:   2.57 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/words-C0JF50Jn.js                                 3.83 kB │ gzip:   1.93 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/zenscript-DVFEvuxE.js                             3.91 kB │ gzip:   1.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ron-D8l8udqQ.js                                   3.91 kB │ gzip:   0.98 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/gn-n2N0HUVH.js                                    4.00 kB │ gzip:   1.49 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/html-page-CBE_e5SH.js                             4.01 kB │ gzip:   2.04 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/pascal-D93ZcfNL.js                                4.15 kB │ gzip:   1.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/colour-sh8OlPUy.js                                4.43 kB │ gzip:   2.02 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/theme-DZSUn00y.js                                 4.47 kB │ gzip:   1.15 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/search-model-B9N-jl-i.js                          4.49 kB │ gzip:   2.11 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/nextflow-C-mBbutL.js                              4.51 kB │ gzip:   1.17 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/rosmsg-BJDFO7_C.js                                4.52 kB │ gzip:   1.06 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/http-jrhK8wxY.js                                  4.55 kB │ gzip:   1.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/polar-C0HS_06l.js                                 4.67 kB │ gzip:   1.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sdbl-DVxCFoDh.js                                  4.70 kB │ gzip:   2.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/outline-DXdAvsih.js                               4.74 kB │ gzip:   2.24 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/theme-O0Czt7cg.js                                 4.75 kB │ gzip:   1.08 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fennel-BYunw83y.js                                4.77 kB │ gzip:   1.53 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/bibtex-CHM0blh-.js                                4.80 kB │ gzip:   0.83 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/theme-Bcebbods.js                                 4.80 kB │ gzip:   1.06 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KaTeX_Size3-Regular-CbAcLEI5.js                   4.89 kB │ gzip:   3.71 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/theme-GOLwZBRe.js                                 4.91 kB │ gzip:   1.10 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/theme-BeO1k8IM.js                                 4.91 kB │ gzip:   1.11 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/theme-BbQnD371.js                                 4.91 kB │ gzip:   1.14 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/theme-0y4Qnaok.js                                 4.94 kB │ gzip:   1.15 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/theme-BHATRgxv.js                                 4.94 kB │ gzip:   1.11 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/llvm-BZoOZj88.js                                  5.04 kB │ gzip:   2.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wgsl-Dx-B1_4e.js                                  5.14 kB │ gzip:   1.39 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jinja-CrD_536G.js                                 5.17 kB │ gzip:   1.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/language-D2blS6QA.js                              5.20 kB │ gzip:   1.57 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/theme-8QRkis_7.js                                 5.25 kB │ gzip:   1.23 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/gdresource-TyuKm33G.js                            5.29 kB │ gzip:   1.34 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/qml-3beO22l8.js                                   5.34 kB │ gzip:   1.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/zig-VOosw3JB.js                                   5.34 kB │ gzip:   1.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/theme-Bf9SjAiz.js                                 5.37 kB │ gzip:   1.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/bicep-Bmn6On1c.js                                 5.38 kB │ gzip:   1.15 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/xml-sdJ4AIDG.js                                   5.38 kB │ gzip:   1.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/theme-D-MY5wVl.js                                 5.39 kB │ gzip:   1.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/awk-DMzUqQB5.js                                   5.46 kB │ gzip:   1.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/lean-BZvkOJ9d.js                                  5.78 kB │ gzip:   1.92 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/powerquery-CEu0bR-o.js                            5.90 kB │ gzip:   1.52 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/shaderlab-Dg9Lc6iA.js                             5.92 kB │ gzip:   2.08 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cypher-COkxafJQ.js                                5.96 kB │ gzip:   1.73 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ETHK-B5-H-DRz6XlV5.js                             5.97 kB │ gzip:   4.11 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/HKscs-B5-H-CcGXgnoT.js                            5.99 kB │ gzip:   4.10 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/coq-C7JzOVbR.js                                   6.01 kB │ gzip:   1.95 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vb-Cu-pLBUe.js                                    6.08 kB │ gzip:   2.33 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/page-Yxhu6zl6.js                                  6.27 kB │ gzip:   2.73 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/gdshader-DkwncUOv.js                              6.33 kB │ gzip:   1.73 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ara-BRHolxvo.js                                   6.36 kB │ gzip:   1.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/verilog-nZwndyjY.js                               6.41 kB │ gzip:   1.92 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/clojure-P80f7IUj.js                               6.41 kB │ gzip:   1.42 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/postcss-CXtECtnM.js                               6.42 kB │ gzip:   1.91 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/toml-vGWfd6FD.js                                  6.43 kB │ gzip:   1.28 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/proto-C7zT0LnQ.js                                 6.55 kB │ gzip:   1.42 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/chapel-DTp_pixX.js                                6.62 kB │ gzip:   1.85 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/r-Cf5RLm7j.js                                     6.74 kB │ gzip:   1.84 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/talonscript-CkByrt1z.js                           6.76 kB │ gzip:   1.49 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/riscv-BM1_JUlF.js                                 6.91 kB │ gzip:   1.98 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/soy-8wufbnw4.js                                   6.98 kB │ gzip:   1.66 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/scheme-C98Dy4si.js                                7.17 kB │ gzip:   2.05 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/shortcut-Dz6rYHy6.js                              7.18 kB │ gzip:   3.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/log-view-BWO_Tv1D.js                              7.25 kB │ gzip:   3.03 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hlsl-D3lLCCz7.js                                  7.26 kB │ gzip:   2.19 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/qss-IeuSbFQv.js                                   7.47 kB │ gzip:   2.58 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/prisma-Vru482bI.js                                7.74 kB │ gzip:   1.48 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/systemd-4A_iFExJ.js                               7.87 kB │ gzip:   2.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/format-ops-XWhEyUP_.js                            7.89 kB │ gzip:   3.19 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/regexp-CDVJQ6XC.js                                7.99 kB │ gzip:   1.42 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/write-BLNcUIPW.js                                 8.17 kB │ gzip:   3.68 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/haml-D5jkg6IW.js                                  8.26 kB │ gzip:   1.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/tables-XzvoIEB3.js                                8.35 kB │ gzip:   2.20 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vue-html-AaS7Mt5G.js                              8.47 kB │ gzip:   1.68 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-B849xAbw.js                                 8.51 kB │ gzip:   3.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/plsql-ChMvpjG-.js                                 8.51 kB │ gzip:   3.00 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/dart-bE4Kk8sk.js                                  8.62 kB │ gzip:   2.00 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/kotlin-BdnUsdx6.js                                8.79 kB │ gzip:   2.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/make-CHLpvVh8.js                                  8.96 kB │ gzip:   1.77 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sas-DEy46yEz.js                                   9.06 kB │ gzip:   3.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/smithy-cds9vsN8.js                                9.13 kB │ gzip:   1.53 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sass-Cj5Yp3dK.js                                  9.29 kB │ gzip:   2.49 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/es-tag-sql-XPvoWfeo.js                            9.33 kB │ gzip:   1.29 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/tex-D96PA37w.js                                   9.67 kB │ gzip:   3.06 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jison-wvAkD_A8.js                                 9.69 kB │ gzip:   1.85 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBT-H-Df2rafKr.js                                 9.76 kB │ gzip:   6.72 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBT-EUC-H-Bu-ZPndV.js                             9.79 kB │ gzip:   6.75 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBTpc-EUC-H-BG4AHdW4.js                           9.80 kB │ gzip:   6.78 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cmake-D1j8_8rp.js                                 9.86 kB │ gzip:   3.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/read-clipboard-DDBn7MyW.js                       10.01 kB │ gzip:   4.05 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hcl-BWvSN4gD.js                                  10.05 kB │ gzip:   1.93 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/links-DYGqvhkW.js                                10.36 kB │ gzip:   4.30 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/pkl-u5AG7uiY.js                                  10.37 kB │ gzip:   1.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/beancount-k_qm7-4y.js                            10.37 kB │ gzip:   1.44 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/palette-preview-exF0PgFn.js                      10.42 kB │ gzip:   4.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/nextflow-groovy-vE_lwT2v.js                      10.44 kB │ gzip:   2.14 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/dream-maker-BtqSS_iP.js                          10.47 kB │ gzip:   2.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/raku-DXvB9xmW.js                                 10.47 kB │ gzip:   2.94 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/yaml-Buea-lGh.js                                 10.51 kB │ gzip:   2.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/rst-DsDxAIII.js                                  10.73 kB │ gzip:   2.45 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/program-o-EzlMWm.js                              10.79 kB │ gzip:   4.53 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/elm-3CFEmzOL.js                                  10.97 kB │ gzip:   2.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/versions-mgkyImaJ.js                             10.99 kB │ gzip:   4.50 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/just-b2K7Ic1b.js                                 11.29 kB │ gzip:   2.83 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/prolog-CbFg5uaA.js                               11.36 kB │ gzip:   3.83 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/terraform-BETggiCN.js                            11.39 kB │ gzip:   2.51 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/puppet-BMWR74SV.js                               11.44 kB │ gzip:   2.11 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-DhYVnrZo.js                                11.65 kB │ gzip:   5.19 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/gherkin-DyxjwDmM.js                              11.95 kB │ gzip:   5.05 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wasm-MzD3tlZU.js                                 12.01 kB │ gzip:   2.19 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hjson-D5-asLiD.js                                12.05 kB │ gzip:   1.64 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/surrealql-Cjom0U5J.js                            12.06 kB │ gzip:   3.30 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/handlebars-BpdQsYii.js                           12.15 kB │ gzip:   2.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/apache-Pmp26Uib.js                               12.46 kB │ gzip:   3.72 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-Dll9JyYQ.js                                12.79 kB │ gzip:   3.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/bat-CickPsom.js                                  12.89 kB │ gzip:   3.23 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fish-BvzEVeQv.js                                 13.04 kB │ gzip:   1.74 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/nsis-BlV79W_Q.js                                 13.13 kB │ gzip:   4.07 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/v-BGw2Nkan.js                                    13.33 kB │ gzip:   2.77 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/media-D8YPaep4.js                                13.75 kB │ gzip:   5.82 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/pug-DKIMFp6K.js                                  13.84 kB │ gzip:   2.58 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/smalltalk-BOQMe2GC.js                            14.13 kB │ gzip:   2.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/clarity-Dn5IMItf.js                              14.36 kB │ gzip:   2.51 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/nix-CNulEsOp.js                                  14.73 kB │ gzip:   2.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/rust-B1yitclQ.js                                 15.07 kB │ gzip:   2.72 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/kusto-wEQ09or8.js                                15.17 kB │ gzip:   3.92 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/editor-D4SQ9H2R.js                               15.36 kB │ gzip:   5.37 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/lua-BaeVxFsk.js                                  15.54 kB │ gzip:   3.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/actionscript-3-B3316cI-.js                       15.54 kB │ gzip:   2.71 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/search-QogiIBt2.js                               15.77 kB │ gzip:   6.77 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/abap-BdImnpbu.js                                 15.85 kB │ gzip:   5.91 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/matlab-D7o27uSR.js                               16.09 kB │ gzip:   3.06 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/export-D_jL-N0w.js                               16.09 kB │ gzip:   6.64 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/luau-BnpPk5vE.js                                 16.14 kB │ gzip:   3.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cue-D82EKSYY.js                                  16.20 kB │ gzip:   2.06 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/transforms-CX_Xle5v.js                           16.25 kB │ gzip:   6.87 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/elixir-CkH2-t6x.js                               16.32 kB │ gzip:   2.80 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/solidity-DijEV5ha.js                             16.41 kB │ gzip:   3.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/odin-BBf5iR-q.js                                 16.51 kB │ gzip:   2.94 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/places-Cw_wOZeY.js                               17.16 kB │ gzip:   7.10 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sheet-B3GJu01n.js                                17.40 kB │ gzip:   7.17 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/move-el3G9tDJ.js                                 17.66 kB │ gzip:   3.06 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/structure-DTll9zAc.js                            17.88 kB │ gzip:   6.72 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/graphql-ChdNCCLP.js                              18.00 kB │ gzip:   2.52 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/liquid-C0sCDyMI.js                               18.09 kB │ gzip:   3.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/svelte-Cy7k_4gC.js                               18.24 kB │ gzip:   3.14 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/editor-cm6-B_GliXFg.js                           18.33 kB │ gzip:   7.94 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sheet-D3ne5XFZ.js                                18.76 kB │ gzip:   5.96 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/gdscript-DqcFQ5yU.js                             19.09 kB │ gzip:   3.77 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/groovy-gcz8RCvz.js                               19.18 kB │ gzip:   3.60 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBKp-EUC-H-x4c-fk9P.js                           19.65 kB │ gzip:  13.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBK-EUC-H-DGeF4wjL.js                            19.66 kB │ gzip:  13.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-expression-C9JlwiXB.js                   19.68 kB │ gzip:   3.12 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/glimmer-js-ByusRIyA.js                           20.07 kB │ gzip:   2.95 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/glimmer-ts-BfAWNZQY.js                           20.07 kB │ gzip:   2.94 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/powershell-BmBUJMz7.js                           20.16 kB │ gzip:   4.07 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/mdc-D1_yUvq7.js                                  20.18 kB │ gzip:   6.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/outline-C-iPkmvs.js                              20.35 kB │ gzip:   8.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/viml-CJc9bBzg.js                                 20.37 kB │ gzip:   6.73 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/nushell-D3jzshHO.js                              20.88 kB │ gzip:   5.36 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sqlite-sxAGd8fo.js                               20.95 kB │ gzip:   8.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-BUQgzMov.js                                20.96 kB │ gzip:   8.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-BsGkigSv.js                                21.03 kB │ gzip:   7.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/replace-sheet-BLI1-TTT.js                        21.26 kB │ gzip:   7.80 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wit-5i3qLPDT.js                                  21.47 kB │ gzip:   2.89 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/en-us-5rgh0erw.js                                21.47 kB │ gzip:  10.75 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/twig-Basld1mC.js                                 22.03 kB │ gzip:   4.00 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/KSC-Johab-H-BvEhYEaJ.js                          22.46 kB │ gzip:  14.29 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/nim-DJ4a1yar.js                                  22.49 kB │ gzip:   3.18 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/common-lisp-Cg-RD9OK.js                          22.58 kB │ gzip:   6.06 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vue-6OH0Zb6s.js                                  22.74 kB │ gzip:   2.60 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/table-lens-CJwwe0HW.js                           23.30 kB │ gzip:   9.08 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/sql-CRqJ_cUM.js                                  23.43 kB │ gzip:   7.42 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cadence-Bv_4Rxtq.js                              23.67 kB │ gzip:   3.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/settings-dgjmn3bl.js                             23.86 kB │ gzip:   8.59 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/astro-HNnZUWAn.js                                24.01 kB │ gzip:   7.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/apl-CORt7UWP.js                                  24.04 kB │ gzip:   4.20 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/templ-DhtptRzy.js                                24.06 kB │ gzip:   5.40 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vhdl-CeAyd5Ju.js                                 24.26 kB │ gzip:   3.87 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/purescript-CklMAg4u.js                           24.69 kB │ gzip:   3.25 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/katex.min-BCb957XT.js                            24.82 kB │ gzip:   3.65 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/moonbit-CHtswR0a.js                              24.94 kB │ gzip:   3.79 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/typespec-CAFt9gP4.js                             25.05 kB │ gzip:   2.63 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/metadata-DdGvnJ2S.js                             25.06 kB │ gzip:  10.42 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fsharp-CXgrBDvD.js                               25.31 kB │ gzip:   4.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/marko-DjSrsDqO.js                                25.48 kB │ gzip:   3.59 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/font-fXxpdp9A.js                                 25.77 kB │ gzip:   9.68 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/GBK2K-H-BdcLKG9Z.js                              26.29 kB │ gzip:  15.51 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/c3-Dp5svz6Z.js                                   26.39 kB │ gzip:   3.99 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-hWPPzb48.js                                26.52 kB │ gzip:   8.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/system-verilog-0hqHdDBg.js                       26.56 kB │ gzip:   4.88 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/codeql-DsOJ9woJ.js                               26.88 kB │ gzip:   3.79 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/scss-D5BDwBP9.js                                 27.20 kB │ gzip:   4.20 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/java-CylS5w8V.js                                 27.22 kB │ gzip:   4.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/coffee-Ch7k5sss.js                               27.42 kB │ gzip:   6.35 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/razor-BjBPvh-w.js                                27.51 kB │ gzip:   3.57 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-DTGuIIlg.js                                28.28 kB │ gzip:  12.76 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-B_it0eU_.js                                28.84 kB │ gzip:  11.72 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/scala-CqE71os6.js                                28.89 kB │ gzip:   3.94 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/book-BNxzYmSD.js                                 29.15 kB │ gzip:  11.72 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-74wyAZxZ.js                                29.24 kB │ gzip:   9.64 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/crystal-DGywbUpC.js                              29.39 kB │ gzip:   4.45 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/applescript-Co6uUVPk.js                          29.57 kB │ gzip:   5.93 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-BpclFLU9.js                                30.87 kB │ gzip:  12.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/stylus-BEDo0Tqx.js                               31.07 kB │ gzip:   7.99 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/julia-Dkmoemet.js                                31.11 kB │ gzip:   4.36 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-Korea1-UCS2-CsaLxKOT.js                    31.13 kB │ gzip:  20.14 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ahk-CsyLZFj1.js                                  31.44 kB │ gzip:   7.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/transcript-view-CfTiGU6l.js                      32.86 kB │ gzip:  12.23 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/bsl-DlhNcFeZ.js                                  33.95 kB │ gzip:   8.36 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS-UCS2-H-Cmu0YSPX.js                        33.99 kB │ gzip:  23.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniKS-UCS2-H-Clj3bSUQ.js                         34.45 kB │ gzip:  23.60 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniKS-UTF16-H-fuAwo6Y7.js                        35.17 kB │ gzip:  23.09 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniKS-UTF32-H-DUrDPSaL.js                        35.34 kB │ gzip:  23.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/haxe-CfZj7gIn.js                                 35.95 kB │ gzip:   6.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniKS-UTF8-H-D1hIT3Ho.js                         37.13 kB │ gzip:  24.46 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/erlang-DsQrWhSR.js                               37.48 kB │ gzip:   4.40 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/bird2-Bx8U0n9b.js                                38.68 kB │ gzip:   8.50 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/archive-bytes-Dkfeyw4x.js                        38.83 kB │ gzip:  16.05 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cobol-nBiQ_Alo.js                                39.13 kB │ gzip:  10.86 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/asm-D_Q5rh1f.js                                  40.72 kB │ gzip:   8.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/en-gb-C8upV19r.js                                41.01 kB │ gzip:  20.21 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/shellscript-Yzrsuije.js                          41.48 kB │ gzip:   6.09 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/haskell-Df6bDoY_.js                              41.49 kB │ gzip:   6.44 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/perl-B9cMNwum.js                                 43.16 kB │ gzip:   4.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/d-85-TOEBH.js                                    43.80 kB │ gzip:   8.47 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-jgc4BuQU.js                                44.47 kB │ gzip:  15.42 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-BjWlmXXw.js                                45.19 kB │ gzip:  19.19 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/md-mermaid-rzP3zLd7.js                           45.37 kB │ gzip:  18.14 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-GB1-UCS2-D9tmsmcu.js                       45.37 kB │ gzip:  31.16 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ruby-CQ3eqLxI.js                                 46.77 kB │ gzip:   5.87 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/go-C27-OAKa.js                                   46.82 kB │ gzip:   5.18 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-C91ERCHx.js                                47.81 kB │ gzip:  19.36 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/apex-DhZFqWV2.js                                 47.89 kB │ gzip:   6.90 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/css-CLj8gQPS.js                                  49.04 kB │ gzip:  11.86 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/mail-CPmALIzG.js                                 49.10 kB │ gzip:  18.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-CnpNcRwM.js                                49.68 kB │ gzip:  16.67 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/imba-DGztddWO.js                                 49.93 kB │ gzip:   9.46 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS-UTF16-H-B_AGfzON.js                       52.66 kB │ gzip:  36.09 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS2004-UTF16-H-DMKvgLJt.js                   52.78 kB │ gzip:  36.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJISX0213-UTF32-H-CaZDtD6x.js                  54.09 kB │ gzip:  36.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS-UTF32-H-C4Bdk1tf.js                       54.12 kB │ gzip:  36.57 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJISX02132004-UTF32-H-ab17AUXI.js              54.21 kB │ gzip:  36.71 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS2004-UTF32-H-Cx4vz5KR.js                   54.25 kB │ gzip:  36.72 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-Japan1-UCS2-DmAmvFn7.js                    54.67 kB │ gzip:  35.33 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/mermaid-CQcHuHx7.js                              54.81 kB │ gzip:   4.81 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/Adobe-CNS1-UCS2-B6tVhhyc.js                      54.99 kB │ gzip:  38.15 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS-UTF8-H-Diu-8R2R.js                        55.67 kB │ gzip:  38.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniJIS2004-UTF8-H-B7aePviz.js                    55.78 kB │ gzip:  38.30 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wikitext-BhOHFoWU.js                             55.89 kB │ gzip:   4.76 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/stata-DI20mbqo.js                                56.99 kB │ gzip:  12.36 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/html-pp8916En.js                                 57.25 kB │ gzip:  11.69 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniGB-UCS2-H-BAVbR4LJ.js                         57.89 kB │ gzip:  39.70 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ballerina-BFfxhgS-.js                            58.69 kB │ gzip:   8.15 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniGB-UTF16-H-qURCy54K.js                        58.85 kB │ gzip:  40.52 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/markdown-Cvjx9yec.js                             59.34 kB │ gzip:   5.64 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/log-page-B2N9ltm1.js                             60.79 kB │ gzip:  18.51 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniGB-UTF32-H-DzXnuEDN.js                        61.05 kB │ gzip:  41.22 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/ocaml-C0hk2d4L.js                                62.45 kB │ gzip:   5.02 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniGB-UTF8-H-DoO1bOxh.js                         62.52 kB │ gzip:  42.75 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniCNS-UCS2-H-CoLuB3zy.js                        64.45 kB │ gzip:  44.50 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: 
+https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniCNS-UTF16-H-CHMrYeKM.js                       67.30 kB │ gzip:  47.18 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/archive-CTFKXA4U.js                              68.22 kB │ gzip:  26.32 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/mojo-DJz3ZmWd.js                                 69.52 kB │ gzip:   9.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/python-B6aJPvgy.js                               69.95 kB │ gzip:   9.13 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniCNS-UTF32-H-BhwtsYeo.js                       70.31 kB │ gzip:  47.89 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-SdVd1n37.js                                70.87 kB │ gzip:  25.86 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/UniCNS-UTF8-H-CduED9lw.js                        71.58 kB │ gzip:  49.84 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/c-BIGW1oBm.js                                    72.11 kB │ gzip:  10.51 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/latex-D5pSuvFb.js                                72.90 kB │ gzip:   6.78 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-fQ25MCRU.js                                73.18 kB │ gzip:  25.26 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vyper-CDx5xZoG.js                                74.65 kB │ gzip:  10.74 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/office-CTf2pa_G.js                               77.89 kB │ gzip:  29.93 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/hack-BWmVpMyf.js                                 81.13 kB │ gzip:  26.38 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-jjfAzNaD.js                                84.73 kB │ gzip:  33.53 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/view-ZU0oKadp.js                                 86.13 kB │ gzip:  29.04 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/swift-C2oV4EkX.js                                87.23 kB │ gzip:  14.84 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-z94AmgBB.js                                87.31 kB │ gzip:  32.62 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/fortran-free-form-BxgE0vQu.js                    88.97 kB │ gzip:  11.27 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/csharp-DSvCPggb.js                               90.19 kB │ gzip:  10.75 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/app-BFgae7gR.js                                  96.23 kB │ gzip:  24.60 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/studio-D3RvUrL_.js                               97.28 kB │ gzip:  31.72 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/less-B1dDrJ26.js                                 97.63 kB │ gzip:  14.70 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-C94iQvYL.js                               103.97 kB │ gzip:  34.40 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/blade-2xfisSek.js                               104.98 kB │ gzip:  28.20 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/objective-c-DXmwc3jG.js                         105.41 kB │ gzip:  23.33 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/php-Csjmro_R.js                                 113.09 kB │ gzip:  28.74 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/asciidoc-CSVQ5wI8.js                            136.05 kB │ gzip:   9.50 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/mdx-Cmh6b_Ma.js                                 136.11 kB │ gzip:  23.35 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/highlight-D2JDDaY-.js                           158.51 kB │ gzip:  55.68 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/typst--iVk-epe.js                               163.60 kB │ gzip:  11.01 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/objective-cpp-CLxacb5B.js                       171.97 kB │ gzip:  30.62 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/javascript-wDzz0qaB.js                          174.83 kB │ gzip:  16.51 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/tsx-COt5Ahok.js                                 175.54 kB │ gzip:  16.51 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/jsx-g9-lgVsj.js                                 177.79 kB │ gzip:  16.61 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/typescript-BPQ3VLAy.js                          181.08 kB │ gzip:  16.04 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/angular-ts-C6r-RDLf.js                          181.70 kB │ gzip:  16.32 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/vue-vine-BoDAl6tE.js                            190.05 kB │ gzip:  17.99 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/index-Dgjma2Sz.js                               202.30 kB │ gzip:  65.88 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/katex-C79Zqph_.js                               261.69 kB │ gzip:  77.88 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/wolfram-lXgVvXCa.js                             262.39 kB │ gzip:  77.14 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cpp-macro-B27iQl2q.js                           284.34 kB │ gzip:  20.98 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/cpp-8JPr5ki7.js                                 501.32 kB │ gzip:  33.55 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/pdf-CB-icOFK.js                                 547.04 kB │ gzip: 165.60 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/emacs-lisp-C_m_b--Z.js                          790.01 kB │ gzip: 198.83 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/tables-demo-CEfIEY56.js                       1,163.17 kB │ gzip: 287.07 kB
+../../../../work/wave1/grammars-once/dist-old-shape/assets/clipboard-isrE4ry-.js                         1,363.77 kB │ gzip: 477.95 kB
+✓ built in 22.35s

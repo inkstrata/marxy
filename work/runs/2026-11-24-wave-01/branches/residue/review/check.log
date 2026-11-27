@@ -1,0 +1,19 @@
+﻿node.exe : $ node scripts/check.mjs
+At C:\Users\<user>\AppData\Roaming\fnm\aliases\default\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ node scripts/check.mjs:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+✓ check-boundaries
+✓ check-registry
+✓ check-deps
+✓ check-one-parse
+✓ check-tokens
+✓ gate-font-attrs
+✓ gate-contrast
+✓ check-csp
+✓ check-commonplace
+✓ check-listeners
+
+check: 10/10 passed

@@ -1,0 +1,68 @@
+﻿node.exe : $ node scripts/verify.mjs "--tier" "full"
+At C:\Users\<user>\AppData\Roaming\fnm\aliases\default\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ node scripts/..."--tier" "full":String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+verify full in C:\Dev\reader\worktrees\round15
+33 files changed against master; unit suites: desktop, core, scripts; browser files: 262
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\round15-2026-11-24T19-01-51
+
+PASS    install        0.4s      
+PASS    typecheck      11.6s     
+PASS    lint           2.2s      
+PASS    check          12.5s     10 pass, 0 fail
+PASS    golden         1.6s      
+PASS    fidelity       19.1s     
+PASS    licences       0.7s      
+PASS    unit-core      198.1s    4316 pass, 0 fail, 3 skip
+PASS    unit-theme     43.0s     305 pass, 0 fail
+PASS    unit-typeset   44.9s     80 pass, 0 fail
+PASS    unit-scripts   82.7s     261 pass, 0 fail
+PASS    unit-desktop   306.9s    1320 pass, 0 fail, 1 skip
+PASS    lint-rust      56.6s     
+FAIL    browser        2377.1s   2493 pass, 1 fail, 4 skip
+PASS    cargo          101.9s    624 pass, 0 fail, 5 skip
+PASS    build          428.3s    
+PASS    tauri          94.2s     117 pass, 0 fail
+
+step          result  wall     tests
+------------  ------  -------  -------------------------
+install       pass    0.4s
+typecheck     pass    11.6s
+lint          pass    2.2s
+check         pass    12.5s    10 pass, 0 fail
+golden        pass    1.6s
+fidelity      pass    19.1s
+licences      pass    0.7s
+unit-core     pass    198.1s   4316 pass, 0 fail, 3 skip
+unit-theme    pass    43.0s    305 pass, 0 fail
+unit-typeset  pass    44.9s    80 pass, 0 fail
+unit-scripts  pass    82.7s    261 pass, 0 fail
+unit-desktop  pass    306.9s   1320 pass, 0 fail, 1 skip
+lint-rust     pass    56.6s
+browser       FAIL    2377.1s  2493 pass, 1 fail, 4 skip
+cargo         pass    101.9s   624 pass, 0 fail, 5 skip
+build         pass    428.3s
+tauri         pass    94.2s    117 pass, 0 fail
+------------  ------  -------  -------------------------
+total                 3782.1s
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\round15-2026-11-24T19-01-51\14-browser.log)
+✖ widening a 1 MB page set throughout holds no frame long (108993.9752ms)
+  AssertionError [ERR_ASSERTION]: 247 paragraphs set before the widen
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/round15/apps/desktop/test/progressive-large.test.mjs:318:12)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+verify full: 16/17 steps passed; failed: browser; rerun with --from browser
+[ELIFECYCLE] Command failed with exit code 1.
+exit=1

@@ -1,0 +1,55 @@
+verify-turn: slot b, perf-record, pnpm verify --tier changed (2026-11-24T15:16:50-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\perf-record
+6 files changed against master; unit suites: core, theme, typeset, scripts, desktop; browser files: 5; unmapped: package.json
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\perf-record-2026-11-24T23-16-51
+
+PASS    install        0.5s      
+PASS    typecheck      14.9s     
+PASS    lint           2.6s      
+PASS    check          13.1s     10 pass, 0 fail
+PASS    golden         2.0s      
+PASS    fidelity       21.4s     
+PASS    licences       1.0s      
+FAIL    unit-core      208.4s    4315 pass, 1 fail, 3 skip
+PASS    unit-theme     55.5s     305 pass, 0 fail
+PASS    unit-typeset   55.5s     80 pass, 0 fail
+PASS    unit-scripts   130.2s    250 pass, 0 fail
+PASS    unit-desktop   330.3s    1319 pass, 0 fail, 1 skip
+PASS    browser        94.5s     59 pass, 0 fail
+
+step          result  wall    tests
+------------  ------  ------  -------------------------
+install       pass    0.5s
+typecheck     pass    14.9s
+lint          pass    2.6s
+check         pass    13.1s   10 pass, 0 fail
+golden        pass    2.0s
+fidelity      pass    21.4s
+licences      pass    1.0s
+unit-core     FAIL    208.4s  4315 pass, 1 fail, 3 skip
+unit-theme    pass    55.5s   305 pass, 0 fail
+unit-typeset  pass    55.5s   80 pass, 0 fail
+unit-scripts  pass    130.2s  250 pass, 0 fail
+unit-desktop  pass    330.3s  1319 pass, 0 fail, 1 skip
+browser       pass    94.5s   59 pass, 0 fail
+------------  ------  ------  -------------------------
+total                 930.0s
+
+--- unit-core (C:\Users\<user>\AppData\Local\Temp\marxy-verify\perf-record-2026-11-24T23-16-51\08-unit-core.log)
+      at Test.run (node:internal/test_runner/test:1175:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+C:\Dev\reader\worktrees\perf-record\packages\core:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @marxy/core@0.0.0 test: `node --test --experimental-strip-types "src/**/*.test.ts"`
+Exit status 1
+
+verify changed: 12/13 steps passed; failed: unit-core; rerun with --from unit-core
+[ELIFECYCLE] Command failed with exit code 1.
+verify-turn: exit 1 (2026-11-24T15:32:21-08:00)

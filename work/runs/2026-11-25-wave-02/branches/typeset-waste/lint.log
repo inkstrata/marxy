@@ -1,0 +1,8 @@
+﻿node.exe : $ biome check --formatter-enabled=false .
+At C:\Users\<user>\AppData\Roaming\fnm\aliases\default\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ biome check -...enabled=false .:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Checked 24 files in 36ms. No fixes applied.

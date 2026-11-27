@@ -1,0 +1,11 @@
+﻿✔ a 6 MB Markdown file opens as lines, its Outline from the scan, and a heading clicked lands on its line (9783.7247ms)
+✔ g r shows it rendered and the Outline becomes the parsed one; g r again comes back to lines (76015.0364ms)
+✔ under 5 MB Markdown opens as its page, with the parsed Outline, as before (39487.2932ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 125789.042

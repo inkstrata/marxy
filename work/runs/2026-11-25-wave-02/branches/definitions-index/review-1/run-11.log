@@ -1,0 +1,1 @@
+{"cases":25000,"region":13163,"regionWithDefs":12407,"failures":0,"indexFailures":0,"ms":108729,"reasons":{"the change adds, removes or changes a definition, which applies across the file":4026,"the region could not be shown to close":7811}}

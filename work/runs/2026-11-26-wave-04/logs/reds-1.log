@@ -1,0 +1,109 @@
+✔ after the file is rewritten on disk, "Show what changed on disk" opens the diff, and only that command is listed (6837.5735ms)
+✔ the "before" is what Marxy had loaded, not a second read of the disk (1206.99ms)
+✔ "Show unsaved changes" shows exactly the toggled line, beside an untouched document (1246.9995ms)
+✔ in a window too narrow for two panes, unsaved changes are not shown by replacing the document (1430.0627ms)
+✔ the document the diff replaced comes back at its reading position (what Back opens) (1334.0741ms)
+✖ the previous version is dropped when another document opens, and a kept edit never sets it (1124.6559ms)
+✔ a change kept over unsaved edits sets no previous version (1117.1551ms)
+✔ identical content, line endings only, a coarse diff and a fence in the text are each told honestly (1133.047ms)
+# 1 MB regenerated file: command 187 ms, longest main-thread gap 134 ms
+✔ a regenerated 1 MB file: the diff does not block the page, and the time is recorded (2829.612ms)
+✖ app.ts attach() does not pass hyphenate or hanging, and no other argument changes (8058.7715ms)
+typeset_viewport 35 ms (100 ms product budget; recorded)
+✔ 01-long-technical.md through the app ends a line on the generated hyphen, which is not selectable text (790.5581ms)
+✔ a hanging quote sits left of the measure; a letter-started line does not (576.1926ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 10
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 28711.8759
+
+✖ failing tests:
+
+test at test\compare.test.mjs:15:28
+✖ the previous version is dropped when another document opens, and a kept edit never sets it (1124.6559ms)
+  AssertionError [ERR_ASSERTION]: the closed store holds nothing
+  + actual - expected
+  
+  + Uint8Array(40) [
+  +   35,
+  +   32,
+  +   84,
+  +   105,
+  +   116,
+  +   108,
+  +   101,
+  +   10,
+  +   10,
+  +   108,
+  +   105,
+  +   110,
+  +   101,
+  +   32,
+  +   111,
+  +   110,
+  +   101,
+  +   10,
+  +   10,
+  +   108,
+  +   105,
+  +   110,
+  +   101,
+  +   32,
+  +   116,
+  +   119,
+  +   111,
+  +   10,
+  +   10,
+  +   108,
+  +   105,
+  +   110,
+  +   101,
+  +   32,
+  +   116,
+  +   104,
+  +   114,
+  +   101,
+  +   101,
+  +   10
+  + ]
+  - null
+  
+      at withPage.files (file:///C:/Dev/reader/worktrees/wave4/apps/desktop/test/compare.test.mjs:168:12)
+      at async withPage (file:///C:/Dev/reader/worktrees/wave4/apps/desktop/test/compare.test.mjs:29:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: Uint8Array(40) [
+       35,  32,  84, 105, 116, 108, 101,  10,
+       10, 108, 105, 110, 101,  32, 111, 110,
+      101,  10,  10, 108, 105, 110, 101,  32,
+      116, 119, 111,  10,  10, 108, 105, 110,
+      101,  32, 116, 104, 114, 101, 101,  10
+    ],
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\typeset-defaults.test.mjs:21:28
+✖ app.ts attach() does not pass hyphenate or hanging, and no other argument changes (8058.7715ms)
+  AssertionError [ERR_ASSERTION]: source still calls attach(article, { … })
+      at attachOptionsFrom (file:///C:/Dev/reader/worktrees/wave4/apps/desktop/test/typeset-defaults.test.mjs:48:10)
+      at attachOptionsApp (file:///C:/Dev/reader/worktrees/wave4/apps/desktop/test/typeset-defaults.test.mjs:54:10)
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/wave4/apps/desktop/test/typeset-defaults.test.mjs:68:16)
+      at Test.runInAsyncScope (node:async_hooks:228:14)
+      at Test.run (node:internal/test_runner/test:1118:25)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

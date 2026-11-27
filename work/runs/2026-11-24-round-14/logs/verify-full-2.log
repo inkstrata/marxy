@@ -1,0 +1,27 @@
+﻿node.exe : $ node scripts/verify.mjs "--tier" "full" "--from" "browser"
+At C:\Users\<user>\AppData\Roaming\fnm\aliases\default\pnpm.ps1:16 char:5
++     & "$basedir/node$exe"  "$basedir/node_modules/corepack/dist/pnpm. ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ node scripts/...from" "browser":String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+verify full in C:\Dev\reader\worktrees\round14
+32 files changed against master; unit suites: desktop, core, theme, scripts; browser files: 260
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\round14-2026-11-24T09-25-06
+
+PASS    browser        2054.3s   2489 pass, 0 fail, 4 skip
+PASS    cargo          11.9s     624 pass, 0 fail, 5 skip
+PASS    build          237.3s    
+PASS    tauri          93.5s     117 pass, 0 fail
+
+step     result  wall     tests
+-------  ------  -------  -------------------------
+browser  pass    2054.3s  2489 pass, 0 fail, 4 skip
+cargo    pass    11.9s    624 pass, 0 fail, 5 skip
+build    pass    237.3s
+tauri    pass    93.5s    117 pass, 0 fail
+-------  ------  -------  -------------------------
+total            2397.0s
+
+verify full: 4/4 steps passed
+exit 0

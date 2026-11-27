@@ -1,0 +1,22 @@
+  warming the dev server
+  short: open 1/1
+  short: first click
+  short: cursor keys
+  short: undo 1/1
+  short: reload 1/1
+  short: tabs
+  short: Source and Read
+measure-interactions: short: Source and Read: not in Read before round 1
+measure-interactions: 17cfe661 (uncommitted changes), 2026-11-24T22:48:26.609Z, win32-x64, 16 x AMD Ryzen 7 8845HS w/ Radeon 780M Graphics, 31 GB, msedge 158.0.4370.33, 1 runs
+
+short
+  open               firstContentMs 11.1  taskMs 421.36  scriptMs 78.25  layoutMs 49.23  styleMs 88.25  longestTaskMs 134  settleMs 444.3  nodes 1968
+  cursor key (j)     handlerMs 19.75  taskMs 20.58  scriptMs 8.89  layoutMs 0.75  layouts 4  recalcs 4.5
+  first click        handlerMs 221.1  taskMs 84.49  scriptMs 12.39  layoutMs 7.64  styleMs 47.44  layouts 9  recalcs 13
+  undo               taskMs 453.18  scriptMs 83.41  layoutMs 47.24  longestTaskMs 129  replacedTop 206
+  reload from disk   taskMs 471.33  scriptMs 78.99  layoutMs 53.61  longestTaskMs 162  replacedTop 202
+  tab switch to it   shownMs 233  taskMs 460.2  scriptMs 77.32  layoutMs 46.32  layouts 89  recalcs 173
+  tab switch away    shownMs 241  taskMs 454.49  scriptMs 89.17  layoutMs 50.54  layouts 96  recalcs 185
+
+no number for: short/toRead, short/toSource
+measure-interactions: no number for short/toRead, short/toSource

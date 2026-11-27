@@ -1,0 +1,6 @@
+$ cd apps/desktop/src-tauri && cargo fmt --check && cargo clippy --locked --quiet -- -D warnings
+
+real	1m16.104s
+user	0m0.030s
+sys	0m0.030s
+EXIT 0

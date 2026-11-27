@@ -1,0 +1,32 @@
+verify-turn: slot a, scope-keys, pnpm verify --tier changed (2026-11-25T15:37:47-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\scope-keys
+3 files changed against master; unit suites: none; browser files: 0; rust changed
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\scope-keys-2026-11-25T23-37-48
+
+PASS    install        0.7s      
+PASS    typecheck      34.4s     
+PASS    lint           4.3s      
+PASS    check          22.9s     10 pass, 0 fail
+PASS    golden         3.4s      
+PASS    fidelity       23.6s     
+PASS    licences       2.1s      
+PASS    lint-rust      9.7s      
+PASS    cargo          40.7s     628 pass, 0 fail, 5 skip
+
+step       result  wall   tests
+---------  ------  -----  ------------------------
+install    pass    0.7s
+typecheck  pass    34.4s
+lint       pass    4.3s
+check      pass    22.9s  10 pass, 0 fail
+golden     pass    3.4s
+fidelity   pass    23.6s
+licences   pass    2.1s
+lint-rust  pass    9.7s
+cargo      pass    40.7s  628 pass, 0 fail, 5 skip
+---------  ------  -----  ------------------------
+total              141.7s
+
+verify changed: 9/9 steps passed
+verify-turn: exit 0 (2026-11-25T15:40:10-08:00)

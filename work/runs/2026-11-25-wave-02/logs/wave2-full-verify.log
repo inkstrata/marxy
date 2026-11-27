@@ -1,0 +1,64 @@
+$ node scripts/verify.mjs "--tier" "full"
+verify full in C:\Dev\reader\worktrees\wave2
+9 files changed against master; unit suites: core, typeset; browser files: 265
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\wave2-2026-11-25T17-22-34
+
+PASS    install        0.4s      
+PASS    typecheck      11.4s     
+PASS    lint           2.6s      
+PASS    check          12.0s     10 pass, 0 fail
+PASS    golden         1.7s      
+PASS    fidelity       14.1s     
+PASS    licences       0.7s      
+PASS    unit-core      192.9s    4238 pass, 0 fail, 3 skip
+PASS    unit-theme     45.0s     305 pass, 0 fail
+PASS    unit-typeset   45.6s     90 pass, 0 fail
+PASS    unit-scripts   61.8s     281 pass, 0 fail
+PASS    unit-desktop   47.2s     1256 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 90.3s     44 pass, 0 fail, 1 skip
+PASS    lint-rust      58.6s     
+FAIL    browser        2180.7s   2503 pass, 1 fail, 4 skip
+PASS    cargo          97.1s     624 pass, 0 fail, 5 skip
+PASS    build          317.8s    
+PASS    tauri          94.4s     117 pass, 0 fail
+
+step                  result  wall     tests
+--------------------  ------  -------  -------------------------
+install               pass    0.4s
+typecheck             pass    11.4s
+lint                  pass    2.6s
+check                 pass    12.0s    10 pass, 0 fail
+golden                pass    1.7s
+fidelity              pass    14.1s
+licences              pass    0.7s
+unit-core             pass    192.9s   4238 pass, 0 fail, 3 skip
+unit-theme            pass    45.0s    305 pass, 0 fail
+unit-typeset          pass    45.6s    90 pass, 0 fail
+unit-scripts          pass    61.8s    281 pass, 0 fail
+unit-desktop          pass    47.2s    1256 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    90.3s    44 pass, 0 fail, 1 skip
+lint-rust             pass    58.6s
+browser               FAIL    2180.7s  2503 pass, 1 fail, 4 skip
+cargo                 pass    97.1s    624 pass, 0 fail, 5 skip
+build                 pass    317.8s
+tauri                 pass    94.4s    117 pass, 0 fail
+--------------------  ------  -------  -------------------------
+total                         3274.3s
+
+--- browser (C:\Users\<user>\AppData\Local\Temp\marxy-verify\wave2-2026-11-25T17-22-34\15-browser.log)
+      at file:///C:/Dev/reader/worktrees/wave2/apps/desktop/test/split-narrow.test.mjs:331:12
+      at async withPage (file:///C:/Dev/reader/worktrees/wave2/apps/desktop/test/split-narrow.test.mjs:33:5)
+      at async TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/wave2/apps/desktop/test/split-narrow.test.mjs:311:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'rendered',
+    expected: 'source',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+verify full: 17/18 steps passed; failed: browser; rerun with --from browser
+[ELIFECYCLE] Command failed with exit code 1.
+exit 1

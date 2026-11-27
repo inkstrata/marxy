@@ -1,0 +1,36 @@
+verify-turn: slot b, splice-all, pnpm verify --tier changed (2026-11-25T15:26:33-08:00)
+$ node scripts/verify.mjs "--tier" "changed"
+verify changed in C:\Dev\reader\worktrees\splice-all
+6 files changed against master; unit suites: desktop, scripts; browser files: 36
+logs in C:\Users\<user>\AppData\Local\Temp\marxy-verify\splice-all-2026-11-25T23-26-33
+
+PASS    install        0.5s      
+PASS    typecheck      17.4s     
+PASS    lint           3.2s      
+PASS    check          14.1s     10 pass, 0 fail
+PASS    golden         2.0s      
+PASS    fidelity       16.1s     
+PASS    licences       1.1s      
+PASS    unit-scripts   30.0s     263 pass, 0 fail
+PASS    unit-desktop   56.1s     1258 pass, 0 fail, 2 skip
+PASS    unit-desktop-browser 109.9s    44 pass, 0 fail, 1 skip
+PASS    browser        562.2s    344 pass, 0 fail, 1 skip
+
+step                  result  wall    tests
+--------------------  ------  ------  -------------------------
+install               pass    0.5s
+typecheck             pass    17.4s
+lint                  pass    3.2s
+check                 pass    14.1s   10 pass, 0 fail
+golden                pass    2.0s
+fidelity              pass    16.1s
+licences              pass    1.1s
+unit-scripts          pass    30.0s   263 pass, 0 fail
+unit-desktop          pass    56.1s   1258 pass, 0 fail, 2 skip
+unit-desktop-browser  pass    109.9s  44 pass, 0 fail, 1 skip
+browser               pass    562.2s  344 pass, 0 fail, 1 skip
+--------------------  ------  ------  -------------------------
+total                         812.6s
+
+verify changed: 11/11 steps passed
+verify-turn: exit 0 (2026-11-25T15:40:06-08:00)

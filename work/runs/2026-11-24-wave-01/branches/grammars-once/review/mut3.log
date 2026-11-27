@@ -1,0 +1,32 @@
+﻿✖ under the release CSP every KaTeX face loads from a woff2 file, and no woff or ttf file is asked for (35078.0829ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 37570.4277
+
+✖ failing tests:
+
+test at test\math-fonts.test.mjs:18:28
+✖ under the release CSP every KaTeX face loads from a woff2 file, and no woff or ttf file is asked for (35078.0829ms)
+  AssertionError [ERR_ASSERTION]: every KaTeX face loads
+  + actual - expected
+  
+  + [
+  +   'KaTeX_Size3 400 normal: error'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (file:///C:/Dev/reader/worktrees/grammars-once/apps/desktop/test/math-fonts.test.mjs:77:12)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'KaTeX_Size3 400 normal: error' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
