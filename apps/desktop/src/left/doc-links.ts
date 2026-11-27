@@ -1,10 +1,12 @@
 // Where a file's links and written paths lead, against the files here (the index's, and every open file), and which other
 // files name this one ("Pointing here"), looked for with the shell's content search when asked and kept only by the
-// window's `rev`. Links come from the parse (`frame/model/links`), written paths from core's rule (`pathMentions`).
+// window's `rev`. Links come from the parse (`frame/model/links`), written paths from core's rule (`pathMentions`) over the
+// same parse, the store's: nothing here parses the file again.
 import { basename, dirname } from '@marxy/core/src/index-model/paths.ts';
 import { fileTypeOf, isMarkdownPath } from '@marxy/core/src/kind/registry.ts';
 import { pathMentions, pathMentionsIn } from '@marxy/core/src/transforms/extract.ts';
 import type { AppHandle } from '../app-types.ts';
+import type { DocumentStore } from '../document/store.ts';
 import { linksSoon } from '../frame/model/links.ts';
 import { linesNaming, placeLinks, resolveFrom, tokenAround, type PlacedLink } from './doc-model.ts';
 import { lineOfByte, lineStarts } from './doc-shared.ts';
@@ -16,6 +18,15 @@ export interface FileLinks {
 }
 
 const kept = new Map<string, { sig: string; v: FileLinks | null }>();
+
+/** What one version of a store's text says, found once: its links and written paths, by line. Where they lead is not here: that depends on the files here. */
+interface Said {
+  readonly version: number;
+  readonly markdown: boolean;
+  readonly links: readonly { readonly url: string; readonly line: number }[];
+  readonly written: readonly { readonly w: string; readonly line: number }[];
+}
+const said = new WeakMap<DocumentStore, Said>();
 
 /** The files here: every path the index holds, and every file open in a pane. */
 export function filesHere(handle: AppHandle): Set<string> {
@@ -39,25 +50,47 @@ export function linksOfPane(handle: AppHandle, pane: PaneView, path: string): Fi
   const sig = `${snap.version}:${snap.buffer.bytes.length}:${here.size}`;
   const hit = kept.get(path);
   if (hit && hit.sig === sig) return hit.v;
+  const s = saidOf(store, path);
+  if (s === undefined) return undefined;
+  const v: FileLinks = {
+    markdown: s.markdown,
+    all: placeLinks({ docPath: path, links: s.links, written: s.written, has: (p) => here.has(p), roots: handle.index.roots() }),
+  };
+  kept.set(path, { sig, v });
+  if (kept.size > 40) kept.delete(kept.keys().next().value!);
+  return v;
+}
+
+/**
+ * The links and written paths of the store's current text, found once per version: a file opening elsewhere or the index
+ * changing does not find them again. Undefined while a large page's links are still being found.
+ */
+function saidOf(store: DocumentStore, path: string): Said | undefined {
+  const snap = store.snapshot();
+  const held = said.get(store);
+  if (held && held.version === snap.version) return held;
   const markdown = store.parsed();
   const found = markdown ? linksSoon(store) : [];
   if (found === undefined) return undefined;
   const starts = lineStarts(snap.buffer);
   const text = snap.buffer.text.replace(/\r\n?/g, '\n');
-  const mentions = markdown ? pathMentions(text) : pathMentionsIn(text.split('\n'));
-  const v: FileLinks = {
+  let mentions: string[];
+  if (!markdown) mentions = pathMentionsIn(text.split('\n'));
+  else {
+    // The store's parse, with the text it is of: LF Markdown lends it with `textParse`; a Markdown file with CR line ends
+    // has its parse read over its own text (core checks the two agree). Only text the store parsed some other way (a
+    // code file, a byte the decode replaced) is parsed here, as Markdown, for its written paths.
+    const pair = store.textParse() ?? (isMarkdownPath(path) ? { text: snap.buffer.text, doc: snap.ast } : null);
+    mentions = pair ? pathMentions(pair.text, pair.doc) : pathMentions(text);
+  }
+  const s: Said = {
+    version: snap.version,
     markdown,
-    all: placeLinks({
-      docPath: path,
-      links: (found ?? []).map((l) => ({ url: l.url, line: lineOfByte(starts, l.start) })),
-      written: linesNaming(text, mentions),
-      has: (p) => here.has(p),
-      roots: handle.index.roots(),
-    }),
+    links: (found ?? []).map((l) => ({ url: l.url, line: lineOfByte(starts, l.start) })),
+    written: linesNaming(text, mentions),
   };
-  kept.set(path, { sig, v });
-  if (kept.size > 40) kept.delete(kept.keys().next().value!);
-  return v;
+  said.set(store, s);
+  return s;
 }
 
 /** How many links and written paths the file has, for Metadata's row; null while they are being found or for no text. */

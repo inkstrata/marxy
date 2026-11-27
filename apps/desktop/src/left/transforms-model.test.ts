@@ -1,9 +1,9 @@
 // Transforms as data: what each row would change, on a file or a selection's lines, every byte kept that it does not touch.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { unifiedDiff } from '@marxy/core';
+import { parseMarkdown, unifiedDiff, type Document } from '@marxy/core';
 import { patchRows } from './search-model.ts';
-import { changedOld, effectWords, groupsFor, invisibleCounts, removeInvisible, txItem, txRowFor } from './transforms-model.ts';
+import { changedOld, drain, effectWords, groupsFor, invisibleCounts, removeInvisible, txItem, txRowFor } from './transforms-model.ts';
 
 const fx = (id: string, text: string, sel: { a: number; b: number } | null = null) => txItem(id)!.fx(text, sel);
 
@@ -82,4 +82,47 @@ test('Sort the keys changes the order of keys only: integer keys sort too, and a
     assert.equal(fx('json-sort-keys', json).c, 0, json);
   }
   assert.equal(fx('json-sort-keys', '{"b": "x:1.0", "a": [1.5, -2, 3e-7]}').c, 1, 'numbers JSON writes the same, and digits in strings, sort');
+});
+
+// ---- one parse, and work in pieces -----------------------------------------------------------------------------------
+
+/** The hunt's shape of a large page: per section a heading, a paragraph with a link, a numbered list, tasks and a table. */
+const sections = (n: number): string => {
+  let s = '';
+  for (let h = 0; h < n; h++) s += `## Heading ${h}\n\nSome prose for section ${h}, with a [link](https://e.com/${h}).\n\n1. one\n3. two\n\n- [ ] task\n- [x] done\n\n|a|b|\n|-|-|\n|1|2|\n\n`;
+  return s;
+};
+
+test('every row given the store’s parse leaves what it leaves when it parses for itself', () => {
+  const text = sections(40);
+  const parsed = { text, doc: parseMarkdown(new TextEncoder().encode(text)) };
+  for (const g of groupsFor('markdown')) for (const it of g.items) assert.deepEqual(it.fx(text, null, parsed), it.fx(text, null), it.id);
+  const sel = { a: 10, b: 60 };
+  for (const g of groupsFor('markdown')) for (const it of g.items) assert.deepEqual(it.fx(text, sel, parsed), it.fx(text, sel), `${it.id} on a selection`);
+});
+
+test('a Markdown row reads the parse it is given, and parses nothing itself', () => {
+  const text = '- [ ] one\n- [ ] two\n';
+  const src = { file: 'x.md', start: 0, end: text.length };
+  // A parse that holds the file as one code block: read from it there is no task to tick; parsed again there would be two.
+  const doc = { type: 'document', src, children: [{ type: 'codeBlock', src, lang: null, meta: null, value: text }] } as unknown as Document;
+  assert.equal(fx('tick-all', text).c, 2);
+  assert.equal(txItem('tick-all')!.fx(text, null, { text, doc }).c, 0);
+});
+
+test('on a large page every row comes in many short pieces, and the pieces add up to the row', () => {
+  const text = sections(1200);
+  const parsed = { text, doc: parseMarkdown(new TextEncoder().encode(text)) };
+  for (const id of ['renumber-list', 'table-align', 'tick-all', 'trim-trailing', 'invisible']) {
+    const steps = txItem(id)!.steps(text, null, parsed);
+    let pieces = 1;
+    let r = steps.next();
+    while (!r.done) {
+      pieces++;
+      r = steps.next();
+    }
+    assert.ok(pieces > 5, `${id}: ${pieces} pieces`);
+    assert.deepEqual(r.value, drain(txItem(id)!.steps(text, null, parsed)), id);
+  }
+  assert.equal(txItem('renumber-list')!.fx(text, null, parsed).c, 1200, 'each list’s second item renumbered');
 });

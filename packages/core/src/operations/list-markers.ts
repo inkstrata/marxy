@@ -9,6 +9,7 @@ import type { Operation, OperationInput, OperationResult } from '../contracts/op
 import { parseMarkdown } from '../parse/parse.ts';
 import { itemSpans } from './list-item-spans.ts';
 import { replaceSpans, textIndex } from './text-helpers.ts';
+import { parentOf } from './parents.ts';
 
 export interface MarkerSpan {
   readonly item: ListItem;
@@ -105,15 +106,6 @@ function reindentEdits(text: string, from: number, to: number, markerLen: number
     at += m[0].length || 1;
   }
   return edits;
-}
-
-function parentOf(root: Node, target: Node): Node | undefined {
-  for (const child of root.children ?? []) {
-    if (child === target) return root;
-    const found = parentOf(child as Node, target);
-    if (found) return found;
-  }
-  return undefined;
 }
 
 /**

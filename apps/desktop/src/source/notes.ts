@@ -9,7 +9,7 @@ import { lineColumnIn, notesOf, type Note } from '@marxy/core/src/notes/notes.ts
 import { Abandoned, parseMarkdownChunked } from '@marxy/core';
 import { pathMentions, pathMentionsIn } from '@marxy/core/src/transforms/extract.ts';
 import { lineStartsOf } from '@marxy/core/src/util/text.ts';
-import { protectedSpans, withParse } from '@marxy/core/src/transforms/prose.ts';
+import { protectedSpans } from '@marxy/core/src/transforms/prose.ts';
 import { isUntitled } from '../document/untitled.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { inferHomeFromConfig } from '../theme/user-theme.ts';
@@ -92,7 +92,7 @@ export async function findNotes(text: string, opts: FindNotesOptions): Promise<N
   const notes: Note[] = doc !== null && notesForMarkdown(opts.path) ? notesOf(text, doc) : [];
   if (opts.checkPath !== null) {
     const code = doc !== null ? protectedSpans(text, doc) : [];
-    const mentioned = doc !== null ? withParse(text, { text, doc }, () => pathMentions(text)) : pathMentionsIn(text.split('\n'));
+    const mentioned = doc !== null ? pathMentions(text, doc) : pathMentionsIn(text.split('\n'));
     const paths = mentioned.slice(0, PATH_CHECK_CAP);
     let starts: number[] | null = null;
     for (const path of paths) {

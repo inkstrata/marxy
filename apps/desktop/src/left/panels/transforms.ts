@@ -10,6 +10,7 @@ import type { AppHandle } from '../../app-types.ts';
 import { changesOf } from '../../changes/patch.ts';
 import { COMMANDS_APP_ONLY, openReaderCommand } from '../../commands/transform.ts';
 import { isArchiveEntry } from '../../document/entries.ts';
+import type { ParsedText } from '@marxy/core';
 import type { DocumentStore } from '../../document/store.ts';
 import { isUntitled } from '../../document/untitled.ts';
 import { chordText } from '../../frame/branch-info.ts';
@@ -22,7 +23,7 @@ import { lineSpan } from '../../selection/cursor.ts';
 import { buildAppContext } from '../../selection/bind.ts';
 import { readConfigNow } from '../../theme/live-config.ts';
 import { minimalSplice, patchRows, utf8Of } from '../search-model.ts';
-import { changedOld, effectWords, groupsFor, INVISIBLE, invisibleCounts, removeInvisible, txRowFor, type Effect, type FileFamily, type LineSel, type TxItem } from '../transforms-model.ts';
+import { changedOld, drain, effectWords, groupsFor, INVISIBLE, invisibleCounts, removeInvisible, txRowFor, type Effect, type FileFamily, type LineSel, type Steps, type TxItem } from '../transforms-model.ts';
 import type { PanelContext, PanelDef, Verb } from '../types.ts';
 import { empty, fld, h, hint, hit, mono, row, sec, sg } from '../ui.ts';
 
@@ -30,7 +31,7 @@ export interface TransformsState {
   q: string;
   scope: 'sel' | 'whole';
   /** Effects worked out for one text and selection; the rest are worked out after the list is drawn. */
-  fx: { key: string; readonly map: Map<string, Effect> };
+  fx: { key: string; readonly map: Map<string, Effect>; running?: { readonly id: string; readonly steps: Steps } };
   peek: string | null;
   /** The selection the list was drawn for: a new one draws it again. */
   drawn: string;
@@ -47,13 +48,16 @@ interface Doc {
   readonly store: DocumentStore;
   readonly text: string;
   readonly version: number;
+  /** The store's parse of `text`, which every row that reads structure shares; null when the store has none to lend. */
+  readonly parsed: ParsedText | null;
 }
 
 const docOf = (ctx: PanelContext<TransformsState>): Doc | null => {
   const d = ctx.doc();
   if (!d || isArchiveEntry(d.path)) return null;
   const snap = d.store.snapshot();
-  return { path: d.path, store: d.store, text: decoder.decode(snap.buffer.bytes), version: snap.version };
+  const parsed = d.store.textParse();
+  return { path: d.path, store: d.store, text: parsed?.text ?? decoder.decode(snap.buffer.bytes), version: snap.version, parsed };
 };
 
 /** The cursor's part as lines of the file, when the page has one. */
@@ -83,16 +87,20 @@ function effectOf(ctx: PanelContext<TransformsState>, doc: Doc, sel: LineSel | n
   let e = ctx.st.fx.map.get(it.id);
   if (!e) {
     try {
-      e = it.fx(doc.text, sel);
+      e = ctx.st.fx.running?.id === it.id ? drain(ctx.st.fx.running.steps) : it.fx(doc.text, sel, doc.parsed);
     } catch {
       e = { text: doc.text, c: 0, d: 0 };
     }
     ctx.st.fx.map.set(it.id, e);
+    if (ctx.st.fx.running?.id === it.id) ctx.st.fx.running = undefined;
   }
   return e;
 }
 
-/** The counts not yet known, worked out a few at a time after the list is drawn, then the list again. */
+/**
+ * The counts not yet known, worked out after the list is drawn, then the list again. Each row's work comes in pieces
+ * (`steps`), and the budget is checked between pieces, so one row on a large file is many short tasks, not one long one.
+ */
 function workOut(ctx: PanelContext<TransformsState>, doc: Doc, sel: LineSel | null, items: readonly TxItem[]): void {
   if (ctx.st.working) return;
   ctx.st.working = true;
@@ -105,13 +113,28 @@ function workOut(ctx: PanelContext<TransformsState>, doc: Doc, sel: LineSel | nu
     }
     const until = performance.now() + 12;
     let left = false;
+    const fx = ctx.st.fx;
     for (const it of items) {
-      if (ctx.st.fx.map.has(it.id)) continue;
-      if (performance.now() > until) {
-        left = true;
-        break;
+      if (fx.map.has(it.id)) continue;
+      fx.running ??= { id: it.id, steps: it.steps(doc.text, sel, doc.parsed) };
+      for (;;) {
+        if (performance.now() > until) {
+          left = true;
+          break;
+        }
+        let r: IteratorResult<void, Effect>;
+        try {
+          r = fx.running.steps.next();
+        } catch {
+          r = { done: true, value: { text: doc.text, c: 0, d: 0 } };
+        }
+        if (r.done) {
+          fx.map.set(it.id, r.value);
+          fx.running = undefined;
+          break;
+        }
       }
-      effectOf(ctx, doc, sel, it);
+      if (left) break;
     }
     if (left) setTimeout(step, 0);
     else {
@@ -235,7 +258,7 @@ async function act(ctx: PanelContext<TransformsState>, it: TxItem): Promise<void
   if (!doc) return;
   const sel = selNow(ctx, doc);
   if (!it.ask) {
-    await stage(ctx, doc, it.fx(doc.text, sel).text, it.label);
+    await stage(ctx, doc, it.fx(doc.text, sel, doc.parsed).text, it.label);
     return;
   }
   const found = invisibleCounts(doc.text, sel);
