@@ -291,9 +291,9 @@ test('9. 20,000 entries open and scroll with no long block of the main thread', 
         const now = performance.now();
         window.__gaps.max = Math.max(window.__gaps.max, now - window.__gaps.last);
         window.__gaps.last = now;
-        if (window.__gaps.on) setTimeout(tick, 10);
+        if (window.__gaps.on) requestAnimationFrame(tick);
       };
-      setTimeout(tick, 10);
+      requestAnimationFrame(tick);
     });
     await page.evaluate((p) => window.__marxyHandle.open(p), BIG);
     await page.waitForSelector('.marxy-arow');

@@ -8,7 +8,7 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from './support/shared-vite.mjs';
-import { idle, openBrowser } from './support/kit.mjs';
+import { idle, openBrowser, until } from './support/kit.mjs';
 import { fileURLToPath } from 'node:url';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -100,11 +100,12 @@ test('every row is one line box, and each number shares its row\'s top, over a l
     await boot(page, '/src/a.py', python());
     await sourceReady(page);
     // Fold markers follow the language's parse, which can trail the first lines on a busy machine.
-    await page.waitForFunction(() => [...document.querySelectorAll('#marxy-source .cm-foldGutter .cm-gutterElement')].filter((e) => e.style.visibility !== 'hidden' && e.textContent !== '').length > 20, null, { timeout: 15_000 }).catch(() => {});
+    await until(page, () => [...document.querySelectorAll('#marxy-source .cm-foldGutter .cm-gutterElement')].filter((e) => e.style.visibility !== 'hidden' && e.textContent !== '').length > 20);
     const seen = await page.evaluate(() => {
       const line = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--marxy-line-box-source'));
       const lines = [...document.querySelectorAll('#marxy-source .cm-line')].slice(0, 200);
-      const tops = lines.map((l) => l.getBoundingClientRect().top);
+      // Every line the editor drew, not only the first 200: how many it draws past the first screen varies with the machine.
+      const tops = [...document.querySelectorAll('#marxy-source .cm-line')].map((l) => l.getBoundingClientRect().top);
       const numbers = [...document.querySelectorAll('#marxy-source .cm-lineNumbers .cm-gutterElement')].filter((e) => e.style.visibility !== 'hidden');
       const folds = [...document.querySelectorAll('#marxy-source .cm-foldGutter .cm-gutterElement')].filter((e) => e.style.visibility !== 'hidden');
       return {

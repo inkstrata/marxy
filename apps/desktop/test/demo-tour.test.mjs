@@ -4,15 +4,14 @@
 // the same steps on the source in WebKit, with no page errors allowed. Playwright WebKit.
 import { strict as assert } from 'node:assert';
 import { after, before, test as nodeTest } from 'node:test';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { closeHarness, harnessBase } from './support/two-pane.mjs';
-import { frames, idle } from './support/kit.mjs';
+import { frames, idle, openBrowser } from './support/kit.mjs';
 import { cardsOf, panelRows, panelSecs, showPanel, skip } from './support/frame.mjs';
 
 const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
 let browser = null;
 before(async () => {
-  if (!skip) browser = await launchWebkit();
+  if (!skip) browser = await openBrowser();
 });
 after(async () => {
   await browser?.close();

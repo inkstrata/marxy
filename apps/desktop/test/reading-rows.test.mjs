@@ -4,14 +4,13 @@
 // files are made in the page and written to the memory shell, so no large fixture is kept.
 import { strict as assert } from 'node:assert';
 import { after, before, test as nodeTest } from 'node:test';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { closeHarness, harnessBase } from './support/two-pane.mjs';
-import { skip } from './support/frame.mjs';
+import { openBrowser, skip } from './support/kit.mjs';
 
 const test = (name, fn) => nodeTest(name, { skip, timeout: 180_000 }, fn);
 let browser = null;
 before(async () => {
-  if (!skip) browser = await launchWebkit();
+  if (!skip) browser = await openBrowser();
 });
 after(async () => {
   await browser?.close();

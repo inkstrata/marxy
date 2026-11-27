@@ -7,11 +7,10 @@ import { extname, join } from 'node:path';
 import { after, before, test as nodeTest } from 'node:test';
 import { webkit } from 'playwright';
 import { build } from './support/shared-vite.mjs';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { createBuffer, parseMarkdown, sectionRange, textOf } from '../../../packages/core/src/index.ts';
 import { DEFAULT_POLICY, sanitizeHtml } from '../../../packages/core/src/sanitize/index.ts';
 import { fileURLToPath } from 'node:url';
-import { quiet, until } from './support/kit.mjs';
+import { frames, openBrowser, quiet, until } from './support/kit.mjs';
 
 const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
   ? 'Playwright WebKit is not installed here; MARXY_BROWSER_TESTS_REQUIRED=1 makes this a failure'
@@ -87,7 +86,7 @@ test('Mod+C on the Install section copies markdown source and sanitised html', a
   // content line keeps its own ending and no byte is added.
   const expectedText = textOf(buffer, range).replace(/(?:\r?\n[ \t]*)+$/, (m) => (/\n[ \t]*\n/.test(m) ? m.slice(0, m.indexOf('\n') + 1) : m));
 
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -116,7 +115,7 @@ test('Mod+C on a code block copies plain source without fences or highlight mark
   const block = ast.children.find((n) => n.type === 'codeBlock');
   assert.ok(block && block.type === 'codeBlock');
 
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -142,7 +141,7 @@ for (const [name, len] of [['a line over 1,000 characters', 1508], ['a line of 1
     const line = Array.from({ length: len }, (_, i) => 'abcdefghij'[i % 10]).join('');
     const docPath = '/long-line.md';
     const body = `# T\n\n\`\`\`text\n${line}\n\`\`\`\n`;
-    const browser = await launchWebkit();
+    const browser = await openBrowser();
     try {
       const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
       await bootPalette(page, { [docPath]: Buffer.from(body, 'utf8').toString('base64') }, [docPath]);
@@ -184,7 +183,7 @@ for (const [name, len] of [['a line over 1,000 characters', 1508], ['a line of 1
 test('Mod+C in the palette query copies the query text, not the selected section', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -209,7 +208,7 @@ test('Mod+C in the palette query copies the query text, not the selected section
 test('palette lists no copy operations for a paragraph selection', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -228,7 +227,7 @@ test('palette lists no copy operations for a paragraph selection', async () => {
 test('palette Copy code runs on Enter, closes, and says what it copied', async () => {
   const file = '19-source-file.md';
   const docPath = `/corpus/${file}`;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -283,7 +282,7 @@ async function dragSelect(page, from, to) {
 test('Mod+C on a drag across bold text and a link copies sanitised rich text and plain text in one write', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -318,7 +317,7 @@ test('Mod+Shift+C on a drag inside one paragraph copies its exact source bytes',
   const docPath = `/corpus/${file}`;
   const bytes = readFileSync(join(corpusDir, file));
   const buffer = createBuffer(file, bytes);
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -354,7 +353,7 @@ test('Mod+Shift+C on a drag inside one paragraph copies its exact source bytes',
 test('the drag\'s rich copy drops display marks, soft hyphens, image sources and every attribute but the allowed ones', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -414,7 +413,7 @@ test('the drag\'s rich copy drops display marks, soft hyphens, image sources and
 test('the palette shows Mod+C on the selection\'s default verb and no chord on its markdown copy (Mod+Shift+C is Copy as), and opens on a given query', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -447,7 +446,7 @@ test('the palette shows Mod+C on the selection\'s default verb and no chord on i
 test('typing "strip" after > in the palette finds Copy as plain text (strip markdown) for a paragraph selection', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -502,7 +501,7 @@ for (const [rowKey, check] of [
   test(`${rowKey} from the palette copies the drag recorded before the palette opened`, async () => {
     const file = '02-readme-real-world.md';
     const docPath = `/corpus/${file}`;
-    const browser = await launchWebkit();
+    const browser = await openBrowser();
     try {
       const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
       await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -521,7 +520,7 @@ test('Copy as markdown from the palette copies the dragged paragraph\'s bytes', 
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const buffer = createBuffer(file, readFileSync(join(corpusDir, file)));
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -548,7 +547,7 @@ test('Mod+A then Mod+Shift+C copies the bytes of every block of the file', async
   const ast = parseMarkdown(bytes, { file });
   const buffer = createBuffer(file, bytes);
   const whole = { file, start: ast.children[0].src.start, end: ast.children.at(-1).src.end };
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -570,7 +569,7 @@ test('a drag that starts in the space between blocks copies from the next block'
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
   const buffer = createBuffer(file, readFileSync(join(corpusDir, file)));
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -604,16 +603,17 @@ test('a drag that starts in the space between blocks copies from the next block'
 test('a drag over the hostile fixture copies html the sanitiser would not change, and fetches nothing', async () => {
   const file = '10-hostile.md';
   const docPath = `/corpus/${file}`;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
+    // The grammar chunks the page has finished loading, from before it boots.
+    const loaded = [];
+    page.on('requestfinished', (req) => loaded.push(req.url()));
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
     // The idle highlighter loads the html fence's grammars (html, javascript, css) as chunks, after the blocks are marked
     // done; that is not the copy's doing. Wait until the blocks are done, both embedded grammars are in, and the page is quiet.
-    await until(page, () => {
-      const loaded = (name) => performance.getEntriesByType('resource').some((e) => e.name.includes(`/assets/${name}-`) && e.responseEnd > 0);
-      return [...document.querySelectorAll('#doc pre code')].every((c) => c.dataset.marxyDone !== undefined) && loaded('javascript') && loaded('css');
-    });
+    await until(page, () => [...document.querySelectorAll('#doc pre code')].every((c) => c.dataset.marxyDone !== undefined));
+    while (!['/assets/javascript-', '/assets/css-'].every((name) => loaded.some((url) => url.includes(name)))) await frames(page, 2);
     await quiet(page, { root: '#doc' });
     await page.evaluate(() => {
       const r = document.createRange();
@@ -645,7 +645,7 @@ test('a drag over the hostile fixture copies html the sanitiser would not change
 test('recording and copying a drag over an image fetches nothing', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -687,7 +687,7 @@ test('recording and copying a drag over an image fetches nothing', async () => {
 test('in Source, Mod+C and Mod+Shift+C do not copy the hidden Rendered selection', async () => {
   const file = '02-readme-real-world.md';
   const docPath = `/corpus/${file}`;
-  const browser = await launchWebkit();
+  const browser = await openBrowser();
   try {
     const page = await browser.newPage({ viewport: { width: 960, height: 900 } });
     await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);
@@ -709,7 +709,7 @@ for (const [chord, label, wantHtml] of [['KeyC', 'Mod+C', true], ['Shift+KeyC', 
   test(`a drag that ends outside the article is the selection ${label} copies, not the last clicked block`, async () => {
     const file = '02-readme-real-world.md';
     const docPath = `/corpus/${file}`;
-    const browser = await launchWebkit();
+    const browser = await openBrowser();
     try {
       const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
       await bootPalette(page, { [docPath]: b64(join(corpusDir, file)) }, [docPath]);

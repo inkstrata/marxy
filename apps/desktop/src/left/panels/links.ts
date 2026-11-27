@@ -7,6 +7,7 @@ import { slugOf, type PlacedLink } from '../doc-model.ts';
 import { linksOfPane, pointingHere, type Inbound } from '../doc-links.ts';
 import { byteOfLine, copyText, emptyFor, goByte, lineStarts, subjectOf } from '../doc-shared.ts';
 import { anchorBelow, openMenu } from '../../frame/menu.ts';
+import { onLinksFound } from '../../frame/model/links-found.ts';
 import { notify } from '../../notices/index.ts';
 import { mayRead } from '../painted.ts';
 import { textThroughLine } from '../peek-read.ts';
@@ -24,6 +25,8 @@ export interface LinksState {
   peek?: HTMLElement | null;
   /** The links that lead nowhere, as the panel last worked them out: the rail's badge reads it, and works nothing out. */
   dead?: { readonly path: string; readonly version: number; readonly n: number };
+  /** Takes the wait for a large page's links off: set while the panel says it is finding them. */
+  offFound?: () => void;
   /** Takes the peek's Escape listener off. */
   offPeek?: () => void;
 }
@@ -184,6 +187,12 @@ const panel: PanelDef<LinksState> = {
       return;
     }
     if (found === undefined) {
+      // This panel may be the only one showing, so nothing else redraws it when the links are found.
+      st.offFound ??= onLinksFound(() => {
+        st.offFound?.();
+        st.offFound = undefined;
+        ctx.redraw();
+      });
       body.append(empty('Finding the links…'));
       return;
     }

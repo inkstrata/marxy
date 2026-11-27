@@ -157,20 +157,23 @@ test('a new query over a long PDF never shows the last query\'s count while its 
     await page.click('.marxy-pdf-stage');
     await page.keyboard.press(`${mod}+f`);
     await page.fill('.marxy-find-input', 'Page 1 of');
-    await page.waitForFunction(() => /^1 of 1$/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 60000 });
-    await page.evaluate(() => {
+    await page.waitForFunction(() => /^1 of 1( |$)/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 60000 });
+    // From the moment the second query is typed (in the same task, so nothing the first query's count still reads can be
+    // taken for the second's), every text the count shows is kept.
+    const first = await page.evaluate(() => {
       const el = document.querySelector('.marxy-find-count');
+      const input = document.querySelector('.marxy-find-input');
       window.__counts = [];
       new MutationObserver(() => window.__counts.push(el.textContent)).observe(el, { childList: true, characterData: true, subtree: true });
+      input.value = 'Nothing';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return el.textContent;
     });
-    await page.fill('.marxy-find-input', 'Nothing');
-    const at = () => page.textContent('.marxy-find-count');
-    assert.doesNotMatch(await at(), /^1 of 1$/, 'the first count is gone the moment the second query is typed');
+    assert.doesNotMatch(first, /^1 of 1( |$)/, 'the first count is gone the moment the second query is typed');
     await page.waitForFunction(() => /^\d+ of [1-9]\d* · still counting$/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 60000 });
     await page.waitForFunction(() => /^\d+ of 399$/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 90000 });
     const seen = await page.evaluate(() => window.__counts);
-    // The first query's count, finished, is exactly "1 of 1"; the second's own first page may read "1 of 1 · still counting".
-    assert.ok(!seen.some((t) => /^1 of 1$/.test(t)), `counts seen: ${seen.join(' | ')}`);
+    assert.ok(!seen.some((t) => /^1 of 1( |$)/.test(t)), `counts seen: ${seen.join(' | ')}`);
   });
 });
 
