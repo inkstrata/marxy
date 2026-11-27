@@ -5,8 +5,9 @@ name: ci
 # - A pull request runs the `changed` tier: the gates, and only the suites the diff touches (a docs-only change runs
 #   none). A push to main runs `full`, so every suite still runs once per merge. `--skip` takes steps out of the tier
 #   without losing that change mapping (`--only` would run its steps whatever changed).
-# - Left out on both: `browser` (two hours on a hosted runner, and 14 files fail there; work/todo.md, M4/M5) and
-#   `tauri` (the real-window check). A run's integrator runs those on a desktop.
+# - Left out on both: `browser` (two hours on a hosted runner, and 14 files fail there) and
+#   `tauri` (the real-window check). A run's integrator runs those on a desktop. The one thing CI runs of its own is
+#   `browser-smoke`: on a pull request, the browser test files of scripts/browser-smoke.json (macOS).
 # - macOS also leaves out `unit-desktop-browser`: its first WebKit boot misses the 90 s budget on a hosted macOS runner
 #   about half the time (8 s on a laptop), and it passes on Windows, which runs it. `build` (the release build and its
 #   smoke launch) runs on macOS on a push to main only; release.yml builds every tag.
@@ -135,10 +136,38 @@ jobs:
           path: ${{ runner.temp }}/verify
           if-no-files-found: ignore
 
-  # Branch protection on main requires the one check `ci`; it passes only when all three platforms did.
+
+  # The core reading paths in WebKit on a hosted macOS runner: the files of scripts/browser-smoke.json, which wait for
+  # conditions and not for time. A pull request only; a push to main has the full suite by hand (see the header).
+  browser-smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - name: WebKit for the browser tests
+        run: pnpm exec playwright install webkit
+      - name: Browser smoke
+        env:
+          MARXY_BROWSER_TESTS_REQUIRED: "1"
+          MARXY_TIMINGS: ${{ runner.temp }}/browser-timings.jsonl
+        run: node scripts/browser-tests.mjs --jobs 3 $(node -e "console.log(require('./scripts/browser-smoke.json').files.map(f => 'test/' + f).join(' '))")
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-smoke-timings
+          path: ${{ runner.temp }}/browser-timings.jsonl
+          if-no-files-found: ignore
+
+  # Branch protection on main requires the one check `ci`; it passes only when all three platforms did, and the browser
+  # smoke too on a pull request (it is skipped on a push to main).
   ci:
     if: always()
-    needs: [macos, windows, linux]
+    needs: [macos, windows, linux, browser-smoke]
     runs-on: ubuntu-latest
     steps:
       - name: All three platforms passed
@@ -146,6 +175,7 @@ jobs:
           MACOS: ${{ needs.macos.result }}
           WINDOWS: ${{ needs.windows.result }}
           LINUX: ${{ needs.linux.result }}
+          SMOKE: ${{ needs.browser-smoke.result }}
         run: |
-          echo "macos: $MACOS, windows: $WINDOWS, linux: $LINUX"
-          test "$MACOS" = success && test "$WINDOWS" = success && test "$LINUX" = success
+          echo "macos: $MACOS, windows: $WINDOWS, linux: $LINUX, browser-smoke: $SMOKE"
+          test "$MACOS" = success && test "$WINDOWS" = success && test "$LINUX" = success && { test "$SMOKE" = success || test "$SMOKE" = skipped; }

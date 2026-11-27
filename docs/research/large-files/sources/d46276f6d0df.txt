@@ -1,0 +1,446 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+PaulJuliusMartinez
+
+jless
+
+Repository navigation
+
+Code
+
+Issues77 ( 77 )
+
+Pull requests21 ( 21 )
+
+Actions
+
+Projects
+
+Security and quality
+
+Insights
+
+More items
+
+jless
+Public
+
+NotificationsYou must be signed in to change notification settings
+
+Fork124 (124)
+
+Star5.5k (5.5k)You must be signed in to star a repository
+
+About
+
+jless is a command-line JSON viewer designed for reading, exploring, and searching through JSON data.
+
+jless.io
+
+Topics
+
+clijsonrust
+
+Resources
+
+Readme
+
+MIT license
+
+Activity
+
+Stars
+
+5.5k stars
+
+Watchers
+
+24 watching
+
+Forks
+
+124 forks
+
+Report repository
+
+main
+
+Branches Tags
+
+Go to file
+
+Code
+Open more actions menu
+
+Latest commit
+
+History
+276 Commits
+
+276 Commits
+
+Folders and files
+
+Name Name
+Last commit message
+
+Last commit date
+
+.github/workflows
+
+.github/workflows
+
+examples
+
+examples
+
+logo
+
+logo
+
+src
+
+src
+
+.gitignore
+
+.gitignore
+
+CHANGELOG.md
+
+CHANGELOG.md
+
+Cargo.lock
+
+Cargo.lock
+
+Cargo.toml
+
+Cargo.toml
+
+LICENSE
+
+LICENSE
+
+README.md
+
+README.md
+
+RELEASE_CHECKLIST.md
+
+RELEASE_CHECKLIST.md
+
+SEARCH.md
+
+SEARCH.md
+
+dev-tmux
+
+dev-tmux
+
+View all files
+
+Repository files navigation
+
+README
+
+MIT license
+
+More items
+
+jless is a command-line JSON viewer. Use it as a
+replacement for whatever combination of less, jq, cat and your
+editor you currently use for viewing JSON files. It is written in Rust
+and can be installed as a single standalone binary.
+
+Features
+
+Clean syntax highlighted display of JSON data, omitting quotes around
+object keys, closing object and array delimiters, and trailing commas.
+
+Expand and collapse objects and arrays so you can see both the high-
+and low-level structure of the data.
+
+A wealth of vim-inspired movement commands for efficiently moving
+around and viewing data.
+
+Full regex-based search for finding exactly the data you're looking
+for.
+
+jless currently supports macOS and Linux. Windows support is planned.
+
+Installation
+
+You can install jless using various package managers:
+
+Operating System / Package Manager
+Command
+
+macOS - HomeBrew
+brew install jless
+
+macOS - MacPorts
+sudo port install jless
+
+Linux - HomeBrew
+brew install jless
+
+Arch Linux
+pacman -S jless
+
+Void Linux
+sudo xbps-install jless
+
+NetBSD
+pkgin install jless
+
+FreeBSD
+pkg install jless
+
+From source (Requires Rust toolchain)
+cargo install jless
+
+The releases
+page also contains links to binaries for various architectures.
+
+Dependencies
+
+On Linux systems, X11 libraries are needed to build clipboard access if
+building from source. On Ubuntu you can install these using:
+
+sudo apt-get install libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+
+Website
+
+jless.io is the official website for jless. Code
+for the website is contained separately on the
+website branch.
+
+Logo
+
+The mascot of the jless project is Jules the jellyfish.
+
+Art for Jules was created by
+annatgraphics.
+
+License
+
+jless is released under the MIT License.
+
+About
+
+jless is a command-line JSON viewer designed for reading, exploring, and searching through JSON data.
+
+jless.io
+
+Topics
+
+clijsonrust
+
+Resources
+
+Readme
+
+MIT license
+
+Activity
+
+Stars
+
+5.5k stars
+
+Watchers
+
+24 watching
+
+Forks
+
+124 forks
+
+Report repository
+
+Releases
+
+Used by
+
+Contributors
+
+Languages
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

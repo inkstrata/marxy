@@ -1,0 +1,473 @@
+Ir al contenido principal
+
+Recursos
+
+Plataforma web
+
+Explora la plataforma web a tu propio ritmo.
+
+HTML
+
+CSS
+
+JavaScript
+
+Experiencia del usuario
+
+Aprende a crear mejores experiencias del usuario.
+
+Rendimiento
+
+Accesibilidad
+
+Identidad
+
+Aprendizaje
+
+Ponte al día con el desarrollo web.
+
+Aprende HTML
+
+Aprende CSS
+
+Aprende JavaScript
+
+Aprende sobre IA
+
+Aprende sobre el rendimiento
+
+Aprende sobre accesibilidad
+
+Más cursos
+
+Recursos adicionales
+
+Explora colecciones de contenido, patrones y mucho más.
+
+La IA y la Web
+
+Explora
+
+PageSpeed Insights
+
+Podcasts y programas
+
+Boletín informativo para desarrolladores
+
+Acerca de web.dev
+
+Descubrimiento
+
+Modelo de referencia
+
+Cómo usar Baseline
+
+Blog
+
+Casos de éxito
+
+/
+
+English
+
+Deutsch
+
+Español – América Latina
+
+Français
+
+Indonesia
+
+Italiano
+
+Polski
+
+Português – Brasil
+
+Tiếng Việt
+
+Türkçe
+
+Русский
+
+עברית
+
+العربيّة
+
+فارسی
+
+हिंदी
+
+বাংলা
+
+ภาษาไทย
+
+中文 – 简体
+
+中文 – 繁體
+
+日本語
+
+한국어
+
+Acceder
+
+Recursos
+
+La IA y la Web
+
+Tiempos de carga rápidos
+
+Obtén información sobre las Métricas web esenciales
+
+Identidad
+
+Apps web progresivas
+
+Pagos
+
+Notificaciones
+
+Cómo optimizar INP
+
+Confiabilidad de la red
+
+React
+
+Animaciones
+
+Mini apps
+
+Contenido multimedia
+
+Seguridad y protección
+
+WebAssembly
+
+Dispositivos
+
+Es fácil de encontrar
+
+Automatización de pruebas
+
+Angular
+
+Recursos
+
+Más
+
+La IA y la Web
+
+Tiempos de carga rápidos
+
+Obtén información sobre las Métricas web esenciales
+
+Identidad
+
+Apps web progresivas
+
+Pagos
+
+Notificaciones
+
+Cómo optimizar INP
+
+Confiabilidad de la red
+
+React
+
+Animaciones
+
+Mini apps
+
+Contenido multimedia
+
+Seguridad y protección
+
+WebAssembly
+
+Dispositivos
+
+Es fácil de encontrar
+
+Automatización de pruebas
+
+Angular
+
+Descubrimiento
+
+Modelo de referencia
+
+Cómo usar Baseline
+
+Blog
+
+Casos de éxito
+
+Familiarizarse con INP y cómo optimizarlo
+
+Interaction to Next Paint (INP)
+
+Optimiza la interacción para el siguiente procesamiento de imagen
+
+Solución de problemas
+
+Busque interacciones lentas en el campo
+
+Cómo diagnosticar interacciones lentas en el lab de forma manual
+
+Optimizar INP deficiente causado por JavaScript
+
+Optimiza las tareas largas
+
+Cómo optimizar el retraso de entrada
+
+Evaluación de secuencias de comandos y tareas largas
+
+Utilizar trabajadores web para ejecutar JavaScript fuera del subproceso principal del navegador
+
+Optimización de INP deficiente debido a la renderización
+
+Evita los diseños grandes y complejos, y la paginación excesiva de diseños
+
+Reduce el alcance y la complejidad de los cálculos de estilo
+
+De qué manera los tamaños grandes de DOM afectan la interactividad y qué puedes hacer al respecto
+
+Renderización de HTML e interactividad del cliente
+
+Plataforma web
+
+HTML
+
+CSS
+
+JavaScript
+
+Experiencia del usuario
+
+Rendimiento
+
+Accesibilidad
+
+Identidad
+
+Aprendizaje
+
+Aprende HTML
+
+Aprende CSS
+
+Aprende JavaScript
+
+Aprende sobre IA
+
+Aprende sobre el rendimiento
+
+Aprende sobre accesibilidad
+
+Más cursos
+
+Recursos adicionales
+
+La IA y la Web
+
+Explora
+
+PageSpeed Insights
+
+Podcasts y programas
+
+Boletín informativo para desarrolladores
+
+Acerca de web.dev
+
+Modern Web Guidance ya es estable Actualiza tus agentes de programación con prácticas recomendadas de desarrollo web validadas por expertos. Lee el anuncio.
+
+Google utiliza tecnología de IA para traducir contenido a tu idioma preferido. Las traducciones realizadas con IA pueden contener errores.
+
+web.dev
+
+Recursos
+
+Cómo optimizar INP
+
+Renderización de HTML e interactividad del cliente
+
+Organiza tus páginas con colecciones
+
+Guarda y categoriza el contenido según tus preferencias.
+
+Renderizar HTML con JavaScript es diferente de renderizar HTML que envía el servidor, y eso puede afectar el rendimiento. Conoce la diferencia en esta guía y lo que puedes hacer para preservar el rendimiento de renderización de tu sitio web, en especial en lo que respecta a las interacciones.
+
+Jeremy Wagner
+
+El análisis y la renderización de HTML es algo que los navegadores hacen muy bien de forma predeterminada para los sitios web que usan la lógica de navegación integrada del navegador, a veces llamada "carga de página tradicional" o "navegación difícil". A veces, estos sitios web se denominan aplicaciones de varias páginas (MPA).
+
+Sin embargo, los desarrolladores pueden evitar los valores predeterminados del navegador para satisfacer las necesidades de sus aplicaciones. Este es, sin duda, el caso de los sitios web que usan el patrón de aplicación de una sola página (SPA), que crea de forma dinámica grandes partes del HTML/DOM en el cliente con JavaScript. La renderización del cliente es el nombre de este patrón de diseño y puede tener efectos en la Interaction to Next Paint (INP) de tu sitio web si el trabajo involucrado es excesivo.
+
+Esta guía te ayudará a sopesar la diferencia entre usar el código HTML que el servidor envía al navegador y crearlo en el cliente con JavaScript, y cómo esto último puede generar una alta latencia de interacción en momentos cruciales.
+
+Cómo el navegador renderiza el código HTML que proporciona el servidor
+
+El patrón de navegación que se usa en las cargas de páginas tradicionales implica recibir HTML del servidor en cada navegación. Si ingresas una URL en la barra de direcciones de tu navegador o haces clic en un vínculo de una MPA, se produce la siguiente serie de eventos:
+
+El navegador envía una solicitud de navegación para la URL proporcionada.
+
+El servidor responde con HTML en fragmentos.
+
+El último paso de estos es clave. También es una de las optimizaciones de rendimiento más fundamentales en el intercambio entre el servidor y el navegador, y se conoce como transmisión. Si el servidor puede comenzar a enviar HTML lo antes posible y el navegador no espera a que llegue toda la respuesta, el navegador puede procesar el HTML en fragmentos a medida que llega.
+
+Análisis y renderización del HTML que proporciona el servidor, como se visualiza en el panel de rendimiento de las Herramientas para desarrolladores de Chrome. Las tareas involucradas en el análisis de HTML y su renderización se dividen en fragmentos.
+
+Como la mayoría de las cosas que suceden en el navegador, el análisis de HTML se produce dentro de las tareas. Cuando el código HTML se transmite del servidor al navegador, este optimiza el análisis de ese código HTML haciéndolo de a poco a medida que llegan fragmentos de esa transmisión. La consecuencia es que el navegador cede el control al subproceso principal de forma periódica después de procesar cada fragmento, lo que evita las tareas largas. Esto significa que se pueden realizar otras tareas mientras se analiza el código HTML, incluido el trabajo de renderización incremental necesario para presentar una página al usuario, así como el procesamiento de las interacciones del usuario que puedan ocurrir durante el período de inicio crucial de la página. Este enfoque se traduce en una mejor puntuación de Interaction to Next Paint (INP) para la página.
+
+¿La conclusión? Cuando transmites HTML desde el servidor, obtienes un análisis y una renderización incrementales del HTML, y una cesión automática al subproceso principal de forma gratuita. No obtienes eso con la renderización del cliente.
+
+Cómo el navegador renderiza el código HTML que proporciona JavaScript
+
+Si bien cada solicitud de navegación a una página requiere que el servidor proporcione una cierta cantidad de HTML, algunos sitios web usarán el patrón de SPA. Este enfoque suele implicar que el servidor proporcione una carga útil inicial mínima de HTML, pero, luego, el cliente completará el área de contenido principal de una página con HTML ensamblado a partir de los datos recuperados del servidor. Las navegaciones posteriores, que a veces se denominan "navegaciones suaves" en este caso, se controlan por completo con JavaScript para propagar la página con HTML nuevo.
+
+La renderización del cliente también puede ocurrir en sitios que no son SPA en casos más limitados en los que el HTML se agrega de forma dinámica al DOM a través de JavaScript.
+
+Existen algunas formas comunes de crear HTML o agregarlo al DOM a través de JavaScript:
+
+La propiedad innerHTML te permite establecer el contenido de un elemento existente a través de una cadena, que el navegador analiza en el DOM.
+
+El método document.createElement te permite crear elementos nuevos para agregarlos al DOM sin usar ningún análisis de HTML del navegador.
+
+El método document.write te permite escribir HTML en el documento (y el navegador lo analiza, como en el enfoque 1). Sin embargo, debido a varios motivos, se desaconseja el uso de document.write.
+
+Análisis y renderización de HTML a través de JavaScript en el cliente, como se visualiza en el panel de rendimiento de las Herramientas para desarrolladores de Chrome. Las tareas involucradas en el análisis y la renderización no se dividen en fragmentos, lo que genera una tarea larga que bloquea el subproceso principal.
+
+Las consecuencias de crear HTML o DOM a través de JavaScript del cliente pueden ser significativas:
+
+A diferencia del HTML que transmite el servidor en respuesta a una solicitud de navegación, las tareas de JavaScript en el cliente no se dividen automáticamente, lo que puede generar tareas largas que bloqueen el subproceso principal. Esto significa que el INP de tu página puede verse afectado de forma negativa si creas demasiado HTML/DOM a la vez en el cliente.
+
+Si se crea HTML en el cliente durante el inicio, el escáner de precarga del navegador nodescubrirá los recursos a los que se hace referencia en él. Sin duda, esto tendrá un efecto negativo en el Largest Contentful Paint (LCP) de una página. Si bien este no es un problema de rendimiento del entorno de ejecución (sino un problema de retraso de la red para recuperar recursos importantes), no querrás que el LCP de tu sitio web se vea afectado por eludir esta optimización fundamental del rendimiento del navegador.
+
+Qué puedes hacer con respecto al impacto en el rendimiento de la renderización del cliente
+
+Si tu sitio web depende en gran medida de la renderización del cliente y observaste valores de INP deficientes en tus datos de campo, es posible que te preguntes si la renderización del cliente tiene algo que ver con el problema. Por ejemplo, si tu sitio web es una SPA, tus datos de campo pueden revelar interacciones responsables de un trabajo de renderización considerable.
+
+Cualquiera sea el motivo, aquí te presentamos algunas causas posibles que puedes explorar para volver a encauzar la situación.
+
+Proporciona la mayor cantidad posible de HTML del servidor.
+
+Como se mencionó anteriormente, el navegador controla el HTML del servidor de una manera muy eficiente de forma predeterminada. Dividirá el análisis y la renderización del HTML de una manera que evite las tareas largas y optimice la cantidad de tiempo total del subproceso principal. Esto genera un Tiempo de bloqueo total (TBT) más bajo, y el TBT está estrechamente correlacionado con la INP.
+
+Es posible que uses un framework de frontend para compilar tu sitio web. Si es así, asegúrate de renderizar el HTML del componente en el servidor. Esto limitará la cantidad de renderización inicial del cliente que requerirá tu sitio web y debería generar una mejor experiencia.
+
+En el caso de React, querrás usar la API de DOM del servidor para renderizar HTML en el servidor. Sin embargo, ten en cuenta que el método tradicional de renderización del servidor usa un enfoque síncrono, lo que puede generar un tiempo hasta el primer byte (TTFB) más largo, así como métricas posteriores, como el primer procesamiento de imagen con contenido (FCP) y el LCP. Siempre que sea posible, asegúrate de usar las APIs de transmisión para Node.js o otros entornos de ejecución de JavaScript para que el servidor pueda comenzar a transmitir HTML al navegador lo antes posible. Next.js, un framework basado en React, proporciona muchas prácticas recomendadas de forma predeterminada. Además de renderizar automáticamente HTML en el servidor, también puede generar HTML de forma estática para las páginas que no cambian según el contexto del usuario (como la autenticación).
+
+Vue también realiza el procesamiento del cliente de forma predeterminada. Sin embargo, al igual que React, Vue también puede renderizar el HTML de tu componente en el servidor. Aprovecha estas APIs del servidor siempre que sea posible o considera una abstracción de nivel superior para tu proyecto de Vue para que las prácticas recomendadas sean más fáciles de implementar.
+
+Svelte renderiza HTML en el servidor de forma predeterminada, aunque si el código de tu componente necesita acceso a espacios de nombres exclusivos del navegador (window, por ejemplo), es posible que no puedas renderizar el HTML de ese componente en el servidor. Explora enfoques alternativos siempre que sea posible para no provocar una renderización innecesaria del cliente. SvelteKit, que es para Svelte lo que Next.js es para React, incorpora tantas prácticas recomendadas como sea posible en tus proyectos de Svelte, de modo que puedas evitar posibles dificultades en los proyectos que solo usan Svelte.
+
+Punto clave: Si tu aplicación usa cualquiera de estos frameworks y requiere interactividad en el cliente, deberás hidratar tus componentes en el cliente para que sean interactivos. Para obtener una evaluación integral de los diferentes enfoques para renderizar HTML y algunos consejos sobre cómo controlar la hidratación de componentes en el cliente teniendo en cuenta el rendimiento, consulta Renderización en la Web.
+
+Limita la cantidad de nodos del DOM creados en el cliente
+
+Cuando los DOM son grandes, el procesamiento necesario para renderizarlos tiende a aumentar. Ya sea que tu sitio web sea una SPA completa o que inserte nodos nuevos en un DOM existente como resultado de una interacción para una MPA, considera mantener esos DOM lo más pequeños posible. Esto ayudará a reducir el trabajo necesario durante la renderización del cliente para mostrar ese HTML, lo que, con suerte, ayudará a mantener más bajo el INP de tu sitio web.
+
+Lee para obtener más información: Tamaño del DOM y la interactividad.
+
+Considera una arquitectura de trabajador de servicio de transmisión
+
+Esta es una técnica avanzada, que puede no funcionar fácilmente con todos los casos de uso, pero que puede convertir tu MPA en un sitio web que parece cargarse de forma instantánea cuando los usuarios navegan de una página a otra. Puedes usar un service worker para almacenar en caché previa las partes estáticas de tu sitio web en CacheStorage mientras usas la API de ReadableStream para recuperar el resto del código HTML de una página del servidor.
+
+Cuando usas esta técnica correctamente, no creas HTML en el cliente, pero la carga instantánea de parciales de contenido desde la caché dará la impresión de que tu sitio se carga rápidamente. Los sitios web que usan este enfoque pueden sentirse casi como una SPA, pero sin las desventajas de la renderización del cliente. También reduce la cantidad de HTML que solicitas al servidor.
+
+En resumen, una arquitectura de service worker de transmisión no reemplaza la lógica de navegación integrada del navegador, sino que la agrega. Para obtener más información sobre cómo lograr esto con Workbox, lee Aplicaciones de varias páginas más rápidas con transmisiones.
+
+Conclusión
+
+La forma en que tu sitio web recibe y renderiza HTML tiene un impacto en el rendimiento. Cuando dependes del servidor para enviar todo (o la mayor parte) del HTML necesario para que tu sitio web funcione, obtienes mucho de forma gratuita: análisis y renderización incrementales, y cesión automática al subproceso principal para evitar tareas largas.
+
+La renderización de HTML del cliente presenta una serie de posibles problemas de rendimiento que se pueden evitar en muchos casos. Sin embargo, debido a los requisitos de cada sitio web, no es posible evitarlo por completo el 100% de las veces. Para mitigar las posibles tareas largas que pueden resultar de una renderización excesiva del sitio del cliente, asegúrate de enviar la mayor cantidad posible de HTML de tu sitio web desde el servidor siempre que sea posible, mantén los tamaños del DOM lo más pequeños posible para el HTML que se debe renderizar en el cliente y considera arquitecturas alternativas para acelerar la entrega de HTML al cliente, a la vez que aprovechas el análisis y la renderización incrementales que proporciona el navegador para el HTML cargado desde el servidor.
+
+Si puedes lograr que la renderización del cliente de tu sitio web sea lo más mínima posible, mejorarás no solo el INP de tu sitio web, sino también otras métricas, como LCP, TBT y, posiblemente, incluso el TTFB en algunos casos.
+
+Salvo que se indique lo contrario, el contenido de esta página está sujeto a la licencia Atribución 4.0 de Creative Commons, y los ejemplos de código están sujetos a la licencia Apache 2.0. Para obtener más información, consulta las políticas del sitio de Google Developers. Java es una marca registrada de Oracle o sus afiliados.
+
+Última actualización: 2023-05-09 (UTC)
+
+web.dev
+
+web.dev
+
+Queremos ayudarte a crear sitios web atractivos, accesibles, rápidos y seguros que funcionen en diferentes navegadores y para todos tus usuarios. En este sitio, encontrarás contenido escrito por miembros del equipo de Chrome y expertos externos para ayudarte en ese recorrido.
+
+Contribuir
+
+Informar un error
+
+Ver incidentes abiertos
+
+Contenido relacionado
+
+Chrome para desarrolladores
+
+Actualizaciones de Chromium
+
+Casos de éxito
+
+Podcasts y programas
+
+Seguir
+
+@ChromiumDev en X
+
+YouTube
+
+Chrome para desarrolladores en LinkedIn
+
+RSS
+
+Condiciones
+
+Privacidad
+
+Manage cookies
+
+English
+
+Deutsch
+
+Español – América Latina
+
+Français
+
+Indonesia
+
+Italiano
+
+Polski
+
+Português – Brasil
+
+Tiếng Việt
+
+Türkçe
+
+Русский
+
+עברית
+
+العربيّة
+
+فارسی
+
+हिंदी
+
+বাংলা
+
+ภาษาไทย
+
+中文 – 简体
+
+中文 – 繁體
+
+日本語
+
+한국어

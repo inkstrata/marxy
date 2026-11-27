@@ -1,0 +1,14 @@
+md-prose 1000000 splice cpu ms median 5.9
+md-prose 2000000 splice cpu ms median 12.0
+md-prose 4900000 splice cpu ms median 29.7
+txt 1000000 splice cpu ms median 5.8
+txt 2000000 splice cpu ms median 12.1
+txt 4900000 splice cpu ms median 28.5
+wrap 10000 ok cpu ms 8
+wrap 20000 ok cpu ms 13
+wrap 40000 ok cpu ms 22
+wrap 80000 RangeError: Maximum call stack size exceeded 44
+wrap 120000 RangeError: Maximum call stack size exceeded 63
+wrap 130000 RangeError: Maximum call stack size exceeded 74
+wrap 200000 RangeError: Maximum call stack size exceeded 106
+ 3:03  up 1 day,  6:21, 1 user, load averages: 25.19 37.57 45.81

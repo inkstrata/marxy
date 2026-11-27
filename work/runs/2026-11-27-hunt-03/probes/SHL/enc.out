@@ -1,0 +1,11 @@
+Probe: standalone crate (/private/tmp/shl-probe) that includes src-tauri/src/encoding/mod.rs unmodified; release build, shared Mac.
+PROBE sjis pure chosen 1: file 1000000 B, decode 1.11s, text 1500000 B, table 4000000 B, frame 5500068 B
+PROBE sjis pure chosen 2: file 2000000 B, decode 1.62s, text 3000000 B, table 8000000 B, frame 11000068 B
+PROBE sjis pure chosen 4.9: file 4900000 B, decode 3.41s, text 7350000 B, table 19600000 B, frame 26950068 B
+PROBE sjis mixed chosen 4.9: file 4900000 B, decode 2.53s, text 6580000 B, table 13440000 B, frame 20020068 B
+PROBE chardetng over 1 MB of Shift_JIS: 0.80-0.89 s regardless of file size
+PROBE readings (Read with encoding panel): 1 MB 1.7 s, 2 MB 2.3 s, 4.9 MB 5.3 s
+PROBE latin1 guess: 1 MB 1.36 s, 2 MB 1.77 s, 4.9 MB 2.42 s; utf-16le with BOM: 5 ms, 10 ms, 0.49 s
+PROBE natural sjis (3 Japanese sentences x50) detected utf-8 how=Utf8 ; natural GBK detected utf-8 how=Utf8
+Re-run on a quieter machine: sjis chosen decode 1 MB 0.60-0.71 s, 2 MB 1.3-1.6 s, 4.9 MB 2.2-4.0 s (table sizes unchanged); readings (Read with encoding) sjis 1 MB 0.49-0.94 s, 2 MB 1.4-1.6 s, 4.9 MB 2.6-3.2 s.
+Quiet-machine controls: 4.9 MB UTF-8 text decode 0.15 s; 4.9 MB ASCII log with 4 Latin-1 bytes 0.11 s; 4.9 MB Latin-1 log 0.74 s, its readings 1.36 s.

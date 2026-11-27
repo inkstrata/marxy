@@ -1,0 +1,460 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+antonycourtney
+
+tad
+
+Repository navigation
+
+Code
+
+Issues160 ( 160 )
+
+Pull requests4 ( 4 )
+
+Discussions
+
+Actions
+
+Projects
+
+Security and quality
+
+Insights
+
+More items
+
+tad
+Public
+
+NotificationsYou must be signed in to change notification settings
+
+Fork136 (136)
+
+Star3.5k (3.5k)You must be signed in to star a repository
+
+About
+
+A desktop application for viewing and analyzing tabular data
+
+tadviewer.com
+
+Topics
+
+csvdata-analysisdata-sciencedatabasedesktop-applicationduckdbparquet-viewerpivot-tablespivotstabular-data
+
+Resources
+
+Readme
+
+MIT license
+
+Activity
+
+Stars
+
+3.5k stars
+
+Watchers
+
+51 watching
+
+Forks
+
+136 forks
+
+Report repository
+
+master
+
+Branches Tags
+
+Go to file
+
+Code
+Open more actions menu
+
+Latest commit
+
+History
+709 Commits
+
+709 Commits
+
+Folders and files
+
+Name Name
+Last commit message
+
+Last commit date
+
+doc
+
+doc
+
+packages
+
+packages
+
+tools
+
+tools
+
+.eslintignore
+
+.eslintignore
+
+.eslintrc.json
+
+.eslintrc.json
+
+.flowconfig
+
+.flowconfig
+
+.gitignore
+
+.gitignore
+
+.nvmrc
+
+.nvmrc
+
+LICENSE
+
+LICENSE
+
+README.md
+
+README.md
+
+azure-pipelines.yml
+
+azure-pipelines.yml
+
+lerna.json
+
+lerna.json
+
+package-lock.json
+
+package-lock.json
+
+package.json
+
+package.json
+
+View all files
+
+Repository files navigation
+
+README
+
+MIT license
+
+More items
+
+Tad
+
+This repository contains the source code for Tad, an application for viewing and analyzing tabular
+data sets.
+
+The Tad desktop application enables you to quickly view and explore tabular data in several of the most popular
+tabular data file formats: CSV, Parquet, and SQLite and DuckDb database files.
+Internally, the application is powered by an in-memory instance of DuckDb, a fast, embeddable database engine optimized for analytic queries.
+
+The core of Tad is a React UI component that implements a hierarchical pivot table that allows you to specify a combination of pivot, filter, aggregate, sort, column selection, column ordering and basic column formatting operations. Tad delegates to a SQL database for storage and analytics, and generates SQL queries to perform all
+analytic operations specified in the UI.
+
+Tad can be launched from the command line like this:
+
+$ tad MetObjects.csv
+
+This will open a window with a scrollable view of the full contents of the CSV file:
+
+Tad uses SlickGrid for rendering the data grid. This allows Tad to support efficient linear
+scrolling of the entire file, even for very large (millions of rows) data sets.
+
+A few additional mouse clicks on the above view yields this view, pivoted by a few
+columns (Department, Classification, Period and Culture), sorted by the Object Start Date column, and
+with columns re-ordered:
+
+Installing Tad
+
+The easiest way to install the Tad desktop app is to use a pre-packaged binary release. See The Tad Landing Page for information on the latest release and download links, or go straight to the releases page.
+
+History and What's Here
+
+Tad was initially released in 2017 as a standalone desktop application for viewing and exploring CSV files.
+
+The core of Tad is a React UI component that implements a hierarchical pivot table that allows you to specify a combination of pivot, filter, aggregate, sort, column selection, column ordering and basic column formatting operations. Tad delegates to a SQL database for storage and analytics, and generates SQL queries to perform all
+analytic operations specified in the UI.
+
+This repository is a modular refactor of the original Tad source code, with several key improvements on the original code base:
+
+The repository is organized as a modular monorepo using npm workspaces.
+
+The code has been ported to TypeScript and the UI code has been updated to React Hooks.
+
+There is support for communicating with multiple database back ends for reltab (Tad's SQL generation and query evaluation layer), in addition to the original sqlite. Current backends (in varying degrees of completeness) include DuckDb, Snowflake, Google BigQuery, and AWS Athena (Presto)
+
+There is a minimal proof-of-concept web-based front-end to demonstrate how Tad can be deployed on the web.
+
+The core Tad pivot table component now builds in its own module independent of any front end. This should allow embedding the Tad pivot table in other applications or contexts.
+
+The Essential Packages
+
+The core packages that are used to build Tad are found in the packages sub-directory. These are the packages
+used to build the Tad desktop application:
+
+reltab - The core abstraction used in Tad for programmatically constructing and executing relational SQL queries. This also defines the driver interface implemented by specific database back-ends, and a small, transport-agnostic remoting layer to allow queries and results to be transmitted between a web browser
+(or electron renderer process) and a reltab backend server.
+
+reltab-duckdb -- reltab driver for DuckDb
+
+reltab-sqlite -- reltab driver for SQLite
+
+aggtree - A library built on top of reltab for constructing pivot trees from relational queries.
+
+tadviewer - The core Tad pivot table UI as a standalone, embeddable React component.
+
+tad-app - The Tad desktop application, built with Electron
+
+Experimental Packages
+
+This repository also includes a number of proof-of-concept experimental packages, in varying states of completeness. These are provided for reference and as a starting
+point for further investigation and development.
+
+tadweb-app - A minimal web app built with tadviewer, to demonstrate Tad running in a web browser.
+
+tadweb-server - A reference web server for serving the Tad web app and providing the reltab back end.
+
+reltab-aws-athena - reltab driver for AWS Athena
+
+reltab-bigquery - reltab driver for Google BigQuery
+
+reltab-snowflake - reltab driver for Snowflake
+
+Building Tad from Source
+
+Detailed instructions on building tad from sources available in doc/building.md
+
+About
+
+A desktop application for viewing and analyzing tabular data
+
+tadviewer.com
+
+Topics
+
+csvdata-analysisdata-sciencedatabasedesktop-applicationduckdbparquet-viewerpivot-tablespivotstabular-data
+
+Resources
+
+Readme
+
+MIT license
+
+Activity
+
+Stars
+
+3.5k stars
+
+Watchers
+
+51 watching
+
+Forks
+
+136 forks
+
+Report repository
+
+Releases
+
+Packages
+
+Used by
+
+Contributors
+
+Languages
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

@@ -1,0 +1,371 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+micromark
+
+micromark
+
+Repository navigation
+
+Code
+
+Issues19 ( 19 )
+
+Pull requests28 ( 28 )
+
+Discussions
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+Quadratic time in initializeDocument when many containers close #263
+
+New issue
+Copy link
+
+New issue
+Copy link
+
+Open
+
+#268
+
+Open
+
+Quadratic time in initializeDocument when many containers close#263
+
+#268
+
+Copy link
+
+Labels
+
+🤞 phase/openPost is being triaged manually
+
+Description
+
+eclipsant
+
+opened on Nov 11, 2026
+
+Issue body actions
+
+Initial checklist
+
+I read the support docs
+
+I read the contributing guide
+
+I agree to follow the code of conduct
+
+I searched issues and discussions and couldn’t find anything (or linked relevant results below)
+
+Affected package
+
+micromark@4.0.3
+
+Steps to reproduce
+
+Steps to reproduce
+
+When a container (block quote or list) closes, lib/initialize/document.js moves the container
+
+exits earlier with an EditMap (in continued and in closeFlow). EditMap#consume rebuilds the
+
+entire self.events array, although the edit only touches its end (indexBeforeFlow is the last
+
+chunkFlow exit). Every closed container therefore costs time proportional to the whole document,
+
+so parsing is quadratic in the number of containers.
+
+Run:
+
+import { fromMarkdown } from "mdast-util-from-markdown";
+
+for (const n of [2000, 8000, 32000]) {
+const text = "> A quote with *emphasis*.\n\n".repeat(n);
+const start = performance.now();
+fromMarkdown(text);
+console.log(n, Math.round(performance.now() - start), "ms");
+}
+
+Each fourfold increase in n makes parsing roughly sixteen times slower.
+
+Actual behavior
+
+Actual behavior
+
+Parsing time grows quadratically with the number of closed containers. A 1 MiB document of short
+
+block quotes takes about 107 s; a 1 MiB document of block quotes and short lists takes about 126 s.
+
+Expected behavior
+
+Parsing time grows linearly with the document size.
+
+A possible fix, in both places in lib/initialize/document.js and dev/lib/initialize/document.js:
+
+- const editMap = new EditMap()
+- // Inject the exits earlier (they’re still also at the end).
+- editMap.add(indexBeforeFlow + 1, 0, self.events.slice(indexBeforeExits))
+- // Discard the duplicate exits.
+- editMap.add(indexBeforeExits, index - indexBeforeExits, [])
+- editMap.consume(self.events)
++ const exits = self.events.slice(indexBeforeExits)
++ self.events.length = indexBeforeExits
++ self.events.splice(indexBeforeFlow + 1, 0, ...exits)
+
+With it, the 1 MiB block quote document parses in about 1.5 s, and time grows linearly. The
+
+resulting mdast trees (with GFM) were byte-identical to the unpatched output across 135 test
+
+documents, including nested quotes and lists, lazy continuation, and fenced code in list items.
+
+Happy to open a PR with this change and a test if the approach works for you.
+
+Runtime
+
+Node.js v26.13.0
+
+Package manager
+
+npm 11.20.0
+
+Operating system
+
+Ubuntu 26.04.1 LTS
+
+Build and bundle tools
+
+No response
+
+Activity
+
+github-actions
+added
+👋 phase/newPost is being triaged automatically
+
+🤞 phase/openPost is being triaged manually
+and removed
+👋 phase/newPost is being triaged automatically
+on Nov 11, 2026
+
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+
+Metadata
+
+Metadata
+
+Assignees
+
+No one assigned
+
+Labels
+
+🤞 phase/openPost is being triaged manually
+
+Type
+
+No type
+
+Projects
+
+No projects
+
+Milestone
+
+No milestone
+
+Relationships
+
+None yet
+
+Development
+
+No branches or pull requests
+
+Issue actions
+
+Open in GitHub Copilot app
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

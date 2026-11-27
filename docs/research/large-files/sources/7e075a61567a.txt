@@ -1,0 +1,457 @@
+Skip to main content
+
+Skip to search
+
+HTML
+
+HTML: Markup language
+
+HTML reference
+
+Elements
+
+Global attributes
+
+Attributes
+
+See all…
+
+HTML guides
+
+Responsive images
+
+HTML cheatsheet
+
+Date & time formats
+
+See all…
+
+Markup languages
+
+SVG
+
+MathML
+
+XML
+
+CSS
+
+CSS: Styling language
+
+CSS reference
+
+Properties
+
+Selectors
+
+At-rules
+
+Values
+
+See all…
+
+CSS guides
+
+Box model
+
+Animations
+
+Flexbox
+
+Colors
+
+See all…
+
+Layout cookbook
+
+Column layouts
+
+Centering an element
+
+Card component
+
+See all…
+
+JavaScriptJS
+
+JavaScript: Scripting language
+
+JS reference
+
+Standard built-in objects
+
+Expressions & operators
+
+Statements & declarations
+
+Functions
+
+See all…
+
+JS guides
+
+Control flow & error handling
+
+Loops and iteration
+
+Working with objects
+
+Using classes
+
+See all…
+
+Web APIs
+
+Web APIs: Programming interfaces
+
+Web API reference
+
+File system API
+
+Fetch API
+
+Geolocation API
+
+HTML DOM API
+
+Push API
+
+Service worker API
+
+See all…
+
+Web API guides
+
+Using the Web animation API
+
+Using the Fetch API
+
+Working with the History API
+
+Using the Web speech API
+
+Using web workers
+
+All
+
+All web technology
+
+Technologies
+
+Accessibility
+
+HTTP
+
+URI
+
+Web extensions
+
+WebAssembly
+
+WebDriver
+
+See all…
+
+Topics
+
+Media
+
+Performance
+
+Privacy
+
+Security
+
+Progressive web apps
+
+Learn
+
+Learn web development
+
+Frontend developer course
+
+Getting started modules
+
+Core modules
+
+MDN Curriculum
+
+Check out the video course from Scrimba, our partner
+
+Learn HTML
+
+Structuring content with HTML module
+
+Learn CSS
+
+CSS styling basics module
+
+CSS layout module
+
+Learn JavaScript
+
+Dynamic scripting with JavaScript module
+
+Tools
+
+Discover our tools
+
+Playground
+
+HTTP Observatory
+
+Border-image generator
+
+Border-radius generator
+
+Box-shadow generator
+
+Color format converter
+
+Color mixer
+
+Shape generator
+
+About
+
+Get to know MDN better
+
+About MDN
+
+Advertise with us
+
+Community
+
+MDN on GitHub
+
+Blog
+
+Toggle sidebar
+
+Web
+
+Web APIs
+
+Scheduling
+
+isInputPending()
+
+Theme
+
+OS default
+
+Light
+
+Dark
+
+English (US)
+
+Remember language
+Learn more
+
+Deutsch
+
+English (US)
+
+Scheduling: isInputPending() method
+
+Deprecated
+
+Avoid using this feature in new projects.
+The navigator.scheduling.isInputPending() method may incorrectly return false and is not the only case where you might expect to yield.
+This feature may be a candidate for removal from web standards or browsers.
+
+Consider using the following features instead:
+Scheduler API.
+
+See full compatibility
+
+Learn more
+
+Experimental: This is an experimental technology
+Check the Browser compatibility table carefully before using this in production.
+
+The isInputPending() method of the Scheduling interface allows you to check whether there are pending input events in the event queue, indicating that the user is attempting to interact with the page.
+
+This feature can be useful in situations where you have a queue of tasks to run, and you want to yield to the main thread regularly to allow user interaction to occur so that the app is kept as responsive and performant as possible. isInputPending() allows you to yield only when there is input pending, rather than having to do it at arbitrary intervals.
+
+Warning:
+The isInputPending() method has been superseded by features available on the Scheduler interface such as yield(), which are better designed for addressing scheduling tasks. See Don't use isInputPending() for more details.
+
+isInputPending() is called using navigator.scheduling.isInputPending().
+
+In this article
+
+Syntax
+
+Examples
+
+Specifications
+
+Browser compatibility
+
+See also
+
+Syntax
+
+js
+
+isInputPending()
+isInputPending(options)
+
+Parameters
+
+options Optional
+
+An object providing options. Currently, the only option is:
+
+includeContinuous Optional
+
+A boolean, which is false by default. If set to true, it indicates that continuous events should be considered when checking for pending input. Continuous events are trusted events (events dispatched by the browser) that are fired successively, such as mousemove, wheel, touchmove, drag, pointermove, and pointerrawupdate.
+
+Return value
+
+A boolean that indicates whether there are pending input events in the event queue (true) or not (false).
+
+Examples
+
+We can use isInputPending() inside a task runner structure to run the yield() function only when the user is attempting to interact with the page:
+
+js
+
+function yield() {
+return new Promise((resolve) => {
+setTimeout(resolve, 0);
+});
+}
+
+async function main() {
+// Create an array of functions to run
+const tasks = [a, b, c, d, e];
+
+while (tasks.length > 0) {
+// Yield to a pending user input
+if (navigator.scheduling.isInputPending()) {
+await yield();
+} else {
+// Shift the first task off the tasks array
+const task = tasks.shift();
+
+// Run the task
+task();
+}
+}
+}
+
+This allows you to avoid blocking the main thread when the user is actively interacting with the page, potentially providing a smoother user experience. However, by only yielding when necessary, we can continue running the current task when there are no user inputs to process. This also avoids tasks being placed at the back of the queue behind other non-essential browser-initiated tasks that were scheduled after the current one.
+
+Specifications
+
+Specification
+
+Early detection of input events
+# dom-scheduling-isinputpending
+
+Browser compatibility
+
+See also
+
+Scheduler interface
+
+Prioritized Task Scheduling API
+
+Faster input events with Facebook's first browser API contribution on engineering.fb.com (2019)
+
+Better JS scheduling with isInputPending() on developer.chrome.com (2020)
+
+Optimizing long tasks on web.dev (2022)
+
+Help improve MDN
+
+Yes
+
+No
+
+Learn how to contribute
+
+This page was last modified on Sep 27, 2024 by MDN contributors.
+
+View this page on GitHub • Report a problem with this content
+
+Clear filter input
+
+Prioritized Task Scheduling API
+
+Scheduling
+
+Instance methods
+
+isInputPending()
+
+Related pages for Prioritized Task Scheduling API
+
+Navigator.scheduling
+
+Scheduler
+
+TaskController
+
+TaskPriorityChangeEvent
+
+TaskSignal
+
+Window.scheduler
+
+WorkerGlobalScope.scheduler
+
+Your blueprint for a better internet.
+
+MDN
+
+About
+
+Blog
+
+Mozilla careers
+
+Advertise with us
+
+MDN Plus
+
+Product help
+
+Contribute
+
+MDN Community
+
+Community resources
+
+Writing guidelines
+
+MDN Discord
+
+MDN on GitHub
+
+Developers
+
+Web technologies
+
+Learn web development
+
+Guides
+
+Tutorials
+
+Glossary
+
+Hacks blog
+
+Website Privacy Notice
+
+Telemetry Settings
+
+Legal
+
+Community Participation Guidelines
+
+Portions of this content are ©1998–2026 by individual mozilla.org contributors. Content available under a Creative Commons license.

@@ -1,0 +1,480 @@
+Skip to main content
+
+Skip to search
+
+HTML
+
+HTML: Markup language
+
+HTML reference
+
+Elements
+
+Global attributes
+
+Attributes
+
+See all…
+
+HTML guides
+
+Responsive images
+
+HTML cheatsheet
+
+Date & time formats
+
+See all…
+
+Markup languages
+
+SVG
+
+MathML
+
+XML
+
+CSS
+
+CSS: Styling language
+
+CSS reference
+
+Properties
+
+Selectors
+
+At-rules
+
+Values
+
+See all…
+
+CSS guides
+
+Box model
+
+Animations
+
+Flexbox
+
+Colors
+
+See all…
+
+Layout cookbook
+
+Column layouts
+
+Centering an element
+
+Card component
+
+See all…
+
+JavaScriptJS
+
+JavaScript: Scripting language
+
+JS reference
+
+Standard built-in objects
+
+Expressions & operators
+
+Statements & declarations
+
+Functions
+
+See all…
+
+JS guides
+
+Control flow & error handling
+
+Loops and iteration
+
+Working with objects
+
+Using classes
+
+See all…
+
+Web APIs
+
+Web APIs: Programming interfaces
+
+Web API reference
+
+File system API
+
+Fetch API
+
+Geolocation API
+
+HTML DOM API
+
+Push API
+
+Service worker API
+
+See all…
+
+Web API guides
+
+Using the Web animation API
+
+Using the Fetch API
+
+Working with the History API
+
+Using the Web speech API
+
+Using web workers
+
+All
+
+All web technology
+
+Technologies
+
+Accessibility
+
+HTTP
+
+URI
+
+Web extensions
+
+WebAssembly
+
+WebDriver
+
+See all…
+
+Topics
+
+Media
+
+Performance
+
+Privacy
+
+Security
+
+Progressive web apps
+
+Learn
+
+Learn web development
+
+Frontend developer course
+
+Getting started modules
+
+Core modules
+
+MDN Curriculum
+
+Check out the video course from Scrimba, our partner
+
+Learn HTML
+
+Structuring content with HTML module
+
+Learn CSS
+
+CSS styling basics module
+
+CSS layout module
+
+Learn JavaScript
+
+Dynamic scripting with JavaScript module
+
+Tools
+
+Discover our tools
+
+Playground
+
+HTTP Observatory
+
+Border-image generator
+
+Border-radius generator
+
+Box-shadow generator
+
+Color format converter
+
+Color mixer
+
+Shape generator
+
+About
+
+Get to know MDN better
+
+About MDN
+
+Advertise with us
+
+Community
+
+MDN on GitHub
+
+Blog
+
+Toggle sidebar
+
+Web
+
+Web APIs
+
+Web Workers API
+
+Transferable objects
+
+Theme
+
+OS default
+
+Light
+
+Dark
+
+English (US)
+
+Remember language
+Learn more
+
+Deutsch
+
+English (US)
+
+日本語
+
+中文 (简体)
+
+Transferable objects
+
+Transferable objects are objects that own resources that can be transferred from one context to another, ensuring that the resources are only available in one context at a time.
+Following a transfer, the original object is no longer usable; it no longer points to the transferred resource, and any attempt to read or write the object will throw an exception.
+
+Transferable objects are commonly used to share resources that can only be safely exposed to a single JavaScript thread at a time.
+For example, an ArrayBuffer is a transferable object that owns a block of memory.
+When such a buffer is transferred between threads, the associated memory resource is detached from the original buffer and attached to the buffer object created in the new thread.
+The buffer object in the original thread is no longer usable because it no longer owns a memory resource.
+
+Transferring may also be used when creating deep copies of objects with structuredClone().
+Following the cloning operation, the transferred resources are moved rather than copied to the cloned object.
+
+For both postMessage() and structuredClone(), transferred resources have to be attached to the data object, otherwise they would not be available on the receiving end, because the transferable array only indicates how certain resources should be sent, but does not actually send them (although they would always be detached).
+
+The mechanism used to transfer an object's resources depends on the object.
+For example, when an ArrayBuffer is transferred between threads, the memory resource that it points to is literally moved between contexts in a fast and efficient zero-copy operation.
+Other objects may be transferred by copying the associated resource and then deleting it from the old context.
+
+Not all objects are transferable.
+A list of transferable objects is provided below.
+
+In this article
+
+Transferring objects between threads
+
+Transferring during a cloning operation
+
+Supported objects
+
+See also
+
+Transferring objects between threads
+
+The code below demonstrates how transferring works when sending a message from a main thread to a web worker thread.
+The Uint8Array is copied (duplicated) in the worker while its buffer is transferred.
+After transfer any attempt to read or write uInt8Array from the main thread will throw, but you can still check the byteLength to confirm it is now zero.
+
+js
+
+// Create an 8MB "file" and fill it. 8MB = 1024 * 1024 * 8 B
+const uInt8Array = new Uint8Array(1024 * 1024 * 8).map((v, i) => i);
+console.log(uInt8Array.byteLength); // 8388608
+
+// Transfer the underlying buffer to a worker
+worker.postMessage(uInt8Array, [uInt8Array.buffer]);
+console.log(uInt8Array.byteLength); // 0
+
+Note:
+Typed arrays like Int32Array and Uint8Array, are serializable, but not transferable.
+However their underlying buffer is an ArrayBuffer, which is a transferable object.
+We could have sent uInt8Array.buffer in the data parameter, but not uInt8Array in the transfer array.
+
+Transferring during a cloning operation
+
+The code below shows a structuredClone() operation where the underlying buffer is copied from the original object to the clone.
+
+js
+
+const original = new Uint8Array(1024);
+const clone = structuredClone(original);
+console.log(original.byteLength); // 1024
+console.log(clone.byteLength); // 1024
+
+original[0] = 1;
+console.log(clone[0]); // 0
+
+// Transferring the Uint8Array would throw an exception as it is not a transferable object
+// const transferred = structuredClone(original, {transfer: [original]});
+
+// We can transfer Uint8Array.buffer.
+const transferred = structuredClone(original, { transfer: [original.buffer] });
+console.log(transferred.byteLength); // 1024
+console.log(transferred[0]); // 1
+
+// After transferring Uint8Array.buffer cannot be used.
+console.log(original.byteLength); // 0
+
+Supported objects
+
+Interfaces that can be transferred should include this information in their introduction.
+
+Some of the items that various specifications indicate can be transferred are listed below (this list may not be exhaustive!):
+
+ArrayBuffer
+
+AudioData
+
+ImageBitmap
+
+MediaSourceHandle
+
+MediaStreamTrack
+
+MessagePort
+
+MIDIAccess
+
+OffscreenCanvas
+
+ReadableStream
+
+RTCDataChannel
+
+TransformStream
+
+VideoFrame
+
+WebTransportReceiveStream
+
+WebTransportSendStream
+
+WritableStream
+
+Note:
+Transferable objects are marked up in Web IDL files with the attribute [Transferable].
+Browser support may be indicated in the respective object's compatibility information by the transferable subfeature (see RTCDataChannel for an example).
+
+See also
+
+Transferable Objects: Lightning Fast!
+
+Using Web Workers
+
+Transferable objects in the HTML specification
+
+DedicatedWorkerGlobalScope.postMessage()
+
+Help improve MDN
+
+Yes
+
+No
+
+Learn how to contribute
+
+This page was last modified on Sep 18, 2025 by MDN contributors.
+
+View this page on GitHub • Report a problem with this content
+
+Clear filter input
+
+Web Workers API
+
+Guides
+
+Using Web Workers
+
+Functions and classes available to Web Workers
+
+The structured clone algorithm
+
+Transferable objects
+
+Interfaces
+
+DedicatedWorkerGlobalScope
+
+SharedWorker
+
+SharedWorkerGlobalScope
+
+Worker
+
+WorkerGlobalScope
+
+WorkerLocation
+
+WorkerNavigator
+
+Your blueprint for a better internet.
+
+MDN
+
+About
+
+Blog
+
+Mozilla careers
+
+Advertise with us
+
+MDN Plus
+
+Product help
+
+Contribute
+
+MDN Community
+
+Community resources
+
+Writing guidelines
+
+MDN Discord
+
+MDN on GitHub
+
+Developers
+
+Web technologies
+
+Learn web development
+
+Guides
+
+Tutorials
+
+Glossary
+
+Hacks blog
+
+Website Privacy Notice
+
+Telemetry Settings
+
+Legal
+
+Community Participation Guidelines
+
+Portions of this content are ©1998–2026 by individual mozilla.org contributors. Content available under a Creative Commons license.

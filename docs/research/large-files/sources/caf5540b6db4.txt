@@ -1,0 +1,111 @@
+discuss.CodeMirror
+
+Noticable lag when dealing with large files
+
+v6
+
+s-ashwin
+
+March 10, 2023, 8:55am
+
+1
+
+While loading large files, I could see a visible lag in the editor for displaying the content.
+
+File used: test-data/large-file.json at master · json-iterator/test-data · GitHub
+
+Is there any optimizations planned on this, or is there any workaround for this
+
+marijn
+
+March 10, 2023, 9:29am
+
+2
+
+What does ‘loading’ mean here? What exactly are you doing and how are you measuring the lag?
+
+s-ashwin
+
+March 10, 2023, 9:41am
+
+3
+
+I mean setting the content of editor in doc
+
+const view = new EditorView({ extensions: extensions, doc: largeData, parent: element });
+
+It takes 3-4 seconds to display the content
+
+marijn
+
+March 10, 2023, 10:00am
+
+4
+
+Testing with that file, I’m seeing 47 milliseconds taken for creating the editor state (where the file is split into lines and built into a document tree) and 9 milliseconds for creating an editor view with that state.
+
+s-ashwin
+
+March 10, 2023, 10:41am
+
+5
+
+In my case, this takes a bit longer in initial render.
+
+I use @codemirror/lang-json for syntax highighting and a theme
+
+Also i have a usecase where i need to replace this huge content with another huge content. I currently use
+
+view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: data } });
+
+This again takes few seconds to reflect. Is there any other optimized ways to achive this?
+
+marijn
+
+March 10, 2023, 10:56am
+
+6
+
+s-ashwin:
+
+In my case, this takes a bit longer in initial render.
+
+Unless you can provide a minimal, self-contained test case, this doesn’t really tell me anything useful about CodeMirror.
+
+s-ashwin:
+
+This again takes few seconds to reflect. Is there any other optimized ways to achive this?
+
+It takes 200ms on my machine. Again, not sure what else your benchmark is doing.
+
+s-ashwin
+
+March 10, 2023, 11:13am
+
+7
+
+Okay will try to share that.
+
+s-ashwin
+
+March 10, 2023, 11:27am
+
+8
+
+Meanwhile i just added a console log before and after creating the view
+
+image1100×408 44.7 KB
+
+image846×166 12 KB
+
+A difference of 3 seconds @marijn
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Powered by Discourse, best viewed with JavaScript enabled

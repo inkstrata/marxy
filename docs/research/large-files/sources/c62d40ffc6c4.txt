@@ -1,0 +1,567 @@
+Obsidian Forum
+
+Renderer exits and window turns black while indexing large Markdown files (Obsidian crash)
+
+Bug reports
+
+reading,
+indexing,
+repro
+
+A_Big_Hippo
+
+June 29, 2026, 2:33am
+
+1
+
+Description
+
+Obsidian opens the vault normally, but shortly after indexing starts the UI turns into a black window. The main Obsidian
+
+process remains alive and Windows still considers the window responsive, but the renderer process exits.
+
+This appears to be triggered by large Markdown files in the vault.
+
+Environment
+
+● Obsidian version: 1.12.7
+
+● OS: Windows 10, build 19045
+
+● Installer path: C:\Users\****\AppData\Local\Programs\Obsidian\Obsidian.exe
+
+● Community plugins: disabled during the final reproduction
+
+Steps to reproduce
+
+I prepared a sanitized reproduction repository:
+
+github.com
+
+GitHub - heyifei97/obsidian-large-md-index-crash-repro
+
+Contribute to heyifei97/obsidian-large-md-index-crash-repro development by creating an account on GitHub.
+
+1 . Clone the repository.
+
+2 . Run:
+
+powershell -ExecutionPolicy Bypass -File .\scripts\generate-repro-vault.ps1
+
+1 . Open repro-vault in Obsidian.
+
+2 . Wait for indexing.
+
+3 . Optional process monitor:
+
+powershell -ExecutionPolicy Bypass -File .\scripts\observe-obsidian-renderer.ps1
+
+Expected result
+
+Obsidian should index large Markdown files without the renderer process exiting.
+
+If a file is too large or expensive to index safely, Obsidian should skip it, warn the user, or degrade gracefully while keeping the
+
+UI usable.
+
+Actual result
+
+The vault opens briefly, then the window turns black.
+
+Process inspection showed that the main process, GPU process, and utility process remained alive,
+
+while Obsidian.exe --type=renderer disappeared after about 15 seconds.
+
+Local investigation
+
+I tested by physically moving folders in and out of the vault and clearing Obsidian runtime caches between runs:
+
+● Empty test vault: stable for 60 seconds.
+
+● Original vault with only root-level small files: stable for 60 seconds.
+
+● Original vault with most directories restored: stable.
+
+● Restoring a task transcript folder caused the renderer to disappear after about 15 seconds.
+
+● Moving only Markdown files larger than 5 MB out of that folder restored stability for at least 90 seconds.
+
+The problematic set contained eight large Markdown files:
+
+Size Description
+
+37.82 MB Large task transcript Markdown
+
+9.06 MB Large task transcript Markdown
+
+8.57 MB Large task transcript Markdown
+
+7.62 MB Large task transcript Markdown
+
+7.50 MB Large task transcript Markdown
+
+6.76 MB Large task transcript Markdown
+
+5.63 MB Large task transcript Markdown
+
+5.25 MB Large task transcript Markdown
+
+Files smaller than 5 MB in the same folder did not trigger the issue during local testing.
+
+Workaround
+
+Move very large Markdown files outside the vault, split them into smaller notes, or exclude them before opening Obsidian.
+
+Notes
+
+This looks related to the indexing pipeline for large Markdown documents. The failure mode is severe because the user sees
+
+only a black window and cannot recover from inside the app.
+
+Android: renderer crashes on every vault open when initial metadata indexing exceeds the WebView heap limit (~2,000 files, 32 MB, no plugins)
+
+Martins
+
+June 30, 2026, 1:50am
+
+2
+
+I guess I’m having this issue as well.
+
+Not sure if because of file size, my markdown files doesn’t grow larger than 2 MB, but I’m getting this black screen as well.
+
+Obsidian freezes, it becomes unresponsive, but I still can move its window and resize it, then it turns all black and I can’t do anything.
+
+Maybe it has to do with Obsidian Sync? I’ve activated it a while ago and since then I started to have problems.
+
+Not sure how to reproduce my error though.
+
+wuhwuh
+
+July 6, 2026, 5:10am
+
+3
+
+same issue i have this for more than a year and no fix yet. indexer hogs on this and obsidian goes blank
+
+image293×101 1.99 KB
+
+ariehen
+
+July 6, 2026, 9:26am
+
+4
+
+Improve support for very large markdown files (greater than 1 MB) Feature requests
+
+Currently, there is no enforced hard cap on the maximum size of a single markdown file.
+However, as a markdown file gets larger, different problems start to become apparent.
+There are performance slowdowns first, likely due to the indexing process struggling to parse the file.
+The automatic savings strategy, along with file recovery snapshots and syncing frequency should also be fine tuned for these cases.
+Beyond a certain point, large files can cause OOM problems, especially on mobile.
+
+I’ve tried to open excessively large .md files in Typora, iA Writer, Typewriter, and Marktext. They all crash.
+
+JOFator
+
+July 25, 2026, 8:09am
+
+5
+
+Confirming this on macOS with a reproducible generator — no real data needed.
+
+Environment
+
+Obsidian 1.12.7 (Installer 1.12.7), macOS 26.5.2 (Darwin 25.5.0), Apple Silicon
+
+No community plugins installed at all
+
+Crash reproduces with every core plugin disabled and a freshly generated empty workspace.json, and after deleting the whole .obsidian folder and clearing ~/Library/Application Support/obsidian/IndexedDB
+
+Symptom
+
+Vault opens, “Obsidian is indexing your vault…” flashes for ~1.5 s, then the window goes blank white. The main process stays alive; only the renderer dies. Nothing in the UI can recover from it — you have to change the vault contents from outside the app.
+
+Renderer log (--enable-logging=stderr):
+
+<--- Last few GCs --->
+
+[58101] 1589 ms: Scavenge (during sweeping) 3886.7 (3899.9) -> 3884.9 MB, ... allocation failure
+
+[58101] 1594 ms: Scavenge (during sweeping) 3886.8 (3899.9) -> 3885.8 MB, ... allocation failure
+
+Renderer process crashed
+
+macOS crash report: Obsidian Helper (Renderer)-*.ips, EXC_BREAKPOINT (SIGTRAP) — V8 hitting the ~3.9 GB old-space limit during the initial index pass.
+
+Minimal reproduction (51 files, no real content)
+
+# creates a vault that kills the renderer 3/3 times on 1.12.7
+
+import os
+
+v = "repro-vault"; os.makedirs(v + "/notes", exist_ok=True)
+
+lines = ["# Synthetic export\n"]
+
+for c in range(950):
+
+lines += [f"\n## Customer Request\n",
+
+f"- **CASE-{c:05d}** - state done\n",
+
+f"- **Thread ID:** `{c:08x}-ec34-457f-9c5e-b5286ec58b9f`\n\n"]
+
+for m in range(30):
+
+lines += [f"### Message {m+1} - 2025-09-0{m%9+1}\n",
+
+"Lorem ipsum dolor sit amet, consectetur adipiscing elit. "
+
+"Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n\n"]
+
+lines.append("---\n")
+
+open(v + "/conversations.md", "w").write("".join(lines))
+
+for i in range(50):
+
+open(f"{v}/notes/note-{i:03d}.md", "w").write(
+
+f"---\ntype: note\n---\n\n# Note {i}\n\nLink to [[note-{(i+1)%50:03d}]].\n")
+
+Result: conversations.md = 6.4 MB / 93 104 lines / 29 450 headings. Opening this vault crashes the renderer 3/3 runs, peak heap 4 003 MB every time.
+
+The shape that matters seems to be many thousands of headings in one file, not just raw size — the real-world file that hit us was smaller (4.4 MB) but still fatal, and the report above mentions a crash at 1.2 MB / 34 000 lines.
+
+Second, independent trigger: a large .git inside the vault
+
+Worth noting because it makes the failure look random. Our vault also crashed with no large markdown at all when .git had grown to 6 175 loose objects / 7 330 files / 118 MB across nested repos. Packing them (git gc) dropped the vault from 10 520 to 4 383 files and that alone fixed the no-large-file case. So the renderer seems to be accounting for files it does not parse. Combined bisection results:
+
+vault
+result
+
+large md + bloated .git
+crash 7/7
+
+large md removed, .git still bloated
+crash 2/2
+
+.git packed, large md still present
+crash 3/3
+
+both fixed
+OK 3/3, no GC pressure at all
+
+What does not help (all measured, ~60 launches)
+
+disabling every core plugin, incl. Graph view
+
+deleting workspace.json, or the entire .obsidian folder
+
+clearing the IndexedDB cache
+
+--js-flags="--max-old-space-size=12288" — Electron does not pass this to the renderer; peak stayed at 3 885 MB
+
+moving the file into a dot-folder inside the vault (.no-index/) — it must be outside the vault entirely
+
+Suggestion
+
+A size guard would turn an unrecoverable blank window into a normal degraded state: skip metadata parsing above a threshold, or at least surface a notice instead of letting V8 abort. Right now the only way out is editing the vault from Finder, which users can’t be expected to figure out from a white screen.
+
+openotoch
+
+September 11, 2026, 6:51pm
+
+6
+
+Confirming on macOS — Obsidian 1.13.7 (Electron 43.3.0), Apple Silicon M1, no plugins.
+
+Vault: 503 notes, 89 MB. The heavy files are conversation transcripts with
+
+~82,000 headings and ~1,000,000 lines total.
+
+Bisection (loaded subsets and watched for crashes):
+
+22 MB (3 files) → OK
+
+38 MB (6 files) → renderer dies, window goes black
+
+Ruled out with tests: community plugins (none), core plugins (disabled all but
+
+essentials), .obsidian config (fresh config), Electron version (tested 1.13.7,
+
+1.11.7, 1.10.6, 1.9.14 — all crash), and a full reboot.
+
+Crash signature: v8::internal::OptimizingCompileTaskExecutor (DedicatedWorker
+
+thread). 25 .ips crash reports available. Happy to provide the crashing file.
+
+rex4539
+
+September 14, 2026, 5:32am
+
+7
+
+Steps to reproduce
+
+Start indexing.
+
+Expected result
+
+No crash
+
+Actual result
+
+Obsidian Helper (Renderer) crashes during every indexing.
+
+Environment
+
+SYSTEM INFO:
+
+Obsidian version: 1.13.7
+
+Installer version: 1.12.7
+
+Operating system: Darwin Kernel Version 24.6.0: Sun Aug 23 20:30:56 PDT 2026; root:xnu-11417.140.69.712.69~1/RELEASE_X86_64 24.6.0
+
+Login status: not logged in
+
+Language: en
+
+Insider build toggle: off
+
+Live preview: on
+
+Base theme: adapt to system
+
+Community theme: none
+
+Snippets enabled: 0
+
+Restricted mode: on
+
+RECOMMENDATIONS:
+
+none
+
+Additional information
+
+Obsidian Helper (Renderer)-2026-09-13-080053.ips.zip (10.2 KB)
+
+rex4539
+
+September 16, 2026, 4:20am
+
+8
+
+Any updates on this? The app has become unusable as I crashes on every single launch.
+
+WhiteNoise
+
+September 16, 2026, 4:42am
+
+9
+
+Do you have markdown files larger than 500 KB in your vault?
+
+If so, move them out and try again.
+
+rex4539
+
+September 16, 2026, 4:37pm
+
+10
+
+Yes, I have a couple of large markdown files. One is sized 5.1MB and the other is 900KB. Unfortunately those can’t be moved. They are essential to my workflow. Is there any fix you can apply that fixes the crash?
+
+WhiteNoise
+
+September 16, 2026, 6:15pm
+
+11
+
+if you temporarily move them out, does it start?
+
+WhiteNoise
+
+September 16, 2026, 6:31pm
+
+12
+
+There are two options here:
+
+There is something that trips our parser that we can fix. You will have to share those notes with me via DM so I can check if there is some specific problem.
+
+OR
+
+The is beyond what we can currently handle (see here).
+
+WhiteNoise
+
+September 16, 2026, 6:49pm
+
+13
+
+JOFator:
+
+moving the file into a dot-folder inside the vault (.no-index/) — it must be outside the vault entirely
+
+This should not happen. Obsidian ignores everything inside .folders. I can’t reproduce it. Are you sure that moving the large notes into a .folder doesn’t help?
+
+WhiteNoise
+
+September 16, 2026, 6:53pm
+
+14
+
+Of all the people experiencing this issue, Please, download and reinstall Obsidian. I am not able to repro a crash with the examples files/vaults you provided with a recent version of Obsidian.
+
+sven.s
+
+October 6, 2026, 9:04am
+
+15
+
+Confirming this on macOS 27.0 with Obsidian 1.14.4 (Electron 43.7.7) on Apple Silicon. The vault begins indexing and the renderer crashes within about 1.6 seconds, leaving a grey/blank window. Crash report: Obsidian Helper (Renderer), EXC_BREAKPOINT / SIGTRAP, with V8/Electron frames and a DedicatedWorker thread.
+
+The issue persists after updating to 1.14.4 and after excluding suspected large Markdown files via userIgnoreFilters. Community plugins are not involved. This appears to be the same renderer/indexing failure described in this thread.
+
+mcsee
+
+October 6, 2026, 5:00pm
+
+16
+
+Steps to reproduce
+
+Install Obsidian 1.14.4 on Android (moto g84 5G, Android 15).
+
+Create a new vault in app storage and connect it to an existing Obsidian Sync remote vault (~750 notes, ~34 MB).
+
+Let the initial sync/indexing run.
+
+Did you follow the troubleshooting guide?
+
+Yes:
+
+Restricted mode (community plugins off): still crashes.
+
+Uninstalled and reinstalled the app: still crashes.
+
+Deleted all local vault copies and re-synced from scratch into a clean vault: still crashes.
+
+Checked the whole vault on desktop for corrupt files (NULL bytes, invalid UTF-8, unclosed frontmatter, giant lines, invalid file names): nothing found.
+
+Expected result
+
+The vault syncs and indexes normally, as it did before.
+
+Actual result
+
+The app closes about 8 seconds after launch, every time, while indexing.
+
+adb logcat shows the Android System WebView renderer process crashing
+
+with SIGTRAP on a DedicatedWorker thread. That takes down the app:
+
+F/DEBUG: pid: 2421, tid: 2839, name: DedicatedWorker >>> com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0 <<<
+F/DEBUG: signal 5 (SIGTRAP), code 1 (TRAP_BRKPT), fault addr --------
+F/DEBUG: Process uptime: 8s
+F/DEBUG: #00 pc 0000000003c66f14 .../com.google.android.webview-.../base.apk!libwebviewchromium.so (BuildId: 7cde7240daeffca7cbc725fe0127898abce43763)
+E/chromium: [ERROR:android_webview/browser/aw_browser_terminator.cc:173] Renderer process (2421) crash detected (code 5).
+F/chromium: [FATAL:third_party/crashpad/crashpad/client/crashpad_client_linux.cc:744] Render process (2421)'s crash wasn't handled by all associated webviews, triggering application crash.
+F/libc: Fatal signal 5 (SIGTRAP), code 1 (TRAP_BRKPT), fault addr 0x6e43e5a1d8 in tid 2360 (md.obsidian), pid 2360 (md.obsidian)
+I/ActivityManager: Process md.obsidian (pid 2360) has died: fg TOP
+
+There were no out-of-memory or lowmemorykiller messages before the crash.
+
+Environment
+
+Obsidian Android: 1.14.4 (versionCode 389)
+
+Android System WebView: 153.0.8010.36 (updated 2026-09-23)
+
+Device: motorola moto g84 5G (bangkk), Android 15, build V1TCS35H.88-20-1-6-6, security patch 2026-08-01, 8 GB RAM
+
+Sync: Obsidian Sync
+
+Desktop (Windows, 1.14.4) opens the same vault normally.
+
+(I can’t paste “Show debug info”, because the app crashes before I can open it.)
+
+Additional information
+
+The crash started around 2026-10-02. It looks like a regression in the
+
+1.14.x mobile release combined with WebView 153, since the crash happens
+
+in a worker thread during indexing. I can provide the full logcat or
+
+test builds if needed.
+
+WhiteNoise
+
+October 6, 2026, 5:21pm
+
+17
+
+To the people who have this problem:
+
+FInd files that are larger than 1MB and move them out of your vault. Let it sync.
+
+If that solves your problem.
+
+If you are willing, DM those files to me for inspection. I will check if there is something specifically wong about it.
+
+If there’s isn’t anything wrong about them, it may just be a case that they are too complex for obsidian currently (see here).
+
+sven.s
+
+October 7, 2026, 6:11am
+
+18
+
+I did. Excluded them from the vault directory. Same issue. Crash after few seconds.
+
+WhiteNoise
+
+October 7, 2026, 3:19pm
+
+19
+
+sven.s:
+
+The issue persists after updating to 1.14.4 and after excluding suspected large Markdown files via userIgnoreFilters.
+
+I am not sure what you are referring here. Did you MOVE THEM OUT of your vault?
+
+281461930
+
+October 9, 2026, 12:20am
+
+20
+
+I can reproduce a Renderer EXC_BREAKPOINT / SIGTRAP with a fully synthetic Markdown note in a new, otherwise empty vault on macOS 26.5.2 (arm64). This may help isolate the large-file crash discussed here.
+
+The note is generated from neutral tokens; its generator reads no user files. It contains 16,000 numbered list entries and 5,334 fenced code blocks. The generated repro.md is 1,684,986 bytes (SHA-256: 256f4415f1eaa0b8b4ae608c8aa1bd50bddaf86a6ab290116a6a481c21e157d0). Opening it, or restoring a workspace that opens it, has crashed the Renderer in isolated tests with Obsidian 1.12.7 and the official 1.14.4 installer. On 1.14.4 the crash also reproduced with all Core plugins disabled and no Community plugins. Separate tests with --disable-gpu and with Hardware acceleration disabled still reproduced it. A 1.12.7 same-version reinstall did not resolve the synthetic reproducer.
+
+Attached: Obsidian_B_public_synthetic_reproducer_20261009.zip (generator, generated note, reproduction steps, normalized crash metadata only; no private vault file or raw crash report).
+
+Could the team check whether this is a known Markdown rendering/indexing or Electron issue? Is there a supported way to exclude one Markdown file before the Renderer processes it while keeping the file at its original path and unchanged? I can test a suggested fix or diagnostic build against the synthetic case first.
+
+Obsidian_B_public_synthetic_reproducer_20261009.zip (241.7 KB)
+
+next page →
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Privacy Policy
+
+Powered by Discourse, best viewed with JavaScript enabled

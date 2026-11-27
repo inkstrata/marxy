@@ -1,0 +1,209 @@
+Guide
+
+1. Cheat sheet
+
+2. Developer guide
+
+2.1. Block Structure Parsing
+
+2.2. Inline Processing
+
+2.3. String Handling
+
+2.4. HTML Generation
+
+2.5. Performance Optimizations
+
+2.6. Adding Extensions
+
+3. Code examples
+
+3.1. broken-link-callbacks.rs
+
+3.2. event-filter.rs
+
+3.3. events.rs
+
+3.4. footnote-rewrite.rs
+
+3.5. parser-map-event-print.rs
+
+3.6. parser-map-tag-print.rs
+
+3.7. string-to-string.rs
+
+3.8. normalize-wikilink.rs
+
+4. Detailed Specifications
+
+4.1. CommonMark specification
+
+4.1.1. CommonMark smart punctuation
+
+4.2. GitHub strikethrough spec
+
+4.2.1. strikethrough extensions
+
+4.3. GitHub tables spec
+
+4.3.1. table extensions
+
+4.4. GitHub tasklist spec
+
+4.5. footnotes extension
+
+4.5.1. old footnotes extension
+
+4.6. math
+
+4.7. heading attributes
+
+4.8. metadata blocks
+
+4.9. wikilinks
+
+Light
+
+Rust
+
+Coal
+
+Navy
+
+Ayu
+
+pulldown-cmark guide
+
+Performance Optimizations
+
+This chapter covers the key performance optimizations implemented in pulldown-cmark. The library uses several techniques to achieve fast Markdown parsing while maintaining standards compliance and a clean architecture.
+
+SIMD-Accelerated Character Scanning
+
+One of the most performance-critical operations in Markdown parsing is scanning text for special characters that may indicate inline markup. pulldown-cmark uses SIMD (Single Instruction Multiple Data) instructions on x86_64 platforms to accelerate this scanning.
+
+The SIMD optimization is implemented in scanners.rs and operates by:
+
+Creating a lookup table of special characters (like *, _, etc.)
+
+Loading 16 bytes at a time into a SIMD register
+
+Performing parallel lookups to identify special characters
+
+Generating a bitmask indicating which bytes matched
+
+#![allow(unused)]
+fn main() {
+// Example from firstpass.rs showing the core scanning logic
+#[target_feature(enable = "ssse3")]
+unsafe fn compute_mask(lut: &[u8; 16], bytes: &[u8], ix: usize) -> i32 {
+let bitmap = _mm_loadu_si128(lut.as_ptr() as *const __m128i);
+let input = _mm_loadu_si128(bytes.as_ptr().add(ix) as *const __m128i);
+let bitset = _mm_shuffle_epi8(bitmap, input);
+let higher_nibbles = _mm_and_si128(_mm_srli_epi16(input, 4), _mm_set1_epi8(0x0f));
+let bitmask = _mm_shuffle_epi8(bitmask_lookup, higher_nibbles);
+let tmp = _mm_and_si128(bitset, bitmask);
+let result = _mm_cmpeq_epi8(tmp, bitmask);
+_mm_movemask_epi8(result)
+}
+}
+
+This SIMD optimization can provide significant speedups when processing large documents, since character scanning is such a common operation. The code falls back to scalar processing when SIMD is not available.
+
+Memory-Efficient String Storage
+
+The library uses a custom string type CowStr that can represent strings. Refer to the string handling documentation for more details on the performance optimizations inherent to this type.
+
+Tree Structure Optimization
+
+The AST (Abstract Syntax Tree) is stored in a vec-based tree structure that provides:
+
+Fast node creation during parsing
+
+Efficient tree traversal
+
+Memory locality from vector storage
+
+#![allow(unused)]
+fn main() {
+pub(crate) struct Tree<T> {
+nodes: Vec<Node<T>>,
+spine: Vec<TreeIndex>,
+cur: Option<TreeIndex>,
+}
+
+pub(crate) struct Node<T> {
+pub child: Option<TreeIndex>,
+pub next: Option<TreeIndex>,
+pub item: T,
+}
+}
+
+Key optimizations in the tree structure include:
+
+Using indices instead of pointers for node references
+
+Maintaining a "spine" for fast access to ancestor nodes
+
+Storing nodes contiguously in a vector for better cache usage
+
+Using non-zero indices to save space in option types
+
+Protection Against Pathological Input
+
+It is important that the parser performance remain linear with respect to the input length, otherwise the parser would find itself vulnerable to potential DOS attacks. This may not be important for all consumers, but for anyone depending on the library to handle user generated content this is critical.
+
+Several protections are in place to prevent quadratic time or memory usage on malicious input:
+
+Link nesting depth is limited:
+
+#![allow(unused)]
+fn main() {
+pub(crate) const LINK_MAX_NESTED_PARENS: usize = 32;
+}
+
+Table column expansion is bounded:
+
+#![allow(unused)]
+fn main() {
+// Limit to prevent quadratic growth from empty cells
+const MAX_AUTOCOMPLETED_CELLS: usize = 1 << 18;
+}
+
+Link reference expansion tracking:
+
+#![allow(unused)]
+fn main() {
+// Track expansion to prevent quadratic growth from reference definitions
+let mut link_ref_expansion_limit: usize = text.len().max(100_000);
+}
+
+Key Performance Considerations
+
+When using the library, keep in mind:
+
+SIMD optimizations require the simd feature and x86_64 platform
+
+Large documents benefit most from SIMD scanning
+
+The parser is designed for streaming, allowing incremental processing
+
+Pathological input protection may limit processing of extremely nested or repetitive content
+
+Benchmarking
+
+The library includes benchmarks to measure performance of key operations:
+
+String handling with different storage strategies
+
+Tree operations
+
+Full document parsing
+
+Pathological input cases
+
+When making changes that could affect performance, run the benchmarks to ensure optimizations are effective:
+
+cargo bench
+
+Note that some optimizations (like SIMD) are platform-specific, so testing on multiple platforms may be necessary.

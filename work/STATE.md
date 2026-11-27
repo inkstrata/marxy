@@ -116,7 +116,7 @@ All of it is in `todo.md`.
   - E22, E23: geometry table and near-reader typesetting. Built in wave 5, lost, being rebuilt.
   - F24: the rest of teardown. Built in round 16, lost, being rebuilt.
 - **To try in a real window:** W5 to W9 (Windows).
-- **Later:** F5, F6, F25, S9, S10, S17, P4 to P7.
+- **Later:** F5, F6, F26, S9, S10, S17, P4 to P7.
 
 Lost with the Windows checkout (M1), and what survives of each:
 
@@ -126,7 +126,7 @@ Lost with the Windows checkout (M1), and what survives of each:
   three in `mode-swap` and one in `splice-all`. Both of wave 5's reviewers missed an `outline-rows`
   regression that the orchestrator caught. Its account, reports, reviews and measurements are in
   `runs/2026-11-26-wave-05/`; the rebuild has to answer those five reds.
-- **`web-shell`** (S17) and **`open-with`** (F25): notes under Later.
+- **`web-shell`** (S17) and **`open-with`** (F26): notes under Later.
 - **The waves plan:** the queue after wave 5 is in `reports/2026-11-24-waves-handoff/00-handoff.md`, with
   briefs 02 to 05 and the experiments X1 to X10. No experiment reports beyond those cited there exist.
 

@@ -1,0 +1,271 @@
+Docs.rs
+
+tauri-2.9.2
+
+Platform
+
+x86_64-apple-darwin
+
+x86_64-apple-ios
+
+x86_64-linux-android
+
+x86_64-pc-windows-msvc
+
+x86_64-unknown-linux-gnu
+
+Feature flags
+
+docs.rs
+
+About docs.rs
+
+Badges
+
+Builds
+
+Metadata
+
+Shorthand URLs
+
+Download
+
+Rustdoc JSON
+
+Build queue
+
+Privacy policy
+
+Rust
+
+Rust website
+
+The Book
+
+Standard Library API Reference
+
+Rust by Example
+
+The Cargo Guide
+
+Clippy Documentation
+
+tauri 2.9.2
+
+Make tiny, secure apps for all desktop platforms with Tauri
+
+Crate
+
+Source
+
+Builds
+
+Feature flags
+
+Documentation
+
+Hide files
+
+..
+
+bundle.global.js
+
+core.js
+
+freeze_prototype.js
+
+init.js
+
+ipc-protocol.js
+
+ipc.js
+
+isolation.js
+
+pattern.js
+
+process-ipc-message-fn.js
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+
+// Copyright 2019-2024 Tauri Programme within The Commons Conservancy
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT
+
+;(function () {
+/**
+* A runtime generated key to ensure an IPC call comes from an initialized frame.
+*
+* This is declared outside the `window.__TAURI_INVOKE__` definition to prevent
+* the key from being leaked by `window.__TAURI_INVOKE__.toString()`.
+*/
+const __TAURI_INVOKE_KEY__ = __TEMPLATE_invoke_key__
+
+const processIpcMessage = __RAW_process_ipc_message_fn__
+const osName = __TEMPLATE_os_name__
+const fetchChannelDataCommand = __TEMPLATE_fetch_channel_data_command__
+let customProtocolIpcFailed = false
+
+// on Android we never use it because Android does not have support to reading the request body
+const canUseCustomProtocol = osName !== 'android'
+
+function sendIpcMessage(message) {
+const { cmd, callback, error, payload, options } = message
+
+if (
+!customProtocolIpcFailed
+&& (canUseCustomProtocol || cmd === fetchChannelDataCommand)
+) {
+const { contentType, data } = processIpcMessage(payload)
+
+const headers = new Headers((options && options.headers) || {})
+headers.set('Content-Type', contentType)
+headers.set('Tauri-Callback', callback)
+headers.set('Tauri-Error', error)
+headers.set('Tauri-Invoke-Key', __TAURI_INVOKE_KEY__)
+
+fetch(window.__TAURI_INTERNALS__.convertFileSrc(cmd, 'ipc'), {
+method: 'POST',
+body: data,
+headers
+})
+.then((response) => {
+const callbackId =
+response.headers.get('Tauri-Response') === 'ok' ? callback : error
+// we need to split here because on Android the content-type gets duplicated
+switch ((response.headers.get('content-type') || '').split(',')[0]) {
+case 'application/json':
+return response.json().then((r) => [callbackId, r])
+case 'text/plain':
+return response.text().then((r) => [callbackId, r])
+default:
+return response.arrayBuffer().then((r) => [callbackId, r])
+}
+})
+.then(
+([callbackId, data]) => {
+window.__TAURI_INTERNALS__.runCallback(callbackId, data)
+},
+(e) => {
+console.warn(
+'IPC custom protocol failed, Tauri will now use the postMessage interface instead',
+e
+)
+// failed to use the custom protocol IPC (either the webview blocked a custom protocol or it was a CSP error)
+// so we need to fallback to the postMessage interface
+customProtocolIpcFailed = true
+sendIpcMessage(message)
+}
+)
+} else {
+// otherwise use the postMessage interface
+const { data } = processIpcMessage({
+cmd,
+callback,
+error,
+options: {
+...options,
+customProtocolIpcBlocked: customProtocolIpcFailed
+},
+payload,
+__TAURI_INVOKE_KEY__
+})
+// `window.ipc.postMessage` came from `tauri-runtime-wry` > `wry` [`with_ipc_handler`](https://github.com/tauri-apps/wry/blob/a0403b9e2f1ff9d73be7dce1184f058afcaa1d82/src/lib.rs#L1130)
+window.ipc.postMessage(data)
+}
+}
+
+Object.defineProperty(window.__TAURI_INTERNALS__, 'postMessage', {
+value: sendIpcMessage
+})
+})()

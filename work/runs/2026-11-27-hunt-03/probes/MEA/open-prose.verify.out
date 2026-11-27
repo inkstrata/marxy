@@ -1,0 +1,96 @@
+ 3:33  up 1 day,  6:51, 1 user, load averages: 37.24 31.83 35.46
+{
+ "kind": "md-prose",
+ "bytes": 125694,
+ "timedOut": false,
+ "completeMs": 746,
+ "busyWallMs": 3936,
+ "neverQuiet": false,
+ "taskMs": 2392,
+ "scriptMs": 620,
+ "layoutMs": 259,
+ "recalcMs": 273,
+ "layouts": 256,
+ "recalcs": 501,
+ "nodes": 12664,
+ "top": [
+  "1880ms (idle) :0",
+  "1379ms (program) :0",
+  "479ms getClientRects :0",
+  "256ms openLabelBefore packages/core/src/parse/bounded-gfm.ts:5",
+  "107ms getBoundingClientRect :0",
+  "89ms querySelectorAll :0",
+  "60ms (garbage collector) :0",
+  "48ms hyphenOffsets packages/typeset/src/hyphenate.ts:20",
+  "42ms badness packages/typeset/src/ragged.ts:11",
+  "41ms mayChangeRoot http://127.0.0.1:1491/src/parts/reading-parts.ts:8",
+  "29ms go node_modules/.vite/deps/mdast-util-from-markdown.js?v=0299fb70:1181",
+  "27ms replaceWith :0",
+  "24ms charRect packages/typeset/src/measure.ts:51",
+  "19ms closest :0"
+ ]
+}
+{
+ "kind": "md-prose",
+ "bytes": 250945,
+ "timedOut": false,
+ "completeMs": 7629,
+ "busyWallMs": 16456,
+ "neverQuiet": false,
+ "taskMs": 14184,
+ "scriptMs": 1869,
+ "layoutMs": 1164,
+ "recalcMs": 1139,
+ "layouts": 734,
+ "recalcs": 1489,
+ "nodes": 26126,
+ "top": [
+  "9332ms (program) :0",
+  "2230ms getClientRects :0",
+  "1972ms (idle) :0",
+  "1100ms querySelectorAll :0",
+  "582ms getBoundingClientRect :0",
+  "214ms (garbage collector) :0",
+  "165ms place packages/typeset/src/index.ts:357",
+  "114ms insertHyphens packages/typeset/src/hyphenate.ts:85",
+  "81ms badness packages/typeset/src/ragged.ts:11",
+  "75ms closest :0",
+  "72ms replaceWith :0",
+  "65ms setStart :0",
+  "64ms consume node_modules/.vite/deps/mdast-util-from-markdown.js?v=0299fb70:1189",
+  "51ms buildBlocks http://127.0.0.1:1491/src/render/post.ts:97"
+ ]
+}
+{
+ "kind": "md-prose",
+ "bytes": 502027,
+ "timedOut": false,
+ "completeMs": 4749,
+ "busyWallMs": 41005,
+ "neverQuiet": false,
+ "taskMs": 38423,
+ "scriptMs": 8301,
+ "layoutMs": 6089,
+ "recalcMs": 4695,
+ "layouts": 1627,
+ "recalcs": 3335,
+ "nodes": 41202,
+ "top": [
+  "17387ms (program) :0",
+  "10032ms getClientRects :0",
+  "2792ms getBoundingClientRect :0",
+  "2784ms (idle) :0",
+  "2044ms querySelectorAll :0",
+  "674ms (garbage collector) :0",
+  "585ms badness packages/typeset/src/ragged.ts:11",
+  "551ms insertHyphens packages/typeset/src/hyphenate.ts:85",
+  "260ms nodeFor http://127.0.0.1:1491/src/render/post.ts:46",
+  "228ms subtokenize node_modules/.vite/deps/chunk-22UTZQ6S.js?v=0299fb70:1228",
+  "218ms buildBlocks http://127.0.0.1:1491/src/render/post.ts:97",
+  "205ms collectTokens packages/typeset/src/runs.ts:3",
+  "202ms go node_modules/.vite/deps/mdast-util-from-markdown.js?v=0299fb70:1181",
+  "200ms applyHang packages/typeset/src/hang.ts:60"
+ ]
+}
+growth 125694->250945: task x5.93 script x3.01 layout x4.49 recalc x4.17 layouts x2.87
+growth 250945->502027: task x2.71 script x4.44 layout x5.23 recalc x4.12 layouts x2.22

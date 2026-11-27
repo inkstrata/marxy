@@ -1,0 +1,97 @@
+{
+ "chapter": "06-main-thread.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "THR-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "d4d2a7b72c3b"
+  },
+  "THR-02": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "c9a504e8e50a"
+  },
+  "THR-03": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "538a8ae4deab"
+  },
+  "THR-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "060c2de4f8c0"
+  },
+  "THR-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "15c644af644f"
+  },
+  "THR-06": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "0bcfdfc6e689"
+  },
+  "THR-07": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "e8a2bc76c4bd"
+  },
+  "THR-08": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "0f9bbb8cff4a"
+  },
+  "THR-09": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "c24c7ec47902"
+  },
+  "THR-10": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "a9025ab8a6d5"
+  },
+  "THR-11": {
+   "tags": [
+    "unverified"
+   ],
+   "hash": "06db068e4b16"
+  },
+  "THR-12": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "98e72bfcd1b8"
+  },
+  "THR-13": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "fd2a4cbe13fd"
+  },
+  "THR-14": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "77fe7127e5fd"
+  },
+  "THR-15": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "9a82e810211e"
+  }
+ }
+}

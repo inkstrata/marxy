@@ -1,0 +1,635 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+mnater
+
+Hyphenopoly
+
+Repository navigation
+
+Code
+
+Issues5 ( 5 )
+
+Pull requests2 ( 2 )
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+Hyphenopoly
+Public
+
+Sponsor
+
+NotificationsYou must be signed in to change notification settings
+
+Fork50 (50)
+
+Star735 (735)You must be signed in to star a repository
+
+About
+
+Hyphenation for node and Polyfill for client-side hyphenation.
+
+mnater.github.io/Hyphenopoly/
+
+Topics
+
+hyphenationhyphenation-algorithmjavascript
+
+Resources
+
+Readme
+
+MIT license
+
+Code of conduct
+
+Code of conduct
+
+Contributing
+
+Contributing
+
+Activity
+
+Stars
+
+735 stars
+
+Watchers
+
+14 watching
+
+Forks
+
+50 forks
+
+Report repository
+
+master
+
+Branches Tags
+
+Go to file
+
+Code
+Open more actions menu
+
+Latest commit
+
+History
+795 Commits
+
+795 Commits
+
+Folders and files
+
+Name Name
+Last commit message
+
+Last commit date
+
+.circleci
+
+.circleci
+
+.github
+
+.github
+
+docs
+
+docs
+
+examples
+
+examples
+
+lang
+
+lang
+
+patterns
+
+patterns
+
+src
+
+src
+
+test
+
+test
+
+testsuite
+
+testsuite
+
+tools
+
+tools
+
+.all-contributorsrc
+
+.all-contributorsrc
+
+CHANGELOG.md
+
+CHANGELOG.md
+
+CODE_OF_CONDUCT.md
+
+CODE_OF_CONDUCT.md
+
+CONTRIBUTING.md
+
+CONTRIBUTING.md
+
+Hyphenopoly.js
+
+Hyphenopoly.js
+
+Hyphenopoly_Loader.js
+
+Hyphenopoly_Loader.js
+
+LICENSE
+
+LICENSE
+
+README.md
+
+README.md
+
+eslint.config.js
+
+eslint.config.js
+
+hyphenopoly.module.js
+
+hyphenopoly.module.js
+
+package-lock.json
+
+package-lock.json
+
+package.json
+
+package.json
+
+View all files
+
+Repository files navigation
+
+README
+
+Code of conduct
+
+Contributing
+
+MIT license
+
+More items
+
+Hyphenopoly.js
+
+Hyphenopoly.js is a JavaScript-polyfill for hyphenation in HTML: it hyphenates text if the user agent does not support CSS-hyphenation at all or not for the required languages and it is a Node.js-module.
+
+The package consists of the following parts:
+
+Hyphenopoly_Loader.js (~11KB unpacked, ~2KB minified and compressed): feature-checks the client and loads other resources if necessary.
+
+Hyphenopoly.js (~36KB unpacked, ~5KB minified and compressed): does the whole DOM-foo and wraps wasm.
+
+wasm-Modules (sizes differ! e.g. en-us.wasm: ~21KB uncompressed, ~15KB compressed): core hyphenation functions and hyphenation patterns in a space saving binary format (including pattern license).
+
+hyphenopoly.module.js: the node module to hyphenate plain text strings.
+
+Usage (Browser)
+
+Place all the code for Hyphenopoly at the top of the header (immediately after the <title> tag) to ensure resources are loaded as early as possible.
+
+You'll have to insert two script blocks. In the first block, load Hyphenopoly_Loader.js as an external script.
+In the second block, provide the initial configurations for Hyphenopoly_Loader as an inline script. This also triggers all further steps.
+
+Also, don't forget to enable CSS hyphenation.
+
+Example:
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>Example 1</title>
+<script src="./Hyphenopoly_Loader.js"></script>
+<script>
+Hyphenopoly.config({
+require: {
+"la": "honorificabilitudinitas",
+"de": "Silbentrennungsalgorithmus",
+"en-us": "Supercalifragilisticexpialidocious"
+},
+setup: {
+selectors: {
+".container": {}
+}
+}
+});
+</script>
+<style type="text/css">
+body {
+width:60%;
+margin-left:20%;
+}
+p {
+text-align: justify;
+margin: 0 2em 0 0;
+}
+.container {
+display: flex;
+hyphens: auto;
+-ms-hyphens: auto;
+-moz-hyphens: auto;
+-webkit-hyphens: auto;
+}
+</style>
+</head>
+<body>
+<h1>Example 1</h1>
+<div class="container">
+<p lang="la">Qua de causa Helvetii quoque reliquos Gallos virtute praecedunt, quod fere cotidianis proeliis cum Germanis contendunt, cum aut suis finibus eos prohibent aut ipsi in eorum finibus bellum gerunt.</p>
+<p lang="en-us">For which reason the Helvetii also surpass the rest of the Gauls in valor, as they contend with the Germans in almost daily battles, when they either repel them from their own territories, or themselves wage war on their frontiers.</p>
+<p lang="de">Aus diesem Grund übertreffen auch die Helvetier die übrigen Gallier an Tapferkeit, weil sie sich in fast täglichen Gefechten mit den Germanen messen, wobei sie diese entweder von ihrem Gebiet fernhalten oder selbst in deren Gebiet kämpfen.</p>
+</div>
+</body>
+</html>
+
+Let's go through this example step by step:
+
+UTF-8
+
+Make sure your page is encoded as utf-8.
+
+script blocks – load, configure and run Hyphenopoly_Loader.js
+
+Hyphenopoly_Loader.js needs some information to run. This information is provided as a parameter object to the function Hyphenopoly.config(). This information is stored in a globally accessible Object called window.Hyphenopoly. Hyphenopoly_Loader.js and (if necessary) Hyphenopoly.js will add other methods and properties only to this object – there will be no other global variables or functions beyond this object.
+
+require
+
+The configuration object must have exactly one property called require which itself is an object containing at least one nameValuePair where the name is a language code string (Some languages are region-specific. See the patterns directory for supported languages. E.g. just using en won't work, use en-usor en-gb) and the value is a long word string in that language (preferably more than 12 characters long).
+
+If you want to force the usage of Hyphenopoly.js for a language (e.g. for testing purposes), write "FORCEHYPHENOPOLY" instead of the long word.
+
+Hyphenopoly_Loader.js tests if the client (aka browser, aka user agent) supports CSS hyphenation for the language(s) given in require. In the example above, it will test if the client supports CSS-hyphenation for Latin, German and US-English.
+
+If one of the given languages isn't supported, it automatically hides the document's contents and loads Hyphenopoly.js and the necessary WebAssembly modules.
+
+Hyphenopoly.js – once loaded – will hyphenate the elements according to the settings and unhide the document when it's done.
+
+If something goes wrong and Hyphenopoly.js is unable to unhide the document, Hyphenopoly_Loader.js has a timeout that kicks in after some time (defaults to 1000ms) and unhides the document and writes a message to the console.
+
+If the browser supports all required languages, the script deletes the Hyphenopoly-object and terminates without further ado.
+
+enable CSS-hyphenation
+
+Hyphenopoly by default hyphenates elements (and their children) with the classname .hyphenate. Don't forget to enable CSS-hyphenation for the classes eventually handled by Hyphenopoly.
+
+Usage (node)
+
+Install:
+
+npm i hyphenopoly
+
+import hyphenopoly from "hyphenopoly";
+
+const hyphenator = hyphenopoly.config({
+"exceptions": {
+"en-us": "en-han-ces"
+},
+"hyphen": "•",
+"loader": async (file, patDir) => {
+const {readFile} = await import("node:fs/promises");
+return readFile(new URL(file, patDir));
+},
+"require": ["de", "en-us"]
+});
+
+async function hyphenateEn(text) {
+const hyphenateText = await hyphenator.get("en-us");
+console.log(hyphenateText(text));
+}
+
+async function hyphenateDe(text) {
+const hyphenateText = await hyphenator.get("de");
+console.log(hyphenateText(text));
+}
+
+hyphenateEn("hyphenation enhances justification.");
+hyphenateDe("Silbentrennung verbessert den Blocksatz.");
+
+Support this project
+
+Automatic hyphenation
+
+The algorithm used for hyphenation was developed by Franklin M. Liang for TeX. It works more or less like this:
+
+Load a set of precomputed language specific patterns. The patterns are stored in a structure called a trie, which is very efficient for this task.
+
+Collect all patterns that are a substring of the word to be hyphenated.
+
+Combine the numerical values between characters: higher values overwrite lower values.
+
+Odd values are hyphenation points (except if the hyphenation point is left from leftmin and right from rightmin), replace them with a soft hyphen and drop the other values.
+
+Repeat steps 2. - 4. for all words longer than minWordLength
+
+Example:
+
+Hyphenation
+h y p h e n a t i o n
+h y3p h
+h e2n
+h e n a4
+h e n5a t
+1n a
+n2a t
+1t i o
+2i o
+o2n
+h0y3p0h0e2n5a4t2i0o2n
+Hy-phen-ation
+
+The patterns are precomputed and available for many languages on CTAN and tex-hyphen. For Hyphenopoly.js they are converted to a succinct trie data structure (including pattern license, metadata, and the patterns).
+
+The original patterns are computed from a large list of hyphenated words by a program called patgen. They aim to find some hyphenation points – not all – because it's better to miss a hyphenation point than to have some false hyphenation points. Most patterns are really good, but none are error free.
+
+These patterns vary in size. This is mostly due to the different linguistic characteristics of the languages.
+
+Contributors ✨
+
+Thanks goes to these wonderful people (emoji key):
+
+Stephan Hoyer
+📖 💻
+
+Thomas Broadley
+📖
+
+Kai Lüke
+💻
+
+Sebastian Blank
+💡
+
+ReLater
+🚧
+
+julian-zatloukal
+📖
+
+Maik Jablonski
+📖
+
+yashha
+💻
+
+Dan Burzo
+💻
+
+Tobias Speicher
+💻
+
+This project follows the all-contributors specification. Contributions of any kind welcome!
+
+About
+
+Hyphenation for node and Polyfill for client-side hyphenation.
+
+mnater.github.io/Hyphenopoly/
+
+Topics
+
+hyphenationhyphenation-algorithmjavascript
+
+Resources
+
+Readme
+
+MIT license
+
+Code of conduct
+
+Code of conduct
+
+Contributing
+
+Contributing
+
+Activity
+
+Stars
+
+735 stars
+
+Watchers
+
+14 watching
+
+Forks
+
+50 forks
+
+Report repository
+
+Releases
+
+Sponsor this project
+
+Used by
+
+Contributors
+
+Languages
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

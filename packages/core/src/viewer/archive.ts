@@ -59,7 +59,8 @@ export function archiveTree(entries: readonly ArchiveEntryLike[]): ArchiveNode {
       if (leaf && !isDir && at.kids.get(key)?.entry) key = `${seg}\u0000${e.index}`;
       let next = at.kids.get(key);
       if (!next) {
-        next = node(seg, `${segs.slice(0, i + 1).join('/')}${isDir ? '/' : ''}`, isDir);
+        // From the parent's path, not by joining the segments again: a join per node is quadratic in the depth.
+        next = node(seg, `${at.path}${seg}${isDir ? '/' : ''}`, isDir);
         at.kids.set(key, next);
       }
       if (leaf) next.entry = e;
@@ -132,8 +133,14 @@ export interface ArchiveSums {
   readonly encrypted: number;
 }
 
+/** A folder of the listing's paths, one segment below its parent, for counting folders without joining paths. */
+type Folder = Map<string, Folder>;
+
 export function archiveSums(listing: ArchiveListingLike): ArchiveSums {
-  const folders = new Set<string>();
+  // Each folder is counted once, as a node of a tree of path segments. Joining every prefix of every path instead
+  // copies the square of a path's depth in characters, which a hostile listing of deep, long names makes seconds.
+  const top: Folder = new Map();
+  let folders = 0;
   let files = 0;
   let unpacked = 0;
   let packed = 0;
@@ -142,7 +149,16 @@ export function archiveSums(listing: ArchiveListingLike): ArchiveSums {
   let encrypted = 0;
   for (const e of listing.entries) {
     const segs = e.path.replace(/\/$/, '').split('/');
-    for (let i = 1; i < segs.length + (e.kind === 'dir' ? 1 : 0); i++) folders.add(segs.slice(0, i).join('/'));
+    let at = top;
+    for (let i = 0; i < segs.length - (e.kind === 'dir' ? 0 : 1); i++) {
+      let next = at.get(segs[i]!);
+      if (!next) {
+        next = new Map();
+        at.set(segs[i]!, next);
+        folders++;
+      }
+      at = next;
+    }
     if (e.kind === 'dir') continue;
     files++;
     if (e.size === null) unknownSize = true;
@@ -153,7 +169,7 @@ export function archiveSums(listing: ArchiveListingLike): ArchiveSums {
     }
     if (e.encrypted) encrypted++;
   }
-  return { files, folders: folders.size, unpacked, packed: anyPacked ? packed : null, unknownSize, encrypted };
+  return { files, folders, unpacked, packed: anyPacked ? packed : null, unknownSize, encrypted };
 }
 
 /** "524 : 1 on 39.1 KB" for the Archive card's unpacked row; null when it means nothing (nothing unpacked). */

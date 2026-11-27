@@ -1,0 +1,549 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+AykutSarac
+
+jsoncrack.com
+
+Repository navigation
+
+Code
+
+Issues34 ( 34 )
+
+Pull requests14 ( 14 )
+
+Discussions
+
+Actions
+
+Projects
+
+Security and quality
+
+Insights
+
+More items
+
+jsoncrack.com
+Public
+
+NotificationsYou must be signed in to change notification settings
+
+Fork3.6k (3.6k)
+
+Star44.6k (44.6k)You must be signed in to star a repository
+
+About
+
+✨ Innovative and open-source visualization application that transforms various data formats, such as JSON, YAML, XML and CSV into interactive graphs.
+
+jsoncrack.com/
+
+Topics
+
+csvdiagramsgraphjsonnextjsreacttoolvisualizationyaml
+
+Resources
+
+Readme
+
+Apache-2.0 license
+
+Code of conduct
+
+Code of conduct
+
+Contributing
+
+Contributing
+
+Activity
+
+Stars
+
+44.6k stars
+
+Watchers
+
+226 watching
+
+Forks
+
+3.6k forks
+
+Report repository
+
+main
+
+Branches Tags
+
+Go to file
+
+Code
+Open more actions menu
+
+Latest commit
+
+History
+1,896 Commits
+
+1,896 Commits
+
+Folders and files
+
+Name Name
+Last commit message
+
+Last commit date
+
+.github
+
+.github
+
+.vscode
+
+.vscode
+
+apps
+
+apps
+
+packages/jsoncrack-react
+
+packages/jsoncrack-react
+
+.gitignore
+
+.gitignore
+
+.npmrc
+
+.npmrc
+
+CODE_OF_CONDUCT.md
+
+CODE_OF_CONDUCT.md
+
+CONTRIBUTING.md
+
+CONTRIBUTING.md
+
+LICENSE.md
+
+LICENSE.md
+
+README.md
+
+README.md
+
+package.json
+
+package.json
+
+pnpm-lock.yaml
+
+pnpm-lock.yaml
+
+pnpm-workspace.yaml
+
+pnpm-workspace.yaml
+
+turbo.json
+
+turbo.json
+
+View all files
+
+Repository files navigation
+
+README
+
+Code of conduct
+
+Contributing
+
+Apache-2.0 license
+
+More items
+
+JSON Crack
+
+The open-source JSON Editor.
+
+Learn more »
+
+ToDiagram
+·
+Discord
+·
+Website
+·
+Issues
+·
+VS Code
+·
+Chrome
+
+About the Project
+
+Visualize JSON into interactive graphs
+
+JSON Crack is a tool for visualizing JSON data in a structured, interactive graphs, making it easier to explore, format, and validate JSON. It offers features like converting JSON to other formats (CSV, YAML), generating JSON Schema, executing queries, and exporting visualizations as images. Designed for both readability and usability.
+
+Visualizer: Instantly convert JSON, YAML, CSV, and XML into interactive graphs or trees in dark or light mode.
+
+Convert: Seamlessly transform data formats, like JSON to CSV or XML to JSON, for easy sharing.
+
+Format & Validate: Beautify and validate JSON, YAML, and CSV for clear and accurate data.
+
+Code Generation: Generate TypeScript interfaces, Golang structs, Kotlin data classes, Rust serde types, and JSON Schema.
+
+JSON Schema: Create and validate JSON Schema.
+
+Advanced Tools: Run jq and JSON path queries.
+
+Export Image: Download your visualization as PNG, JPEG, or SVG.
+
+Privacy: All data processing is local; nothing is stored on our servers.
+
+Recognition
+
+Integrations
+
+VS Code Extension
+
+Chrome Extension
+
+npm Package (jsoncrack-react)
+
+Contributing
+
+Found a bug or missing feature? Open an issue on GitHub Issues.
+
+Want to contribute code or docs? Start with our contribution guide.
+
+Sponsors & Support
+
+If you find JSON Crack useful, you can support the project by using ToDiagram. For sponsorship inquiries, reach out at contact@todiagram.com.
+
+Stay Up-to-Date
+
+JSON Crack officially launched as v1.0 on the 17th of February 2022 and we've come a long way so far. Watch releases of this repository to be notified of future updates:
+
+Getting Started
+
+To get a local copy up and running, please follow these simple steps.
+
+Prerequisites
+
+Here is what you need to be able to run JSON Crack.
+
+Node.js (Version: >=24.x)
+
+pnpm (Version: >=10)
+
+Development
+
+Setup
+
+Clone the repo into a public GitHub repository (or fork https://github.com/AykutSarac/jsoncrack.com/fork). If you plan to distribute the code, read the LICENSE for additional details.
+
+git clone https://github.com/AykutSarac/jsoncrack.com.git
+
+Go to the project folder
+
+cd jsoncrack.com
+
+Install packages
+
+pnpm install
+
+Run the web app
+
+pnpm dev:www
+
+# Running on http://localhost:3000/
+
+Useful Commands
+
+From repository root:
+
+# Web app
+pnpm dev:www
+pnpm build:www
+
+# VS Code extension
+pnpm dev:vscode
+pnpm build:vscode
+pnpm lint:vscode
+pnpm lint:fix:vscode
+
+# Chrome extension
+pnpm dev:chrome
+pnpm build:chrome
+pnpm lint:chrome
+
+# All workspaces
+pnpm dev
+pnpm build
+pnpm lint
+
+Debug VS Code Extension
+
+Open repository root in VS Code.
+
+Press F5.
+
+Select Run VSCode Extension (apps/vscode) when prompted.
+
+In the Extension Development Host window, open a .json file and run:
+JSON Crack: Enable JSON Crack visualization.
+
+Docker
+
+🐳 Docker assets are in apps/www.
+If you want to run JSON Crack locally:
+
+cd apps/www
+
+# Build a Docker image with:
+docker compose build
+
+# Run locally with docker compose
+docker compose up
+
+# Go to http://localhost:8888
+
+Configuration
+
+The supported node limit can be changed by editing NEXT_PUBLIC_NODE_LIMIT in apps/www/.env.
+
+License
+
+See LICENSE for more information.
+
+About
+
+✨ Innovative and open-source visualization application that transforms various data formats, such as JSON, YAML, XML and CSV into interactive graphs.
+
+jsoncrack.com/
+
+Topics
+
+csvdiagramsgraphjsonnextjsreacttoolvisualizationyaml
+
+Resources
+
+Readme
+
+Apache-2.0 license
+
+Code of conduct
+
+Code of conduct
+
+Contributing
+
+Contributing
+
+Activity
+
+Stars
+
+44.6k stars
+
+Watchers
+
+226 watching
+
+Forks
+
+3.6k forks
+
+Report repository
+
+Releases
+
+Used by
+
+Contributors
+
+Languages
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

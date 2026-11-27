@@ -1,0 +1,52 @@
+<!--
+{
+  "availability" : [
+    "iOS: 14.0.0 -",
+    "iPadOS: 14.0.0 -",
+    "macCatalyst: -",
+    "macOS: 11.0.0 -",
+    "visionOS: -"
+  ],
+  "documentType" : "symbol",
+  "framework" : "WebKit",
+  "identifier" : "/documentation/WebKit/WKWebView/find(_:configuration:completionHandler:)",
+  "metadataVersion" : "0.1.0",
+  "role" : "Instance Method",
+  "symbol" : {
+    "kind" : "Instance Method",
+    "modules" : [
+      "WebKit"
+    ],
+    "preciseIdentifier" : "s:So9WKWebViewC6WebKitE4find_13configuration17completionHandlerySS_So19WKFindConfigurationCySo0I6ResultCctF"
+  },
+  "title" : "find(_:configuration:completionHandler:)"
+}
+-->
+
+# find(_:configuration:completionHandler:)
+
+Searches for the specified string in the web view’s content.
+
+```
+@MainActor @preconcurrency func find(_ string: String, configuration: WKFindConfiguration = .init(), completionHandler: @escaping @MainActor @Sendable (WKFindResult) -> Void)
+```
+
+## Parameters
+
+`string`
+
+The search string to use.
+
+`configuration`
+
+The search parameters. Use this object to specify whether the search is case sensitive, whether it moves forward or backward, and whether it wraps when it reaches the end of the page.
+
+`completionHandler`
+
+The completion handler to call with the results of the search. This handler has no return value and takes the following parameter:
+
+- result: The object that contains the results of the search.
+
+---
+
+Copyright &copy; 2026 Apple Inc. All rights reserved. | [Terms of Use](https://www.apple.com/legal/internet-services/terms/site.html) | [Privacy Policy](https://www.apple.com/privacy/privacy-policy)

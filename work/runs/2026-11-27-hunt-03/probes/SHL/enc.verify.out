@@ -1,0 +1,35 @@
+uptime at run: load averages 36-45 (shared Mac); cpu = process CPU seconds (getrusage), wall = elapsed
+sjis 1000000 run0: decode cpu 0.071s wall 1.038902416s table 4000000 B text 1500000 B | readings cpu 0.058s wall 740.486667ms rows 13 | sniff(open guess) cpu 0.000s wall 1.625µs -> utf-8 Utf8
+sjis 1000000 run1: decode cpu 0.071s wall 991.115792ms table 4000000 B text 1500000 B | readings cpu 0.059s wall 784.32ms rows 13 | sniff(open guess) cpu 0.000s wall 1.667µs -> utf-8 Utf8
+sjis 2000000 run0: decode cpu 0.128s wall 816.258416ms table 8000000 B text 3000000 B | readings cpu 0.123s wall 982.104ms rows 13 | sniff(open guess) cpu 0.000s wall 1.375µs -> utf-8 Utf8
+sjis 2000000 run1: decode cpu 0.141s wall 246.453792ms table 8000000 B text 3000000 B | readings cpu 0.124s wall 1.00612875s rows 13 | sniff(open guess) cpu 0.000s wall 1.5µs -> utf-8 Utf8
+   growth decode cpu x2.00 vs previous size
+sjis 4000000 run0: decode cpu 0.268s wall 1.444169667s table 16000000 B text 6000000 B | readings cpu 0.228s wall 2.248323292s rows 13 | sniff(open guess) cpu 0.000s wall 1.833µs -> utf-8 Utf8
+sjis 4000000 run1: decode cpu 0.260s wall 2.847045375s table 16000000 B text 6000000 B | readings cpu 0.231s wall 2.144689709s rows 13 | sniff(open guess) cpu 0.000s wall 2µs -> utf-8 Utf8
+   growth decode cpu x1.85 vs previous size
+natural sjis rep1 (66 B): sniff -> utf-8 Utf8; looks_like_utf8=true
+natural sjis rep50 (3300 B): sniff -> utf-8 Utf8; looks_like_utf8=true
+natural sjis rep3000 (198000 B): sniff -> utf-8 Utf8; looks_like_utf8=true
+natural sjis rep1 (66 B): sniff -> utf-8 Utf8; looks_like_utf8=true
+natural sjis rep50 (3300 B): sniff -> utf-8 Utf8; looks_like_utf8=true
+natural sjis rep3000 (198000 B): sniff -> utf-8 Utf8; looks_like_utf8=true
+natural sjis rep1 (52 B): sniff -> utf-8 Utf8; looks_like_utf8=true
+natural sjis rep50 (2600 B): sniff -> utf-8 Utf8; looks_like_utf8=true
+natural sjis rep3000 (156000 B): sniff -> utf-8 Utf8; looks_like_utf8=true
+natural gbk rep1 (72 B): sniff -> utf-8 Utf8
+natural gbk rep50 (3600 B): sniff -> utf-8 Utf8
+natural gbk rep1 (34 B): sniff -> utf-8 Utf8
+natural gbk rep50 (1700 B): sniff -> utf-8 Utf8
+control no-no sjis: "utf-8"
+latin1 1000000 run0: sniff cpu 0.086s wall 383.931125ms -> windows-1252 Guess | readings cpu 0.106s wall 354.101917ms | decode cpu 0.091s wall 356.4115ms (windows-1252)
+latin1 1000000 run1: sniff cpu 0.079s wall 359.13275ms -> windows-1252 Guess | readings cpu 0.106s wall 741.545583ms | decode cpu 0.086s wall 470.3805ms (windows-1252)
+latin1 2000000 run0: sniff cpu 0.090s wall 401.055792ms -> windows-1252 Guess | readings cpu 0.147s wall 904.085542ms | decode cpu 0.107s wall 198.384916ms (windows-1252)
+latin1 2000000 run1: sniff cpu 0.089s wall 456.760292ms -> windows-1252 Guess | readings cpu 0.149s wall 640.171875ms | decode cpu 0.100s wall 504.741917ms (windows-1252)
+latin1 4000000 run0: sniff cpu 0.090s wall 401.048792ms -> windows-1252 Guess | readings cpu 0.185s wall 624.382208ms | decode cpu 0.108s wall 660.075125ms (windows-1252)
+latin1 4000000 run1: sniff cpu 0.085s wall 406.319833ms -> windows-1252 Guess | readings cpu 0.185s wall 1.1001335s | decode cpu 0.109s wall 514.246833ms (windows-1252)
+cp1251 1000000 run0: sniff cpu 0.074s wall 911.760042ms -> windows-1251 Guess | readings cpu 0.137s wall 1.379670583s | decode cpu 0.090s wall 790.2505ms (windows-1251)
+cp1251 1000000 run1: sniff cpu 0.072s wall 803.450208ms -> windows-1251 Guess | readings cpu 0.125s wall 340.002417ms | decode cpu 0.084s wall 559.246041ms (windows-1251)
+cp1251 2000000 run0: sniff cpu 0.080s wall 521.583875ms -> windows-1251 Guess | readings cpu 0.186s wall 582.601542ms | decode cpu 0.102s wall 540.676541ms (windows-1251)
+cp1251 2000000 run1: sniff cpu 0.084s wall 527.952792ms -> windows-1251 Guess | readings cpu 0.190s wall 1.296069708s | decode cpu 0.109s wall 837.201291ms (windows-1251)
+cp1251 4000000 run0: sniff cpu 0.092s wall 161.036833ms -> windows-1251 Guess | readings cpu 0.306s wall 2.319365708s | decode cpu 0.128s wall 796.723125ms (windows-1251)
+cp1251 4000000 run1: sniff cpu 0.092s wall 650.908459ms -> windows-1251 Guess | readings cpu 0.311s wall 2.395912875s | decode cpu 0.124s wall 443.153375ms (windows-1251)
