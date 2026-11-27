@@ -1,0 +1,498 @@
+Mozilla Home
+
+Privacy
+
+Cookies
+
+Legal
+
+Bugzilla
+
+Quick Search Tips
+Advanced Search
+
+Browse
+
+Advanced Search
+
+New Bug
+
+Reports
+
+Documentation
+
+Log In
+
+Log In with GitHub
+
+or
+
+Remember me
+
+Create an Account
+·
+Forgot Password
+
+Browse
+
+Advanced Search
+
+New Bug
+
+Reports
+
+Documentation
+
+Copy Summary
+▾
+
+Markdown
+
+Markdown (bug number)
+
+Plain Text
+
+HTML
+
+View ▾
+
+Reset Sections
+
+Expand All Sections
+
+Collapse All Sections
+
+History
+
+JSON
+
+XML
+
+Open
+
+Bug 2005283
+
+Opened 11 months ago
+Updated 7 months ago
+
+Is WebKit shaping 50x faster than Firefox?
+
+*
+Summary:
+
+Is WebKit shaping 50x faster than Firefox?
+
+Categories
+
+(Core :: Graphics: Text, task)
+
+Product:
+
+Core
+▾
+
+Core
+
+Shared components used by Firefox and other Mozilla software, including handling of Web content; Gecko, HTML, CSS, layout, DOM, scripts, images, networking, etc. Issues with web page layout probably go here, while Firefox user interface issues belong in the Firefox product. (More info)
+
+See Open Bugs in This Product
+
+File New Bug in This Product
+
+Watch This Product
+
+Component:
+
+Graphics: Text
+▾
+
+Core :: Graphics: Text
+
+Issues with glyph rasterization and painting, font format support, and interfacing with platform font APIs. For issues with font selection, text shaping, and glyph selection, see the Layout: Text and Fonts component.
+
+See Open Bugs in This Component
+
+Recently Fixed Bugs in This Component
+
+File New Bug in This Component
+
+Watch This Component
+
+Version:
+
+unspecified
+
+Platform:
+
+Unspecified
+
+Unspecified
+
+Type:
+
+task
+
+Priority:
+
+Not set
+
+Severity:
+
+--
+
+Points:
+
+---
+
+Tracking
+
+()
+
+Status:
+
+NEW
+
+Status:
+
+NEW
+
+---
+
+Mark as Assigned
+
+Milestone:
+
+---
+
+Iteration:
+
+---
+
+Project Flags:
+
+a11y-review
+
+---
+
+Accessibility Severity
+
+---
+
+Performance Impact
+
+---
+
+Size Estimate
+
+---
+
+Webcompat Priority
+
+---
+
+Webcompat Score
+
+---
+
+Tracking Flags:
+
+Tracking
+Status
+
+relnote-firefox
+
+---
+
+thunderbird_esr115
+
+---
+
+---
+
+thunderbird_esr153
+
+---
+
+---
+
+firefox-esr115
+
+---
+
+---
+
+firefox-esr153
+
+---
+
+---
+
+firefox161
+
+---
+
+---
+
+firefox162
+
+---
+
+---
+
+firefox163
+
+---
+
+---
+
+People
+
+(Reporter: mgaudet, Unassigned)
+
+Assignee:
+
+Unassigned
+
+Assignee:
+
+Reset Assignee to default
+
+Mentors:
+
+---
+
+QA Contact:
+
+Reset QA Contact to default
+
+Reporter:
+
+mgaudet
+
+Triage Owner:
+
+lsalzman
+
+CC:
+
+10 people
+
+References
+
+(Blocks 1 open bug)
+
+Depends on:
+
+---
+
+Blocks:
+
+speedometer3
+
+Dependency tree
+/ graph
+
+Regressions:
+
+---
+
+Regressed by:
+
+---
+
+URL:
+
+See Also:
+
+2008619
+
+Details
+
+Alias:
+
+---
+
+Keywords:
+
+---
+
+Whiteboard:
+
+---
+
+QA Whiteboard:
+
+---
+
+Has STR:
+
+---
+
+Change Request:
+
+---
+
+Votes:
+
+1
+
+Bug Flags:
+
+behind-pref
+
+firefox-backlog
+
+sec-bounty
+
+?
+
+sec-bounty-hof
+
+in-qa-testsuite
+
+in-testsuite
+
+qe-verify
+
+Crash Data
+
+Signature:
+
+None
+
+Security
+
+(public)
+
+This bug is publicly visible.
+
+User Story
+
+Bottom &darr;
+
+Tags ▾
+
+Reset
+
+Timeline ▾
+
+Reset
+
+Collapse All
+
+Expand All
+
+Comments Only
+
+Matthew Gaudet (he/him) [:mgaudet]
+
+Reporter
+
+Description
+
+&bull;
+
+11 months ago
+
+&bull;
+
+Edited
+
+Looking at the SP3 test Editor-TipTap, one thing that's notable is that we have lots of samples inside Harfbuzz, specifically in gfxHarfBuzzShaper::ShapeText. Trying to find an equivalent call for a profile of WebKit, and the closest I can find is CTFontShapeGlyphs. But across a 200 iteration run of Sp3 we see 54x more samples in Harfbuzz relative to CTFontShapeGlyphs.
+
+Here are two profiles to look at:
+
+Safari: https://share.firefox.dev/4a0cKBq
+
+Firefox: https://share.firefox.dev/48LGAaJ
+
+It seems likely that I'm actually trying to compare incomparable things here, but I'm opening this bug because if it were accurate, this might be a 2% win on Editor-TipTap.
+
+I asked Jonathan Kew what's his thoughts were, and he mentioned two things:
+
+Are we actually shaping the same text content with the same font resource? If the browsers are using different fonts (e.g. because the test uses generic font-family names, and the font defaults are configured differently), results are not comparable. E.g. if one font has kerning and ligatures, and the other doesn't, the cost of shaping may legitimately be significantly different.
+
+Perhaps more likely, the test is doing something that causes us to discard and re-create text frames frequently, and webkit manages to avoid that (e.g. making incremental updates rather than rebuilding everything), so the real difference is at a higher level than shaping.
+
+I don't have good answers to this; but if anyone does want to look into this, I thought they were good points to keep in mind.
+
+One other note from Jeff is that Harfbuzz is dealing with an AAT font from the profile which he suggests may not be as well optimized, as they're apparently an Apple thing.
+
+Jonathan Kew [:jfkthame]
+
+Comment 1
+
+&bull;
+
+11 months ago
+
+AAT shaping in HarfBuzz is pretty fast -- Behdad has done some substantial optimization there in recent releases. So while it's always worth looking, I seriously doubt that it's many times slower than Core Text.
+
+Matthew Gaudet (he/him) [:mgaudet]
+
+Reporter
+
+Updated
+
+&bull;
+
+10 months ago
+
+See Also: &rarr; 2008619
+
+Worcester12345
+
+Comment 2
+
+&bull;
+
+10 months ago
+
+Please add "PERF" key word. Thank you.
+
+Jeff Muizelaar [:jrmuizel]
+
+Comment 3
+
+&bull;
+
+10 months ago
+
+It turns out CTFontShapeGlyphs is a private API so that's fun.
+
+Anyways I wrote stand alone test cases that shape a chunk of the same text using Helvetica Neue using harfbuzz and CTFontShapeGlyphs and the speed was roughly the same. This suggests to me that WebKit is just doing a lot less shaping.
+
+Justin Link
+
+Comment 4
+
+&bull;
+
+7 months ago
+
+In bug 2030147 we have found one significant cause of excessive text shaping in TipTap (and a few other sub-tests).
+
+Worcester12345
+
+Comment 5
+
+&bull;
+
+7 months ago
+
+off-topic
+
+Comment hidden (off-topic)
+
+(In reply to Worcester12345 from comment #2)
+
+Please add "PERF" key word. Thank you.
+
+If you give me permission to add this, I will do that.
+
+Thanks.
+
+You need to log in
+before you can comment on or make changes to this bug.
+
+Top &uarr;

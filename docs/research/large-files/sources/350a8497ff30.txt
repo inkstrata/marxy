@@ -1,0 +1,48 @@
+Obsidian Forum
+
+Reading mode (and Canvas): Implement some form of progressive rendering for long lists and callouts
+
+Feature requests
+
+reading,
+canvas
+
+WhiteNoise
+
+October 28, 2024, 7:59pm
+
+1
+
+Usually Obsidian renders only the parts of a note that are visible on screen. However, lists are rendered (and kept on the DOM) in their entirety in a single shot. Very long (unbroken) lists can therefore decrease the performance of Obsidian.
+
+It would be nice if the rendering of long lists could be also be done progressively.
+
+However, this is currently impossible and may prove very hard also in the future.
+
+Current Workarounds
+
+Manually break up a long list into smaller ones
+
+Use smaller callouts
+
+1 Like
+
+Is it possible to let Obsidian use multiple CPU cores to work?
+
+Input performance degradation caused by opening both canvas and md simultaneously
+
+Closed callout causes endless loading every time a note is opened
+
+Hope the official team can optimize Canvas performance, with a summary of multiple test contents attached
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Privacy Policy
+
+Powered by Discourse, best viewed with JavaScript enabled

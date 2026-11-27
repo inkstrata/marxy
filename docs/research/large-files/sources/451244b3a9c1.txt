@@ -1,0 +1,396 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+tauri-apps
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+Tauri
+
+Overview
+
+Repositories
+
+Discussions
+
+Projects
+
+Packages
+
+People
+
+More
+
+Overview
+
+Repositories
+
+Discussions
+
+Projects
+
+Packages
+
+People
+
+Performance: Tauri IPC vs React Native JSI
+
+#11915
+
+velocitysystems
+
+started this conversation in
+General
+
+Performance: Tauri IPC vs React Native JSI
+
+#11915
+
+velocitysystems
+
+Dec 9, 2024
+·
+2 comments
+·
+2 replies
+
+Return to top
+
+Discussion options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+velocitysystems
+
+Dec 9, 2024
+
+Collaborator
+
+Hello! 👋 I’m currently evaluating Tauri to replace React Native for a cross platform iOS, Android and Windows app.
+
+Is the performance of Tauri’s IPC a bottleneck for high-performance applications? E.g. Passing large data payloads from SQL over the IPC is reported to be slow.
+
+The Reactive Native Bridge (legacy) uses a similiar design where data crossing the bridge must be serialized/deserialized, however the new JSI facilitates direct communication between JavaScript and native code bypassing any need for data serialization.
+
+Putting aside architectural differences and security concerns, is there any way of achieving similar performance with Tauri's IPC?
+
+2
+You must be logged in to vote
+
+All reactions
+
+Replies:
+
+2 comments
+
+·
+
+2 replies
+
+Oldest
+
+Newest
+
+Top
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+FabianLars
+
+Dec 9, 2024
+
+Maintainer
+
+Putting aside architectural differences and security concerns, is there any way of achieving similar performance with Tauri's IPC?
+
+Tauri has a serialization-free ipc in v2 too but it still uses the fetch api (without actually hitting the network) so there's a bit of a delay. A user on discord did some non-scientific benchmark for the binary ipc and got ~5ms on macOS but ~200ms on Windows (that 100% used to be better so idk what's going on there), for 10mb of data.
+
+With the currently used system webviews i believe that we can't improve it much further. Only the windows webview supports shared memory but webview2 users reported that it's weirdly slow (also ignoring that it's not exactly trivial to turn that into a usable api). If that's fixed we'd still be left with no macos/linux/android/ios support.
+
+There are also sync webview apis that sound similar-ish to JSI (exposing a rust interface to js) but it's not really fitted for large data transfers either.
+
+1
+You must be logged in to vote
+
+All reactions
+
+1 reply
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+Horbin-Magician
+
+Sep 9, 2025
+
+Is there any way to improve the IPC in Windows? (~200ms for 10mb is too slow for me)
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+velocitysystems
+
+Dec 9, 2024
+
+Collaborator
+
+Author
+
+Thanks @FabianLars. With that in mind what is the recommended path for large data transfers over the IPC? i.e. Transferring image data, large byte arrays etc?
+
+1
+You must be logged in to vote
+
+👍
+1
+
+All reactions
+
+👍
+1
+
+1 reply
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+FabianLars
+
+Dec 9, 2024
+
+Maintainer
+
+https://v2.tauri.app/develop/calling-rust/#returning-array-buffers (rust->js) and https://v2.tauri.app/develop/calling-rust/#accessing-raw-request (js->rust) and maybeee https://v2.tauri.app/develop/calling-rust/#channels i think they shouldn't be much slower.
+
+🚀
+1
+
+All reactions
+
+🚀
+1
+
+Sign up for free
+to join this conversation on GitHub.
+Already have an account?
+Sign in to comment
+
+Category
+
+#️⃣
+
+General
+
+Labels
+
+None yet
+
+3 participants
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

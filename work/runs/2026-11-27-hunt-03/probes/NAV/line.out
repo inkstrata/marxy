@@ -1,0 +1,35 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-03/work/runs/2026-11-27-hunt-03/probes/NAV/line.mjs --browser chromium
+=== md-headings 1 MB, headings 12272
+Ctrl+K: wall 546ms task 706ms script 185ms layout 121ms(28) style#29 nodes 101836
+type @: wall 1719ms task 1743ms script 387ms layout 546ms(18) style#21 nodes 167726
+type H: wall 1887ms task 1967ms script 344ms layout 758ms(19) style#19 nodes 274018
+type e: wall 2527ms task 2883ms script 690ms layout 773ms(33) style#33 nodes 399714
+type " 9": wall 4004ms task 4811ms script 1252ms layout 1301ms(67) style#67 nodes 551925
+Backspace x3: wall 5312ms task 5448ms script 1248ms layout 1692ms(44) style#44 nodes 628901
+clear, type /the: wall 3186ms task 3424ms script 879ms layout 926ms(62) style#62 nodes 683912
+type /thex: wall 800ms task 809ms script 201ms layout 131ms(22) style#22 nodes 688024
+clear, type :: wall 1572ms task 1597ms script 363ms layout 249ms(54) style#52 nodes 701097
+Esc: wall 425ms task 444ms script 83ms layout 57ms(13) style#14 nodes 702098
+=== md-headings 2 MB, headings 24409
+Ctrl+K: wall 517ms task 568ms script 160ms layout 80ms(18) style#19 nodes 156095
+type @: wall 1954ms task 2283ms script 251ms layout 1003ms(5) style#8 nodes 321850
+type H: wall 3526ms task 3549ms script 636ms layout 1495ms(6) style#6 nodes 533887
+type e: wall 3811ms task 3821ms script 1021ms layout 1270ms(10) style#10 nodes 764196
+type " 9": wall 4720ms task 4756ms script 1232ms layout 1587ms(15) style#15 nodes 919112
+Backspace x3: wall 10544ms task 10632ms script 2958ms layout 3718ms(24) style#24 nodes 1627212
+clear, type /the: wall 3794ms task 3804ms script 1230ms layout 1100ms(52) style#52 nodes 1811310
+type /thex: wall 683ms task 707ms script 159ms layout 128ms(21) style#21 nodes 1775602
+clear, type :: wall 1084ms task 1094ms script 254ms layout 159ms(44) style#42 nodes 1696053
+Esc: wall 443ms task 474ms script 87ms layout 46ms(11) style#12 nodes 1495525
+=== md-headings 4.9 MB, headings 59605
+Ctrl+K: wall 571ms task 574ms script 255ms layout 61ms(18) style#19 nodes 382551
+type @: wall 4927ms task 5999ms script 905ms layout 2828ms(8) style#11 nodes 782163
+type H: wall 12430ms task 12521ms script 2481ms layout 6132ms(6) style#6 nodes 1300228
+type e: wall 13611ms task 17156ms script 2675ms layout 9496ms(6) style#6 nodes 1883130
+type " 9": wall 15041ms task 15069ms script 5645ms layout 4721ms(8) style#8 nodes 2185837 STALL>15000ms type " 9"
+Backspace x3: wall 15146ms task 15798ms script 5142ms layout 4112ms(6) style#6 nodes 2279690 STALL>15000ms Backspace x3
+clear, type /the: wall 15050ms task 15304ms script 4652ms layout 6646ms(3) style#3 nodes 2991126 STALL>15000ms clear, type /the
+type /thex: wall 15035ms task 18342ms script 6798ms layout 8349ms(7) style#7 nodes 2402280 STALL>15000ms type /thex
+clear, type :: wall 3720ms task 3756ms script 2564ms layout 210ms(64) style#58 nodes 2291514
+Esc: wall 670ms task 684ms script 144ms layout 74ms(18) style#19 nodes 2294799
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-03/work/shots/hunt-03-20261127-1033

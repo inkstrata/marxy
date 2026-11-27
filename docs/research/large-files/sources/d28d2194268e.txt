@@ -1,0 +1,403 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+zed-industries
+
+zed
+
+Repository navigation
+
+Code
+
+Issues2.2k ( 2.2k )
+
+Pull requests799 ( 799 )
+
+Discussions
+
+Actions
+
+Projects
+
+Security and quality12 ( 12 )
+
+Insights
+
+More items
+
+worktree: Don't open files >= 6GB in size - # 27458
+# 27458
+
+Merged
+
+probably-neb merged 1 commit into
+mainzed-industries/zed:mainfrom
+fix-beeg-csv-mem-leakzed-industries/zed:fix-beeg-csv-mem-leak Copy head branch name to clipboard
+
+Mar 25, 2025
+
+Conversation Commits1 ( 1 ) Checks Files changed
+
+Merged
+
+worktree: Don't open files >= 6GB in size# 27458
+
+probably-neb merged 1 commit into
+mainzed-industries/zed:mainfrom
+fix-beeg-csv-mem-leakzed-industries/zed:fix-beeg-csv-mem-leak Copy head branch name to clipboard
+
+Conversation
+
+probably-neb
+
+commented
+
+Mar 25, 2025
+
+•
+
+edited
+
+Loading
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Copy link
+
+Copy Markdown
+
+Collaborator
+
+Temporary Workaround For: #27283
+
+This PR can (and should!) be reverted once the underlying inefficiencies are resolved
+
+Release Notes:
+
+Files that are 6GB or larger will now not open. This is a temporary workaround for inefficient handling of large files resulting in extremely high memory usage, often resulting in system freezing, requiring a restart of Zed or the entire system.
+
+Sorry, something went wrong.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+All reactions
+
+don't open files >= 6GB
+
+bce4156
+
+cla-bot
+Bot
+
+added
+the
+cla-signed
+
+The user has signed the Contributor License Agreement
+label
+
+Mar 25, 2025
+
+probably-neb
+
+enabled auto-merge (squash)
+
+March 25, 2025 21:16
+
+probably-neb
+
+disabled auto-merge
+
+March 25, 2025 21:23
+
+probably-neb
+
+merged commit 76192ea
+into
+
+main
+
+Mar 25, 2025
+
+probably-neb
+
+deleted the
+
+fix-beeg-csv-mem-leak
+
+branch
+
+March 25, 2025 21:43
+
+probably-neb
+
+mentioned this pull request
+
+May 6, 2025
+
+Crash loop when opening a large file, cannot easily reopen Zed once the crash loop starts
+#29804
+
+Closed
+
+MostlyKIGuess
+
+mentioned this pull request
+
+Feb 4, 2026
+
+zed-remote-server: Elevated memory usage
+#48260
+
+Closed
+
+jolutz
+
+pushed a commit
+to jolutz/zed
+that referenced
+this pull request
+
+Aug 8, 2026
+
+worktree: Don't open files >= 6GB in size (zed-industries#27458)
+
+…
+
+1a212d6
+
+Temporary Workaround For: zed-industries#27283
+
+This PR can (and should!) be reverted once the underlying inefficiencies
+are resolved
+
+Release Notes:
+
+- Files that are 6GB or larger will now not open. This is a temporary
+workaround for inefficient handling of large files resulting in
+extremely high memory usage, often resulting in system freezing,
+requiring a restart of Zed or the entire system.
+
+Sign up for free
+to join this conversation on GitHub.
+Already have an account?
+Sign in to comment
+
+Reviewers
+
+No reviews
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Assignees
+
+No one assigned
+
+Labels
+
+cla-signed
+
+The user has signed the Contributor License Agreement
+
+Projects
+
+None yet
+
+Milestone
+
+No milestone
+
+Development
+
+Successfully merging this pull request may close these issues.
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+1 participant
+
+Add this suggestion to a batch that can be applied as a single commit.This suggestion is invalid because no changes were made to the code.Suggestions cannot be applied while the pull request is closed.Suggestions cannot be applied while viewing a subset of changes.Only one suggestion per line can be applied in a batch.Add this suggestion to a batch that can be applied as a single commit.Applying suggestions on deleted lines is not supported.You must change the existing code in this line in order to create a valid suggestion.Outdated suggestions cannot be applied.This suggestion has been applied or marked resolved.Suggestions cannot be applied from pending reviews.Suggestions cannot be applied on multi-line comments.Suggestions cannot be applied while the pull request is queued to merge.Suggestion cannot be applied right now. Please check back later.
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

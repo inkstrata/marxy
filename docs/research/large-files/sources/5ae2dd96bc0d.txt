@@ -1,0 +1,139 @@
+Home
+
+Release notes
+
+About
+
+Features
+
+Newly available
+
+Widely available
+
+Limited availability
+
+Discouraged
+
+Opposed
+
+Most wanted
+
+All features
+
+Missing only in
+
+Chromium
+
+Firefox
+
+Safari
+
+Implemented only in
+
+Chromium
+
+Firefox
+
+Safari
+
+Features in latest releases
+
+Chrome
+
+158
+
+Chrome Android
+
+158
+
+Edge
+
+158
+
+Firefox
+
+161
+
+Firefox for Android
+
+161
+
+Safari
+
+27.2
+
+Safari on iOS
+
+27.2
+
+overflow-anchor
+
+Newly Available (since 2026-09-14)
+
+Expected to be Widely Available on 2029-03-14
+
+Copy ID
+
+The overflow-anchor CSS property sets an element as a possible scroll anchor, reducing unintended scrolling when document changes occur above the current scrollport. This is enabled by default where supported.
+
+Browser support (view on caniuse.com)
+
+Chrome
+
+56
+Released on 2017-01-25
+
+Chrome Android
+
+56
+Released on 2017-02-01
+
+Edge
+
+79
+Released on 2020-01-15
+
+Firefox
+
+66
+Released on 2019-03-19
+
+Firefox for Android
+
+66
+Released on 2019-03-19
+
+Safari
+
+27
+Released on 2026-09-14
+
+Safari on iOS
+
+27
+Released on 2026-09-14
+
+MDN documentation
+
+Overview of scroll anchoring
+
+overflow-anchor CSS property
+
+Specifications
+
+CSS Scroll Anchoring Module Level 1 (#exclusion-api),
+from Cascading Style Sheets (CSS) Working Group (W3C).
+
+Web Platform Tests (WPT)
+
+View the latest WPT test results for this feature
+
+View as JSON
+|
+Edit this feature
+|
+Report an issue
+|
+Web-features entry:
+source,
+dist

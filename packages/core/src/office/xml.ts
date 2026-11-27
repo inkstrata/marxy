@@ -365,12 +365,13 @@ export const kidsOf = (el: XmlElement | null | undefined, name?: string): XmlEle
 export const kid = (el: XmlElement | null | undefined, name: string): XmlElement | null =>
   (el?.kids.find((k) => typeof k !== 'string' && k.name === name) as XmlElement | undefined) ?? null;
 
-/** The first element named `name` at any depth below `el`, in document order. */
+/** The first element named `name` at any depth below `el`, breadth first: the nearest level, then document order. */
 export function find(el: XmlElement | null | undefined, name: string): XmlElement | null {
   if (!el) return null;
   const todo: XmlElement[] = [el];
-  while (todo.length > 0) {
-    const at = todo.shift()!;
+  // A read index, not `shift()`: shifting moves every element left, the square of a wide tree's width.
+  for (let head = 0; head < todo.length; head++) {
+    const at = todo[head]!;
     for (const k of at.kids) {
       if (typeof k === 'string') continue;
       if (k.name === name) return k;

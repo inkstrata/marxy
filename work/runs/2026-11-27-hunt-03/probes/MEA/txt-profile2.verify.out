@@ -1,0 +1,89 @@
+uptime:  3:39  up 1 day,  6:57, 1 user, load averages: 104.85 121.30 82.03
+CALLERS [
+ "6079 ms (program) <- ",
+ "1529 ms getBoundingClientRect <- step:http://127.0.0.1:1492/src/render/progressive.ts:85 <- (anon):http://127.0.0.1:1492/src/startup/idle-work.ts:12",
+ "423 ms closest <- (anon):http://127.0.0.1:1492/src/render/post.ts:78 <- buildBlocksByRange:http://127.0.0.1:1492/src/render/post.ts:77 <- blocksOf:http://127.0.0.1:1492/src/view/rendered-view.ts:295",
+ "42 ms getComputedStyle <- (anon):http://127.0.0.1:1492/src/render/post.ts:78 <- buildBlocksByRange:http://127.0.0.1:1492/src/render/post.ts:77 <- blocksOf:http://127.0.0.1:1492/src/view/rendered-view.ts:295",
+ "21 ms getBoundingClientRect <- fill:http://127.0.0.1:1492/src/render/progressive.ts:51 <- mountProgressively:http://127.0.0.1:1492/src/render/progressive.ts:8 <- mountDocument:http://127.0.0.1:1492/src/view/rendered-view.ts:1675",
+ "6 ms getBoundingClientRect <- place:http://127.0.0.1:1492/src/frame/spine.ts:65 <- resized:http://127.0.0.1:1492/src/frame/spine.ts:197"
+]
+{
+ "size": 1000024,
+ "label": "open",
+ "taskMs": 11519,
+ "scriptMs": 1347,
+ "layoutMs": 751,
+ "recalcMs": 828,
+ "layouts": 229,
+ "nodes": 76752,
+ "wallMs": 13978,
+ "quiet": true,
+ "top": [
+  "6079 ms  (program) :0",
+  "2591 ms  (idle) :0",
+  "1557 ms  getBoundingClientRect :0",
+  "704 ms  (garbage collector) :0",
+  "568 ms  querySelectorAll :0",
+  "423 ms  closest :0",
+  "364 ms  main http://127.0.0.1:1492/node_modules/.vite/deps/mdast-util-from-markdown.js:1164",
+  "305 ms  go http://127.0.0.1:1492/node_modules/.vite/deps/mdast-util-from-markdown.js:1181"
+ ]
+}
+CALLERS [
+ "24790 ms (program) <- ",
+ "4469 ms getBoundingClientRect <- step:http://127.0.0.1:1492/src/render/progressive.ts:85 <- (anon):http://127.0.0.1:1492/src/startup/idle-work.ts:12",
+ "1013 ms closest <- (anon):http://127.0.0.1:1492/src/render/post.ts:78 <- buildBlocksByRange:http://127.0.0.1:1492/src/render/post.ts:77 <- blocksOf:http://127.0.0.1:1492/src/view/rendered-view.ts:295",
+ "382 ms getComputedStyle <- (anon):http://127.0.0.1:1492/src/render/post.ts:78 <- buildBlocksByRange:http://127.0.0.1:1492/src/render/post.ts:77 <- blocksOf:http://127.0.0.1:1492/src/view/rendered-view.ts:295",
+ "28 ms getBoundingClientRect <- fill:http://127.0.0.1:1492/src/render/progressive.ts:51 <- mountProgressively:http://127.0.0.1:1492/src/render/progressive.ts:8 <- mountDocument:http://127.0.0.1:1492/src/view/rendered-view.ts:1675",
+ "15 ms getBoundingClientRect <- place:http://127.0.0.1:1492/src/frame/spine.ts:65 <- placeThumb:http://127.0.0.1:1492/src/frame/spine.ts:82 <- draw:http://127.0.0.1:1492/src/frame/spine.ts:97",
+ "6 ms getBoundingClientRect <- geometry:http://127.0.0.1:1492/src/frame/spine.ts:44 <- draw:http://127.0.0.1:1492/src/frame/spine.ts:97 <- (anon):http://127.0.0.1:1492/src/frame/spine.ts:183",
+ "2 ms closest <- resetChanged:typeset/src/index.ts:402 <- changes:typeset/src/index.ts:442"
+]
+{
+ "size": 2000052,
+ "label": "open",
+ "taskMs": 42744,
+ "scriptMs": 7577,
+ "layoutMs": 2436,
+ "recalcMs": 2607,
+ "layouts": 504,
+ "nodes": 152254,
+ "wallMs": 44478,
+ "quiet": true,
+ "top": [
+  "24790 ms  (program) :0",
+  "4519 ms  getBoundingClientRect :0",
+  "2491 ms  (garbage collector) :0",
+  "2184 ms  querySelectorAll :0",
+  "2026 ms  (anon) http://127.0.0.1:1492/src/render/post.ts:78",
+  "1716 ms  (idle) :0",
+  "1014 ms  closest :0",
+  "1003 ms  buildBlocksByRange http://127.0.0.1:1492/src/render/post.ts:77"
+ ]
+}
+--- unprofiled opens around the line
+{
+ "size": 5100024,
+ "label": "open",
+ "taskMs": 253319,
+ "scriptMs": 60678,
+ "layoutMs": 10540,
+ "recalcMs": 13260,
+ "layouts": 1224,
+ "nodes": 386303,
+ "wallMs": 255106,
+ "quiet": true,
+ "r": "capped"
+}
+{
+ "size": 5300042,
+ "label": "open",
+ "taskMs": 263,
+ "scriptMs": 30,
+ "layoutMs": 13,
+ "recalcMs": 35,
+ "layouts": 17,
+ "nodes": 3154,
+ "wallMs": 1494,
+ "quiet": true
+}

@@ -1,0 +1,397 @@
+WebKit Bugzilla
+
+New
+
+Browse
+
+Search+
+
+Log In
+
+&times;
+
+Sign in with GitHub
+
+or
+
+Remember my login
+
+Create Account
+
+·
+
+Forgot Password
+
+Forgotten password account recovery
+
+NEW297088
+
+[Skia] Implement Font::applyTransforms with HarfBuzz
+https://bugs.webkit.org/show_bug.cgi?id=297088
+
+Summary
+
+[Skia] Implement Font::applyTransforms with HarfBuzz
+
+Fujii Hironori
+
+Reported
+2025-08-07 16:53:32 PDT
+
+Implement Font::applyTransforms with HarfBuzz
+
+See also:
+Bug 206208 – [Cocoa] Delete the complex text codepath 😮
+Bug 228363 – [Win][Uniscribe] Implement Font::applyTransforms
+
+Attachments
+
+Patch to perftest.py
+
+(1.16 KB,
+patch)
+
+2025-08-12 07:03 PDT,
+
+Fujii Hironori
+
+no flags
+
+DetailsFormatted DiffDiff
+
+PerformanceTests results
+
+(92.09 KB,
+application/zip)
+
+2025-08-12 07:04 PDT,
+
+Fujii Hironori
+
+no flags
+
+Details
+
+PerformanceTestsResults.html
+
+(239.57 KB,
+text/html)
+
+2025-08-13 04:26 PDT,
+
+Fujii Hironori
+
+no flags
+
+Details
+
+PerformanceTestsResults.html
+
+(239.56 KB,
+text/html)
+
+2025-08-13 04:39 PDT,
+
+Fujii Hironori
+
+no flags
+
+Details
+
+perf test result
+
+(311.49 KB,
+text/html)
+
+2025-08-18 01:15 PDT,
+
+Fujii Hironori
+
+no flags
+
+Details
+
+Patch to use complex text code path as simple text code path
+
+(4.40 KB,
+patch)
+
+2025-08-19 01:50 PDT,
+
+Fujii Hironori
+
+no flags
+
+DetailsFormatted DiffDiff
+
+perf test result
+
+(311.68 KB,
+text/html)
+
+2025-08-19 01:51 PDT,
+
+Fujii Hironori
+
+no flags
+
+Details
+
+perf test result of complex-only v. HarfBuzzShaper
+
+(310.91 KB,
+text/html)
+
+2025-08-21 21:38 PDT,
+
+Fujii Hironori
+
+no flags
+
+Details
+
+Show
+Obsolete (3)
+View All
+
+Add attachment
+proposed patch, testcase, etc.
+
+Fujii Hironori
+
+Comment 1
+2025-08-07 17:01:00 PDT
+
+Pull request: https://github.com/WebKit/WebKit/pull/49092
+
+Fujii Hironori
+
+Comment 2
+2025-08-07 17:06:24 PDT
+
+See also:
+Bug 167557 – [FreeType] Enable ligatures and kerning in the fast font layout path
+
+Fujii Hironori
+
+Comment 3
+2025-08-12 07:03:20 PDT
+
+Created attachment 476368 [details]
+Patch to perftest.py
+
+Fujii Hironori
+
+Comment 4
+2025-08-12 07:04:49 PDT
+
+Created attachment 476369 [details]
+PerformanceTests results
+
+I compared the performance of 3 builds:
+
+complex : complex text code path (the current implementation)
+simple : simple text code path without applyTransforms (the old implementation)
+patched : simple text code path with applyTransforms (my WIP patch)
+
+> ./Tools/Scripts/run-perf-tests --platform=gtk --release --no-build --repeat=1 --description=$1 --output-json-path=$2/perf.json --no-show-results Layout
+
+Fujii Hironori
+
+Comment 5
+2025-08-13 04:26:00 PDT
+
+Created attachment 476386 [details]
+PerformanceTestsResults.html
+
+Fujii Hironori
+
+Comment 6
+2025-08-13 04:39:00 PDT
+
+Created attachment 476387 [details]
+PerformanceTestsResults.html
+
+Radar WebKit Bug Importer
+
+Comment 7
+2025-08-14 16:54:13 PDT
+
+<rdar://problem/158363716>
+
+Fujii Hironori
+
+Comment 8
+2025-08-17 18:51:10 PDT
+
+Test cases using small-caps are failing with the WIP patch.
+
+fast/text/atsui-multiple-renderers.html [ Failure ]
+fast/text/atsui-small-caps-punctuation-size.html [ Failure ]
+
+capitalizing is done in WidthIterator::advanceInternal here.
+https://github.com/WebKit/WebKit/blob/11a2031c8c6112a0eabcec1e6530b543827903cc/Source/WebCore/platform/graphics/WidthIterator.cpp#L420
+
+However, capitalizedCharacter isn't passed to Font::applyTransforms.
+To support small-caps, WidthIterator has to be modified.
+
+Fujii Hironori
+
+Comment 9
+2025-08-18 01:15:45 PDT
+
+Created attachment 476442 [details]
+perf test result
+
+I restored HarfBuzzShaper, and compare the performance.
+https://github.com/fujii/WebKit/tree/eng/restore-HarfBuzzShaper
+
+Fujii Hironori
+
+Comment 10
+2025-08-19 01:50:54 PDT
+
+Created attachment 476447 [details]
+Patch to use complex text code path as simple text code path
+
+The performace difference between the complex and simple text code paths doesn't come from the code paths.
+But, it comes from WebCore.
+So, I don't need to implement applyTransforms.
+Just using the complex code path as the simple code path gains the performance boost.
+
+Fujii Hironori
+
+Comment 11
+2025-08-19 01:51:18 PDT
+
+Created attachment 476448 [details]
+perf test result
+
+Fujii Hironori
+
+Comment 12
+2025-08-21 21:38:09 PDT
+
+Created attachment 476486 [details]
+perf test result of complex-only v. HarfBuzzShaper
+
+I compared complex-only (comment#10) and HarfBuzzShaper (comment#10 + comment#9). HarfBuzzShaper is better.
+
+Carlos Garcia Campos
+
+Comment 13
+2025-09-16 05:37:44 PDT
+
+Pull request: https://github.com/WebKit/WebKit/pull/50802
+
+Note
+You need to
+log in
+before you can comment on or make changes to this bug.
+
+Status
+
+NEW
+
+Resolution
+
+Priority
+
+P2
+
+Severity
+
+Normal
+
+Classification
+
+Unclassified
+
+Version
+
+WebKit Nightly Build
+
+Hardware
+
+Unspecified
+
+OS
+
+Unspecified
+
+Product
+
+WebKit
+
+Component
+
+Platform
+
+Assignee
+
+Carlos Garcia Campos
+
+Reported
+
+2025-08-07 16:53 PDT
+
+Modified
+
+2025-09-16 05:37 PDT
+History
+
+CC List
+
+2
+users
+
+Show
+
+cgarcia
+webkit-bug-importer
+
+URL
+
+Keywords
+
+InRadar
+
+Depends on
+
+Blocks
+
+206208
+
+Dependencies
+
+treegraph
+
+See Also
+
+206208
+
+228363
+
+167557
+
+Alias
+
+None
+
+Top of Page
+
+Format For Printing
+
+XML
+
+Clone This Bug
+
+New
+
+Browse
+
+Search+
+
+Reports
+
+Requests

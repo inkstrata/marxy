@@ -1,0 +1,182 @@
+[
+ {
+  "kind": "diff",
+  "bytes": 1000131,
+  "name": "big-diff-1000k.diff",
+  "steps": {
+   "open": {
+    "firstMs": 81,
+    "completeMs": 241,
+    "openReturnMs": 139,
+    "busyUntilIdleMs": 3197,
+    "taskMs": 455,
+    "layouts": 36,
+    "longestMs": 90,
+    "nodes": 3866
+   },
+   "key": {
+    "skipped": true
+   },
+   "scrollMid": {
+    "skipped": true
+   },
+   "scrollEnd": {
+    "skipped": true
+   },
+   "toSource": {
+    "wallMs": 2253,
+    "taskMs": 251,
+    "scriptMs": 91,
+    "layoutMs": 7,
+    "layouts": 14,
+    "recalcs": 39,
+    "longestMs": 111,
+    "nodes": 4228
+   },
+   "toRead": {
+    "wallMs": 1578,
+    "taskMs": 192,
+    "scriptMs": 24,
+    "layoutMs": 10,
+    "layouts": 10,
+    "recalcs": 12,
+    "longestMs": 118,
+    "nodes": 4403
+   },
+   "reload": {
+    "wallMs": 1464,
+    "taskMs": 475,
+    "scriptMs": 58,
+    "layoutMs": 19,
+    "layouts": 19,
+    "recalcs": 53,
+    "longestMs": 207,
+    "nodes": 3448
+   },
+   "find": {
+    "wallMs": 2004,
+    "taskMs": 387,
+    "scriptMs": 72,
+    "layoutMs": 87,
+    "layouts": 21,
+    "recalcs": 45,
+    "longestMs": 111,
+    "nodes": 9139
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "diff",
+  "bytes": 2000158,
+  "name": "big-diff-2000k.diff",
+  "steps": {
+   "open": {
+    "firstMs": 93,
+    "completeMs": 2743,
+    "openReturnMs": 332,
+    "busyUntilIdleMs": 5299,
+    "taskMs": 3386,
+    "layouts": 161,
+    "longestMs": 84,
+    "nodes": 4638
+   },
+   "key": {
+    "skipped": true
+   },
+   "scrollMid": {
+    "skipped": true
+   },
+   "scrollEnd": {
+    "skipped": true
+   },
+   "toSource": {
+    "wallMs": 1602,
+    "taskMs": 315,
+    "scriptMs": 130,
+    "layoutMs": 9,
+    "layouts": 14,
+    "recalcs": 39,
+    "longestMs": 110,
+    "nodes": 5000
+   },
+   "toRead": {
+    "wallMs": 1391,
+    "taskMs": 262,
+    "scriptMs": 23,
+    "layoutMs": 16,
+    "layouts": 10,
+    "recalcs": 12,
+    "longestMs": 147,
+    "nodes": 5175
+   },
+   "reload": {
+    "wallMs": 1740,
+    "taskMs": 550,
+    "scriptMs": 61,
+    "layoutMs": 27,
+    "layouts": 27,
+    "recalcs": 61,
+    "longestMs": 216,
+    "nodes": 4220
+   },
+   "find": {
+    "wallMs": 1584,
+    "taskMs": 358,
+    "scriptMs": 67,
+    "layoutMs": 58,
+    "layouts": 22,
+    "recalcs": 46,
+    "longestMs": 120,
+    "nodes": 10104
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "diff",
+  "bytes": 4900026,
+  "name": "big-diff-4900k.diff",
+  "steps": {
+   "open": {
+    "firstMs": 107,
+    "completeMs": 16604,
+    "openReturnMs": 356,
+    "busyUntilIdleMs": 18151,
+    "taskMs": 16979,
+    "layouts": 534,
+    "longestMs": 194,
+    "nodes": 5770
+   },
+   "key": {
+    "skipped": true
+   },
+   "scrollMid": {
+    "skipped": true
+   },
+   "scrollEnd": {
+    "skipped": true
+   },
+   "toSource": {
+    "err": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'handle')"
+   },
+   "toRead": {
+    "err": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'handle')"
+   },
+   "reload": {
+    "err": "page.evaluate: TypeError: Cannot read properties of undefined (reading 'shell')"
+   },
+   "find": {
+    "wallMs": 1336,
+    "taskMs": 16,
+    "scriptMs": 0,
+    "layoutMs": 0,
+    "layouts": 0,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 61
+   }
+  },
+  "errors": []
+ }
+]

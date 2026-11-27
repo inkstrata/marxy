@@ -1,0 +1,491 @@
+Write a Blog >>
+
+ISSTA 2018
+Sun 15 - Sat 21 July 2018 Amsterdam, Netherlands
+
+co-located with ECOOP and ISSTA 2018
+
+Toggle navigation
+
+Attending
+
+Venue: ISSTA Steering Committee Meeting
+
+Restaurant: Cafe de Jaren
+
+Venue: Uber
+
+Venue: Mövenpick Hotel Amsterdam City Centre
+
+Restaurant: Tobacco Theater
+
+Restaurant: Zaalverhuur Pakhuis de Zwijger
+
+Restaurant: De Koninklijke Industrieele Groote Club
+
+ECOOP and ISSTA 2018
+
+Registration
+
+Program @ a Glance
+
+Travel and Local Info
+
+Visas
+
+Students
+
+Sponsorship
+
+Program
+
+ISSTA Program
+
+Your Program
+
+Filter by Day
+
+Sun 15 Jul
+
+Mon 16 Jul
+
+Tue 17 Jul
+
+Wed 18 Jul
+
+Thu 19 Jul
+
+Fri 20 Jul
+
+Sat 21 Jul
+
+Tracks
+
+ISSTA 2018
+
+ISSTA Artifacts
+
+ISSTA Keynotes
+
+ISSTA Steering Committee Meeting (By Invitation Only)
+
+ISSTA Technical Papers
+
+ISSTA Tool Demonstrations
+
+ECOOP and ISSTA 2018
+
+Doc Symposium
+
+Summer School
+
+Student Volunteers
+
+Workshops
+
+Posters
+
+Co-hosted Conferences
+
+CurryOn
+
+CurryOn
+
+CurryOn Curry On Keynotes
+
+CurryOn Curry On Talks
+
+ECOOP
+
+ECOOP
+
+ECOOP Artifacts
+
+ECOOP Keynotes
+
+ECOOP Research Papers
+
+ECOOP Journal-First
+
+Workshops
+
+BenchWork
+
+COP
+
+DPA
+
+FTfJP
+
+ICOOOLPS
+
+INTUITESTBEDS
+
+ISAGT
+
+ML4PL
+
+Panathon
+
+SALAD
+
+SOAP
+
+TAV-CPS/IoT
+
+VORTEX
+
+WoSSCA
+
+Organization
+
+ISSTA 2018 Committees
+
+Organizing Committee
+
+Track Committees
+
+ISSTA Artifacts
+
+ISSTA Technical Papers
+
+ISSTA Tool Demonstrations
+
+ECOOP and ISSTA
+
+Doc Symposium
+
+Academic Panel
+
+Organizing Committee
+
+Program Committee
+
+Summer School
+
+Speakers
+
+Mentors
+
+Organizing Committee
+
+Student Volunteers
+
+Workshops
+
+Posters
+
+Contributors
+
+People Index
+
+Co-hosted Conferences
+
+CurryOn
+
+Organizing Committee
+
+ECOOP
+
+Organizing Committee
+
+ECOOP Artifacts
+
+ECOOP Research Papers
+
+Workshops
+
+BenchWork
+
+Organizing Committee
+
+Program Committee
+
+COP
+
+Organizing Committee
+
+Program Committee
+
+DPA
+
+Organizing Committee
+
+FTfJP
+
+Program Committee
+
+Steering Committee
+
+ICOOOLPS
+
+Organizing Committee
+
+Program Committee
+
+INTUITESTBEDS
+
+Organizing Committee
+
+Program Committee
+
+ISAGT
+
+Organizing Committee
+
+Program Committee
+
+ML4PL
+
+Organizing Committee
+
+Program Committee
+
+Panathon
+
+Organizers
+
+SALAD
+
+Organizing Committee
+
+Program Committee
+
+SOAP
+
+Organizing Committee
+
+Program Committee
+
+TAV-CPS/IoT
+
+Organizing Committee
+
+Program Committee
+
+VORTEX
+
+Organizing Committee
+
+Program Committee
+
+WoSSCA
+
+Attendees
+
+Program Committee
+
+Organizing Committee
+
+Search
+
+Series
+
+Series
+
+ISSTA 2027
+
+ISSTA 2026
+
+ISSTA 2025
+
+ISSTA 2024
+
+ISSTA 2023
+
+ISSTA 2022
+
+ISSTA 2021
+
+ISSTA 2020
+
+ISSTA 2019
+
+ISSTA 2018
+
+ISSTA 2017
+
+Sign in
+
+Sign up
+
+ECOOP and ISSTA 2018 (series) / ISSTA 2018 (series) / ISSTA Technical Papers /
+PerfFuzz: Automatically Generating Pathological Inputs
+
+Who
+Caroline Lemieux, Rohan Padhye, Koushik Sen, Dawn Song
+
+Track
+ISSTA 2018 ISSTA Technical Papers
+
+Program Display Configuration
+
+Time Zone
+
+The program is currently displayed in (GMT+02:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna.
+
+Use conference time zone: (GMT+02:00) Amsterdam, Berlin, Bern, Rome, Stockholm, ViennaSelect other time zone
+(GMT-12:00) AoE (Anywhere On Earth)(GMT-11:00) Midway Island, Samoa(GMT-09:00) Hawaii-Aleutian(GMT-10:00) Hawaii(GMT-09:30) Marquesas Islands(GMT-09:00) Gambier Islands(GMT-08:00) Alaska(GMT-07:00) Tijuana, Baja California(GMT-08:00) Pitcairn Islands(GMT-07:00) Pacific Time (US & Canada)(GMT-06:00) Mountain Time (US & Canada)(GMT-06:00) Chihuahua, La Paz, Mazatlan(GMT-07:00) Arizona(GMT-06:00) Saskatchewan, Central America(GMT-05:00) Guadalajara, Mexico City, Monterrey(GMT-06:00) Easter Island(GMT-05:00) Cancun(GMT-05:00) Central Time (US & Canada)(GMT-04:00) Eastern Time (US & Canada)(GMT-04:00) Cuba(GMT-05:00) Bogota, Lima, Quito, Rio Branco(GMT-04:00) Caracas(GMT-04:00) Santiago(GMT-04:00) La Paz(GMT-03:00) Faukland Islands(GMT-04:00) Manaus, Amazonas, Brazil(GMT-03:00) Atlantic Time (Goose Bay)(GMT-03:00) Atlantic Time (Canada)(GMT-02:30) Newfoundland(GMT-03:00) UTC-3(GMT-03:00) Montevideo(GMT-02:00) Miquelon, St. Pierre(GMT-02:00) Greenland(GMT-03:00) Buenos Aires(GMT-03:00) Brasilia, Distrito Federal, Brazil(GMT-02:00) Mid-Atlantic(GMT-01:00) Cape Verde Is.(GMT) Azores(UTC) Coordinated Universal Time(GMT+01:00) Belfast(GMT+01:00) Dublin(GMT+01:00) Lisbon(GMT+01:00) London(GMT) Monrovia, Reykjavik(GMT+02:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna(GMT+02:00) Belgrade, Bratislava, Budapest, Ljubljana, Prague(GMT+02:00) Brussels, Copenhagen, Madrid, Paris(GMT+01:00) West Central Africa(GMT+02:00) Windhoek(GMT+03:00) Athens(GMT+03:00) Beirut(GMT+02:00) Cairo(GMT+03:00) Gaza(GMT+02:00) Harare, Pretoria(GMT+03:00) Jerusalem(GMT+03:00) Minsk(GMT+03:00) Syria(GMT+03:00) Moscow, St. Petersburg, Volgograd(GMT+03:00) Nairobi(GMT+04:30) Tehran(GMT+04:00) Abu Dhabi, Muscat(GMT+04:00) Yerevan(GMT+04:30) Kabul(GMT+05:00) Ekaterinburg(GMT+05:00) Tashkent(GMT+05:30) Chennai, Kolkata, Mumbai, New Delhi(GMT+05:45) Kathmandu(GMT+06:00) Astana, Dhaka(GMT+07:00) Novosibirsk(GMT+06:30) Yangon (Rangoon)(GMT+07:00) Bangkok, Hanoi, Jakarta(GMT+07:00) Krasnoyarsk(GMT+08:00) Beijing, Chongqing, Hong Kong, Urumqi(GMT+08:00) Irkutsk, Ulaan Bataar(GMT+08:00) Perth(GMT+08:45) Eucla(GMT+09:00) Osaka, Sapporo, Tokyo(GMT+09:00) Seoul(GMT+09:00) Yakutsk(GMT+09:30) Adelaide(GMT+09:30) Darwin(GMT+10:00) Brisbane(GMT+10:00) Hobart(GMT+10:00) Vladivostok(GMT+10:30) Lord Howe Island(GMT+11:00) Solomon Is., New Caledonia(GMT+11:00) Magadan(GMT+11:00) Norfolk Island(GMT+12:00) Anadyr, Kamchatka(GMT+12:00) Auckland, Wellington(GMT+12:00) Fiji, Kamchatka, Marshall Is.(GMT+12:45) Chatham Islands(GMT+13:00) Nuku'alofa(GMT+14:00) Kiritimati
+
+The GMT offsets shown reflect the offsets at the moment of the conference.
+
+Time Band
+
+By setting a time band, the program will dim events that are outside this time window. This is useful for (virtual) conferences with a continuous program (with repeated sessions).
+The time band will also limit the events that are included in the personal iCalendar subscription service.
+
+Display full programSpecify a time band
+-
+
+Save
+
+Close
+
+When
+Tue 17 Jul 2018 16:40 - 17:00 at Zurich II - Test and Oracle Generation Chair(s): Sarfraz Khurshid
+
+Abstract
+
+Performance problems in software can arise unexpectedly when programs are provided with inputs that exhibit worst-case behavior. A large body of work has focused on diagnosing such problems via statistical profiling techniques. But how does one find these inputs in the first place? We present PerfFuzz, a method to automatically generate inputs that exercise pathological behavior across program locations, without any domain knowledge. PerfFuzz generates inputs via feedback-directed mutational fuzzing. Unlike previous approaches that attempt to maximize only a scalar characteristic such as the total execution path length, PerfFuzz uses multi-dimensional feedback and independently maximizes execution counts for all program locations. This enables PerfFuzz to (1) find a variety of inputs that exercise distinct hot spots in a program and (2) generate inputs with higher total execution path length than previous approaches by escaping local maxima. PerfFuzz is also effective at generating inputs that demonstrate algorithmic complexity vulnerabilities. We implement PerfFuzz on top of AFL, a popular coverage-guided fuzzing tool, and evaluate PerfFuzz on four real-world C programs typically used in the fuzzing literature. We find that PerfFuzz outperforms prior work by generating inputs that exercise the most-hit program branch 5x to 69x times more, and result in 1.9x to 24.7x longer total execution paths.
+
+Caroline Lemieux
+
+University of California, Berkeley
+
+United States
+
+Rohan Padhye
+
+University of California, Berkeley
+
+Koushik Sen
+
+University of California, Berkeley
+
+United States
+
+Dawn Song
+
+Program Display Configuration
+
+Time Zone
+
+The program is currently displayed in (GMT+02:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna.
+
+Use conference time zone: (GMT+02:00) Amsterdam, Berlin, Bern, Rome, Stockholm, ViennaSelect other time zone
+(GMT-12:00) AoE (Anywhere On Earth)(GMT-11:00) Midway Island, Samoa(GMT-09:00) Hawaii-Aleutian(GMT-10:00) Hawaii(GMT-09:30) Marquesas Islands(GMT-09:00) Gambier Islands(GMT-08:00) Alaska(GMT-07:00) Tijuana, Baja California(GMT-08:00) Pitcairn Islands(GMT-07:00) Pacific Time (US & Canada)(GMT-06:00) Mountain Time (US & Canada)(GMT-06:00) Chihuahua, La Paz, Mazatlan(GMT-07:00) Arizona(GMT-06:00) Saskatchewan, Central America(GMT-05:00) Guadalajara, Mexico City, Monterrey(GMT-06:00) Easter Island(GMT-05:00) Cancun(GMT-05:00) Central Time (US & Canada)(GMT-04:00) Eastern Time (US & Canada)(GMT-04:00) Cuba(GMT-05:00) Bogota, Lima, Quito, Rio Branco(GMT-04:00) Caracas(GMT-04:00) Santiago(GMT-04:00) La Paz(GMT-03:00) Faukland Islands(GMT-04:00) Manaus, Amazonas, Brazil(GMT-03:00) Atlantic Time (Goose Bay)(GMT-03:00) Atlantic Time (Canada)(GMT-02:30) Newfoundland(GMT-03:00) UTC-3(GMT-03:00) Montevideo(GMT-02:00) Miquelon, St. Pierre(GMT-02:00) Greenland(GMT-03:00) Buenos Aires(GMT-03:00) Brasilia, Distrito Federal, Brazil(GMT-02:00) Mid-Atlantic(GMT-01:00) Cape Verde Is.(GMT) Azores(UTC) Coordinated Universal Time(GMT+01:00) Belfast(GMT+01:00) Dublin(GMT+01:00) Lisbon(GMT+01:00) London(GMT) Monrovia, Reykjavik(GMT+02:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna(GMT+02:00) Belgrade, Bratislava, Budapest, Ljubljana, Prague(GMT+02:00) Brussels, Copenhagen, Madrid, Paris(GMT+01:00) West Central Africa(GMT+02:00) Windhoek(GMT+03:00) Athens(GMT+03:00) Beirut(GMT+02:00) Cairo(GMT+03:00) Gaza(GMT+02:00) Harare, Pretoria(GMT+03:00) Jerusalem(GMT+03:00) Minsk(GMT+03:00) Syria(GMT+03:00) Moscow, St. Petersburg, Volgograd(GMT+03:00) Nairobi(GMT+04:30) Tehran(GMT+04:00) Abu Dhabi, Muscat(GMT+04:00) Yerevan(GMT+04:30) Kabul(GMT+05:00) Ekaterinburg(GMT+05:00) Tashkent(GMT+05:30) Chennai, Kolkata, Mumbai, New Delhi(GMT+05:45) Kathmandu(GMT+06:00) Astana, Dhaka(GMT+07:00) Novosibirsk(GMT+06:30) Yangon (Rangoon)(GMT+07:00) Bangkok, Hanoi, Jakarta(GMT+07:00) Krasnoyarsk(GMT+08:00) Beijing, Chongqing, Hong Kong, Urumqi(GMT+08:00) Irkutsk, Ulaan Bataar(GMT+08:00) Perth(GMT+08:45) Eucla(GMT+09:00) Osaka, Sapporo, Tokyo(GMT+09:00) Seoul(GMT+09:00) Yakutsk(GMT+09:30) Adelaide(GMT+09:30) Darwin(GMT+10:00) Brisbane(GMT+10:00) Hobart(GMT+10:00) Vladivostok(GMT+10:30) Lord Howe Island(GMT+11:00) Solomon Is., New Caledonia(GMT+11:00) Magadan(GMT+11:00) Norfolk Island(GMT+12:00) Anadyr, Kamchatka(GMT+12:00) Auckland, Wellington(GMT+12:00) Fiji, Kamchatka, Marshall Is.(GMT+12:45) Chatham Islands(GMT+13:00) Nuku'alofa(GMT+14:00) Kiritimati
+
+The GMT offsets shown reflect the offsets at the moment of the conference.
+
+Time Band
+
+By setting a time band, the program will dim events that are outside this time window. This is useful for (virtual) conferences with a continuous program (with repeated sessions).
+The time band will also limit the events that are included in the personal iCalendar subscription service.
+
+Display full programSpecify a time band
+-
+
+Save
+
+Close
+
+Session Program
+
+Tue 17 Jul
+
+Displayed time zone: Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna change
+
+16:00 - 17:30
+
+Test and Oracle GenerationISSTA Technical Papers at Zurich II
+Chair(s): Sarfraz Khurshid University of Texas at Austin
+
+16:00
+20m
+
+Talk
+Tests from Traces: Automated Unit Test Extraction for R
+ISSTA Technical Papers
+
+Filip Křikava Czech Technical University, Jan Vitek Northeastern University
+
+16:20
+20m
+
+Talk
+Translating Code Comments to Procedure Specifications
+ISSTA Technical Papers
+
+Arianna Blasi Università della Svizzera italiana (USI) and IMDEA Software Institute, Alberto Goffi Università della Svizzera italiana (USI), Konstantin Kuznetsov Saarland University, CISPA, Alessandra Gorla IMDEA Software Institute, Michael D. Ernst University of Washington, USA, Mauro Pezzè University of Milano-Bicocca, Italy, Sergio Delgado Castellanos IMDEA Software Institute
+
+16:40
+20m
+
+Talk
+PerfFuzz: Automatically Generating Pathological Inputs
+ISSTA Technical Papers
+
+Caroline Lemieux University of California, Berkeley, Rohan Padhye University of California, Berkeley, Koushik Sen University of California, Berkeley, Dawn Song
+
+17:20
+10m
+
+Q&A in groups
+ISSTA Technical Papers
+
+xFri 27 Nov 11:08
+
+ISSTA 2018
+
+contact form
+using conf.researchr.org (v1.76.1)
+Support page
+
+Tracks
+ISSTA Artifacts
+ISSTA Keynotes
+ISSTA Steering Committee Meeting (By Invitation Only)
+ISSTA Technical Papers
+ISSTA Tool Demonstrations
+
+ECOOP and ISSTA 2018
+Doc Symposium
+Summer School
+Student Volunteers
+Workshops
+Posters
+
+Co-hosted Conferences
+CurryOn 2018
+ECOOP 2018
+
+Workshops
+BenchWork 2018
+COP 2018
+DPA 2018
+FTfJP 2018
+ICOOOLPS 2018
+INTUITESTBEDS 2018
+ISAGT 2018
+ML4PL 2018
+Panathon 2018
+SALAD 2018
+SOAP 2018
+TAV-CPS/IoT 2018
+VORTEX 2018
+WoSSCA 2018
+
+Attending
+Venue: ISSTA Steering Committee Meeting
+Restaurant: Cafe de Jaren
+Venue: Uber
+Venue: Mövenpick Hotel Amsterdam City Centre
+Restaurant: Tobacco Theater
+Restaurant: Zaalverhuur Pakhuis de Zwijger
+Restaurant: De Koninklijke Industrieele Groote Club
+Registration
+Program @ a Glance
+Travel and Local Info
+Visas
+Students
+Sponsorship

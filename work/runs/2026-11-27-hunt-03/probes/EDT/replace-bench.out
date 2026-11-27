@@ -1,0 +1,12 @@
+1000000 {"search":"the","replace":"THE"} plan ms 20 changes 21001 span ms 22
+1000000 {"search":"the","replace":"THE","wholeWord":true} plan ms 170 changes 16226 span ms 9
+1000000 {"search":"(\\w+) (\\w+)","replace":"$2 $1","regexp":true} plan ms 499 changes 76617 span ms 157
+1000000 {"search":"\\s+$","replace":"","regexp":true} plan ms 30 changes 3103 span ms 5
+2000000 {"search":"the","replace":"THE"} plan ms 37 changes 41984 span ms 191
+2000000 {"search":"the","replace":"THE","wholeWord":true} plan ms 18 changes 32442 span ms 16
+2000000 {"search":"(\\w+) (\\w+)","replace":"$2 $1","regexp":true} plan ms 956 changes 153156 span ms 389
+2000000 {"search":"\\s+$","replace":"","regexp":true} plan ms 104 changes 6204 span ms 3
+4900000 {"search":"the","replace":"THE"} plan ms 56 changes 102872 span ms 310
+4900000 {"search":"the","replace":"THE","wholeWord":true} plan ms 352 changes 79492 span ms 143
+4900000 {"search":"(\\w+) (\\w+)","replace":"$2 $1","regexp":true} plan ms 2149 changes 375249 span ms 949
+4900000 {"search":"\\s+$","replace":"","regexp":true} plan ms 338 changes 15197 span ms 70

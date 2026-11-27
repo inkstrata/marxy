@@ -1,0 +1,667 @@
+Mozilla Home
+
+Privacy
+
+Cookies
+
+Legal
+
+Bugzilla
+
+Quick Search Tips
+Advanced Search
+
+Browse
+
+Advanced Search
+
+New Bug
+
+Reports
+
+Documentation
+
+Log In
+
+Log In with GitHub
+
+or
+
+Remember me
+
+Create an Account
+·
+Forgot Password
+
+Browse
+
+Advanced Search
+
+New Bug
+
+Reports
+
+Documentation
+
+Copy Summary
+▾
+
+Markdown
+
+Markdown (bug number)
+
+Plain Text
+
+HTML
+
+View ▾
+
+Reset Sections
+
+Expand All Sections
+
+Collapse All Sections
+
+History
+
+JSON
+
+XML
+
+Closed
+
+Bug 1804655
+
+Opened 3 years ago
+Closed 3 years ago
+
+high cpu usage and memory when using the JSON viewer on an 8MB file
+
+*
+Summary:
+
+high cpu usage and memory when using the JSON viewer on an 8MB file
+
+Categories
+
+(DevTools :: JSON Viewer, defect, P3)
+
+Product:
+
+DevTools
+▾
+
+DevTools
+
+For bugs in Firefox DevTools, the developer tools within the Firefox web browser. This includes issues about the user interface of the toolbox, special pages such as about:debugging and about:devtools, and developer-related APIs.
+
+See Open Bugs in This Product
+
+File New Bug in This Product
+
+Watch This Product
+
+Component:
+
+JSON Viewer
+▾
+
+DevTools :: JSON Viewer
+
+File bugs here for Firefox's built-in JSON Viewer.
+
+See Open Bugs in This Component
+
+Recently Fixed Bugs in This Component
+
+File New Bug in This Component
+
+Watch This Component
+
+Version:
+
+Firefox 107
+
+Platform:
+
+Desktop
+
+macOS
+
+Type:
+
+defect
+
+Priority:
+
+P3
+
+Severity:
+
+S3
+
+Points:
+
+---
+
+Tracking
+
+(Not tracked)
+
+Status:
+
+RESOLVED
+DUPLICATE
+of bug 1363222
+
+Status:
+
+RESOLVED
+
+DUPLICATE
+
+of
+
+Mark as Duplicate
+
+Mark as Assigned
+
+Milestone:
+
+---
+
+Iteration:
+
+---
+
+Project Flags:
+
+a11y-review
+
+---
+
+Accessibility Severity
+
+---
+
+Performance Impact
+
+---
+
+Webcompat Priority
+
+---
+
+Webcompat Score
+
+---
+
+Tracking Flags:
+
+Tracking
+Status
+
+relnote-firefox
+
+---
+
+firefox-esr115
+
+---
+
+---
+
+firefox-esr153
+
+---
+
+---
+
+firefox161
+
+---
+
+---
+
+firefox162
+
+---
+
+---
+
+firefox163
+
+---
+
+---
+
+People
+
+(Reporter: muratkerimaslan, Unassigned)
+
+Assignee:
+
+Unassigned
+
+Assignee:
+
+Reset Assignee to default
+
+Mentors:
+
+---
+
+QA Contact:
+
+Reset QA Contact to default
+
+Reporter:
+
+muratkerimaslan
+
+Triage Owner:
+
+nchevobbe
+
+CC:
+
+8 people
+
+References
+
+Depends on:
+
+---
+
+Blocks:
+
+---
+
+Regressions:
+
+---
+
+Regressed by:
+
+---
+
+URL:
+
+See Also:
+
+---
+
+Details
+
+Alias:
+
+---
+
+Keywords:
+
+---
+
+Whiteboard:
+
+---
+
+QA Whiteboard:
+
+---
+
+Has STR:
+
+---
+
+Change Request:
+
+---
+
+Votes:
+
+0
+
+Bug Flags:
+
+behind-pref
+
+firefox-backlog
+
+sec-bounty
+
+?
+
+sec-bounty-hof
+
+in-qa-testsuite
+
+in-testsuite
+
+qe-verify
+
+Crash Data
+
+Signature:
+
+None
+
+Security
+
+(public)
+
+This bug is publicly visible.
+
+User Story
+
+Attachments
+
+(4 files)
+
+Firefox 2022-12-08 13.57 profile.json.gz
+
+3 years ago
+
+muratkerimaslan
+
+1.48 MB,
+application/x-gzip
+
+Details
+
+md5sum.json
+
+3 years ago
+
+muratkerimaslan
+
+9.49 MB,
+application/json
+
+Details
+
+Screenshot 2022-12-08 at 14.01.06.png
+
+3 years ago
+
+muratkerimaslan
+
+817.52 KB,
+image/png
+
+Details
+
+Screenshot 2022-12-08 at 14.01.52.png
+
+3 years ago
+
+muratkerimaslan
+
+1.33 MB,
+image/png
+
+Details
+
+Bottom &darr;
+
+Tags ▾
+
+Reset
+
+Timeline ▾
+
+Reset
+
+Collapse All
+
+Expand All
+
+Comments Only
+
+muratkerimaslan
+
+Reporter
+
+Description
+
+&bull;
+
+3 years ago
+
+Attached file
+
+Firefox 2022-12-08 13.57 profile.json.gz
+— Details
+
+User Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:107.0) Gecko/20100101 Firefox/107.0
+
+Steps to reproduce:
+
+Opened firefox and went to "10.3.2.13:8080/database/md5sum", to see the JSON result of an API, the result is a 10 MB JSON. (Attached)
+
+Actual results:
+
+CPU usage of "FirefoxCP Isolated Webcontent" process, went up to 100%, and its memory usage went up 10GB in activity monitor.
+
+Expected results:
+
+I expected to view JSON content in either expandable tabs, or RAW JSON, but the page was unresponsive.
+
+muratkerimaslan
+
+Reporter
+
+Comment 1
+
+&bull;
+
+3 years ago
+
+Attached file
+
+md5sum.json
+— Details
+
+The 10 MB API response that I was trying to view in the new tab
+
+muratkerimaslan
+
+Reporter
+
+Comment 2
+
+&bull;
+
+3 years ago
+
+Attached image
+
+Screenshot 2022-12-08 at 14.01.06.png
+— Details
+
+muratkerimaslan
+
+Reporter
+
+Comment 3
+
+&bull;
+
+3 years ago
+
+Attached image
+
+Screenshot 2022-12-08 at 14.01.52.png
+— Details
+
+Rares Doghi, Desktop QA
+
+Comment 4
+
+&bull;
+
+3 years ago
+
+I was able to reproduce this issue in all versions of Firefox from Esr to our latest Nightly build.
+
+I saved the file locally and after loading it into Firefox the CPU would jump to 103% and drop back to 101%.
+
+I will change the component to Core Dom: Content Process but I'm not entirely sure its the correct one, maybe one of our devs can take a look at the memory report and they can move it to the correct component, there is a handful of similar bugs related the FirefoxCP and im not sure if its a duplicate for any of them.
+
+Severity: -- &rarr; S3
+
+Status: UNCONFIRMED &rarr; NEW
+
+status-firefox107:
+--- &rarr; affected
+
+status-firefox108:
+--- &rarr; affected
+
+status-firefox109:
+--- &rarr; affected
+
+status-firefox-esr102:
+--- &rarr; affected
+
+Component: Untriaged &rarr; DOM: Content Processes
+
+Ever confirmed: true
+
+OS: Unspecified &rarr; macOS
+
+Product: Firefox &rarr; Core
+
+Hardware: Unspecified &rarr; Desktop
+
+Emilio Cobos Álvarez [:emilio]
+
+Updated
+
+&bull;
+
+3 years ago
+
+Severity: S3 &rarr; --
+
+Component: DOM: Content Processes &rarr; JSON Viewer
+
+Product: Core &rarr; DevTools
+
+Andrew McCreight [:mccr8] (away until Nov 30)
+
+Comment 5
+
+&bull;
+
+3 years ago
+
+I'll make the summary more specific so it doesn't draw in comments from people with unrelated performance issues.
+
+Summary: firefoxCP Isolated Webcontent process high cpu usage and memory &rarr; high cpu usage and memory when using the JSON viewer on an 8MB file
+
+Julian Descottes [:jdescottes]
+
+Updated
+
+&bull;
+
+3 years ago
+
+Attachment #9307286 -
+Attachment mime type: text/plain &rarr; application/json
+
+Julian Descottes [:jdescottes]
+
+Comment 6
+
+&bull;
+
+3 years ago
+
+One option is to bail out from the json viewer and use the raw view if the size exceeds a certain limit, but we should still investigate the performance issue and see if there are obvious improvements to do.
+
+Severity: -- &rarr; S3
+
+Priority: -- &rarr; P3
+
+Zac Svoboda :zacnomore
+
+Comment 7
+
+&bull;
+
+3 years ago
+
+Can we combine this with bug 1363222?
+
+Flags: needinfo?(odvarko)
+
+Jan Honza Odvarko [:Honza] (always need-info? me)
+
+Comment 8
+
+&bull;
+
+3 years ago
+
+Yes, agree.
+
+Status: NEW &rarr; RESOLVED
+
+Closed: 3 years ago
+
+Duplicate of bug: 1363222
+
+Flags: needinfo?(odvarko)
+
+Resolution: --- &rarr; DUPLICATE
+
+Ryan VanderMeulen [:RyanVM]
+
+Updated
+
+&bull;
+
+3 years ago
+
+status-firefox107:
+affected &rarr; ---
+
+status-firefox108:
+affected &rarr; ---
+
+status-firefox109:
+affected &rarr; ---
+
+status-firefox-esr102:
+affected &rarr; ---
+
+You need to log in
+before you can comment on or make changes to this bug.
+
+Top &uarr;
+
+Attachment
+
+Hide Details
+
+General
+
+Creator:
+muratkerimaslan
+
+Created:
+
+Updated:
+
+Size:
+
+Description
+
+File Name
+
+Content Type
+
+Raw
+Diff
+Splinter Review

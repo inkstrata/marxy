@@ -1,0 +1,178 @@
+[
+ {
+  "kind": "txt",
+  "bytes": 5100024,
+  "name": "big-txt-5100k.txt",
+  "steps": {
+   "open": {
+    "firstMs": 479,
+    "completeMs": 82615,
+    "openReturnMs": 576,
+    "busyUntilIdleMs": 84322,
+    "taskMs": 82844,
+    "layouts": 973,
+    "longestMs": 5303,
+    "nodes": 386303
+   },
+   "key": {
+    "wallMs": 1314,
+    "taskMs": 148,
+    "scriptMs": 10,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 386456
+   },
+   "scrollMid": {
+    "wallMs": 990,
+    "taskMs": 55,
+    "scriptMs": 5,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 386342
+   },
+   "scrollEnd": {
+    "wallMs": 940,
+    "taskMs": 19,
+    "scriptMs": 2,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 386342
+   },
+   "toSource": {
+    "wallMs": 3420,
+    "taskMs": 1411,
+    "scriptMs": 136,
+    "layoutMs": 6,
+    "layouts": 15,
+    "recalcs": 32,
+    "longestMs": 871,
+    "nodes": 386428
+   },
+   "toRead": {
+    "wallMs": 5092,
+    "taskMs": 3905,
+    "scriptMs": 458,
+    "layoutMs": 1501,
+    "layouts": 9,
+    "recalcs": 25,
+    "longestMs": 3106,
+    "nodes": 386463
+   },
+   "reload": {
+    "wallMs": 122254,
+    "taskMs": 120949,
+    "scriptMs": 33704,
+    "layoutMs": 5466,
+    "layouts": 1073,
+    "recalcs": 1080,
+    "longestMs": 11477,
+    "nodes": 386474
+   },
+   "find": {
+    "wallMs": 11438,
+    "taskMs": 10120,
+    "scriptMs": 2301,
+    "layoutMs": 36,
+    "layouts": 16,
+    "recalcs": 53,
+    "longestMs": 3378,
+    "nodes": 392531
+   }
+  },
+  "errors": []
+ },
+ {
+  "kind": "log",
+  "bytes": 5100058,
+  "name": "big-log-5100k.log",
+  "steps": {
+   "open": {
+    "firstMs": 94,
+    "completeMs": 395,
+    "openReturnMs": 309,
+    "busyUntilIdleMs": 2428,
+    "taskMs": 508,
+    "layouts": 46,
+    "longestMs": 0,
+    "nodes": 8299
+   },
+   "key": {
+    "wallMs": 1101,
+    "taskMs": 23,
+    "scriptMs": 7,
+    "layoutMs": 0,
+    "layouts": 1,
+    "recalcs": 1,
+    "longestMs": 0,
+    "nodes": 8414
+   },
+   "scrollMid": {
+    "wallMs": 1269,
+    "taskMs": 167,
+    "scriptMs": 33,
+    "layoutMs": 33,
+    "layouts": 12,
+    "recalcs": 21,
+    "longestMs": 0,
+    "nodes": 18094
+   },
+   "scrollEnd": {
+    "wallMs": 1239,
+    "taskMs": 143,
+    "scriptMs": 29,
+    "layoutMs": 26,
+    "layouts": 11,
+    "recalcs": 16,
+    "longestMs": 0,
+    "nodes": 22800
+   },
+   "toSource": {
+    "wallMs": 1616,
+    "taskMs": 258,
+    "scriptMs": 99,
+    "layoutMs": 6,
+    "layouts": 17,
+    "recalcs": 42,
+    "longestMs": 102,
+    "nodes": 11572
+   },
+   "toRead": {
+    "wallMs": 1515,
+    "taskMs": 170,
+    "scriptMs": 16,
+    "layoutMs": 14,
+    "layouts": 15,
+    "recalcs": 31,
+    "longestMs": 119,
+    "nodes": 11886
+   },
+   "reload": {
+    "wallMs": 1585,
+    "taskMs": 632,
+    "scriptMs": 73,
+    "layoutMs": 36,
+    "layouts": 23,
+    "recalcs": 72,
+    "longestMs": 290,
+    "nodes": 17790
+   },
+   "find": {
+    "wallMs": 1930,
+    "taskMs": 632,
+    "scriptMs": 211,
+    "layoutMs": 80,
+    "layouts": 27,
+    "recalcs": 66,
+    "longestMs": 245,
+    "nodes": 23967
+   }
+  },
+  "errors": []
+ }
+]

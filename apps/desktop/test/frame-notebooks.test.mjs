@@ -7,12 +7,11 @@ import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { after, test as nodeTest } from 'node:test';
-import { closeHarness } from './support/two-pane.mjs';
-import { panelHero, panelKvs, panelSecs, panelText, showPanel, skip, withFrame } from './support/frame.mjs';
+import { test as nodeTest } from 'node:test';
+import { idle, skip, withApp } from './support/kit.mjs';
+import { panelHero, panelKvs, panelSecs, panelText, showPanel } from './support/frame.mjs';
 
 const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
-after(() => closeHarness());
 
 const demo = join(fileURLToPath(new URL('../../../', import.meta.url)), 'fixtures', 'demo');
 const NB = '/r/notebooks/tide-heights.ipynb';
@@ -56,7 +55,7 @@ const notebookRows = async (page) => {
 };
 
 test('a notebook reads as its cells: Markdown set, code coloured in the kernelâ€™s language, outputs as saved, nothing run', async () => {
-  await withFrame({ files: FILES, open: ['/r/README.md'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/README.md'] }, async (page) => {
     const away = [];
     page.on('request', (r) => {
       if (!/^(https?:\/\/(localhost|127\.0\.0\.1)[:/]|data:|blob:)/.test(r.url())) away.push(r.url());
@@ -90,14 +89,14 @@ test('a notebook reads as its cells: Markdown set, code coloured in the kernelâ€
     assert.ok(!tb.includes('\u001b') && !/\[0;3\dm/.test(tb), 'no colour codes');
     assert.match(tb, /Traceback \(most recent call last\)/);
     assert.match(await page.textContent('.marxy-nb-error .marxy-nb-note'), /^27 colour codes in the traceback left out; Source has them\.$/);
-    await page.waitForTimeout(300);
+    await idle(page);
     assert.deepEqual(await ran(page), { flag: null, ground: '' }, 'nothing in the notebook ran');
     assert.deepEqual(away, [], 'nothing was fetched from the network');
   });
 });
 
 test('a JavaScript output is shown as written on request, and still never runs', async () => {
-  await withFrame({ files: FILES, open: [NB] }, async (page) => {
+  await withApp({ files: FILES, open: [NB] }, async (page) => {
     await page.waitForSelector('.marxy-notebook');
     const asis = page.locator('[data-marxy-cell="6"] details.marxy-nb-asis');
     assert.equal(await asis.getAttribute('open'), null);
@@ -105,13 +104,13 @@ test('a JavaScript output is shown as written on request, and still never runs',
     await page.click('[data-marxy-cell="6"] details.marxy-nb-asis > summary');
     await page.waitForSelector('[data-marxy-cell="6"] details.marxy-nb-asis[open] pre', { state: 'visible' });
     assert.equal(await page.textContent('[data-marxy-cell="6"] details.marxy-nb-asis pre'), 'window.__nbRan = 3;');
-    await page.waitForTimeout(300);
+    await idle(page);
     assert.deepEqual(await ran(page), { flag: null, ground: '' });
   });
 });
 
 test('the panels: Cells in Outline, each row going to its cell, and Notebook written in it in Metadata', async () => {
-  await withFrame({ files: FILES, open: [NB] }, async (page) => {
+  await withApp({ files: FILES, open: [NB] }, async (page) => {
     await page.waitForSelector('.marxy-notebook');
     assert.deepEqual((await panelSecs(page, 'metadata')).find(([t]) => t === 'Written in it'), ['Written in it', 'Notebook']);
     assert.equal((await panelSecs(page, 'outline'))[0][0], 'Cells');
@@ -139,7 +138,7 @@ test('the panels: Cells in Outline, each row going to its cell, and Notebook wri
 });
 
 test('find reads the page: a word in a Markdown cell, in code and in an output', async () => {
-  await withFrame({ files: FILES, open: [NB] }, async (page, { mod }) => {
+  await withApp({ files: FILES, open: [NB] }, async (page, { mod }) => {
     await page.waitForSelector('.marxy-notebook');
     await page.click('.marxy-notebook h1');
     await page.keyboard.press(`${mod}+f`);
@@ -152,7 +151,7 @@ test('find reads the page: a word in a Markdown cell, in code and in an output',
 });
 
 test('Source is the JSON as written, and showing it runs nothing', async () => {
-  await withFrame({ files: FILES, open: [NB] }, async (page) => {
+  await withApp({ files: FILES, open: [NB] }, async (page) => {
     await page.waitForSelector('.marxy-notebook');
     await page.click('.marxy-rs-source');
     await page.waitForFunction(() => document.querySelector('.marxy-source-mount:not([hidden]) .cm-content')?.textContent.includes('"cell_type": "markdown"'));
@@ -161,14 +160,14 @@ test('Source is the JSON as written, and showing it runs nothing', async () => {
 });
 
 test('an SVG output is an image whose script never runs; a Markdown output is set as Markdown', async () => {
-  await withFrame({ files: FILES, open: ['/r/notebooks/extras.ipynb'] }, async (page) => {
+  await withApp({ files: FILES, open: ['/r/notebooks/extras.ipynb'] }, async (page) => {
     await page.waitForSelector('.marxy-notebook');
     await page.waitForFunction(() => document.querySelector('.marxy-nb-img')?.complete && document.querySelector('.marxy-nb-img').naturalWidth === 40);
     assert.match(await page.getAttribute('.marxy-nb-img', 'src'), /^data:image\/svg\+xml;charset=utf-8,/);
     assert.equal(await page.locator('.marxy-notebook svg').count(), 0, 'never inlined');
     assert.equal(await page.innerText('.marxy-nb-md-out'), 'A Markdown output.');
     assert.equal(await page.textContent('.marxy-nb-md-out strong'), 'Markdown');
-    await page.waitForTimeout(300);
+    await idle(page);
     assert.deepEqual(await ran(page), { flag: null, ground: '' });
   });
 });
