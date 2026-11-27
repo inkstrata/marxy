@@ -55,3 +55,17 @@ test('a process tree sums the root and what descends from it, and nothing beside
   assert.deepEqual(treeMemory(rows[0], 10), { processes: 1, workingSetMB: 1, privateMB: 1 });
   assert.deepEqual(treeMemory(null, 10), { processes: 0, workingSetMB: 0, privateMB: 0 });
 });
+
+import { launchVerdict } from './real-window-fixtures.mjs';
+
+test('a launch is judged by its painted mark: late text, an untagged frames-only launch and a missing mark fail with their cause', () => {
+  assert.equal(launchVerdict('MARK painted 1 frames=2 since_render_ms=175 signal=first-paint source=paint').ok, true);
+  assert.equal(launchVerdict('MARK painted 1 frames=2 since_render_ms=40 signal=frames-only source=frame fcp_before_ms=212').ok, true);
+  const noEarlierPaint = launchVerdict('MARK painted 1 frames=2 since_render_ms=40 signal=frames-only source=frame');
+  assert.equal(noEarlierPaint.ok, true, 'the fallback path carries no fcp_before_ms');
+  const stalled = launchVerdict('MARK painted 1 frames=2 since_render_ms=2031 signal=frames-only');
+  assert.equal(stalled.ok, false);
+  assert.match(stalled.why, /2031 ms after the render/);
+  assert.match(launchVerdict('MARK painted 1 frames=2 since_render_ms=40 signal=frames-only').why, /source=frame/);
+  assert.match(launchVerdict(undefined).why, /no painted mark/);
+});
