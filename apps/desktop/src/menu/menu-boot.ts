@@ -32,5 +32,6 @@ export function mountNativeMenu(handle: AppHandle, shell: typeof tauriShell): ()
   return () => {
     off();
     offWatch();
+    signal.destroy();
   };
 }

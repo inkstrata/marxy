@@ -106,7 +106,8 @@ record (`node scripts/gate-licences.mjs`).
   posts (`listenForFileDrops` in `shell/tauri.ts`), read by `drop_windows.rs`. Only regular files
   are kept.
 - Files are delivered as `marxy:open-files`; those that arrive before the page is listening are
-  queued and drained by `take_pending_opens`.
+  queued and drained by `take_pending_opens`. The page keeps what it has taken, and any open emitted while no boot is
+  subscribed, for the next boot, which gets each batch once and in order.
 - Every one of these routes (and `args`, `open_dialog`, `save_dialog`) records its paths as opened in the scope
   (below) before the page sees them.
 
