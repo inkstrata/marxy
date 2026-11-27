@@ -31,7 +31,7 @@ check sees: a scan of the whole text per match, recursion as deep as the input).
 2. **Whole-file work happens once per version of the bytes, off the critical path.** A parse, an index, a search, a
    colour pass or an export runs in slices that yield to input (or in a worker), can be cancelled when the bytes change
    or the reader leaves, and its result is shared by every feature that needs it.
-   The yield between slices is `yieldToMain` from `apps/desktop/src/scheduler/`; a loop does not build its own.
+   The yield between slices is `yieldToMain` from `apps/desktop/src/scheduler/`; new code does not build its own yield. The loops that still yield on a timer (compare, log, recorder, notes, the document model, archive sheet, PDF, the Source frame, transforms, highlighting and find scans) and the typesetting queue in `packages/typeset` are moving onto it.
 3. **No shapes that grow faster than the input.** No scan of the whole document or page per item: no DOM query or
    layout read inside a loop, no `shift`, `unshift`, `concat` or sort inside a loop, no `indexOf` over the whole text per
    match. No array spread into call arguments (`push(...xs)`, `append(...nodes)`, `Math.max(...xs)`): past about

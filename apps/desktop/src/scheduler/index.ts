@@ -8,7 +8,7 @@
 // (a test without a DOM) a timer stands in.
 //
 // Three lanes say who goes first when more than one job is waiting for its turn. They are the research's three
-// (docs/research/large-files, D-05): `input` is what the reader just asked for (open, find, sort, filter); `viewport`
+// (docs/research/large-files): `input` is what the reader just asked for (open, find, sort, filter); `viewport`
 // is what is on or near the screen (highlighting the blocks in view); `background` is what nobody is waiting on (the
 // outline, panels). One message resolves one waiter, the highest lane's first, so with one lane busy the yield costs
 // what a bare message costs. A waiter that has waited `STARVE_MS` goes ahead of a higher lane's, so a lane that is
