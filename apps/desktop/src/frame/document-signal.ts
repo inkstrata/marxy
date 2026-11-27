@@ -7,11 +7,13 @@ import type { AppHandle } from '../app.ts';
 export interface DocumentSignal {
   /** Called when a document opened, changed, saved or closed in any pane, or focus moved. */
   onChange(cb: () => void): () => void;
+  /** Lets go of every pane subscription and listener; a pane split after this is not watched. */
+  destroy(): void;
 }
 
 /**
- * One per app instance, made where the fills are installed, so it has seen every open since launch. It holds
- * no subscription that outlives the panes: they are let go with the panes.
+ * One per app instance, made where the fills are installed, so it has seen every open since launch. `destroy`
+ * lets go of its pane subscriptions, for an instance that goes before its panes do.
  */
 export function createDocumentSignal(handle: AppHandle): DocumentSignal {
   const panes = handle.panes();
@@ -19,24 +21,39 @@ export function createDocumentSignal(handle: AppHandle): DocumentSignal {
   const emit = (): void => {
     for (const cb of [...listeners]) cb();
   };
-  const watch = (pane: (typeof panes.panes)[number]): (() => void) =>
-    pane.content.onDocumentChange(() => {
+  let dead = false;
+  const offs = new Set<() => void>();
+  const watch = (pane: (typeof panes.panes)[number]): (() => void) => {
+    const off = pane.content.onDocumentChange(() => {
       emit();
     });
+    offs.add(off);
+    return () => {
+      if (offs.delete(off)) off();
+    };
+  };
   watch(panes.panes[0]!);
   panes.onSplit(() => {
     const second = panes.panes[1];
-    return second ? watch(second) : () => {};
+    return second && !dead ? watch(second) : () => {};
   });
-  panes.onChange(() => {
-    emit();
-  });
+  offs.add(
+    panes.onChange(() => {
+      emit();
+    }),
+  );
   return {
     onChange(cb) {
       listeners.add(cb);
       return () => {
         listeners.delete(cb);
       };
+    },
+    destroy() {
+      dead = true;
+      for (const off of [...offs]) off();
+      offs.clear();
+      listeners.clear();
     },
   };
 }
