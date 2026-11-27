@@ -90,18 +90,12 @@ export function createSandboxFrame(o: SandboxOptions): SandboxFrame {
     if (deaf) drawHits(d);
   };
 
-  function hears(d: Document): boolean {
-    const win = d.defaultView as (Window & typeof globalThis) | null;
-    if (!win) return true;
-    let heard = false;
-    const hear = (): void => {
-      heard = true;
-    };
-    d.addEventListener('marxy-sandbox-probe', hear);
-    d.dispatchEvent(new win.Event('marxy-sandbox-probe'));
-    d.removeEventListener('marxy-sandbox-probe', hear);
-    return heard;
-  }
+  /**
+   * Whether the engine runs a listener of the app's inside the frame. WebKit does not (a document whose sandbox forbids
+   * scripts runs none); the engine is told by its name, because a probe event sent into the frame is itself refused and
+   * logged as a blocked script each time a page is drawn.
+   */
+  const hears = (): boolean => !/AppleWebKit/.test(navigator.userAgent) || /\b(Chrome|Chromium|Edg)\//.test(navigator.userAgent);
 
   /** A transparent box over each line of each link, in the app's page beside the frame: the frame never scrolls. */
   function drawHits(d: Document): void {
@@ -157,7 +151,7 @@ export function createSandboxFrame(o: SandboxOptions): SandboxFrame {
     const d = frame.contentDocument;
     if (!d || gone) return;
     adopt(d);
-    deaf = !hears(d);
+    deaf = !hears();
     if (!deaf) hits?.replaceChildren();
     d.addEventListener('click', (e) => {
       const a = (e.target as Element | null)?.closest?.('a[data-marxy-href]');

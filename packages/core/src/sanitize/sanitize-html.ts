@@ -103,7 +103,7 @@ export interface SanitizeResult {
 export function sanitizeHtml(input: string, policy: Policy = DEFAULT_POLICY, options: SanitizeOptions = {}): SanitizeResult {
   const transparent = new Set(policy.transparent);
   const removed = new Removals();
-  const out = writer(removed);
+  const out = writer(removed, Math.min(SANITIZE_MAX_OPEN, policy.maxOpen ?? SANITIZE_MAX_OPEN));
   const length = input.length;
   let index = 0;
 
@@ -238,7 +238,7 @@ interface Writer {
  * dropped rather than emitted, and a formatting element may not span a block boundary — which is
  * what keeps an unclosed `<a>` from turning the rest of a document into a link to its author's host.
  */
-function writer(removed: RemovalSink): Writer {
+function writer(removed: RemovalSink, maxOpen: number): Writer {
   const open: string[] = [];
   // Opens refused past `SANITIZE_MAX_OPEN`, by name: their close tags go with them rather than close something written.
   const dropped = new Map<string, number>();
@@ -273,8 +273,8 @@ function writer(removed: RemovalSink): Writer {
         parts.push(`<${name}${attributesText} />`);
         return;
       }
-      if (open.length >= SANITIZE_MAX_OPEN) {
-        removed.push({ what: 'structure', name, reason: `more than ${SANITIZE_MAX_OPEN} elements open; its tags were dropped and its contents kept` });
+      if (open.length >= maxOpen) {
+        removed.push({ what: 'structure', name, reason: `more than ${maxOpen} elements open; its tags were dropped and its contents kept` });
         dropped.set(name, (dropped.get(name) ?? 0) + 1);
         return;
       }
