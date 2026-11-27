@@ -57,7 +57,22 @@ const FIRST_SLICE_BYTES = 4096;
 
 /** `parseMarkdown(bytes, options)`, in slices. Equal to it in every node and range (chunked.test.ts). */
 export async function parseMarkdownChunked(bytes: Uint8Array, options: ChunkedParseOptions): Promise<Document> {
-  const { yieldNow, budgetMs = 3, sliceBytes, aborted, ...parse } = options;
+  const { yieldNow, aborted, ...rest } = options;
+  const steps = parseMarkdownSteps(bytes, rest);
+  for (;;) {
+    const next = steps.next();
+    if (next.done) return next.value;
+    await yieldNow();
+    if (aborted?.()) throw new Abandoned();
+  }
+}
+
+/**
+ * The same parse as a generator: it yields between slices and returns the Document, so a caller that keeps its own
+ * budget (a panel working out counts a piece at a time) runs it a slice per turn without an event loop of its own.
+ */
+export function* parseMarkdownSteps(bytes: Uint8Array, options: Omit<ChunkedParseOptions, 'yieldNow' | 'aborted'> = {}): Generator<void, Document, void> {
+  const { budgetMs = 3, sliceBytes, ...parse } = options;
   const file = parse.file ?? 'untitled';
   const whole = (reason: string): Document => {
     last = { kind: 'whole', reason, slices: 0, refused: 0 };
@@ -100,8 +115,7 @@ export async function parseMarkdownChunked(bytes: Uint8Array, options: ChunkedPa
       k = firstAtOrAfter(candidates, at + step);
     }
     if (!advanced) break;
-    await yieldNow();
-    if (aborted?.()) throw new Abandoned();
+    yield;
   }
   // The last slice: from the last fresh line to the end of the file.
   const region = parseBlocksIn(bytes, restart, bytes.length, parse);
@@ -113,6 +127,22 @@ export async function parseMarkdownChunked(bytes: Uint8Array, options: ChunkedPa
   last = { kind: 'slices', slices: slices + 1, refused };
   // No slice held a definition, and the scan found no line that could open one: the file holds none.
   return documentOf(file, bytes, blocks, NO_DEFINITIONS);
+}
+
+/**
+ * Whether `parseMarkdownChunked` could parse `bytes` with no one slice larger than about `maxBytes`: no definition makes it
+ * parse whole, and no stretch between two places a slice may end is longer than that (a text with no blank line is one
+ * paragraph, which cannot be cut). A scan of lines, a guess the parse itself proves; the answer for a caller that would
+ * rather not parse at all than parse such a text in one task.
+ */
+export function slicesWithin(bytes: Uint8Array, maxBytes: number): boolean {
+  if (holdsDefinitionMark(bytes)) return false;
+  let from = 0;
+  for (const at of freshCandidates(bytes)) {
+    if (at - from > maxBytes) return false;
+    from = at;
+  }
+  return bytes.length - from <= maxBytes;
 }
 
 /** The size of the next slice: what the budget buys at the rate the last one parsed. */
