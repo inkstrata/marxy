@@ -12,9 +12,7 @@ before you run it.
 - Weekly usage resets on **Friday at 20:00** local; each 5-hour window resets on a rolling basis. Fable has its own weekly limit.
 - Usage kept back for my own daytime work: 5-hour window at most __60__% used by automation during
   07:00–23:00; weekly at most __70__% used by automation before Thursday 20:00.
-- Merging: <!-- choose one -->
-  - (a) automation may turn on squash auto-merge for a PR that a different agent reviewed and that only touches non-CODEOWNERS paths
-  - (b) automation prepares PRs and a morning merge list; I merge.
+- Merging: **automation auto-merges.** A job may turn on squash auto-merge (`gh pr merge --auto --squash`) for a PR that an agent other than its author reviewed and approved, whose CI is green, and that touches no CODEOWNERS path. CODEOWNERS PRs and any PR I asked to review wait for me and go on the morning list. This overrides the fleet rule that merging in `inkstrata/*` stays with me, for Marxy's automation only. On 2026-11-27 Claude Code's auto-mode classifier refused an agent's auto-merge even so. The design must say how the merge step gets permission, for example an allow rule for that exact command in the job's settings that I install, and must not try to get around the classifier.
 
 ---
 
