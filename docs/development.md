@@ -149,8 +149,9 @@ pnpm work installer --no-install --dmg               # build and keep the app an
 4. Keeps `Marxy.app.zip` (zipped, so Launch Services never registers it), the DMG if made and a
    `BUILD.txt` in `builds/<date>-<time>-<commit>/` in the main checkout.
 5. Unless `--no-install`: asks a running installed Marxy to quit (builds run from `target` folders are
-   left alone), swaps the new bundle into `/Applications` (`~/Applications` when that is not
-   writable; `--dest` to choose), checks it again, registers it with Launch Services so its file types
+   left alone) and stops if it is still open, since it may be asking about unsaved changes; swaps the
+   new bundle into `/Applications` (`~/Applications` when that is not writable, and a stop when a copy
+   there cannot be replaced; `--dest` to choose), putting the old bundle back if the swap fails; checks it again, registers it with Launch Services so its file types
    take effect at once and unregisters every other copy of the bundle id (the build folder, old
    worktrees, DMGs once mounted; the build folder's bundle is deleted, as the zip keeps it), so
    Finder's Open With offers only the installed one, and writes a `marxy` command to `~/.local/bin` when that is on the PATH

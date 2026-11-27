@@ -60,11 +60,33 @@ export function buildFolderName(date, sha) {
 
 // The path helpers below use POSIX rules: they describe macOS paths, and their tests also run on Windows.
 
-/** Where to install: `--dest`, else /Applications when Marxy is already there or it is writable, else ~/Applications. */
+/**
+ * Where to install: `--dest`, else /Applications when it is writable, else ~/Applications. A Marxy already in an
+ * /Applications this user cannot write is an error, not a second copy: replacing it needs that write access.
+ */
 export function pickDest(dest, { home = homedir(), exists = existsSync, writable = isWritable } = {}) {
   if (dest) return posix.resolve(dest);
-  if (exists(posix.join('/Applications', APP)) || writable('/Applications')) return '/Applications';
+  if (writable('/Applications')) return '/Applications';
+  if (exists(posix.join('/Applications', APP))) {
+    throw new Error(`/Applications/${APP} is installed, but this user cannot change /Applications: run as an administrator, or pass --dest ~/Applications`);
+  }
   return posix.join(home, 'Applications');
+}
+
+/**
+ * Puts `staged` where `installed` is, keeping the old bundle at `old` until the new one is in. A failed swap puts
+ * the old bundle back, so a failure never leaves the reader without the copy they had.
+ */
+export function swapIn(staged, installed, old, { exists = existsSync, rename = renameSync, remove = p => rmSync(p, { recursive: true, force: true }) } = {}) {
+  const hadOld = exists(installed);
+  if (hadOld) rename(installed, old);
+  try {
+    rename(staged, installed);
+  } catch (error) {
+    if (hadOld) rename(old, installed);
+    throw error;
+  }
+  remove(old);
 }
 
 /** Where the `marxy` command goes: `--cli-dir`, else ~/.local/bin when it is on the PATH, else nowhere (null). */
@@ -147,17 +169,16 @@ function pidsOf(appPath) {
   return list ? list.split('\n').map(Number).filter(Boolean) : [];
 }
 
-/** A polite quit first, so the app saves its layout; a TERM, then a KILL, only if it does not exit. */
+/**
+ * Asks the running copy to quit, as the Dock's Quit does, so it saves its layout. It is never killed: a copy that
+ * stays open may be asking about unsaved changes, and those are the reader's to answer.
+ */
 function quitInstalled(appPath) {
   if (!pidsOf(appPath).length) return;
   console.log(`asking ${appPath} to quit`);
   spawnSync('osascript', ['-e', `tell application "${appPath}" to quit`], { stdio: 'ignore', timeout: 10_000 });
-  for (const signal of [null, 'SIGTERM', 'SIGKILL']) {
-    if (signal) for (const pid of pidsOf(appPath)) try { process.kill(pid, signal); } catch {}
-    for (let t = 0; t < 16 && pidsOf(appPath).length; t++) sleep(500);
-    if (!pidsOf(appPath).length) return;
-  }
-  throw new Error(`${appPath} is still running`);
+  for (let t = 0; t < 30 && pidsOf(appPath).length; t++) sleep(500);
+  if (pidsOf(appPath).length) throw new Error(`${appPath} is still running (it may be asking about unsaved changes): quit it, then run this again`);
 }
 
 /** Proves the bundle is sealed (an unsealed ad-hoc bundle is killed on launch on Apple silicon) and says what it is. */
@@ -274,12 +295,13 @@ export function installerMain(argv) {
   // take for bundles.
   const staged = join(dest, `${APP}.installing`);
   const old = join(dest, `${APP}.previous`);
+  // A run stopped between the swap's two renames left the only good copy at `old`: it goes back before anything
+  // is removed.
+  if (!existsSync(installed) && existsSync(old)) renameSync(old, installed);
   rmSync(staged, { recursive: true, force: true });
   rmSync(old, { recursive: true, force: true });
   run('ditto', [built, staged]);
-  if (existsSync(installed)) renameSync(installed, old);
-  renameSync(staged, installed);
-  rmSync(old, { recursive: true, force: true });
+  swapIn(staged, installed, old);
   spawnSync('xattr', ['-dr', 'com.apple.quarantine', installed], { stdio: 'ignore' });
   checkBundle(installed);
   // Register the installed copy now, so Finder's Open With and the file-type defaults see this build at once, and
