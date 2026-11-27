@@ -554,8 +554,11 @@ function nodeHtml(d: Draw, node: TreeNode, depth: number, index: number | null, 
   const kind = node.kind === 'list' ? '[ ]' : node.kind === 'element' ? '' : '{ }';
   const table = tableKeys(node) !== null;
   const meta = `<span class="marxy-tree-meta">${kind ? `${kind} ` : ''}${count(node, entriesOf(d, node))}${table ? ' · as a table' : ''}</span>`;
-  const open = depth < FOLD_DEPTH && d.openLeft-- > 0 ? ' open' : '';
+  const early = depth < FOLD_DEPTH && d.openLeft-- > 0;
+  const stoppedBefore = d.stopped;
   const body = entriesHtml(d, node, depth, path, node === d.base ? d.start : 0);
+  // The branch the tree stops in stays open past the limit: its stop line and the ways on from it are not to be folded away.
+  const open = early || (depth < FOLD_DEPTH && d.stopped && !stoppedBefore) ? ' open' : '';
   return `<details class="marxy-tree-branch"${open}${spanAt(p, node.start, node.end)}><summary>${keyHtml(node, index)}${attrsHtml(node)} ${meta}</summary><div class="marxy-tree-kids">${body}</div></details>`;
 }
 
