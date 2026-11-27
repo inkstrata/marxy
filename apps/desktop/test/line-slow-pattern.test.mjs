@@ -31,3 +31,17 @@ test('Line: a backtracking / find is called too slow and the window stays alive'
     await page.waitForFunction(() => document.querySelectorAll('#marxy-palette .marxy-palette-row').length === 1, null, { timeout: 8000 });
   });
 });
+
+test('Line: Enter while a / find is still searching does not run the pattern on the page', async () => {
+  await withFrame({ files: FILES, open: ['/r/evil.txt'] }, async (page) => {
+    await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
+    await page.keyboard.press('Slash');
+    await page.waitForSelector('#marxy-palette[open]');
+    await within(page.keyboard.type('/(a+)+$/'), 5000, 'the keys of the pattern');
+    const t0 = Date.now();
+    await within(page.keyboard.press('Enter'), 5000, 'Enter while the pattern searches');
+    await within(page.evaluate(() => new Promise((r) => setTimeout(() => r(1), 50))), 3000, 'the page after Enter');
+    const took = Date.now() - t0;
+    assert.ok(took < 1000, `Enter and the next answer took ${took} ms`);
+  });
+});

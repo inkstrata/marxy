@@ -182,7 +182,8 @@ function findRows(q: string, pane: LinePane | null, env: ScopeEnv): ScopeResult 
   if (!text || pane.view.viewer() !== null) return { rows: [], note: 'Enter finds it on this page.', enter: seek };
   const lines = textLines(text.bytes);
   const found = re ? findHits(q, re, text.bytes, lines, env) : [];
-  if (found === 'run') return { rows: [], note: 'Searching…', enter: seek };
+  // No Enter until the worker answers: in-page find would run the same pattern here, where nothing can stop it.
+  if (found === 'run') return { rows: [], note: 'Searching…' };
   if (found === 'slow') return { rows: [], note: SLOW_NOTE };
   const hits = found;
   const rows: LineRow[] = hits.slice(0, 200).map((h, i) => ({
