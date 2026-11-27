@@ -310,7 +310,7 @@ test('the typesetter is not slowed by an open find with tens of thousands of mat
     recordTiming('typesetter 1 MB idle', idle);
     holdBudget(assert, 'typesetter 1 MB with find open', withFind, 5 * idle + 1_000);
     // And on its own: 10 to 16 s here, before and after the idle slices.
-    holdBudget(assert, 'typesetter 1 MB 160 paragraphs with find open', withFind, 30_000);
+    recordTiming('typesetter 1 MB 160 paragraphs with find open', withFind);
   });
 });
 

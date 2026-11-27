@@ -186,15 +186,19 @@ test('a WAL database is read with its log, said in grey in the head and above th
           return null;
         }
       });
-    await page.waitForFunction(async () => {
-      const shell = window.__marxyHandle.shell;
-      const paths = await shell.configPaths();
-      try {
-        return JSON.parse(new TextDecoder().decode(await shell.readFile(`${paths.data}/readings.json`))).alone != null;
-      } catch {
-        return false;
-      }
-    }, null, { polling: 'raf' });
+    // The write is the app's own, after the click: poll on frames until the file says it, the test's timeout bounding it.
+    await page.evaluate(async () => {
+      const kept = async () => {
+        const shell = window.__marxyHandle.shell;
+        const paths = await shell.configPaths();
+        try {
+          return JSON.parse(new TextDecoder().decode(await shell.readFile(`${paths.data}/readings.json`))).alone != null;
+        } catch {
+          return false;
+        }
+      };
+      while (!(await kept())) await new Promise((r) => requestAnimationFrame(r));
+    });
     const alone = await keptAlone();
     assert.deepEqual(alone, ['/r/data/journal.sqlite'], 'the choice is kept in readings.json');
     await page.click('.marxy-tbl-state button:has-text("Read it with its WAL")');
