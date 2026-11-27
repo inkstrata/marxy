@@ -526,7 +526,8 @@ test(`Transforms: Alt+6 on a half-megabyte Markdown file with ${ends} line ends 
       { timeout: 90_000 },
     );
     const worst = await page.evaluate(() => (clearInterval(window.__beat.timer), window.__beat.worst));
-    assert.ok(worst < 3000, `the window stopped for ${Math.round(worst)} ms at most; one row was one task of many seconds before`);
+    console.log(`# ${ends} half-megabyte Transforms: the window stopped for ${Math.round(worst)} ms at most`);
+    assert.ok(worst < 400, `the window stopped for ${Math.round(worst)} ms at most; one row was one task of many seconds before, and a CRLF file's LF parse was one task of 1.4 s`);
     assert.deepEqual(await asOf(page, 't:renumber-list'), { as: '3000 lines', dim: false });
     assert.deepEqual(await asOf(page, 't:tick-all'), { as: '3000 lines', dim: false });
     assert.deepEqual(await asOf(page, 't:table-align'), { as: '9000 lines', dim: false });
