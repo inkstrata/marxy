@@ -63,6 +63,17 @@ test('linesBytes: exactly the lines asked for, each with its own ending, the las
   assert.equal(s(linesBytes(b, 4, 9)), 'four');
 });
 
+test('linesBytes: bare CR, LF and CRLF endings count as the cursor counts them, so a part is the part saved', () => {
+  const s = (x: Uint8Array) => new TextDecoder().decode(x);
+  const cr = enc('one\rtwo\rthree\r');
+  assert.equal(s(linesBytes(cr, 1, 1)), 'one\r');
+  assert.equal(s(linesBytes(cr, 2, 3)), 'two\rthree\r');
+  const mixed = enc('a\rb\nc\r\nd');
+  assert.equal(s(linesBytes(mixed, 2, 2)), 'b\n');
+  assert.equal(s(linesBytes(mixed, 3, 4)), 'c\r\nd');
+  assert.equal(s(linesBytes(mixed, 9, 9)), '', 'past the end is empty');
+});
+
 test('JSON Lines: one record a row, the header\'s keys, a short row filled with empty strings', () => {
   assert.equal(jsonLines([['service', 'p95'], ['indexer', '120'], ['watcher']]), '{"service":"indexer","p95":"120"}\n{"service":"watcher","p95":""}\n');
   assert.equal(jsonLines([['a']]), '');

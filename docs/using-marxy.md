@@ -376,7 +376,7 @@ as a web page (sanitised, no scripts, with the look or plain, notes as asides), 
 system's print dialog, the file as written, plain text, JSON Lines for tables, one combined page or
 Markdown file, or a zip bundle (the files as on disk, with an optional manifest of sizes and SHA-256,
 notes, unsaved changes as patches, the files they link and a page of each). A viewer adds its own forms:
-an archive's listing, a PDF's text, a mail part, a sheet or table as CSV, a database's schema. A CSV cell that opens with `=`, `+`, `-`, `@`, a tab or a carriage return gets a leading `'` so a spreadsheet shows it as text; a plain number such as `-3.5` is left as it is.
+an archive's listing, a PDF's text, a mail part, a sheet or table as CSV, a database's schema. A CSV cell that opens with `=`, `+`, `-`, `@`, a tab or a carriage return gets a leading `'` so a spreadsheet shows it as text; a plain number such as `-3.5` is left as it is. A database view stopped at its 2 s cap exports the rows it gave, and the preview says the rest are not in the file.
 Everything goes through the system's save dialog.
 
 ## Looks

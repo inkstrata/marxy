@@ -24,6 +24,7 @@ import { notify } from '../../notices/index.ts';
 import { linesOf } from '../../notes/anchor.ts';
 import { notesFor, onNotes } from '../../notes/store.ts';
 import { buildAppContext } from '../../selection/bind.ts';
+import { lineStarts } from '../../line/refs.ts';
 import { lineSpan, partLabel } from '../../selection/cursor.ts';
 import { piecesAsMarkdown } from '../../tray/markdown.ts';
 import { onTray, trayPieces } from '../../tray/tray.ts';
@@ -41,6 +42,8 @@ export interface ExportState {
   paper: 'A4' | 'Letter';
   /** What the last build made, for the reader's notice and the tests: its name, its bytes and where it went. */
   last: { readonly name: string; readonly bytes: Uint8Array; readonly text: string | null; readonly path: string | null; readonly entries: readonly string[] } | null;
+  /** An export is running: its button says so and pressing it again does nothing until it is done. */
+  busy?: boolean;
   wired?: boolean;
   selKey?: string;
 }
@@ -241,8 +244,7 @@ async function pageHtmlOf(handle: AppHandle, path: string, st: ExportState): Pro
 }
 
 function lineOfIn(bytes: Uint8Array): (byte: number) => number {
-  const starts: number[] = [0];
-  for (let i = 0; i < bytes.length; i++) if (bytes[i] === 0x0a) starts.push(i + 1);
+  const starts = lineStarts(bytes);
   return (byte) => {
     let lo = 0;
     let hi = starts.length - 1;
@@ -324,6 +326,18 @@ async function build(ctx: Ctx, J: Job, peek: boolean): Promise<Built | string | 
 }
 
 async function run(ctx: Ctx, how: 'save' | 'peek' | 'copy'): Promise<void> {
+  if (ctx.st.busy) return;
+  ctx.st.busy = true;
+  ctx.redraw();
+  try {
+    await runJob(ctx, how);
+  } finally {
+    ctx.st.busy = false;
+    ctx.redraw();
+  }
+}
+
+async function runJob(ctx: Ctx, how: 'save' | 'peek' | 'copy'): Promise<void> {
   const J = job(ctx);
   const { handle, st } = ctx;
   if (!J.as || !J.what) return;
@@ -406,7 +420,7 @@ function render(ctx: Ctx, body: HTMLElement): void {
 
   const form = J.forms.find((f) => f.id === J.as);
   const textual = J.as ? isTextual(J.as, J.kind) : false;
-  const primary = J.as === 'zip' ? `Build ${J.name}` : (form?.act ?? `Save ${J.name}…`);
+  const primary = st.busy ? (J.as === 'zip' ? 'Building…' : 'Saving…') : J.as === 'zip' ? `Build ${J.name}` : (form?.act ?? `Save ${J.name}…`);
   const go = (): void => void run(ctx, 'save');
   const peek = (): void => void run(ctx, 'peek');
   const copy = (): void => void run(ctx, 'copy');
