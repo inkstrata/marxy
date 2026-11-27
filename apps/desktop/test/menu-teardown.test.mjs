@@ -51,3 +51,58 @@ test('after a boot is destroyed its menu no longer sends enabled states; the nex
     assert.ok(sent.next >= 1, 'the next boot sends its own');
   });
 });
+
+test('after a boot is destroyed its menu holds no pane document or change subscription', async () => {
+  await withFrame({ files: FILES, open: ['/r/plan.md'] }, async (page) => {
+    const live = await page.evaluate(async () => {
+      const { mountNativeMenu } = await import('/src/menu/menu-boot.ts');
+      const h = window.__marxyHandle;
+      let docs = 0;
+      let changes = 0;
+      // The pane set as the app has it, with what is subscribed on it counted.
+      const counted = (fn, bump) => (cb) => {
+        const off = fn(cb);
+        bump(1);
+        let gone = false;
+        return () => {
+          if (!gone) bump(-1);
+          gone = true;
+          off();
+        };
+      };
+      const set = h.panes();
+      const view = new Proxy(set, {
+        get(target, key) {
+          const value = Reflect.get(target, key);
+          if (key === 'onChange') return counted(value.bind(target), (n) => (changes += n));
+          if (key === 'panes') {
+            return value.map(
+              (pane) =>
+                new Proxy(pane, {
+                  get(p, k) {
+                    const v = Reflect.get(p, k);
+                    if (k !== 'content') return v;
+                    return new Proxy(v, {
+                      get(c, ck) {
+                        const cv = Reflect.get(c, ck);
+                        return ck === 'onDocumentChange' ? counted(cv.bind(c), (n) => (docs += n)) : cv;
+                      },
+                    });
+                  },
+                }),
+            );
+          }
+          return typeof value === 'function' ? value.bind(target) : value;
+        },
+      });
+      const handle = new Proxy(h, { get: (target, key) => (key === 'panes' ? () => view : Reflect.get(target, key)) });
+      const off = mountNativeMenu(handle, { onMenuCommand: () => () => {}, setMenuEnabled: async () => {} });
+      const mounted = { docs, changes };
+      off();
+      return { mounted, docs, changes };
+    });
+    assert.ok(live.mounted.docs >= 1 && live.mounted.changes >= 1, 'a mounted menu subscribes to the panes');
+    assert.equal(live.docs, 0, 'a destroyed boot leaves no document subscription');
+    assert.equal(live.changes, 0, 'a destroyed boot leaves no pane change subscription');
+  });
+});
