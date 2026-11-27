@@ -24,7 +24,7 @@ import { chromium } from 'playwright';
 import { newDataFolder, removeDataFolder, webviewsGone } from './data-folder.mjs';
 import { frameColour, writeLargeMp4 } from './large-video.mjs';
 import { longPdf } from './pdf-fixture.mjs';
-import { describeDifference, embeddedSignature, largeLog, minimalPe, treeMemory, utf16LeWithBom, utf8WithBom } from './real-window-fixtures.mjs';
+import { describeDifference, embeddedSignature, largeLog, launchVerdict, minimalPe, treeMemory, utf16LeWithBom, utf8WithBom } from './real-window-fixtures.mjs';
 import { takeLock } from '../../../scripts/lib/machine-lock.mjs';
 
 if (process.platform !== 'win32') {
@@ -111,6 +111,8 @@ function zipOf(entries) {
   return Buffer.concat([...locals, cdBytes, end]);
 }
 
+// A case that could not run here is a SKIP line, kept out of the PASS count: it proves nothing about the code.
+const skip = (name, why) => results.push(`SKIP  ${name} · ${why}`);
 const check = (name, ok, detail = '') => results.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` · ${detail}` : ''}`);
 
 // Two index snapshots for the sweep to judge: one whose folder is gone (its parent, the data folder, is there to say so) and
@@ -210,10 +212,8 @@ try {
     for (let t = 0; t < 8000 && !launchMarks.some((m) => m.startsWith('MARK painted ')); t += 250) await wait(250);
     return launchMarks.find((m) => m.startsWith('MARK painted '));
   })();
-  const sinceRender = Number(/since_render_ms=(\d+)/.exec(painted ?? '')?.[1] ?? NaN);
-  const framesOnlyLaunch = /signal=frames-only/.test(painted ?? '');
-  check(`the launch's text is on screen within 1500 ms of the render, not after a 2 s wait for a paint (${framesOnlyLaunch ? 'a frames-only launch' : 'an engine-paint launch'})`,
-    sinceRender < 1500 && (!framesOnlyLaunch || /source=frame/.test(painted) && /fcp_before_ms=\d+/.test(painted)), painted ?? 'no painted mark was printed');
+  const launched = launchVerdict(painted);
+  check(`the launch's text is on screen within 1500 ms of the render, not after a 2 s wait for a paint (${launched.via} launch)`, launched.ok, launched.ok ? painted : `${launched.why}: ${painted ?? ''}`);
   const docked = await ev(() => document.body.getAttribute('data-marxy-drawer') === 'docked');
   // Outline is rows: a Markdown file's sections, each keyed by `h:`.
   const outlineRows = (prefix) => ev((p) => document.querySelectorAll(`.marxy-drawer .marxy-l-body[data-marxy-left="outline"] .marxy-l-prow[data-marxy-left-row^="${p}"]`).length, prefix);
@@ -1787,7 +1787,7 @@ try {
     const candidates = [join(roots[1], 'msedge.exe'), join(roots[0], 'System32', 'mstsc.exe'), join(roots[0], 'System32', 'notepad.exe'), join(roots[0], 'explorer.exe')].filter(existsSync);
     const signedPick = candidates.find((c) => embeddedSignature(readFileSync(c))) ?? candidates[0];
     if (!signedPick) {
-      check('a copy of a system program shows its card (skipped: no system program found to copy)', true);
+      skip('a copy of a system program shows its card', 'no system program found to copy');
     } else {
       const copy = real('signed-copy.exe');
       copyFileSync(signedPick, copy);
@@ -1806,30 +1806,33 @@ try {
     const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==';
     const folder = real('mapped');
     mkdirSync(folder);
-    writeFileSync(join(folder, 'mapped-note.md'), '# Mapped note\n\nread through another spelling of its path\n');
-    writeFileSync(join(folder, 'mapped-dot.png'), Buffer.from(pngBase64, 'base64'));
-    const opens = async (label, base) => {
-      await openReal(join(base, 'mapped-note.md'));
+    const opens = async (label, base, tag) => {
+      const noteName = `mapped-${tag}.md`;
+      const dotName = `mapped-${tag}.png`;
+      writeFileSync(join(folder, noteName), '# Mapped note\n\nread through another spelling of its path\n');
+      writeFileSync(join(folder, dotName), Buffer.from(pngBase64, 'base64'));
+      await openReal(join(base, noteName));
       const h1 = await ev(() => document.querySelector('.marxy-article h1')?.textContent ?? '');
-      await openReal(join(base, 'mapped-dot.png'));
-      const image = await page.waitForSelector('.marxy-article img, .marxy-viewer-mount:not([hidden]) img', { timeout: 10000 }).then(() => true, () => false);
+      await openReal(join(base, dotName));
+      // This pass's own picture: its name is in the source of the image shown, so one left from the other pass cannot satisfy it.
+      const image = await page.waitForFunction((n) => [...document.querySelectorAll('img')].some((i) => i.getClientRects().length > 0 && decodeURIComponent(i.src).includes(n)), dotName, { timeout: 10000 }).then(() => true, () => false);
       check(`a Markdown file and a picture on ${label} open`, h1 === 'Mapped note' && image, JSON.stringify({ h1, image }));
     };
     const taken = new Set(execFileSync('cmd', ['/c', 'subst'], { encoding: 'utf8' }).split(/\r?\n/).map((l) => l[0]?.toUpperCase()));
     const letter = [...'ZYXWVUTSRQPONM'].find((c) => !taken.has(c) && !existsSync(`${c}:\\`));
-    if (!letter) check('a file on a subst drive opens (skipped: no free drive letter)', true);
+    if (!letter) skip('a file on a subst drive opens', 'no free drive letter');
     else {
       execFileSync('subst', [`${letter}:`, folder]);
       try {
-        await opens(`a subst drive (${letter}:)`, `${letter}:\\`);
+        await opens(`a subst drive (${letter}:)`, `${letter}:\\`, 'subst');
       } finally {
         execFileSync('subst', [`${letter}:`, '/d']);
       }
     }
     const drive = /^([A-Za-z]):\\(.*)$/.exec(folder);
     const share = drive ? `\\\\127.0.0.1\\${drive[1]}$\\${drive[2]}` : null;
-    if (!share || !existsSync(join(share, 'mapped-note.md'))) check('a file on a network path opens (skipped: this account cannot read its own administrative share)', true);
-    else await opens('a network path (the loopback share)', share);
+    if (!share || !existsSync(share)) skip('a file on a network path opens', 'this account cannot read its own administrative share');
+    else await opens('a network path (the loopback share)', share, 'share');
   });
 } catch (error) {
   check('the run', false, String(error?.message ?? error).split('\n')[0]);
@@ -1839,6 +1842,7 @@ try {
 }
 
 console.log(results.join('\n'));
+console.log(['PASS', 'FAIL', 'SKIP'].map((k) => `${results.filter((r) => r.startsWith(k)).length} ${k}`).join(', '));
 console.log(problems.length ? problems.slice(0, 20).join('\n') : 'no page errors');
 await browser?.close().catch(() => {});
 stop();

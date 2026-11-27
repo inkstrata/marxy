@@ -88,3 +88,21 @@ export function treeMemory(rows, rootPid) {
   const mb = (field) => mine.reduce((sum, r) => sum + (Number(r[field]) || 0), 0) / 2 ** 20;
   return { processes: mine.length, workingSetMB: mb('WorkingSetSize'), privateMB: mb('PrivatePageCount') };
 }
+
+/** The longest the text may take after the render before a launch counts as having waited for a paint (the fallback is 2000 ms). */
+export const LAUNCH_BOUND_MS = 1500;
+
+/**
+ * Judges a launch's `MARK painted` line (or undefined when none came): the text on screen within the bound, and a frames-only
+ * launch tagged `source=frame`. `fcp_before_ms` is not asked for: the app leaves it off when no earlier paint is on the timeline.
+ * Returns `{ ok, via, why }`, where `via` is 'frames-only' or 'engine paint' and `why` names the cause of a failure.
+ */
+export function launchVerdict(line) {
+  if (!line) return { ok: false, via: 'no launch', why: 'no painted mark was printed' };
+  const via = /signal=frames-only/.test(line) ? 'frames-only' : 'engine paint';
+  const since = Number(/since_render_ms=(\d+)/.exec(line)?.[1] ?? NaN);
+  if (!Number.isFinite(since)) return { ok: false, via, why: 'the painted mark has no since_render_ms' };
+  if (since >= LAUNCH_BOUND_MS) return { ok: false, via, why: `the text came ${since} ms after the render: the wait for a paint was not cut short` };
+  if (via === 'frames-only' && !/source=frame/.test(line)) return { ok: false, via, why: 'a frames-only launch does not say source=frame' };
+  return { ok: true, via, why: '' };
+}
