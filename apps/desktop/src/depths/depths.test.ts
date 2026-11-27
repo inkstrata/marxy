@@ -29,6 +29,12 @@ test('x-ray says CRLF and mixed endings, and a missing final newline', () => {
   assert.deepEqual(['\r\n', '\r', '\n', ''].map((e) => endGlyph(e as '\n')), ['␍¬', '␍', '¬', '']);
 });
 
+test('x-ray as written keeps a leading byte-order mark on the first line', () => {
+  const bytes = new Uint8Array([0xef, 0xbb, 0xbf, ...enc('# Title\nbody\n')]);
+  const x = xrayLines(bytes, 0, bytes.length);
+  assert.equal(x.lines[0]!.text, '\ufeff# Title');
+});
+
 test('x-ray of a range ending in its line break stays on its own lines', () => {
   const text = '# H\n\npara\n\nnext\n';
   const bytes = enc(text);

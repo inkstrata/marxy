@@ -108,6 +108,30 @@ test('Save… writes where the save dialog says, as HTML or as the file\'s own b
   });
 });
 
+test('Save… pressed twice while the save dialog is up opens one dialog, and the button says it is working', async () => {
+  await withFrame({ files: FILES, open: [PLAN] }, async (page) => {
+    await openExport(page);
+    await page.evaluate(() => {
+      const sh = window.__marxyHandle.shell;
+      const was = sh.saveDialog.bind(sh);
+      sh.saveDialog = async (o) => {
+        await new Promise((r) => setTimeout(r, 400));
+        return was(o);
+      };
+    });
+    await page.evaluate(() => window.__marxyHandle.shell.queueSaveDialog(null));
+    const btn = '.marxy-drawer .marxy-l-btns .marxy-l-pri';
+    await page.evaluate((sel) => {
+      const b = document.querySelector(sel);
+      b.click();
+      b.click();
+    }, btn);
+    await page.waitForFunction((sel) => document.querySelector(sel)?.textContent === 'Saving…' && document.querySelector(sel).disabled, btn);
+    await page.waitForFunction((sel) => document.querySelector(sel)?.textContent !== 'Saving…', btn);
+    assert.equal(await page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'saveDialog').length), 1);
+  });
+});
+
 test('Saving a long file as a web page stays quick, and the page answers a key right after', async () => {
   const long = Array.from({ length: 600 }, (_, i) => `## Section ${i}\n\nParagraph ${i} with some *words* and a [link](x.md) to read.\n`).join('\n');
   await withFrame({ files: { '/r/long.md': long }, open: ['/r/long.md'] }, async (page) => {
