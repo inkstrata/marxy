@@ -1,6 +1,8 @@
 // What the Export panel offers and builds, as data: the forms each "what" can take, the names
 // things are saved under, the bundle's entries and its manifest. Pure: bytes and text in, entries and words out.
+import { lineStarts } from '../line/refs.ts';
 import { sha256Hex, uniquePaths, type ZipEntry } from './zip.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 export type ExportWhat = 'file' | 'selection' | 'ticked' | 'tray';
 export type ExportAs = 'html' | 'pdf' | 'raw' | 'text' | 'jsonl' | 'html1' | 'md1' | 'zip' | 'trmd' | 'brief';
@@ -132,15 +134,11 @@ export function relativeTo(root: string | null, path: string): string {
 
 /** The bytes of lines `first` to `last` (1-based, inclusive) of `bytes`, each with its own ending. */
 export function linesBytes(bytes: Uint8Array, first: number, last: number): Uint8Array {
-  let line = 1;
-  let start = first <= 1 ? 0 : -1;
-  for (let i = 0; i < bytes.length; i++) {
-    if (bytes[i] !== 0x0a) continue;
-    line++;
-    if (line === first) start = i + 1;
-    if (line === last + 1) return bytes.subarray(Math.max(0, start), i + 1);
-  }
-  return start < 0 ? bytes.subarray(bytes.length) : bytes.subarray(start);
+  // The cursor's own count of lines (LF, CRLF or a lone CR), so a part named by `lineSpan` is the part saved.
+  const starts = lineStarts(bytes);
+  const from = first <= 1 ? 0 : first - 1 < starts.length ? starts[first - 1]! : bytes.length;
+  const to = last < starts.length ? starts[Math.max(last, 0)]! : bytes.length;
+  return bytes.subarray(from, Math.max(from, to));
 }
 
 /** One Markdown file of several: each under its path in code, as written, in order. */
@@ -203,8 +201,8 @@ export function bundleEntries(files: readonly BundleFile[], o: BundleOptions, ex
   const out: ZipEntry[] = files.map((f) => ({ path: f.zip, bytes: f.disk }));
   if (o.notes) for (const f of files) if (f.notes !== null) out.push({ path: `notes/${f.name}.notes.md`, bytes: enc.encode(f.notes) });
   if (o.patches) for (const f of files) if (f.dirty && f.patch) out.push({ path: `patches/${f.name}.patch`, bytes: enc.encode(f.patch) });
-  if (o.pointed) out.push(...extra.pointed);
-  if (o.pages) out.push(...extra.pages);
+  if (o.pointed) pushAll(out, extra.pointed);
+  if (o.pages) pushAll(out, extra.pages);
   // The manifest is packed after these as `manifest.md`: a file of that name gives way, as a second one would.
   return o.manifest ? uniquePaths([{ path: MANIFEST, bytes: new Uint8Array(0) }, ...out]).slice(1) : uniquePaths(out);
 }

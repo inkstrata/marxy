@@ -111,7 +111,7 @@ the scope:
 | --- | --- | --- |
 | none | files, open tabs, headings and commands, ranked by match and by how recently they were read | open (Mod+Enter beside) |
 | `>` | every command, grouped | run it |
-| `@` | headings in this document | go there |
+| `@` | headings in this document (the first 200 that hold the words; a long document's headings come from a scan of its lines, not a parse) | go there |
 | `:` | a line or range, `40` or `40-52` | put the cursor there |
 | `/` | find in this document; `/re/flags` for a regular expression (searched off the main thread, and stopped as too slow after 1.5 seconds), a capital letter for exact case | go there; Alt+Enter shows only what matches |
 | `#` | search the text of every file in scope | open at the line |
@@ -376,7 +376,7 @@ as a web page (sanitised, no scripts, with the look or plain, notes as asides), 
 system's print dialog, the file as written, plain text, JSON Lines for tables, one combined page or
 Markdown file, or a zip bundle (the files as on disk, with an optional manifest of sizes and SHA-256,
 notes, unsaved changes as patches, the files they link and a page of each). A viewer adds its own forms:
-an archive's listing, a PDF's text, a mail part, a sheet or table as CSV, a database's schema. A CSV cell that opens with `=`, `+`, `-`, `@`, a tab or a carriage return gets a leading `'` so a spreadsheet shows it as text; a plain number such as `-3.5` is left as it is.
+an archive's listing, a PDF's text, a mail part, a sheet or table as CSV, a database's schema. A CSV cell that opens with `=`, `+`, `-`, `@`, a tab or a carriage return gets a leading `'` so a spreadsheet shows it as text; a plain number such as `-3.5` is left as it is. A database view stopped at its 2 s cap exports the rows it gave, and the preview says the rest are not in the file.
 Everything goes through the system's save dialog.
 
 ## Looks

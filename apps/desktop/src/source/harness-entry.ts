@@ -33,6 +33,7 @@ async function scrollPerf(bytesB64: string, path: string, steps: number) {
     deltas.push(now - last);
     last = now;
   }
+  // scale: a test harness over a handful of timings
   const max = Math.max(...deltas);
   return { max, over100: deltas.filter((d) => d > 100).length, lines: editor.view.state.doc.lines };
 }

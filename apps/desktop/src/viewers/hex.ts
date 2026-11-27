@@ -10,6 +10,7 @@ import { notify } from '../notices/index.ts';
 import { sizeLine, type ViewedFile } from './file.ts';
 import { viewerChanged } from './signal.ts';
 import type { HexPlace, PartTree, PartUnit } from './types.ts';
+import { maxOf, minOf } from '@marxy/core/src/util/spread.ts';
 
 /** What the view reads at a time: a screen is a few hundred bytes, so one read covers many screens. */
 const CHUNK = 64 * 1024;
@@ -353,7 +354,7 @@ export function createHexView(file: ViewedFile, read: (offset: number, length: n
     edge: (edge) => unitAt(edge === 'first' ? 0 : (rowCount() - 1) * per),
     mark(head, run) {
       const ats = run.map((u) => u.at ?? 0);
-      marked = head ? { head: head.at ?? 0, from: Math.min(...ats), to: Math.max(...ats) } : null;
+      marked = head ? { head: head.at ?? 0, from: minOf(ats), to: maxOf(ats) } : null;
       // A byte picked in the cursor's row stays picked: the row holds it.
       const at = head?.at ?? 0;
       if (head && (sel === null || sel < at || sel >= at + per)) sel = at;

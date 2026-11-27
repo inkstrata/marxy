@@ -2,6 +2,7 @@
 // shown instead are kept per file in memory, as the archive page keeps its folds: a reload of the file or a tab opened
 // on it again lands where the reader was. Never written: the fence holds (nothing kept of what was read).
 import type { PdfFit, PdfMatch, PdfPlace } from '@marxy/core/src/viewer/pdf.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 export interface KeptPdf {
   zoom: number;
@@ -44,7 +45,7 @@ export class PdfMatches {
   }
 
   add(page: number, found: readonly PdfMatch[]): void {
-    this.list.push(...found);
+    pushAll(this.list, found);
     this.scanned = Math.max(this.scanned, page + 1);
   }
 

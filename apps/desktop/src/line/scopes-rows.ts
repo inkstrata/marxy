@@ -3,6 +3,10 @@
 // `~` compare, `&` read as, `?` help. Each scope is worked out from the focused pane as it is now; nothing is kept.
 import { outlineFrom, type IndexEntry } from '@marxy/core';
 import { changesOf } from '../changes/patch.ts';
+import { SCANNED_HEADINGS_MAX } from '@marxy/core/src/reading/heading-scan.ts';
+import { markdownPastLines } from '@marxy/core/src/reading/lines.ts';
+import { readingOf } from '@marxy/core/src/reading/index.ts';
+import { markdownHeadings } from '../view/reading-lines.ts';
 import { appHandle } from '../commands/app-handle.ts';
 import { compareTwoFiles, showVersionChanges, keptWhen } from '../commands/compare.ts';
 import { findInPane } from '../commands/find.ts';
@@ -69,31 +73,73 @@ const NO_FILE = 'Open a file first.';
 
 /* ---------- @ ---------- */
 
-function outlineRows(q: string, pane: LinePane | null): ScopeResult {
+/** The most heading rows the Line draws: the field narrows the rest (a document of tens of thousands of headings). */
+const OUTLINE_ROWS = 200;
+const outlines = new WeakMap<object, ReturnType<typeof outlineFrom>>();
+
+interface HeadingHit {
+  readonly text: string;
+  readonly level: number;
+  readonly start: number;
+  /** Its line, counted from 1, when the scan already knows it. */
+  readonly line?: number;
+}
+
+/** This document's headings: the scan of a big file's lines (no parse), else the parse the store already keeps. */
+function headingsOf(pane: LinePane, env: ScopeEnv | undefined): { all: readonly HeadingHit[]; pending: boolean; capped: boolean } | null {
+  const store = pane.content.store();
+  const path = pane.path();
+  if (!store || !path) return null;
+  const bytes = store.snapshot().buffer.bytes;
+  // Only a Markdown pane can be read as lines with headings scanned.
+  const lines = markdownPastLines(path, bytes) ? readingOf(path, bytes, pane.kind())?.lines : undefined;
+  if (lines?.markdown) {
+    const found = markdownHeadings(lines, () => env?.refresh());
+    if (found === null) return { all: [], pending: true, capped: false };
+    return { all: found.items.map((x) => ({ text: x.text, level: x.level, start: x.start, line: x.line + 1 })), pending: false, capped: found.capped };
+  }
+  const ast = store.snapshot().ast;
+  if (!ast) return null;
+  let outline = outlines.get(ast);
+  if (!outline) outlines.set(ast, (outline = outlineFrom(ast)));
+  return { all: outline.map((x) => ({ text: x.text, level: x.level, start: x.src.start })), pending: false, capped: false };
+}
+
+function outlineRows(q: string, pane: LinePane | null, env?: ScopeEnv): ScopeResult {
   const text = paneText(pane);
-  const store = pane?.content.store() ?? null;
   const path = pane?.path() ?? null;
-  if (pane && store && text && pane.view.viewer() === null && store.snapshot().ast) {
-    const lines = textLines(text.bytes);
-    const outline = outlineFrom(store.snapshot().ast);
+  const got = pane && text && pane.view.viewer() === null ? headingsOf(pane, env) : null;
+  if (pane && text && got) {
+    if (got.pending) return { rows: [], note: 'Finding the headings…' };
+    let lines: string[] | null = null;
     const rows: LineRow[] = [];
-    for (const [i, h] of outline.entries()) {
+    let more = false;
+    for (const [i, h] of got.all.entries()) {
       const m = q === '' ? { idx: [] as number[] } : fuzzy(q, h.text);
       if (!m) continue;
-      const indent = ' '.repeat(Math.min(h.level - 1, 4));
-      const line = lineOfByte(text.bytes, h.src.start);
+      if (rows.length >= OUTLINE_ROWS) {
+        more = true;
+        break;
+      }
+      const indent = ' '.repeat(Math.min(h.level - 1, 4));
+      const line = h.line ?? lineOfByte(text.bytes, h.start);
       rows.push({
-        key: `h${i}:${h.src.start}`,
+        key: `h${i}:${h.start}`,
         group: '',
         title: `${indent}${h.text}`,
         marks: m.idx.map((x) => x + indent.length),
         detail: `line ${line}`,
-        run: () => void landAt(h.src.start, undefined, line),
-        preview: () => placePreview(text.path, lines, line - 1, null),
-        keep: { panel: 'outline', arg: { q, at: h.src.start } },
+        run: () => void landAt(h.start, undefined, line),
+        preview: () => placePreview(text.path, (lines ??= textLines(text.bytes)), line - 1, null),
+        keep: { panel: 'outline', arg: { q, at: h.start } },
       });
     }
-    if (rows.length > 0 || outline.length > 0) return { rows, note: rows.length === 0 ? 'No heading here holds that.' : undefined };
+    if (rows.length > 0 || got.all.length > 0) {
+      const stop = got.capped ? ` The list stops at the first ${SCANNED_HEADINGS_MAX.toLocaleString('en-GB')} headings of the file.` : '';
+      const shown = q === '' ? `The first ${OUTLINE_ROWS} of ${got.all.length.toLocaleString('en-GB')}${got.capped ? '+' : ''} headings: keep typing to narrow them.` : `The first ${OUTLINE_ROWS} headings that match: keep typing to narrow them.`;
+      const note = rows.length === 0 ? `No heading here holds that.${stop}` : more ? `${shown}${stop}` : got.capped ? stop.trim() : undefined;
+      return { rows, note };
+    }
   }
   const here = partsHere();
   if (here && here.pane === pane) {
@@ -493,7 +539,7 @@ export function scopeRows(scope: ScopeId, q: string, env: ScopeEnv): ScopeResult
   const pane = focusedPane();
   switch (scope) {
     case 'outline':
-      return outlineRows(q, pane);
+      return outlineRows(q, pane, env);
     case 'goto':
       return gotoRows(q, pane);
     case 'find':

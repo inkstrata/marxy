@@ -1,9 +1,9 @@
 // The Extract group: the output is new text made from the input. Code blocks, tasks and links go through
 // E's extract operations (so their rules, including the refusal of deceptive characters, stay in one place).
-import type { CodeBlock } from '../contracts/ast.ts';
+import type { CodeBlock, Document } from '../contracts/ast.ts';
 import { copyCommand, hasDeceptiveCharacters } from '../operations/copy-command.ts';
 import { extractCodeBlocks, extractLinks, extractTasks } from '../operations/extract.ts';
-import { clipboardOf, gapsOf, nodesOf, parseText } from './prose.ts';
+import { clipboardOf, gapsOf, nodesOf, parseText, utf8Length } from './prose.ts';
 import { tablesAs } from './convert.ts';
 import { copyTableCsv } from '../operations/copy-table.ts';
 import type { TransformDef } from './types.ts';
@@ -41,9 +41,9 @@ export const xCommands: TransformDef = {
   },
 };
 
-/** Lines of prose (outside code and front matter) that satisfy `keep`, in order. */
-function proseLines(lf: string, keep: (line: string) => boolean): string[] {
-  return gapsOf(lf)
+/** Lines of prose (outside code and front matter) that satisfy `keep`, in order. `doc` is a parse of `lf` when the caller has one. */
+function proseLines(lf: string, keep: (line: string) => boolean, doc?: Document): string[] {
+  return gapsOf(lf, doc)
     .flatMap((g) => lf.slice(g.start, g.end).split('\n'))
     .filter(keep);
 }
@@ -55,12 +55,17 @@ export const xQuestions: TransformDef = {
 };
 
 /**
- * The paths the prose of `lf` names: backticked, with a slash and an extension (`src/a.ts`, `./b/c.md`, `~/x/y.toml`), unique,
+ * The paths the prose of `text` names: backticked, with a slash and an extension (`src/a.ts`, `./b/c.md`, `~/x/y.toml`), unique,
  * in order of first mention. Code and front matter are not read. A bare `README.md` is not a mention (no slash). Called by
- * `x-paths` below and by the desktop inspector's Links tab.
+ * `x-paths` below and by the desktop's Links panel.
+ *
+ * `doc`, when given, is the caller's Markdown parse of exactly the UTF-8 bytes of `text` (the document store's), so the text
+ * is not parsed a second time. Its offsets are bytes of `text`; a line ending may be CRLF or CR (a line keeps its CR, which no
+ * mention contains). A parse whose root does not end at the text's UTF-8 length is not of this text, and is ignored.
  */
-export function pathMentions(lf: string): string[] {
-  return pathMentionsIn(proseLines(lf, () => true));
+export function pathMentions(text: string, doc?: Document): string[] {
+  const fits = doc !== undefined && doc.src.end === utf8Length(text);
+  return pathMentionsIn(proseLines(text, () => true, fits ? doc : undefined));
 }
 
 /** `pathMentions` over lines already chosen: a text that is not Markdown has no code to leave out, and is not parsed. */

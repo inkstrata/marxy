@@ -11,6 +11,7 @@ import { decodeLegacy, labelOfCodePage, nameOf } from '../encoding/decode.ts';
 import { budget, figure } from '../util/budget.ts';
 import { emptyProps, run, type Block, type Inline, type OfficeDoc, type OfficeImage, type OfficeProps, type Run } from './model.ts';
 import { OFFICE_LIMITS, OfficeError } from './xml.ts';
+import { pushAll } from '../util/spread.ts';
 
 export const RTF_LIMITS = {
   /** Groups nested deeper than this are skipped whole. */
@@ -996,14 +997,14 @@ function assemble(recs: readonly Rec[], styles: ReadonlyMap<number, { name: stri
       if (r.end === 'row') {
         if (r.kids.length > 0) {
           if (cellOpen && cell.length > 0) cell.push({ t: 'br' });
-          cell.push(...r.kids);
+          pushAll(cell, r.kids);
           cellOpen = true;
         }
         endRow(r.e);
         continue;
       }
       if (cellOpen && cell.length > 0 && r.kids.length > 0) cell.push({ t: 'br' });
-      cell.push(...r.kids);
+      pushAll(cell, r.kids);
       cellOpen = true;
       if (r.end === 'cell') {
         row.push(cell);

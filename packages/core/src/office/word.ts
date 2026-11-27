@@ -5,6 +5,7 @@
 import { inlineText, run, type Block, type Inline, type OfficeDoc, type OfficeImage, type OfficeNote, type Run } from './model.ts';
 import { officeProps, openPackage, relOfType, type Package, type PartRead, type Rel } from './parts.ts';
 import { find, findAll, kid, kidsOf, newBudget, OfficeError, textOf, type XmlElement } from './xml.ts';
+import { pushAll } from '../util/spread.ts';
 
 /** A style whose name says code: its paragraphs are a code block, its runs inline code. */
 const CODE_STYLE = /code|source|preformatted|verbatim|listing|console|macro text/i;
@@ -280,7 +281,7 @@ function paraInlines(ctx: Ctx, p: XmlElement, paraCode: boolean, comments: strin
         case 'pict': {
           const img = drawingImage(ctx, k);
           if (img) into.push(img);
-          for (const box of findAll(k, 'txbxContent')) boxes.push(...bodyBlocks(ctx, box));
+          for (const box of findAll(k, 'txbxContent')) pushAll(boxes, bodyBlocks(ctx, box));
           break;
         }
         case 'object':
@@ -412,18 +413,18 @@ function readTable(ctx: Ctx, tbl: XmlElement, comments: string[], boxes: Block[]
         for (const k of kidsOf(el)) {
           if (k.name === 'p') {
             const para = readPara(ctx, k);
-            comments.push(...para.comments);
-            boxes.push(...para.boxes);
+            pushAll(comments, para.comments);
+            pushAll(boxes, para.boxes);
             if (para.kids.length === 0) continue;
             lineBreak();
             if (para.list) out.push(run(ctx.numbering.nums.get(para.list.num)?.levels[para.list.level]?.ordered ? '' : '• '));
-            out.push(...para.kids);
+            pushAll(out, para.kids);
           } else if (k.name === 'tbl') {
             for (const row of readTable(ctx, k, comments, boxes)) {
               lineBreak();
               row.forEach((c, i) => {
                 if (i > 0) out.push(run(' · '));
-                out.push(...c);
+                pushAll(out, c);
               });
             }
           } else if (k.name === 'sdt') fill(kid(k, 'sdtContent') ?? k);
@@ -449,14 +450,14 @@ function bodyBlocks(ctx: Ctx, body: XmlElement, asides?: (ids: readonly string[]
   const pendingAsides: string[] = [];
   const closeLists = (): void => {
     lists = [];
-    if (pendingAsides.length > 0 && asides) out.push(...asides(pendingAsides.splice(0)));
+    if (pendingAsides.length > 0 && asides) pushAll(out, asides(pendingAsides.splice(0)));
   };
   const after = (comments: readonly string[], boxes: readonly Block[]): void => {
-    if (lists.length > 0) pendingAsides.push(...comments);
-    else if (comments.length > 0 && asides) out.push(...asides(comments));
+    if (lists.length > 0) pushAll(pendingAsides, comments);
+    else if (comments.length > 0 && asides) pushAll(out, asides(comments));
     if (boxes.length > 0) {
       closeLists();
-      out.push(...boxes);
+      pushAll(out, boxes);
     }
   };
 

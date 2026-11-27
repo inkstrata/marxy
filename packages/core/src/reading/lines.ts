@@ -30,7 +30,7 @@ const utf8Known = new WeakMap<Uint8Array, boolean>();
 export const knownUtf8 = (bytes: Uint8Array): boolean | undefined => utf8Known.get(bytes);
 /** Records that `bytes` are (or are not) UTF-8: a log that grew by bytes already checked is not read through again. */
 export const noteUtf8 = (bytes: Uint8Array, utf8: boolean): void => void utf8Known.set(bytes, utf8);
-const isUtf8 = (bytes: Uint8Array): boolean => {
+export const isUtf8 = (bytes: Uint8Array): boolean => {
   let known = utf8Known.get(bytes);
   if (known === undefined) utf8Known.set(bytes, (known = sniff(bytes).label === 'utf-8'));
   return known;

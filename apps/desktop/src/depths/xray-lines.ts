@@ -18,7 +18,8 @@ export interface XrayLines {
   readonly noFinalNewline: boolean;
 }
 
-const decoder = new TextDecoder();
+// As written: a leading BOM stays in the first line, as it is in the file.
+const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
 
 /** Where the line holding `byte` starts. */
 function lineStartAt(bytes: Uint8Array, byte: number): number {

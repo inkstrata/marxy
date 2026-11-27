@@ -5,6 +5,7 @@
 import { run, type Block, type Inline, type OfficeDoc, type OfficeImage } from './model.ts';
 import { officeProps, openPackage, relOfType, type Package, type PartRead, type Rel } from './parts.ts';
 import { kid, kidsOf, newBudget, OfficeError, textOf, type XmlElement } from './xml.ts';
+import { pushAll } from '../util/spread.ts';
 
 const MONO = /consolas|courier|menlo|monaco|lucida console|source code|fira (code|mono)|jetbrains|cascadia|inconsolata|\bmono\b/i;
 /** Placeholders that say where a slide is, not what it says. */
@@ -109,7 +110,7 @@ function tableRows(ctx: Ctx, tbl: XmlElement): Inline[][][] {
         const kids = runsOf(ctx, p);
         if (!hasWords(kids)) continue;
         if (out.length > 0) out.push({ t: 'br' });
-        out.push(...kids);
+        pushAll(out, kids);
       }
       return out;
     }),
@@ -137,13 +138,13 @@ function shapes(ctx: Ctx, tree: XmlElement, into: SlideRead): void {
             const kids = runsOf(ctx, p);
             if (!hasWords(kids)) continue;
             if (words.length > 0) words.push(run(' '));
-            words.push(...kids.map((x) => (x.t === 'br' ? run(' ') : x)));
+            pushAll(words, kids.map((x) => (x.t === 'br' ? run(' ') : x)));
           }
           if (words.length > 0) into.title = words;
           break;
         }
         const bulleted = type === 'body' || type === 'obj';
-        into.blocks.push(...frameBlocks(ctx, txBody, bulleted));
+        pushAll(into.blocks, frameBlocks(ctx, txBody, bulleted));
         break;
       }
       case 'grpSp':
@@ -194,7 +195,7 @@ async function speakerNotes(pkg: Package, rels: ReadonlyMap<string, Rel>): Promi
       const ph = kid(kid(kid(sp, 'nvSpPr'), 'nvPr'), 'ph');
       if (ph?.attrs.type !== 'body') continue;
       const body = kid(sp, 'txBody');
-      if (body) out.push(...frameBlocks(ctx, body, false));
+      if (body) pushAll(out, frameBlocks(ctx, body, false));
     }
   };
   visit(tree);

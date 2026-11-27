@@ -647,7 +647,6 @@ const panel: PanelDef<SearchState> = {
           name: 'search-q',
           lb: 'Find',
           mono: true,
-          placeholder: 'Find',
           value: st.q,
           right: h('span', 'marxy-l-opt', opt('case', 'Aa', 'Match case', 'Match case'), opt('regex', '.*', 'A regular expression: $1 in Replace is its first group', 'Regular expression'), opt('word', 'word', 'Whole words only', 'Whole words')),
           oninput: (v) => {
@@ -659,7 +658,6 @@ const panel: PanelDef<SearchState> = {
           name: 'search-r',
           lb: 'Replace',
           mono: true,
-          placeholder: 'Replace',
           value: st.r,
           oninput: (v) => {
             st.r = v;

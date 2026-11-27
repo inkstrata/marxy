@@ -25,6 +25,7 @@ import { logRanks } from '@marxy/core/src/highlight/line-classes.ts';
 import { applyLinesToCode } from '../render/highlight.ts';
 import { sourceTextFromCode } from '../render/invisibles-dom.ts';
 import { hiddenRuns, LEVELS, runWords, type HiddenRun, type Level } from './log-filter.ts';
+import { pushAll } from '@marxy/core/src/util/spread.ts';
 
 /** A piece of a log: the `code` inside a `pre.language-log.marxy-run`. */
 export const LOG_PIECE = 'pre.language-log.marxy-run > code';
@@ -420,7 +421,7 @@ function createLogFilter(article: HTMLElement, current: () => boolean, forget: (
         if (node.matches('pre.language-log.marxy-run')) {
           const code = node.firstElementChild;
           if (code instanceof HTMLElement) stale.push(code);
-        } else stale.push(...piecesOf(node));
+        } else pushAll(stale, piecesOf(node));
       }
     }
     if (stale.length === 0) return;

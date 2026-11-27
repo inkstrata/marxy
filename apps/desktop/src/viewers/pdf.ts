@@ -47,6 +47,7 @@ import { viewerChanged } from './signal.ts';
 import type { PaneViewer, PartTree, PartUnit, ViewMode, ViewerExport, ViewerFind } from './types.ts';
 import { pdfBlocks, type PdfBlock, type TextRun } from './pdf-blocks.ts';
 import css from './pdf.css?inline';
+import { maxOf, minOf } from '@marxy/core/src/util/spread.ts';
 
 /** The most pixels one page's canvas holds; past it a page is drawn softer rather than not at all. */
 const CANVAS_MAX_PIXELS = 16_777_216;
@@ -936,7 +937,7 @@ export function createPdfViewer(o: PdfOptions): PaneViewer {
       } else {
         markedBlocks = null;
         const at = run.map(indexOf);
-        marked = head ? { head: indexOf(head), from: Math.min(...at), to: Math.max(...at) } : null;
+        marked = head ? { head: indexOf(head), from: minOf(at), to: maxOf(at) } : null;
       }
       for (const slot of slots.values()) markSlot(slot);
     },

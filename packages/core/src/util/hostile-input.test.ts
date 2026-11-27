@@ -17,6 +17,7 @@ import { readingOf } from '../reading/index.ts';
 import { parseMarkdown } from '../parse/parse.ts';
 import { dedupeLines } from '../operations/dedupe-lines.ts';
 import { alignTablePipes } from '../operations/align-table-pipes.ts';
+import { renumberList } from '../operations/list-markers.ts';
 import { cpuNow } from '../testing/cpu-clock.ts';
 
 const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
@@ -94,4 +95,24 @@ test('a table cell with a long run of spaces inside it is trimmed in linear time
   const table = doc.children.find((n) => n.type === 'table')!;
   const out = within(500, 'align table pipes', () => alignTablePipes.run({ document: doc, node: table, range: table.src, text: text.slice(table.src.start, table.src.end) }));
   assert.ok(out.replacement.startsWith(`| a${SPACES}b | c   |`), out.replacement.slice(0, 40));
+});
+
+test('renumbering every list and aligning every table of a long page finds each one\'s container from one map (over three minutes for 8,000 before)', () => {
+  let md = '';
+  for (let i = 0; i < 2000; i++) md += `Para ${i}\n\n1. a\n3. b\n\n> |a|b|\n> |-|-|\n> |1|2|\n\n`;
+  const bytes = enc(md);
+  const doc = parseMarkdown(bytes);
+  const dec = new TextDecoder();
+  const out: string[] = [];
+  within(2000, '4,000 blocks', () => {
+    for (const top of doc.children) {
+      const node = top.type === 'blockquote' ? top.children[0]! : top;
+      const op = node.type === 'list' ? renumberList : node.type === 'table' ? alignTablePipes : null;
+      const input = { document: doc, node, range: node.src };
+      if (op?.canApply(input)) out.push(op.run({ ...input, text: dec.decode(bytes.subarray(node.src.start, node.src.end)) }).replacement);
+    }
+  });
+  assert.equal(out.length, 4000);
+  assert.equal(out[0], '1. a\n2. b');
+  assert.equal(out[1], '| a   | b   |\n> | --- | --- |\n> | 1   | 2   |', 'the rows after the first keep their quote marker');
 });

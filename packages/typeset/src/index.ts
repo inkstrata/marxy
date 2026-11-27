@@ -5,7 +5,7 @@
  */
 
 import { LINE_BREAK, SET, applyBreaks, contentBox, holdsRange, overflow, revert } from './apply.ts';
-import { applyHang } from './hang.ts';
+import { advanceStyle, applyHang } from './hang.ts';
 import { insertHyphens, loadHyphenators, resolvePattern, type Hyphenator } from './hyphenate.ts';
 import type { Measured } from './items.ts';
 import { FontSizes, measureTokens, scratchRange } from './measure.ts';
@@ -337,8 +337,12 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
   const inputTypes = ['wheel', 'touchmove', 'keydown'] as const;
   const downTypes = ['mousedown', 'touchstart'] as const;
   const upTypes = ['mouseup', 'touchend', 'touchcancel', 'blur'] as const;
+  // A face that finishes loading changes the advance of every glyph set in it: the hang advances read
+  // with the fallback face are forgotten, so the next batch reads them again. What is set already stays.
+  const onFacesLoaded = (): void => fonts.advances.clear();
   const listen = (on: boolean): void => {
     const add = on ? 'addEventListener' : 'removeEventListener';
+    article.ownerDocument.fonts?.[add]('loadingdone', onFacesLoaded);
     win?.[add]('pointermove', onPointerMove, { capture: true, passive: true });
     for (const t of inputTypes) win?.[add](t, onInput, { capture: true, passive: true });
     for (const t of downTypes) win?.[add](t, onDown, { capture: true, passive: true });
@@ -649,12 +653,19 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     }
     // Breaks and hang go in together: a hung quote splits a text run, which can cost a kern, so the
     // overflow check below must see the paragraph as it will paint.
+    // What a hung glyph's advance depends on, for every element its text can sit in, read now while
+    // nothing is written: the paragraph's line start, from its candidate's box, and the element's style.
+    const styles = new Map<Element, string>();
+    if (hanging === 'left') {
+      for (const { p, right, width } of plans) for (const el of [p, ...p.querySelectorAll('*')]) styles.set(el, advanceStyle(el, right - width));
+    }
+    const styleOf = (el: Element): string => styles.get(el) ?? advanceStyle(el, 0);
     const allInPlace = opts.inPlace?.() === true;
     const inPlace = new Set(allInPlace ? [] : plans.filter(({ p }) => holdsRange(p)).map(({ p }) => p));
     const keep = (p: HTMLElement): boolean => allInPlace || inPlace.has(p);
     const place = (list: readonly Plan[]): void => {
       for (const { p, tokens, after } of list) applyBreaks(p, tokens, after, keep(p));
-      if (hanging === 'left') applyHang(list.map(({ p }) => p), keep);
+      if (hanging === 'left') applyHang(list.map(({ p }) => p), keep, fonts.advances, styleOf);
     };
     place(plans);
     // Positions are good to about a pixel, so a line the breaker filled to the edge can paint a
@@ -1058,7 +1069,7 @@ export function attach(article: HTMLElement, opts: TypesetOptions): TypesetContr
     const bg = background;
     if (bg === null || bg.mine !== generation || found.length === 0) return;
     reopenDone();
-    queue.push(...found);
+    for (const p of found) queue.push(p);
     for (const p of found) observer?.observe(p);
     if (!bg.running) {
       bg.running = true;
