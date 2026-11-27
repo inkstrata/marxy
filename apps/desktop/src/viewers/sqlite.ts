@@ -625,7 +625,7 @@ export function createSqliteViewer(o: SqliteOptions): PaneViewer {
           id: 'csv',
           name: `${part.name} as CSV`,
           sub: `every row in ${part.kind === 'view' ? 'the order the view gives' : 'stored order'}; a BLOB as its size`,
-          async build(keep) {
+          async build(keep, stopped) {
             let header: string[] | null = part.columns.map((c) => c.name);
             if (part.rowid) header.unshift('rowid');
             for (let from = 0; ; from += EXPORT_PAGE) {
@@ -637,7 +637,11 @@ export function createSqliteViewer(o: SqliteOptions): PaneViewer {
                 return vals;
               });
               if (!keep(csvOf(from === 0 ? header : null, rows).replace(/\r\n$/, rows.length ? '\r\n' : ''))) return;
-              if (got.rows.length < EXPORT_PAGE || got.stopped) return;
+              if (got.stopped) {
+                stopped(String(got.stopped));
+                return;
+              }
+              if (got.rows.length < EXPORT_PAGE) return;
             }
           },
         }),

@@ -50,3 +50,19 @@ test('Search: a backtracking pattern is called too slow, the window stays alive,
     await page.waitForFunction(() => /1 match in 1 file/.test(document.querySelector('.marxy-drawer .marxy-l-body')?.textContent ?? ''), null, { timeout: 8000 });
   });
 });
+
+test('Search: Find and Replace each read once, by name and on screen', async () => {
+  await withFrame({ files: FILES, open: ['/w/fine.txt'] }, async (page) => {
+    await page.evaluate(() => window.__marxyHandle.frame().left.show('search', { q: '', scope: 'grep' }));
+    await page.waitForSelector('.marxy-drawer input[data-marxy-left-field="search-q"]');
+    for (const [field, word] of [['search-q', 'Find'], ['search-r', 'Replace']]) {
+      const got = await page.evaluate((f) => {
+        const input = document.querySelector(`.marxy-drawer input[data-marxy-left-field="${f}"]`);
+        return { name: input.getAttribute('aria-label'), placeholder: input.placeholder, shown: input.parentElement.querySelector('.marxy-l-lb')?.textContent };
+      }, field);
+      assert.equal(got.name, word, `${word} field is named once`);
+      assert.equal(got.shown, word, `${word} is shown once as the label`);
+      assert.equal(got.placeholder, '', `${word} is not repeated as a placeholder`);
+    }
+  });
+});

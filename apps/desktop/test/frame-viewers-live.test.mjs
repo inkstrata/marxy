@@ -173,6 +173,28 @@ test('Export of the image page and of the archive page: the bytes, and for an ar
   });
 });
 
+test('Save in the viewer export dialog pressed twice opens one save dialog', async () => {
+  await withFrame({ files: FILES, open: [TMK] }, async (page) => {
+    await page.waitForSelector('.marxy-fcard');
+    await openExport(page);
+    await page.evaluate(() => {
+      const sh = window.__marxyHandle.shell;
+      const was = sh.saveDialog.bind(sh);
+      sh.saveDialog = async (o) => {
+        await new Promise((r) => setTimeout(r, 400));
+        return was(o);
+      };
+      sh.queueSaveDialog(null);
+      const b = document.querySelector('.marxy-export-go');
+      b.click();
+      b.click();
+    });
+    await page.waitForFunction(() => document.querySelector('.marxy-export-go').textContent === 'Saving…');
+    await page.waitForFunction(() => document.querySelector('.marxy-export-go').textContent === 'Save…');
+    assert.equal(await page.evaluate(() => window.__marxyHandle.shell.calls.filter((c) => c.method === 'saveDialog').length), 1);
+  });
+});
+
 test('the card says when the file was made, and an open at a byte offset lands the hex view there', async () => {
   await withFrame({ files: FILES, open: ['/r/README.md'] }, async (page) => {
     await open(page, TMK, 0x2a0);

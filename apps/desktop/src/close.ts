@@ -150,7 +150,12 @@ function unsavedOf(host: CloseGuardHost): DirtyDocument[] {
       for (const s of unseen) {
         if (!s.snapshot().dirty) continue;
         const r = await s.save();
-        if (r.result === 'failed') return 'failed';
+        if (r.result === 'failed') {
+          // No pane shows it to say so: the reader is told why, and the window stays open (left/held.ts words it the same).
+          const why = r.error instanceof Error ? r.error.message : String(r.error);
+          notify({ kind: 'error', text: `${documentName(s.snapshot().path) || 'a document'} could not be saved · ${why}` });
+          return 'failed';
+        }
         result = 'saved';
       }
       return result;

@@ -131,6 +131,30 @@ test('5: a file with unsaved changes that no pane shows is a tab marked unsaved,
   });
 });
 
+test('Save and close on a file no pane shows, its write refused, says why: the window stays open and the edit stays unsaved', async () => {
+  const files = { ...FILES, '/r/a.md': '# A\n\nThe early word here.\n' };
+  await withFrame({ files, open: ['/r/plan.md'] }, async (page) => {
+    await page.waitForSelector('[data-marxy-pane="0"] .marxy-article h1');
+    await page.evaluate(() => window.__marxyHandle.frame().left.show('search', { q: 'early', scope: 'grep' }, false));
+    await page.waitForSelector('.marxy-drawer input[data-marxy-left-field="search-r"]');
+    await page.fill('.marxy-drawer input[data-marxy-left-field="search-r"]', 'last');
+    await page.waitForFunction(() => /^Stage/.test(document.querySelector('.marxy-drawer .marxy-l-btns button.marxy-l-pri')?.textContent ?? ''));
+    await page.click('.marxy-drawer .marxy-l-btns button.marxy-l-pri');
+    await page.waitForFunction(() => /Staged/.test([...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent).join(' ')));
+    await page.evaluate(() => {
+      window.__marxyHandle.shell.writeFileAtomic = async () => {
+        throw new Error('disk is read-only');
+      };
+      window.__marxyHandle.shell.emitCloseRequested();
+    });
+    await page.waitForFunction(() => /a\.md has changes that are not saved/.test([...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent).join(' ')));
+    await page.locator('.marxy-notice button', { hasText: 'Save and close' }).click();
+    await page.waitForFunction(() => /a\.md could not be saved · disk is read-only/.test([...document.querySelectorAll('.marxy-notice-text')].map((n) => n.textContent).join(' ')));
+    assert.equal(await page.evaluate(() => window.__marxyHandle.shell.calls.some((c) => c.method === 'confirmClose')), false, 'the window stays open');
+    assert.equal(await page.evaluate(() => document.querySelectorAll('.marxy-tabbar .marxy-tab-close[data-marxy-dirty]').length), 1, 'the edit is still unsaved');
+  });
+});
+
 test('Close the others keeps a tab whose changes no pane shows, and does nothing when the open it needs is refused', async () => {
   const files = { ...FILES, '/r/a.md': '# A\n\nThe early word here.\n', '/r/b.md': '# B\n\nAnd the early one there.\n', '/r/c.md': '# C\n', '/r/d.md': '# D\n' };
   await withFrame({ files, open: ['/r/plan.md'] }, async (page) => {
