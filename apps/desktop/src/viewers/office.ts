@@ -7,7 +7,7 @@
 // the text views', and the page's elements name the file's own bytes. A Word 97-2003 document or deck (.doc, .ppt) is a
 // compound file the shell reads into the same blocks; Source is its bytes, as a .docx's.
 import { basename } from '@marxy/core/src/index-model/paths.ts';
-import { isDeck, isLegacy, officeAccount, officeFormatOf, officeHeadLine, OfficeError, readLegacyOffice, readOffice, readRtfOffice, sourceRangeOf, startsAsRtf, FORMAT_WORDS, LEGACY_FILE_MAX, OFFICE_LIMITS, RTF_LIMITS, type OfficeReading } from '@marxy/core/src/office/index.ts';
+import { isDeck, isLegacy, officeAccount, officeFormatOf, officeHeadLine, OfficeError, readLegacyOffice, readOffice, readRtfOffice, sourceRangeOf, startsAsRtf, writeMarkdown, FORMAT_WORDS, LEGACY_FILE_MAX, OFFICE_LIMITS, RTF_LIMITS, type OfficeReading } from '@marxy/core/src/office/index.ts';
 import type { ArchiveEntry, ArchiveListing } from '@marxy/shell-api';
 import { adoptRuntimeSheet } from '@marxy/theme/src/loader.ts';
 import type { AppShell } from '../app-types.ts';
@@ -223,7 +223,9 @@ export function createOfficeViewer(o: OfficeOptions): PaneViewer {
       } catch {
         return refuse(LINK_MALFORMED);
       }
-      page?.body.querySelector(`[id="${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'center' });
+      const target = page?.body.querySelector(`[id="${CSS.escape(id)}"]`);
+      if (target) target.scrollIntoView({ block: 'center' });
+      else if (reading.doc.cut?.length) refuse('That place is in the part of the document this page leaves out · nothing was opened.');
       return;
     }
     if (/^(?:https?|mailto):/i.test(href)) {
@@ -526,7 +528,7 @@ export function createOfficeViewer(o: OfficeOptions): PaneViewer {
         body.append(factRow('slides', `${n(c.slides)}${c.hiddenSlides ? `, ${n(c.hiddenSlides)} hidden` : ''}`));
         body.append(factRow('notes', c.speakerNotes ? `on ${n(c.speakerNotes)} of them` : 'none'));
       } else {
-        body.append(factRow('words', n(reading.words), 'Counted here from the text shown, notes and comments aside'));
+        body.append(factRow('words', n(reading.words), 'Counted here from the file’s text, notes and comments aside'));
         if (p.pages !== null) body.append(factRow('pages', `${n(p.pages)}, as last laid out by the app that saved it`));
         const notes = [c.footnotes && `${n(c.footnotes)} footnote${c.footnotes === 1 ? '' : 's'}`, c.endnotes && `${n(c.endnotes)} endnote${c.endnotes === 1 ? '' : 's'}`].filter(Boolean).join(', ');
         body.append(factRow('notes', notes || 'none'));
@@ -550,7 +552,11 @@ export function createOfficeViewer(o: OfficeOptions): PaneViewer {
         name: `${name} as Markdown`,
         sub: deck ? 'the slides’ text as this page shows it' : 'the text as this page shows it',
         extension: 'md',
-        build: async () => ({ bytes: mdBytes, preview: reading.markdown.slice(0, 4000) }),
+        build: async () => {
+          // The whole document, past the page's block cap: written here, only when asked for.
+          const whole = reading.doc.blocks.length > OFFICE_LIMITS.blocks ? writeMarkdown(reading.doc).markdown : reading.markdown;
+          return { bytes: enc.encode(whole), preview: whole.slice(0, 4000) };
+        },
       },
     ];
   }
