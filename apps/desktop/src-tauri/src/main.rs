@@ -19,6 +19,8 @@ mod pasteboard;
 mod remote;
 mod scope;
 mod tables;
+#[cfg(target_os = "macos")]
+mod user_path;
 mod watch;
 #[path = "watch/spawn_notify.rs"]
 mod watch_notify;
@@ -1562,6 +1564,8 @@ fn main() {
     }
     builder
         .setup(move |_app| {
+            #[cfg(target_os = "macos")]
+            user_path::warm();
             if let Some(dir) = &own_data_dir {
                 for window in _app.config().app.windows.clone() {
                     tauri::WebviewWindowBuilder::from_config(_app.handle(), &window)?
