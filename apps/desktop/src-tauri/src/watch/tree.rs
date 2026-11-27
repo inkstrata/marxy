@@ -13,7 +13,7 @@ use std::fs::{self, Metadata};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::file_scheme::plain;
+use crate::scope::plain;
 use crate::watch::ids::{file_id_at, list, Kind, Listed};
 use crate::watch::{canonical, diff, Snapshot, WatchEvent};
 

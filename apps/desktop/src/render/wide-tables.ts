@@ -52,7 +52,7 @@ export function moreSides(left: number, max: number): 'start' | 'end' | 'both' |
 }
 
 /**
- * Where each column ends, from the box's left edge with no scroll, read from the row with the most cells near the top,
+ * Where each column ends, from the box's start edge (its left, or its right when it reads right to left) with no scroll, read from the row with the most cells near the top,
  * and which columns hold figures: set to the end, or every filled cell of the first data rows reads as a number, date or size
  * (Markdown figures are start-aligned unless the author asked otherwise).
  */
@@ -66,9 +66,15 @@ function columnsOf(box: HTMLElement): { ends: number[]; figures: boolean[] } {
   if (!row) return { ends: [], figures: [] };
   const width = row.cells.length;
   const rows = [...box.querySelectorAll('tr')].slice(0, 9).filter((r) => r.cells.length === width && r.querySelector('td'));
-  const origin = box.getBoundingClientRect().left + box.clientLeft - box.scrollLeft;
+  const edge = box.getBoundingClientRect();
+  // Right to left, the first column is at the right and `scrollLeft` is zero there and negative as the box scrolls on.
+  const rtl = getComputedStyle(box).direction === 'rtl';
+  const origin = rtl ? edge.right - (box.offsetWidth - box.clientWidth - box.clientLeft) - box.scrollLeft : edge.left + box.clientLeft - box.scrollLeft;
   return {
-    ends: [...row.cells].map((cell) => cell.getBoundingClientRect().right - origin),
+    ends: [...row.cells].map((cell) => {
+      const at = cell.getBoundingClientRect();
+      return rtl ? origin - at.left : at.right - origin;
+    }),
     figures: [...row.cells].map((_, i) => {
       if (rows[0] && /^(right|end)$/.test(getComputedStyle(rows[0].cells[i]!).textAlign)) return true;
       const filled = rows.map((r) => r.cells[i]!.textContent?.trim() ?? '').filter((t) => t !== '');

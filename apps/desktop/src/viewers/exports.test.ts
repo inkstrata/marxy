@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import type { ArchiveEntry } from '@marxy/shell-api';
+import { csvExport } from './table-cards.ts';
 import { asItIs, EXPORT_BYTES_MAX, listingText } from './exports.ts';
 import type { ViewedFile } from './file.ts';
 
@@ -43,4 +44,18 @@ test('the file as it is: every byte, read in ranges, never past the read cap', a
   await assert.rejects(asItIs(shell, fileOf(80), 'file').build(), /changed while it was read/);
   await assert.rejects(asItIs(shell, fileOf(EXPORT_BYTES_MAX + 1), 'image').build(), /past the 256\.0 MB/);
   assert.equal(reads.some(([, l]) => l! > 16 * 1024 * 1024), false);
+});
+
+test('a CSV export of a view stopped at the time cap says rows are missing', async () => {
+  const stopped = csvExport({
+    id: 'csv', name: 'v as CSV', sub: '',
+    async build(keep, stop) {
+      keep('a,b\r\n1,2\r\n');
+      stop('stopped after 2 s');
+    },
+  });
+  const built = await stopped.build();
+  assert.match(built.preview, /The query was stopped after 2 s: the rows after it are not in this file\./);
+  const whole = await csvExport({ id: 'csv', name: 'v', sub: '', async build(keep) { keep('a\r\n'); } }).build();
+  assert.doesNotMatch(whole.preview, /The query was/);
 });

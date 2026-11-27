@@ -13,7 +13,7 @@ use serde::Serialize;
 #[cfg(test)]
 use crate::commands::fs::read_head_bytes;
 use crate::commands::fs::{off_main, read_head_in};
-use crate::file_scheme::OpenedSet;
+use crate::scope::OpenedSet;
 
 /// The most bytes of a file detection reads.
 pub const DETECT_HEAD_BYTES: u64 = 8 * 1024;
@@ -456,7 +456,7 @@ pub async fn detect_files(paths: Vec<String>) -> Result<Vec<Option<Detection>>, 
             .map(|(i, p)| {
                 // A path out of scope reads as one that could not be read (src/scope.rs).
                 if i < DETECT_MAX_PATHS {
-                    detect_in(crate::file_scheme::opened(), p)
+                    detect_in(crate::scope::opened(), p)
                 } else {
                     None
                 }

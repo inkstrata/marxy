@@ -4,7 +4,7 @@
 //! started directly with that argument array, never through a shell and never split from a string here. It has the
 //! app's environment and can do whatever that program does; what bounds it is the time limit and the output cap, and
 //! a job object on Windows, and a process group elsewhere, that ends whatever it started along with it. The folder it
-//! runs in is the one its entry names, else a folder in the set the page opened (src/file_scheme.rs), which never holds
+//! runs in is the one its entry names, else a folder in the set the page opened (src/scope/served.rs), which never holds
 //! a drive's or a share's root, the home folder or one above it. The page feeds that set, so this keeps a run out of
 //! folders nothing opened, not out of every folder a compromised page could scope first.
 
@@ -104,7 +104,7 @@ pub fn command_by_id(config: &str, id: &str) -> Result<ReaderCommand, RunError> 
 pub fn command_cwd(
     command: &ReaderCommand,
     asked: Option<&str>,
-    opened: &std::sync::RwLock<crate::file_scheme::OpenedSet>,
+    opened: &std::sync::RwLock<crate::scope::OpenedSet>,
 ) -> Result<Option<PathBuf>, RunError> {
     if let Some(own) = &command.cwd {
         return Ok(Some(PathBuf::from(own)));
@@ -112,7 +112,7 @@ pub fn command_cwd(
     let Some(asked) = asked.filter(|c| !c.is_empty()) else {
         return Ok(None);
     };
-    crate::file_scheme::opened_folder(opened, Path::new(asked))
+    crate::scope::served::opened_folder(opened, Path::new(asked))
         .map(Some)
         .map_err(|_| RunError::Invalid(format!("the folder {asked} is not one that was opened")))
 }
@@ -610,7 +610,7 @@ pub async fn run_command(
     // Off the async runtime's threads: the run blocks for as long as the program takes.
     let output = tauri::async_runtime::spawn_blocking(move || {
         let command = command_by_id(&read_config(&config)?, &req.id)?;
-        let cwd = command_cwd(&command, req.cwd.as_deref(), crate::file_scheme::opened())?;
+        let cwd = command_cwd(&command, req.cwd.as_deref(), crate::scope::opened())?;
         run(
             &command.run[0],
             &command.run[1..],
@@ -871,7 +871,7 @@ prints = true
         let other = base.join("other");
         std::fs::create_dir_all(&opened_dir).unwrap();
         std::fs::create_dir_all(&other).unwrap();
-        let mut set = crate::file_scheme::OpenedSet::default();
+        let mut set = crate::scope::OpenedSet::default();
         set.add_folder(&opened_dir, dunce::canonicalize(&opened_dir).unwrap());
         let set = std::sync::RwLock::new(set);
         let sort = command_by_id(CONFIG, "Sort").unwrap();
