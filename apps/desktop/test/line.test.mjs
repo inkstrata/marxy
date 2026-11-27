@@ -167,7 +167,7 @@ test('26b2 Line: @ draws the first 200 of a document with thousands of headings,
     let s = await lineRows(page);
     assert.equal(s.rows.length, 200, 'a window of rows, not one per heading');
     assert.equal(s.rows[0].t, 'Heading 0');
-    assert.match(s.notice, /The first 200 headings: keep typing to narrow them/);
+    assert.match(s.notice, /The first 200 of 6,000 headings: keep typing to narrow them/);
     await page.keyboard.type('heading 5999');
     await page.waitForTimeout(250);
     s = await lineRows(page);
@@ -187,6 +187,14 @@ test('26b3 Line: @ on a Markdown file read as lines (over 5 MiB) lists its headi
     assert.equal(s.rows[0].t, 'Heading 0');
     assert.match(s.rows[0].d, /^line \d+$/);
     assert.equal(await page.evaluate(() => window.__marxyHandle.document().parsed()), false, 'no parse was made for the list');
+    assert.match(s.notice, /The first 200 of 20,000\+ headings/);
+    assert.match(s.notice, /stops at the first 20,000 headings of the file/);
+    await page.keyboard.type('heading 19999');
+    await page.waitForFunction(() => document.querySelector('#marxy-palette .marxy-palette-title')?.textContent.trim() === 'Heading 19999', null, { timeout: 30_000 });
+    await page.keyboard.press(`${mod}+KeyA`);
+    await page.keyboard.type('@heading 29999');
+    await page.waitForTimeout(500);
+    assert.match((await lineRows(page)).notice, /stops at the first 20,000 headings/, 'past the scan the note says the list stopped');
   });
 });
 
