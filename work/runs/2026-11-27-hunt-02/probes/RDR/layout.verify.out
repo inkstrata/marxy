@@ -1,0 +1,26 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/RDR/layout.verify.mjs --browser chromium --out /private/tmp/claude-501/shots
+== 0.05 MB open 1311ms
+Ctrl+B #0: longest 0 n 0 sum 0
+Ctrl+B #1: longest 0 n 0 sum 0
+Ctrl+B #2: longest 0 n 0 sum 0
+resize 900: longest 0 n 0 sum 0
+resize 1400: longest 0 n 0 sum 0
+  per-move 57 34 38 17 22 30 14 168 51 54 53 40 27 36 31
+spine drag: longest 0 n 0 sum 0
+== 1 MB open 2240ms
+Ctrl+B #0: longest 208 n 1 sum 208
+Ctrl+B #1: longest 242 n 1 sum 242
+Ctrl+B #2: longest 146 n 1 sum 146
+resize 900: longest 368 n 2 sum 440
+resize 1400: longest 70 n 1 sum 70
+  per-move 33 33 38 89 131 43 40 47 46 33 41 94 43 44 32
+spine drag: longest 0 n 0 sum 0
+== 3 MB open 3724ms
+Ctrl+B #0: longest 209 n 1 sum 209
+Ctrl+B #1: longest 178 n 1 sum 178
+Ctrl+B #2: longest 193 n 2 sum 254
+resize 900: longest 301 n 2 sum 405
+resize 1400: longest 76 n 2 sum 137
+  per-move 70 57 70 73 64 46 49 59 131 66 61 69 61 73 79
+spine drag: longest 0 n 0 sum 0
+0 pictures in /private/tmp/claude-501/shots

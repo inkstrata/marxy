@@ -1,0 +1,31 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/CMD/metadata3.verify.mjs --browser chromium
+callers of fromMarkdown:
+  fromMarkdown .vite/deps/mdast-util-from-markdown.js?v=d603ef2a:1593
+  parseMarkdown src/parse/parse.ts:22
+  parseText src/transforms/prose.ts:4
+  protectedSpans src/transforms/prose.ts:61
+  gapsWithTail src/transforms/prose.ts:71
+  gapsOf src/transforms/prose.ts:82
+  proseLines src/transforms/extract.ts:36
+  pathMentions src/transforms/extract.ts:44
+  linksOfPane src/left/doc-links.ts:16
+  linkCount src/left/doc-links.ts:46
+  textAccount left/panels/metadata.ts:218
+  render left/panels/metadata.ts:604
+  draw src/left/frame.ts:294
+  redraw src/left/frame.ts:146
+  (anon) src/left/doc-shared.ts:70
+  (root) :-1
+5739  (program)  :-1
+1941  getBoundingClientRect  :-1
+1515  (garbage collector)  :-1
+1305  subtokenize  deps/chunk-NXIHHTN2.js?v=d603ef2a:1227
+698  fromMarkdown  deps/mdast-util-from-markdown.js?v=d603ef2a:1593
+390  go  deps/mdast-util-from-markdown.js?v=d603ef2a:1180
+371  compile2  deps/mdast-util-from-markdown.js?v=d603ef2a:1708
+350  getBoundingClientRect  :-1
+299  nodeFor  render/post.ts:45
+295  getBoundingClientRect  :-1
+277  buildBlocks  render/post.ts:96
+271  (anon)  render/post.ts:98
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-1006

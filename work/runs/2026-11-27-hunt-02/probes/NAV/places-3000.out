@@ -1,0 +1,17 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/NAV/places.mjs --browser chromium
+Places 0                 wall 322ms longest 0ms rows 34
+Outline 0                wall 317ms longest 0ms rows 1
+Search 0                 wall 315ms longest 0ms rows 0
+Places 1                 wall 319ms longest 0ms rows 34
+Outline 1                wall 315ms longest 0ms rows 1
+Search 1                 wall 314ms longest 0ms rows 0
+Places 2                 wall 334ms longest 0ms rows 34
+Outline 2                wall 339ms longest 0ms rows 1
+Search 2                 wall 351ms longest 0ms rows 0
+Places 3                 wall 339ms longest 0ms rows 34
+Outline 3                wall 321ms longest 0ms rows 1
+Search 3                 wall 322ms longest 0ms rows 0
+Places filter "f12"      wall 389ms longest 53ms rows 62
+Places Escape            wall 307ms longest 0ms rows 0
+Search "File 4" ws scope wall 2957ms longest 0ms rows 0
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0945

@@ -1,0 +1,10 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/CMD/tabs.mjs --browser chromium
+  drawer closed: open small                    wall 1378 ms; longest tasks 140 
+  drawer closed: open big again                wall 3999 ms; longest tasks 88,68,59,51 
+  Metadata: open small                         wall 1379 ms; longest tasks 11182,105 
+  Metadata: open big again                     wall 4151 ms; longest tasks 50 
+  Versions: open small                         wall 1393 ms; longest tasks 160 
+  Versions: open big again                     wall 4103 ms; longest tasks 75 
+  Export: open small                           wall 1350 ms; longest tasks 121 
+  Export: open big again                       wall 3932 ms; longest tasks 296,155,66,53 
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0940

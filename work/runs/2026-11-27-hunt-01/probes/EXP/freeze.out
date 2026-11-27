@@ -1,0 +1,11 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/EXP/freeze.mjs --browser chromium
+/demo/long.md html 10001 ms TIMEOUT /demo/long.md html
+/demo/long.md pdf 10010 ms TIMEOUT /demo/long.md pdf
+/demo/long.md raw 10004 ms TIMEOUT /demo/long.md raw
+/demo/long.md text 10003 ms TIMEOUT /demo/long.md text
+/demo/t.csv html 10015 ms TIMEOUT /demo/t.csv html
+/demo/t.csv pdf 10050 ms TIMEOUT /demo/t.csv pdf
+/demo/t.csv raw 10018 ms TIMEOUT /demo/t.csv raw
+/demo/t.csv text 10008 ms TIMEOUT /demo/t.csv text
+/demo/t.csv jsonl 10001 ms TIMEOUT /demo/t.csv jsonl
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0848

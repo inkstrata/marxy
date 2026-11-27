@@ -1,0 +1,5 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/CMD/busy.verify.mjs --browser chromium --out /private/tmp/claude-501/shots
+plain1: open 2756ms; tasks>50ms total 0; in 0-5s 0; 5-20s after open 0 (sum 0ms); last ends at +n/ams
+rich1: open 5824ms; tasks>50ms total 42; in 0-5s 6; 5-20s after open 36 (sum 2365ms); last ends at +20076ms
+rich3 Error: STALL10s open
+0 pictures in /private/tmp/claude-501/shots
