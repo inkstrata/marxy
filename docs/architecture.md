@@ -47,7 +47,7 @@ path ─ shell.detectFiles (head) ─ shell.readFile ─ decode if not UTF-8 ─
    and maths and converts the result to Marxy's tree, in which every node carries `src: {file, start,
    end}`, a byte range in the file (`packages/core/src/contracts/ast.ts`). Code and plain text become
    pieces of up to 200 lines (`parseCode`). Markdown from 256 KB (from 64 KB with another pane on screen) is parsed,
-   rendered and put in the page in slices, the event loop given back between them; an edit reparses only the
+   rendered and put in the page in slices, the event loop given back between them (`yieldToMain` in `scheduler/`, a message-channel task, never a timer); an edit reparses only the
    region it touched (`reparseMarkdown`), with the same result as a whole parse. Link reference and
    footnote definitions reach across the file, so each parse keeps an index of them (label, target,
    place) and the region is parsed with the file's labels and targets known; an edit that adds, removes
@@ -270,6 +270,7 @@ Folders under `apps/desktop/src/`:
 | `notices/` | notices and their wording |
 | `trust/` | per-document HTML and remote-image grants |
 | `position/`, `layout/` | reading places; layout saved and restored |
+| `scheduler/` | the one owner of giving the event loop back: `yieldToMain(lane)`, `runSliced`, the three lanes (input, viewport, background) |
 | `startup/`, `frontispiece/`, `commonplace/` | idle work after first text; the empty-state passage and its pieces |
 | `proposals/` | optional features behind Settings › Proposals |
 | `paste/` | paste handling |
