@@ -1,0 +1,3 @@
+readonly(): false
+copy: Ok(3)
+open tmp for write: PermissionDenied (os error 1, Operation not permitted)

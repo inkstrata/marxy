@@ -1,0 +1,2 @@
+lineSpan of "two": 2 2
+linesBytes(first,last): "" (expected "two\r")

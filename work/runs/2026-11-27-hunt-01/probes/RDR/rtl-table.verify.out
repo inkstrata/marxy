@@ -1,0 +1,12 @@
+== webkit
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/RDR/rtl-table.verify.mjs --browser webkit
+shots: --browser is one of msedge, chrome, chromium, not webkit
+usage: node scripts/shots.mjs <scenario.mjs> [--out <dir>] [--only <text>] [--scale <n>] [--size <WxH>] [--exe [path]] [--browser msedge|chrome|chromium]
+/Users/<user>/Dev/marxy-wt/hunt-01/apps/desktop:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @marxy/desktop@0.2.0 shots: `node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/RDR/rtl-table.verify.mjs --browser webkit`
+Exit status 2
+== chromium
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/RDR/rtl-table.verify.mjs --browser chromium
+{"dir":"ltr","tdir":"rtl","cut":true,"more":"end","cols":"39 more columns →","sl":0,"cw":3052,"sw":3052,"cut2":"-2180px","hdr":"[2983,2913,2844]","firstRight":3052,"tw":3052}
+shot rtl-table
+1 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0856

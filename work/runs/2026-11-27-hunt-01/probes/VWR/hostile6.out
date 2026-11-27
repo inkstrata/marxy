@@ -1,0 +1,6 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-01/work/runs/2026-11-27-hunt-01/probes/VWR/hostile6.mjs --browser chrome
+/h/b250.tar.gz     opened alive 868ms "h › b250.tar.gz Read Source A tar archive, gzipped: 1 file. 248.9 KB in the file, 250.0 M" 
+/h/b900.tar.gz     opened alive 885ms "h › b900.tar.gz Read Source A tar archive, gzipped: 1 file. 895.8 KB in the file, 900.0 M" 
+/h/bz.zip          opened alive 716ms "h › bz.zip Read Source A ZIP archive: 1 file. 190.0 KB in the file, 190.7 MB unpacked. 1 " 
+/h/bz.gz           opened alive 775ms "h › bz.gz Read Source A gzip stream of one file: bz. 854.3 KB in the file, 858.3 MB unpac" 
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-01/work/shots/hunt-01-20261127-0900
