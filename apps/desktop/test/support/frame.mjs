@@ -18,8 +18,8 @@ export const frameFile = (frame) => `${JSON.stringify({ version: 1, frame }, nul
  * `fn(page, { mod, errors })`. `mod` is the platform's Mod key as Playwright presses it; `errors` collects page errors,
  * and any left at the end fail the test.
  */
-export async function withFrame({ files, open, config, frame, viewport = { width: 1440, height: 900 }, media, sparse }, fn) {
-  const browser = await launchWebkit();
+export async function withFrame({ files, open, config, frame, viewport = { width: 1440, height: 900 }, media, sparse, launch = launchWebkit }, fn) {
+  const browser = await launch();
   try {
     const page = await browser.newPage({ viewport });
     if (media) await page.emulateMedia(media);
