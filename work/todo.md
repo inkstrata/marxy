@@ -93,6 +93,7 @@ touch none of the files M1's branches change and were started that day. Q3, Q4, 
 | --- | --- | --- | --- |
 | F5 | Place restore failed once under full-check load (94 of 95), not reproduced in 4 runs | Watch; give it a wait or find the race if it returns | S |
 | F6 | Facts readers for wma, ac3, amr | Only if such files turn up | S |
+| F25 | `undo-endings.test.mjs`, "a save that makes a mixed-ending file uniform, then Mod+Z": passed 4 of 7 runs on `main`; when it fails it times out at the wait after Mod+Z (`!canUndo`), a key the test allows to do nothing | Waits on a condition that may never come; convert with the kit (`apps/desktop/test/support/kit.mjs`) | S |
 | S10 | Watch: the 2 s flat poll stats symlink targets, SMB included; needs a rule for which links are followed (`src-tauri` watch) | Polling a share costs | M |
 | S9 | `createRenderedView` is about 2,600 lines; listeners added far outnumber those removed (`view/rendered-view.ts`) | Goes with P3 and P5 | L |
 | P4 | `budgets`: untrusted input gets work budgets everywhere, not branch by branch | Each format found its own gap in review | L, gradual |
