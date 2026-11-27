@@ -16,6 +16,7 @@
 // Ranges are resolved from a fresh walk every time: the typesetter splits text nodes in the
 // background (packages/typeset/src/apply.ts), so a stored node reference may point at half a node.
 
+import { pendingBlocks } from '../render/progressive.ts';
 import { buildTextIndex, type PieceOffset, type Span, type TextIndex } from './text-index.ts';
 
 /** Elements whose text is not the document's visible reading text: their whole subtree is skipped. */
@@ -63,9 +64,9 @@ export interface CollectedText {
   readonly nodes: Text[];
 }
 
-export function collectText(article: HTMLElement): CollectedText {
-  const pieces: string[] = [];
-  const nodes: Text[] = [];
+export function collectText(article: HTMLElement, into?: CollectedText): CollectedText {
+  const pieces: string[] = into?.pieces ?? [];
+  const nodes: Text[] = into?.nodes ?? [];
   const walker = article.ownerDocument.createTreeWalker(article, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
@@ -83,11 +84,46 @@ export function collectText(article: HTMLElement): CollectedText {
 /** The walk and its index together: what one find pass reads. */
 export interface Walked extends CollectedText {
   readonly index: TextIndex;
+  /**
+   * How many of `nodes` are in the page: the rest are in the blocks a long document has not appended yet
+   * (`walkPage`), which have no place on screen and no Range there until they are.
+   */
+  readonly mounted: number;
 }
 
 export function walkText(article: HTMLElement): Walked {
   const collected = collectText(article);
-  return { ...collected, index: buildTextIndex(collected.pieces) };
+  return { ...collected, index: buildTextIndex(collected.pieces), mounted: collected.nodes.length };
+}
+
+/**
+ * The article's text and then the text of the blocks its document has not appended yet: the whole page's text
+ * while a long one is still mounting. Appending a block only moves it, so the text is the same once all is in.
+ */
+export function walkPage(article: HTMLElement): Walked {
+  const collected = collectText(article);
+  const mounted = collected.nodes.length;
+  const pending = pendingBlocks(article);
+  if (pending) collectText(pending, collected);
+  return { ...collected, index: buildTextIndex(collected.pieces), mounted };
+}
+
+/**
+ * Whether the text at `offset` of the walk is in the page now, not in a block still to be appended. A walk kept from
+ * before more was appended still answers: an appended node is adopted into the page's document.
+ */
+export function inPage(walked: Walked, offset: number): boolean {
+  const piece = walked.index.locate(offset).piece;
+  if (piece < walked.mounted) return true;
+  const page = walked.nodes[0]?.ownerDocument;
+  return walked.mounted > 0 && walked.nodes[piece]?.ownerDocument === page;
+}
+
+/** The byte where the block holding `offset` of the walk starts: what to mount through to bring it in. */
+export function byteAt(walked: Walked, offset: number): number | null {
+  const node = walked.nodes[walked.index.locate(offset).piece];
+  const start = node?.parentElement?.closest('[data-marxy-s]')?.getAttribute('data-marxy-s');
+  return start == null ? null : Number(start);
 }
 
 /**
@@ -122,6 +158,8 @@ export function placeRange(range: Range, walked: Walked, span: Span): boolean {
   if (span.end <= span.start || walked.nodes.length === 0) return false;
   const start = walked.index.locate(span.start);
   const end = locateEnd(walked, span.end);
+  // A match in a block not yet appended has no place in the page.
+  if (start.piece >= walked.mounted || end.piece >= walked.mounted) return false;
   const startNode = walked.nodes[start.piece];
   const endNode = walked.nodes[end.piece];
   if (!startNode || !endNode) return false;

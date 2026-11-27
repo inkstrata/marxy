@@ -73,9 +73,7 @@ L31; L4 and L6 by #806; L12 by #797; L13 by #805; L14 by #798.
 
 | # | What | Why | Size | Branch |
 | --- | --- | --- | --- | --- |
-| L7 | Find on a page still mounting counts only what is mounted and says nothing (2 MB: "1 of 21,072" of 32,442), and from 0.75 MB every key in the field costs about 0.5 s | S2 wrong result; find walks the DOM (`find/`); hunt-03 NAV-01, NAV-05. The fix is L23's find over the model | M | |
 | L8 | End on a page still mounting stops short (2 MB: at 1.34 MB of 2.0); reaching the end takes about seven presses over 60 s | S2; the jump goes to the last mounted block; hunt-03 NAV-03. Jump by byte through the geometry table (E22) | S | |
-| L9 | Select all and copy grows faster than the page (0.25, 0.95, 2.1 s at 0.5, 1, 2 MB) and copies only the drawn part of a page still mounting | S2; `cloneRangeInert` tests `intersectsNode` for every child (`selection/copy-text.ts:17`); hunt-03 EDT-04. Copy by byte range (D-01 in the synthesis) makes both go | S | |
 | L10 | Source and back, a one-block edit, undo and a reload each cost 2-6 s of main-thread work on a 1 MB Markdown page, about 2x per doubling; every cursor key and scroll costs 0.1-0.3 s at 0.5-1 MB, about 3x per doubling | S2; a block commit and undo set the page again rather than splicing the block (`spliceStalePage` exists, `view/rendered-view.ts:2100`); keys and scrolls read positions across every block (E22); hunt-03 MEA-05, MEA-04 | M | |
 | L11 | A 4.9 MB diff opens with 17 s of main-thread work (1 MB: 0.5 s, 2 MB: 3.4 s) while its node count stays flat; a 4.9 MB HTML file reloads in 10.5 s and comes back from Source with about twice its nodes | S2; a parse or line-classification pass of the diff reading grows faster than the file; hunt-03 MEA-06 | S | |
 | L15 | JSON or YAML over 100 KB costs about 2.3 s to open, flat to 4.9 MB: the capped tree draws about 19,500 nodes (3.9 per value) and style recalculation is half of it | S3; hunt-03 VWR-02 | S | |
