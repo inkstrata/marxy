@@ -79,7 +79,7 @@ export function tablesReadingCard(o: {
 const enc = new TextEncoder();
 
 /** A CSV export built a page at a time, up to the read cap; the preview shows its first lines. */
-export function csvExport(o: { id: string; name: string; sub: string; build: (keep: (line: string) => boolean) => Promise<void> }): ViewerExport {
+export function csvExport(o: { id: string; name: string; sub: string; build: (keep: (line: string) => boolean, stopped: (why: string) => void) => Promise<void> }): ViewerExport {
   return {
     id: o.id,
     name: o.name,
@@ -89,6 +89,7 @@ export function csvExport(o: { id: string; name: string; sub: string; build: (ke
       const parts: Uint8Array[] = [];
       let size = 0;
       let cut = false;
+      let why: string | null = null;
       await o.build((line) => {
         const bytes = enc.encode(line);
         if (size + bytes.length > EXPORT_BYTES_MAX) {
@@ -98,6 +99,8 @@ export function csvExport(o: { id: string; name: string; sub: string; build: (ke
         parts.push(bytes);
         size += bytes.length;
         return true;
+      }, (reason) => {
+        why = reason;
       });
       const out = new Uint8Array(size);
       let at = 0;
@@ -106,7 +109,7 @@ export function csvExport(o: { id: string; name: string; sub: string; build: (ke
         at += p.length;
       }
       const head = new TextDecoder().decode(out.subarray(0, 4096)).split('\r\n').slice(0, 12).join('\n');
-      const note = cut ? `\n\nStopped at ${sizeWords(EXPORT_BYTES_MAX)}, Export's cap.` : '';
+      const note = (cut ? `\n\nStopped at ${sizeWords(EXPORT_BYTES_MAX)}, Export's cap.` : '') + (why !== null ? `\n\nThe query was ${why}: the rows after it are not in this file.` : '');
       return { bytes: out, preview: `${head}${note}` };
     },
   };

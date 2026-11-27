@@ -60,6 +60,11 @@ export interface Policy {
   readonly globalAttributes: Readonly<Record<string, AttributeRule>>;
   /** URL schemes permitted per context. Empty means: nothing with a scheme, local references only. */
   readonly urlSchemes: Readonly<Record<UrlContext, readonly string[]>>;
+  /**
+   * The most elements held open at once, when fewer than the sanitiser's own cap. An element past it is not written
+   * and its contents are kept, so the tree comes out flatter; it only ever removes more.
+   */
+  readonly maxOpen?: number;
 }
 
 /**
