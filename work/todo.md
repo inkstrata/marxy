@@ -29,7 +29,6 @@ are part of it; R10 and R11 block the tag only if they turn out real. R1 (macOS 
 
 | # | What | Why | Size | Branch |
 | --- | --- | --- | --- | --- |
-| R3 | A Dock Quit, a logout or an Apple-event quit on macOS exits at once, without the unsaved-changes prompt: the run closure in `src-tauri/src/main.rs` has no `ExitRequested` arm, so only the menu's Quit and the close box ask | A reader can lose an edit; `docs/using-marxy.md` promises otherwise | S | |
 | R4 | macOS file associations: the "Source and text" group claims Default rank for about 60 extensions (json, html, xml, css among them); Markdown has no UTI; PDFs, images, archives and documents are not offered in Open With at all | Marxy should be offered for what it reads, not take double-click from other apps | S | |
 | R9 | Dry run of `release.yml` by `workflow_dispatch` on the version branch: size, seal and notices of the artifact, then install from a download on a clean account | The workflow has not run since v0.1.0 | S | |
 | R10 | Leaving Split loses the reading place on macOS WebKit (`leave-split`: offset 2021 became 0): a real loss or a test that reads too early? | A reader would lose their place | S | |

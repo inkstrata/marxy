@@ -76,7 +76,9 @@ record (`node scripts/gate-licences.mjs`).
    (`drop_windows.rs`), and on macOS builds the menu.
 4. The run loop turns every window close into a request to the page (`marxy:close-requested`); the
    page answers with `close_confirmed` once unsaved work is settled. A second close request within
-   1.5 s quits without asking.
+   1.5 s quits without asking. On macOS a quit from outside the app (Dock Quit, Log Out, an Apple-event
+   quit) arrives as `ExitRequested` with no code; the run loop prevents it and sends the same request. The
+   exit that follows an answered prompt, and any exit with a code, is let through.
 
 ### Opening files
 
