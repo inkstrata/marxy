@@ -23,6 +23,7 @@ export const CHECKS = [
   { name: 'check-csp', script: 'check-csp.mjs' },
   { name: 'check-commonplace', script: 'check-commonplace.mjs' },
   { name: 'check-listeners', script: 'check-listeners.mjs' },
+  { name: 'check-scale', script: 'check-scale.mjs' },
 ];
 
 /** Runs each check as a child process; returns [{ name, ok, tail }]. */

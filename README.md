@@ -69,6 +69,7 @@ pnpm --filter @marxy/desktop bundle                                # the install
 | [The desktop shell](docs/desktop-shell.md) | the Rust side: commands, files, watching, archives |
 | [Themes, looks and type](docs/themes-and-type.md) | themes, the look engine, tokens, typesetting, fonts |
 | [What Marxy keeps on disk](docs/data-on-disk.md) | settings and state files |
+| [Big files](docs/big-files.md) | what a 1 to 5 MB file goes through, the rules every feature follows, the checks |
 | [Development](docs/development.md) | setup, running, building, signing, installing a build |
 | [Testing and checks](docs/testing.md) | test layers, checks, fixtures, measurement |
 | [Working on Marxy](docs/working.md) | the workspace, the tracker, the cycle a change goes through, `pnpm work` |

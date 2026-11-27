@@ -45,6 +45,7 @@ What each guards is in [docs/testing.md](../docs/testing.md#repository-checks-pn
 | `check-csp.mjs` | the release CSP and every runtime stylesheet |
 | `check-commonplace.mjs` | the bundled reading pieces under `apps/desktop/src/commonplace/` |
 | `check-listeners.mjs` | window and document listeners in the app added with no signal and no remove, per folder, against `allowlists/listeners.json`; fails only when a count grows |
+| `check-scale.mjs` | code shapes that grow faster than the file or fail on a big one (array spreads into calls, DOM queries and layout reads in loops, queue operations in loops, whole-text line splits, run-time patterns), per file, against `allowlists/scale.json`; fails only when a count grows; `--hook` is the Claude Code hook that runs it after an edit |
 | `gate-font-attrs.mjs` | git attributes under `fonts/` |
 | `gate-contrast.mjs` | every bundled theme's colours against their contrast floors |
 
@@ -77,6 +78,7 @@ in [docs/testing.md](../docs/testing.md#measurement-tools).
 | --- | --- |
 | `perf-harness.mjs` (`pnpm perf`) | open, render, typeset, reload and palette timings over the corpus or generated large files |
 | `measure-interactions.mjs` (`pnpm perf:interactions`) | a cursor key, the first click, undo, reload from disk, a tab switch and Source to Read on a 195 KB and a 25 KB page in headless Edge: the main thread's task, script, layout and style time and counts, and the top-level nodes taken out and put in; records and compares runs (about ten minutes) |
+| `measure-scale.mjs` | every shape of big file (`lib/big-files.mjs`) at each size, opened and used in Chromium (open, a key, scrolls, Source and back, an edit and undo, a reload, find): main-thread task time, layouts and nodes per step, with the growth per doubling of the file |
 | `measure-startup.mjs` | cold and warm start of the built binary, from its startup marks |
 | `measure-reload.mjs` | live reload of a large transcript, stage by stage |
 | `measure-typeset-idle.mjs` | what a 1 MB page writes and how long it holds the main thread, at rest and on a scroll |
@@ -97,6 +99,7 @@ in [docs/testing.md](../docs/testing.md#measurement-tools).
 | `lib/machine-lock.mjs` | lock files in the OS temp folder for what one machine can run once (`check:tauri`'s port) or a few at a time (`verify`'s turn) |
 | `lib/perf-record.mjs` | the read-merge-write of `results/perf.json` shared by two test suites |
 | `lib/interactions-record.mjs` | the record of `measure-interactions.mjs`: its shape, medians, the comparison of two records and their tables |
+| `lib/big-files.mjs` | big files of every shape a reader opens (Markdown of several shapes, text, code, JSON, CSV, JSON Lines, logs, diffs, HTML, YAML) at any size, deterministic, for growth probes and `measure-scale.mjs` |
 | `lib/workspace.mjs` | the workspace around the checkout, worktrees and branch states |
 | `lib/todo.mjs` | the tracker's reader |
 | `lib/ask.mjs` | a question set's format, its check, the page it is drawn as, and the cleaning of answers sent back |
@@ -107,3 +110,4 @@ in [docs/testing.md](../docs/testing.md#measurement-tools).
 | `allowlists/shiki-languages.json` | the highlighting grammars that may ship, each with its licence |
 | `allowlists/hyphenation-patterns.json` | the hyphenation pattern sets that may ship, each with its licence |
 | `allowlists/listeners.json` | the per-folder count of unowned window and document listeners that `check-listeners.mjs` holds the app to |
+| `allowlists/scale.json` | the per-file count of unbounded big-file shapes that `check-scale.mjs` holds the app and the packages to |

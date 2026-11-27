@@ -216,6 +216,7 @@ the last lines of the check's output, ending in a `fix:` line. `--only=name[,nam
 | `check-csp` | the release CSP keeps `style-src` free of `'unsafe-inline'`; no runtime `<style>` elements; every CodeMirror view gets the CSP nonce |
 | `check-commonplace` | every bundled reading piece is sourced, public domain by its dates, and correctly formed |
 | `check-listeners` | listeners on the window and the document added with no `signal` and no `removeEventListener`, per folder of `apps/desktop/src`, do not grow past `scripts/allowlists/listeners.json`; `--write` records the counts after a folder's count falls |
+| `check-scale` | code shapes that grow faster than the file or fail on a big one, per file of the app and the packages, do not grow past `scripts/allowlists/scale.json`; a bounded one is allowed with a `// scale: <why>` comment ([big-files.md](big-files.md)); `--list` prints every unbounded hit, `--write` records the counts after some are removed |
 
 ## Gates outside `pnpm check`
 
@@ -256,6 +257,7 @@ listed in [scripts/README.md](../scripts/README.md#measurements).
 | `pnpm perf` (`scripts/perf-harness.mjs`) | open, render, typeset, reload, second-document and palette timings in WebKit over the corpus or generated large files (`--large 256k`, `--transcript`, `--reload`, `--palette`, `--parse`, `--json`, `--record`) |
 | `node scripts/measure-typeset-idle.mjs` | on a generated 1 MB Markdown page in WebKit: the article's DOM mutations at rest and through a wheel scroll, and the longest frames, while it is being set and (`--done`) once every paragraph is set (`--mb`, `--settle`, `--json`) |
 | `pnpm perf:interactions` (`scripts/measure-interactions.mjs`) | what the reader feels on a 195 KB and a 25 KB page, from this tree's source in headless Edge: open, a cursor key, the first click, undo after a small edit, a reload from disk, a tab switch and Source to Read, each as the browser's own task, script, layout and style time and layout and recalc counts, with the number of the article's top-level nodes an undo or reload took out and put in (`--runs`, `--keys`, `--docs`, `--doc <path>`, `--record`, `--compare`) |
+| `node scripts/measure-scale.mjs` | how each thing a reader does grows with the file: every shape of the big-file generator (`--kinds`) at each size (`--sizes 1m,2m,4m`), opened and used in Chromium from this tree's source; main-thread task time, layouts and nodes per step, and the growth per doubling, marked over 2.5 ([big-files.md](big-files.md)) (`--steps`, `--cap`, `--json`) |
 | `node scripts/measure-startup.mjs` | cold (and warm) start to first text of the built binary, from its startup marks |
 | `node scripts/measure-reload.mjs` | live reload of a large transcript: each stage from the watch event to the reader's place |
 | `node scripts/measure-colour.mjs` | time to first coloured token and the longest main-thread hold when a large code file opens |
