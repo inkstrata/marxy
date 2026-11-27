@@ -1,0 +1,38 @@
+$ node scripts/shots.mjs --browser chromium /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/RDR/profile.mjs
+== cycle1
+  1886ms (program) :-1
+  659ms getBoundingClientRect :-1
+  292ms (anon) frame/tab-row.ts:527
+  247ms querySelectorAll :-1
+  72ms nodeFor render/post.ts:45
+  69ms buildBlocks render/post.ts:96
+  43ms compareDocumentPosition :-1
+  27ms (anon) render/post.ts:98
+== cycle2
+  1399ms (program) :-1
+  691ms getBoundingClientRect :-1
+  244ms (anon) frame/tab-row.ts:527
+  221ms querySelectorAll :-1
+  149ms buildBlocks render/post.ts:96
+  56ms nodeFor render/post.ts:45
+  39ms div frame/spine.ts:25
+  34ms (idle) :-1
+== cycle3
+  1415ms (program) :-1
+  727ms getBoundingClientRect :-1
+  236ms draw left/frame.ts:294
+  217ms querySelectorAll :-1
+  90ms nodeFor render/post.ts:45
+  88ms buildBlocks render/post.ts:96
+  40ms blocksOf view/rendered-view.ts:294
+  34ms (anon) render/post.ts:98
+== cycle4
+  1674ms (program) :-1
+  617ms getBoundingClientRect :-1
+  256ms (anon) frame/tab-row.ts:527
+  186ms querySelectorAll :-1
+  89ms (garbage collector) :-1
+  80ms nodeFor render/post.ts:45
+  67ms buildBlocks render/post.ts:96
+  67ms blocksOf view/rendered-view.ts:294
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0935

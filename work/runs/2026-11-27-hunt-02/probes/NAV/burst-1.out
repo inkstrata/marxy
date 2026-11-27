@@ -1,0 +1,8 @@
+$ node scripts/shots.mjs /Users/<user>/Dev/marxy-wt/hunt-02/work/runs/2026-11-27-hunt-02/probes/NAV/burst.mjs --browser chromium
+== 1 MB markdown, 300 headings
+  settled probe                  wall   242ms  longest     0ms  listeners add/rm 142/11
+burst Alt+1,3,4,5 x10 (no waits)     sent 3998ms drained 4060ms answered=1 longest 117ms
+burst Alt+3 x20 (fold/open)          sent 9197ms drained 9268ms answered=1 longest 542ms
+burst b x20                          sent 8553ms drained 8697ms answered=1 longest 479ms
+burst Control+b x20                  sent 9633ms drained 9730ms answered=1 longest 591ms
+0 pictures in /Users/<user>/Dev/marxy-wt/hunt-02/work/shots/hunt-02-20261127-0946
