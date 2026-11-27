@@ -34,6 +34,10 @@ The jobs that run overnight on Osiris should be created and registered.
 - **Automation auto-merges** a PR once an agent other than its author has reviewed and approved it, CI is
   green, and it touches no CODEOWNERS path. Anything else waits for me. This overrides the fleet rule that
   merging in `inkstrata/*` stays with me, for Marxy's automation only.
+- **Where the automation lives.** It goes either in a new orchestration repository of its own under the
+  `inkstrata` account or inside marxy; you choose and say why. command-center is the fleet's configuration:
+  treat it as a reference for answering questions about devices, tools and conventions, and don't build the
+  automation there.
 - **Show me the design before you build it.**
 
 ### Facts worth knowing
@@ -63,7 +67,7 @@ Marxy:
 - `.claude/skills/`
 - `.github/workflows/`, `scripts/`
 
-command-center:
+command-center (reference only):
 - `ai/CLAUDE.shared.md`
 - `machines/` (each device's `CLAUDE.md`; `README.md`, "The night run"; Osiris's job prompts and `tasks.ps1`)
 - `docs/runbooks/orchestration.md`
