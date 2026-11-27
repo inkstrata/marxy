@@ -175,6 +175,76 @@ mod macos_flags {
     }
 }
 
+/// The destination's creation date, which `fs::copy` (`fcopyfile`) does not carry and a rename over a file replaces.
+#[cfg(target_os = "macos")]
+mod macos_dates {
+    use std::ffi::{c_char, c_int, c_uint, c_void};
+    use std::fs::Metadata;
+    use std::os::macos::fs::MetadataExt;
+    use std::os::unix::ffi::OsStrExt;
+    use std::path::Path;
+
+    const ATTR_BIT_MAP_COUNT: u16 = 5;
+    const ATTR_CMN_CRTIME: u32 = 0x0000_0200;
+    const FSOPT_NOFOLLOW: c_uint = 0x0000_0001;
+
+    #[repr(C)]
+    struct AttrList {
+        bitmapcount: u16,
+        reserved: u16,
+        commonattr: u32,
+        volattr: u32,
+        dirattr: u32,
+        fileattr: u32,
+        forkattr: u32,
+    }
+
+    #[repr(C)]
+    struct TimeSpec {
+        tv_sec: i64,
+        tv_nsec: i64,
+    }
+
+    extern "C" {
+        fn setattrlist(
+            path: *const c_char,
+            attr_list: *mut AttrList,
+            attr_buf: *mut c_void,
+            attr_buf_size: usize,
+            options: c_uint,
+        ) -> c_int;
+    }
+
+    /// Sets `staged`'s creation date to `destination`'s; best effort, nothing else about the file changes.
+    pub fn keep_creation(staged: &Path, destination: &Metadata) {
+        let mut name = staged.as_os_str().as_bytes().to_vec();
+        name.push(0);
+        let mut list = AttrList {
+            bitmapcount: ATTR_BIT_MAP_COUNT,
+            reserved: 0,
+            commonattr: ATTR_CMN_CRTIME,
+            volattr: 0,
+            dirattr: 0,
+            fileattr: 0,
+            forkattr: 0,
+        };
+        let mut created = TimeSpec {
+            tv_sec: destination.st_birthtime(),
+            tv_nsec: destination.st_birthtime_nsec(),
+        };
+        // SAFETY: `name` is NUL-terminated, and `list` and `created` outlive the call; the size matches `created`.
+        unsafe {
+            setattrlist(
+                name.as_ptr().cast(),
+                &mut list,
+                (&mut created as *mut TimeSpec).cast(),
+                std::mem::size_of::<TimeSpec>(),
+                FSOPT_NOFOLLOW,
+            );
+        }
+    }
+}
+
 /// Publishes the staged file at a name that was free when the save began, refusing with `Changed` if something
 /// is there now. The exclusive rename decides that in one step; where the volume has no exclusive way, the name is
 /// looked at once more just before an ordinary rename.
@@ -1584,6 +1654,12 @@ fn stage(
         .map_err(|e| WriteError::io(format!("{}: cannot be written: {e}", tmp.display())))?;
     file.write_all(bytes)
         .map_err(|e| WriteError::io(format!("{}: cannot be written: {e}", tmp.display())))?;
+    // The replace is a new inode, which Finder shows as a new "Created" date; put the old one back. Best effort: a
+    // volume without the attribute keeps the new date, and the save still lands.
+    #[cfg(target_os = "macos")]
+    if let Some(destination) = destination {
+        macos_dates::keep_creation(tmp, destination);
+    }
     // After the bytes, on the handle already open for writing: an access list that does not grant the saver write
     // access still lands, as it would have on the old file.
     #[cfg(windows)]
@@ -2322,6 +2398,73 @@ mod tests {
             .output()
             .expect("xattr -p");
         assert_eq!(String::from_utf8_lossy(&read.stdout).trim(), "kept");
+    }
+
+    /// Finder's "Created" is the file's birth time; a save must not reset it.
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn creation_date_survives_the_save_on_macos() {
+        use std::os::macos::fs::MetadataExt;
+        let dir = scratch("birthtime");
+        let target = dir.join("doc.md");
+        fs::write(&target, b"old").expect("seed");
+        // `touch -t` moves the modification time before the creation time, which macOS answers by lowering the
+        // creation time to match: an old creation date without an extra tool.
+        let touched = std::process::Command::new("touch")
+            .args(["-t", "200101020304.05"])
+            .arg(&target)
+            .status()
+            .expect("touch");
+        assert!(touched.success());
+        let before = fs::metadata(&target).expect("meta");
+        assert!(
+            before.st_birthtime() < 1_100_000_000,
+            "the seed is not dated in the past"
+        );
+        write_atomic(&target, b"new").expect("save");
+        let after = fs::metadata(&target).expect("meta");
+        assert_eq!(after.st_birthtime(), before.st_birthtime());
+        assert_eq!(after.st_birthtime_nsec(), before.st_birthtime_nsec());
+        assert_eq!(fs::read(&target).expect("read"), b"new");
+    }
+
+    /// Finder tags and the Finder info block are extended attributes; they must come through the save.
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn finder_tags_and_info_survive_the_save_on_macos() {
+        let dir = scratch("finder-tags");
+        let target = dir.join("doc.md");
+        fs::write(&target, b"old").expect("seed");
+        let path = target.to_string_lossy().into_owned();
+        let tag_plist_hex = "62 70 6c 69 73 74 30 30 a1 01 5f 10 08 52 65 64 5c 6e 31 08 0a 00 00 00 00 00 00 01 01 00 00 00 00 00 00 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 14";
+        let finder_info = "00 00 00 00 00 00 00 00 00 0e 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00";
+        for (name, value) in [
+            ("com.apple.metadata:_kMDItemUserTags", tag_plist_hex),
+            ("com.apple.FinderInfo", finder_info),
+        ] {
+            let set = std::process::Command::new("xattr")
+                .args(["-wx", name, value, &path])
+                .status();
+            match set {
+                Ok(status) if status.success() => {}
+                _ => return, // No `xattr` on this machine; nothing to assert.
+            }
+        }
+        let read = |name: &str| {
+            let out = std::process::Command::new("xattr")
+                .args(["-px", name, &path])
+                .output()
+                .expect("xattr -px");
+            assert!(out.status.success(), "{name} is gone after the save");
+            String::from_utf8_lossy(&out.stdout)
+                .split_whitespace()
+                .collect::<String>()
+        };
+        let tags = read("com.apple.metadata:_kMDItemUserTags");
+        let info = read("com.apple.FinderInfo");
+        write_atomic(&target, b"new").expect("save");
+        assert_eq!(read("com.apple.metadata:_kMDItemUserTags"), tags);
+        assert_eq!(read("com.apple.FinderInfo"), info);
     }
 
     /// The case `refuse_ownership_change` still refuses: a different owning user. A different

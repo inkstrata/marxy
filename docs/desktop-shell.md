@@ -277,7 +277,7 @@ request (`decode_text`).
   Windows, and refuses a destination that is not a regular file, is read-only, is locked in Finder (macOS `uchg`, refused in those words; a staged file that picked the flag up is cleared and removed) or has more than one
   hard link. It stages the bytes in a hidden temporary file in the same folder, carries over the old
   file's permissions (and on Windows its ACL, creation time and hidden/system attributes; on Unix its
-  owner and group, refusing a save that would change the owner), syncs, and renames over the
+  owner and group, refusing a save that would change the owner; on macOS its creation date, put back with `setattrlist` because the replace is a new inode, and its extended attributes, Finder tags and Finder info among them, which `fs::copy` carries), syncs, and renames over the
   destination. On Windows a locked file is retried for about a second.
 - `write_file_atomic` with an `x-marxy-expect` header (the length and SHA-256 of what the webview read, in
   hex) runs `write_atomic_unless_changed`: the file is opened and its length, then its SHA-256, compared

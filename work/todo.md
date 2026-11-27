@@ -95,7 +95,6 @@ touch none of the files M1's branches change and were started that day. Q3, Q4, 
 | P6 | `invites`: `.ics` and `.vcf` as cards; the usable parser is MPL or large | Held | S |
 | P7 | `read-aloud`: the page read by a local Windows voice | Held | M |
 | R15 | iCloud Drive placeholder ("dataless") files are not recognised: a read, the index walk or a save may stall while the file downloads | Unverified; try it by hand on the Mac | S |
-| R16 | Every save on macOS gives the file a new creation date (the replace is a new inode) | Finder's "Created" resets | S |
 | R17 | Browser files on macOS overran their waits by minutes (`frame-media`, `frame-viewers`, `frame-pdf`); the runs coincided with the laptop sleeping, so re-run them held awake (`caffeinate -i`) before calling any of it a hang | Settles whether the browser suite can join the macOS CI job (M4) | S |
 | R18 | Round 16's review residue: the held-open queues are unbounded while no boot listens, a live open can land before older held batches, pastes over 4 MB paste as text, a file of only over-long records is no longer JSON Lines (`runs/2026-11-24-round-16/README.md`) | After round 16 lands | S |
 | R19 | Waves 1 to 4 residue: the warm store is lost after a same-tab link and Back and after a cross-file replace; `typeset-view`'s block-list patch applies in about half the cases (`STATE.md`, "Risks") | Speed, not correctness | S |
