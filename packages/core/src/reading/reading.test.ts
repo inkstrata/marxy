@@ -222,6 +222,24 @@ test('the Markdown marks are looked for in each line\'s first characters only: a
   assert.equal(carriesMarkdown(`${'x'.repeat(1000)} [a](b)\n${'x'.repeat(1000)} [a](b)\n`), false);
 });
 
+test('carriesMarkdown reads links in one pass per line and looks at a bounded number of lines', () => {
+  // Links the pattern used to find still count, and the near misses do not.
+  for (const yes of ['[a](b)', '![a](b)', 'x [a]b](c) [d](e)', '[a](b [c](d)', '[[x]](y) [z](w)', 'a](b[c](d)', '[a]b](c[d](e)']) assert.equal(carriesMarkdown(`${yes}\n${yes}\n`), true, yes);
+  for (const no of ['[](b)', '[a]()', '[a](b c)', '[a [b](c', '[a]](b', '[a](b']) assert.equal(carriesMarkdown(`${no}\n${no}\n`), false, no);
+  // Each line of unclosed targets is scanned once, not from every `](` to its end.
+  const chain = `${'[a](b'.repeat(190)}\n`.repeat(4000);
+  const t0 = cpuNow();
+  assert.equal(carriesMarkdown(chain), false);
+  const chainMs = cpuNow() - t0;
+  assert.ok(chainMs < 300, `${Math.round(chainMs)} ms for 4,000 lines of unclosed link targets`);
+  // Past the line cap nothing is looked at: a heading after 60,000 plain lines is not seen, one after 40,000 is.
+  assert.equal(carriesMarkdown(`${'tide\n'.repeat(60_000)}# One\n# Two\n`), false);
+  assert.equal(carriesMarkdown(`${'tide\n'.repeat(40_000)}# One\n# Two\n`), true);
+  // CRLF and CR alone end a line, and a text with no final break is read to its end.
+  assert.equal(carriesMarkdown('# One\r# Two'), true);
+  assert.equal(carriesMarkdown('x\r\ny\r\n# One\r\n# Two'), true);
+});
+
 test('a written line is its own bytes, whatever ends it: a BOM, CRLF, a CR alone, no final newline, UTF-16', () => {
   const dec = new TextDecoder();
   const lines = (html: string): string[] => [...html.matchAll(/<div class="marxy-written-line" data-marxy-s="(\d+)" data-marxy-e="(\d+)">.*?<span class="marxy-written-text">(.*?)<\/span>/g)].map((m) => `${m[1]}-${m[2]}:${m[3]}`);

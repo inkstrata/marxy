@@ -13,7 +13,7 @@ import { parseMarkdown } from './parse/parse.ts';
 import { reparseMarkdown } from './parse/reparse.ts';
 import { BLOCKS } from './parse/testing/structured.ts';
 import { indexLines } from './reading/lines.ts';
-import { readingOf } from './reading/index.ts';
+import { carriesMarkdown, readingOf } from './reading/index.ts';
 import { byteScale, parseScale } from './scale/record.ts';
 import { renderDocumentSafeHtml } from './render/pipeline.ts';
 import { sanitizeHtml } from './sanitize/sanitize-html.ts';
@@ -131,6 +131,12 @@ for (const [path, make] of Object.entries(READINGS)) {
     holds(`readingOf ${path}`, (runs) => growth((n) => enc(make(n)), (bytes) => readingOf(path, bytes), { small: SMALL, runs }));
   });
 }
+
+test('the Markdown-marks check of plain text grows with the text, whatever its lines', () => {
+  for (const [shape, line] of Object.entries({ words: 'tide and the harbour wall', 'unclosed targets': '[a](b'.repeat(40) })) {
+    holds(`carriesMarkdown ${shape}`, (runs) => growth((n) => fill(n, () => `${line}\n`), (text) => carriesMarkdown(text), { small: SMALL, runs }));
+  }
+});
 
 test('a line diff of two long texts with a few changes grows with the texts', () => {
   const make = (n: number) => {
