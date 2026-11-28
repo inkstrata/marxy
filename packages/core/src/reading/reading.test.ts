@@ -211,6 +211,13 @@ test('the Markdown marks are looked for in each line\'s first characters only: a
   for (const line of lines) assert.equal(carriesMarkdown(`${line}\n${line}\n`), false, line.slice(0, 12));
   const ms = cpuNow() - t0;
   assert.ok(ms < 200, `${Math.round(ms)} ms for six crafted lines of 50 to 200 KB`);
+  // Many lines of unclosed `[`: each is scanned once, not from every bracket to its end.
+  const brackets = `${'[a '.repeat(334)}\n`.repeat(2000);
+  const t1 = cpuNow();
+  assert.equal(carriesMarkdown(brackets), false);
+  const bracketMs = cpuNow() - t1;
+  assert.ok(bracketMs < 200, `${Math.round(bracketMs)} ms for 2,000 lines of unclosed brackets`);
+  assert.equal(carriesMarkdown('See [the notes](a.md).\nAnd [more](b.md).\n'), true);
   // A mark past the first thousand characters of its line is not seen.
   assert.equal(carriesMarkdown(`${'x'.repeat(1000)} [a](b)\n${'x'.repeat(1000)} [a](b)\n`), false);
 });
