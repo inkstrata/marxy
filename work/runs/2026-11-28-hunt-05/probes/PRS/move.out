@@ -1,0 +1,26 @@
+$ node scripts/shots.mjs "D:\\Dev\\marxy-wt\\hunt-05\\work\\runs\\2026-11-28-hunt-05\\probes\\PRS\\move.mjs"
+rows 45 marxy-l-row marxy-l-prow
+11036ms keepPlace src/index.ts:251
+11036ms inBatch src/index.ts:285
+10997ms placeAt src/index.ts:190
+10990ms elementFromPoint :0
+10969ms (anon) src/scheduler.ts:7
+10968ms step src/index.ts:594
+10960ms (anon) src/index.ts:615
+10960ms set src/index.ts:614
+3668ms applyOutlineAction model/outline.ts:113
+3668ms runOutlineAction model/outline.ts:157
+3566ms parseMarkdown parse/parse.ts:23
+3446ms fromMarkdown deps/mdast-util-from-markdown.js?v=9f314842:1594
+2361ms write deps/mdast-util-from-markdown.js?v=9f314842:1139
+2182ms main deps/mdast-util-from-markdown.js?v=9f314842:1164
+2134ms (anon) document/store.ts:203
+2134ms (anon) document/store.ts:175
+2129ms go deps/mdast-util-from-markdown.js?v=9f314842:1181
+1996ms commit document/store.ts:149
+1986ms subtokenize deps/chunk-NXIHHTN2.js?v=9f314842:1228
+1970ms splicePageNow view/rendered-view.ts:1309
+1970ms splicePage view/rendered-view.ts:1290
+1970ms repaint view/rendered-view.ts:1247
+text after big-move.md — Marxy
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-0956

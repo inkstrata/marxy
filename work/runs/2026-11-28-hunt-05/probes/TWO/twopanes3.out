@@ -1,0 +1,8 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/TWO/twopanes3.mjs"
+start ["Postgres 14 → 16 upgrade plan","SMALL"]
+C alone in pane 0 0.5s ["Postgres 14 → 16 upgrade plan","BIGC"]
+C alone in pane 0 TIMEOUT
+D in both 17.8s ["Postgres 14 → 16 upgrade plan","BIGC"]
+D in both 25.4s ["Postgres 14 → 16 upgrade plan","BIGD"]
+D in both 30.3s ["BIGD","BIGD"]
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-0956

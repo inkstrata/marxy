@@ -1,0 +1,8 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/PRS/changelog.verify.mjs" "--browser" "chromium"
+CHANGELOG.md ctrl+k ok 3868 ms
+CHANGELOG.md type r ok 4316 ms
+CHANGELOG.md type e ok 193 ms
+NOTES.md ctrl+k ok 3585 ms
+NOTES.md type r ok 203 ms
+NOTES.md type e ok 214 ms
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-1008

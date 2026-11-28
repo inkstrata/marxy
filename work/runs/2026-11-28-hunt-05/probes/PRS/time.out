@@ -1,0 +1,8 @@
+cl parseMarkdown 4508 ms
+cl pathMentions(text) no doc 5775 ms
+cl pathMentions with doc 57 ms
+cl CRLF parse 4748 ms
+doc parseMarkdown 3324 ms
+doc pathMentions(text) no doc 3052 ms
+doc pathMentions with doc 58 ms
+doc CRLF parse 3239 ms

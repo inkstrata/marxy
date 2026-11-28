@@ -1,0 +1,10 @@
+4349ms repaint palette/view.ts:1266
+4347ms input.addEventListener.signal palette/view.ts:1439
+4336ms query palette/view.ts:1123
+4333ms dressModel palette/view.ts:1075
+4330ms (anon) palette/view.ts:1068
+4330ms withPaletteListing commands/navigation.ts:4
+4330ms goCommands palette/view.ts:1064
+4324ms paletteCommands palette/commands.ts:68
+4321ms parseMarkdown parse/parse.ts:23
+4319ms releaseOf commands/kind-tools.ts:38

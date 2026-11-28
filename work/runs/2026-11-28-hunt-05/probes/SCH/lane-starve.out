@@ -1,0 +1,3 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/SCH/lane-starve.mjs"
+{"idle_ms_for_10_viewport_yields":0,"with_input_lane_busy_viewport":1008,"with_input_lane_busy_input":21}
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-0955

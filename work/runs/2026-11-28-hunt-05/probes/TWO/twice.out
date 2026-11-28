@@ -1,0 +1,4 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/TWO/twice.mjs"
+both opens settled after 44.8s; file_read marks +2, readFile calls +2
+one more open of the settled file took 21.9s
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-1002

@@ -1,0 +1,6 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/SCH/queue-open.mjs"
+B alone ms 42
+A alone ms 5631
+B alone2 ms 58
+A then B(immediately) : B resolves after ms {"a":5647,"b":5689,"path":"small-b.md — Marxy"}
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-0955

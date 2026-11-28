@@ -1,0 +1,9 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/TWO/open-queue.verify.mjs" "--browser" "chromium"
+A alone, open settles 22.5s 
+s alone, open settles 0.5s 
+TWO-01: h1 SMALL2 visible after 24.1s; B open settled at 23.8s; s2 open settled at 24.1s
+C first open 22.4s 
+C again (settled, clean, no at) 24.2s 
+readFile calls for C: first open 1 after the repeat 2
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-1008
+done

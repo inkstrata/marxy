@@ -1,0 +1,3 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/SCH/hl-contend.verify.mjs" "--browser" "chromium"
+{"alone":{"colored":17,"ms":94},"busy":{"colored":17,"ms":95},"alone2":{"colored":17,"ms":96},"busy2":{"colored":17,"ms":97}}
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-1009

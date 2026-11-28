@@ -1,0 +1,9 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/TWO/two-panes.verify.mjs" "--browser" "chromium"
+start ["Postgres 14 → 16 upgrade plan","SMALL"]
+E in pane 0 alone settled 22.8s 22814 long-task ms 22945
+["Postgres 14 → 16 upgrade plan","BIGE"]
+F in pane 0 alone (2nd baseline) settled 22.7s 22694 long-task ms 22995
+["Postgres 14 → 16 upgrade plan","BIGF"]
+G in both panes at once settled 33.6s {"a":32165,"b":33621} long-task ms 34211
+["BIGG","BIGG"]
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-1010

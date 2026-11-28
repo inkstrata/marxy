@@ -1,0 +1,12 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/TWO and PRS/edit-gap.verify.mjs" "--browser" "chromium"
+5s h1=VERSION1 watch=3
+11s h1=VERSION1 watch=4
+16s h1=VERSION1 watch=4
+21s h1=VERSION1 watch=4
+26s h1=VERSION1 watch=4
+31s h1=VERSION1 watch=4
+36s h1=VERSION1 watch=4
+41s h1=VERSION1 watch=4
+after event for other file h1=VERSION1
+after event for e.md h1=VERSION1
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-1008
