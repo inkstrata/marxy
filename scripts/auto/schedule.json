@@ -12,6 +12,6 @@
     { "id": "device-linux", "kind": "script", "host": "set", "when": "hourly, on power", "command": "node scripts/auto/auto.mjs device", "what": "Linux AppImage install check from the nightly installers build, the weekly cleanup" },
     { "id": "installers", "kind": "ci", "when": "30 9 * * * UTC", "what": "GitHub Actions: Linux AppImage and deb from main" },
     { "id": "browser-nightly", "kind": "ci", "when": "30 10 * * * UTC", "what": "GitHub Actions: every browser test file on a hosted Windows runner, nightly; the Osiris nightly skips the suite" },
-    { "id": "browser-windows", "kind": "ci", "when": "0 10 * * 3 UTC", "what": "GitHub Actions: hosted Windows browser files, weekly" }
+    { "id": "browser-windows", "kind": "ci", "when": "by hand", "what": "GitHub Actions: chosen hosted Windows browser files, on demand" }
   ]
 }

@@ -23,8 +23,8 @@ Pacific time. `schedule.json` holds the same list as data.
 | hourly, on power | `device` | script, Eris | macOS build and install check, the macOS browser suite weekly, runs spoiled by sleep retried, the weekly cleanup |
 | hourly, on power | `device` | script, Set | Linux install check of CI's AppImage, the weekly cleanup |
 | daily 01:30 | `installers` | GitHub Actions | Linux AppImage and deb from `main` |
-| daily 02:30 | `browser-nightly` | GitHub Actions | every browser test file on a hosted Windows runner (`--jobs 2`, up to 180 minutes, logs uploaded), so the suite no longer loads the owner's machine |
-| Wednesday 02:00 | `browser-windows` | GitHub Actions | the hosted Windows browser files |
+| daily 02:30 | `browser-nightly` | GitHub Actions | every browser test file on a hosted Windows runner (`--jobs 2`, up to 180 minutes; red files rerun alone three times and listed as `load` or `real` in `red-files.txt`, uploaded with the logs), so the suite no longer loads the owner's machine |
+| by hand | `browser-windows` | GitHub Actions | chosen browser files on a hosted Windows runner |
 
 **The week.** It starts at the usage reset, Friday 20:00. Its plan is `work/weeks/<that Friday>.md`, written on
 Friday morning as a pull request labelled `plan`. The owner can comment, push or veto until Saturday's night
@@ -123,7 +123,7 @@ and a marker inside it, quoted or mentioned, counts for nothing.
 - the `ci` check passed and no check failed;
 - it touches no path in `.github/CODEOWNERS` (those wait for the owner);
 - it has no `hold` label, and GitHub calls it `CLEAN` (merges happen at any hour);
-- the newest finished `ci` run on `main` did not fail ("main is red: fix it first"); a run still going does not hold, one that cannot be read does;
+- the newest finished `ci` run on `main` did not fail ("main is red: fix it first"); a run still going does not hold, one that cannot be read, or none finished, does. A pull request labelled `fix-main` is exempt from this one rule, since `main`'s `ci` reruns only on a push to `main`;
 - for a `plan` pull request: the weekly reset has passed, and the newest `<!-- marxy-intake head=<sha> -->`
   comment is for the current head and newer than every owner comment (an edited one counts from its last edit).
 

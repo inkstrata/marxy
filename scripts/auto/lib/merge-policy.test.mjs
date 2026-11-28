@@ -263,6 +263,17 @@ test('mainRedReason: failure holds, success and a running run do not, an unreada
   assert.equal(mainRedReason({ conclusion: 'timed_out' }), 'main is red: fix it first');
   assert.equal(mainRedReason({ conclusion: 'success' }), null);
   assert.equal(mainRedReason({ conclusion: '', status: 'in_progress' }), null);
-  assert.match(mainRedReason(null), /could not be read/);
+  assert.match(mainRedReason(null, false), /could not be read/);
   assert.match(mainRedReason({ conclusion: 'success' }, false), /could not be read/);
+});
+
+test('a fix-main label exempts only the red-main hold', () => {
+  const hold = mainRedReason({ conclusion: 'failure' });
+  const fix = validPr({ labels: [{ name: 'fix-main' }] });
+  assert.equal(run(fix, { mainHold: hold }).merge, true);
+  assert.equal(run(validPr(), { mainHold: hold }).merge, false);
+  const red = run(validPr({ labels: ['fix-main'], checks: [{ name: 'ci', conclusion: 'FAILURE' }] }), { mainHold: hold });
+  assert.equal(red.merge, false);
+  assert.ok(!red.reasons.includes(hold));
+  assert.match(mainRedReason(null), /no finished ci run/);
 });

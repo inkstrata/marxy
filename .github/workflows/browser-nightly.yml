@@ -25,11 +25,31 @@ jobs:
       - name: WebKit for the browser tests
         run: pnpm exec playwright install webkit
       - name: Browser tests
+        id: suite
+        continue-on-error: true
         env:
           MARXY_BROWSER_TESTS_REQUIRED: "1"
           MARXY_TIMINGS: ${{ runner.temp }}/verify/browser-timings.jsonl
         # --tier full with --only browser runs every browser test file, whatever the verify map says changed.
         run: node scripts/verify.mjs --tier full --only browser --jobs 2 --no-lock --logs "$RUNNER_TEMP/verify"
+      # Osiris no longer reruns reds, so it happens here: a red file that passes alone 3 of 3 times is load, any
+      # other is real. The list is uploaded for the day run's triage.
+      - name: Rerun red files alone
+        run: |
+          OUT="$RUNNER_TEMP/verify/red-files.txt"; : > "$OUT"
+          LOG=$(node -e "const p=require('path'),fs=require('fs');const s=JSON.parse(fs.readFileSync(p.join(process.env.RUNNER_TEMP,'verify','summary.json'),'utf8'));console.log((s.rows.find(r=>r.name==='browser')||{}).log||'')" || true)
+          FILES=""
+          [ -n "$LOG" ] && [ -f "$LOG" ] && FILES=$(grep -E 'not ok|✖|test at ' "$LOG" | grep -oE 'test/[A-Za-z0-9_./-]+.test.mjs' | sort -u)
+          REAL=0
+          for f in $FILES; do
+            PASS=0
+            for i in 1 2 3; do node scripts/browser-tests.mjs "$f" >/dev/null 2>&1 && PASS=$((PASS+1)); done
+            if [ "$PASS" = 3 ]; then echo "load $f" >> "$OUT"; else echo "real $f" >> "$OUT"; REAL=1; fi
+          done
+          { echo "### Red browser files"; [ -s "$OUT" ] && cat "$OUT" || echo "none"; } >> "$GITHUB_STEP_SUMMARY"
+          # A red suite with no file to name is a real failure too (a crash, a timeout).
+          if [ "${{ steps.suite.outcome }}" = failure ] && [ -z "$FILES" ]; then echo "real (suite failed, no file named)" >> "$OUT"; REAL=1; fi
+          exit $REAL
       - uses: actions/upload-artifact@v4
         if: always()
         with:

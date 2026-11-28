@@ -116,7 +116,7 @@ is rewritten here.
    - [ ] <option>
    ```
 
-   The `(default)` option applies if nothing is ticked, so choose the safe one. Put the release decision first.
+   The `(default)` option applies if nothing is ticked or if two or more are (the intake says so), so choose the safe one. Put the release decision first.
 2. Have it checked by a scout (Haiku) or a `reviewer` agent with `model: sonnet`, using the `review` skill:
    rows exist and are not taken, ids are not reused, branches are free, sizes fit, the outcome matches the
    merged pull requests. It posts the review comment and marker as any review does.
