@@ -92,6 +92,29 @@ export const setDefinitionIndex = (document: Document, index: DefinitionIndex | 
   crossFile.set(document, index === 'unknown' || index.entries.length > 0);
 };
 
+/**
+ * What a parse keeps beside its tree rather than in it: whether it held a definition, its definitions in document order,
+ * the file's definitions index, and the text of a document that nests too deep. A tree copied from another thread
+ * (a worker's parse, handoff.ts) arrives without them; `takeParseNotes` gives the copy what the original had.
+ */
+export interface ParseNotes {
+  readonly holds?: boolean;
+  readonly entries?: readonly DefinitionEntry[];
+  readonly index?: DefinitionIndex | 'unknown';
+  readonly tooDeep?: string;
+}
+
+export function parseNotesOf(document: Document): ParseNotes {
+  return { holds: crossFile.get(document), entries: surveyed.get(document), index: indexes.get(document), tooDeep: tooDeep.get(document) };
+}
+
+export function takeParseNotes(document: Document, notes: ParseNotes): void {
+  if (notes.holds !== undefined) crossFile.set(document, notes.holds);
+  if (notes.entries !== undefined) surveyed.set(document, notes.entries);
+  if (notes.index !== undefined) indexes.set(document, notes.index);
+  if (notes.tooDeep !== undefined) tooDeep.set(document, notes.tooDeep);
+}
+
 /** The targets of `entries`, the first definition of a label winning, as CommonMark has it. */
 export function targetsOf(entries: readonly DefinitionEntry[]): Map<string, Target> {
   const targets = new Map<string, Target>();

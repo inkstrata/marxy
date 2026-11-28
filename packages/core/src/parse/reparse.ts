@@ -244,7 +244,7 @@ export function documentOf(file: string, bytes: Uint8Array, children: readonly B
 }
 
 /** Byte offset of the start of every line: after any leading byte-order marks, then after each CRLF, CR or LF. */
-function lineStarts(bytes: Uint8Array): number[] {
+export function lineStarts(bytes: Uint8Array): number[] {
   let first = 0;
   while (bytes[first] === 0xef && bytes[first + 1] === 0xbb && bytes[first + 2] === 0xbf) first += 3;
   const starts = [first];
