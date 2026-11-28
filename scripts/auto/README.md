@@ -57,6 +57,9 @@ Fable is used only when the week's plan pull request has its Fable box ticked by
   `auto.mjs usage --json <file>`, which prints `{ allowed, reason, noNewAgents, stopAt, allowancePct, sweep,
   blind, ... }`. Without the tool, `auto.mjs gate` answers in blind mode: at most 2 builders and 3 hours.
   Jobs check again before each new agent and at least every 30 minutes.
+- `usage` and `gate` take `--job <id>`: `research-now` selects a profile for the research queue's "run now" requests (any hour,
+  5-hour line 60% soft and 70% hard, at most 3 hours; the presence check still applies), and any other job, such as
+  `research-night`, gets the default rules. The research queue calls them with `--job research-night` and `--job research-now`.
 - `auto.mjs run start|end --job <id> --run <run-id>` brackets each job, so the weekly meter's growth during
   runs is counted as the automation's and the rest as the owner's.
 

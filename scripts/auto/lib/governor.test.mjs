@@ -55,6 +55,25 @@ const cases = [
     want: { allowed: true, blind: true, allowancePct: null, stopAt: iso('2026-11-24T03:20:00') } },
 ];
 
+// The research queue's "run now" profile: any hour, a 60/70 five-hour line, three hours at most.
+const now = (c) => decide({ now: la('2026-11-24T15:00:00'), usage: usage({ five: c, resets: iso('2026-11-24T17:00:00') }), profile: 'research-now' });
+test('research-now runs in the owner window while the five-hour meter is low', () => {
+  const d = now(20);
+  assert.equal(d.allowed, true);
+  assert.equal(d.noNewAgents, false);
+  assert.equal(d.stopAt, iso('2026-11-24T18:00:00'));
+  assert.equal(decide({ now: la('2026-11-24T15:00:00'), usage: usage(), profile: 'night' }).reason, 'owner window');
+});
+test('research-now has a 60 and 70 line', () => {
+  assert.equal(now(59).noNewAgents, false);
+  assert.equal(now(61).noNewAgents, true);
+  assert.deepEqual([now(71).allowed, now(71).reason], [false, '5-hour hard stop']);
+});
+test('research-now keeps the weekly reserve, and an unknown profile is the default', () => {
+  assert.equal(decide({ now: la('2026-11-24T15:00:00'), usage: usage({ weekly: 90 }), profile: 'research-now' }).reason, 'weekly reserve');
+  assert.equal(decide({ now: la('2026-11-24T00:20:00'), usage: usage({ five: 76 }), profile: 'whatever' }).noNewAgents, true);
+});
+
 for (const c of cases) {
   test(`decide: ${c.name}`, () => {
     const d = decide({ now: la(c.now), usage: c.usage, ownerUsedPct: c.owner ?? null });

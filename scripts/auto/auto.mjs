@@ -8,11 +8,11 @@ const flag = (args, name) => args[args.indexOf(name) + 1];
 const first = (e) => String(e.stderr || e.message).split('\n')[0];
 const newestUsage = () => readJsonl('usage', { limit: 20 }).filter((r) => r.usage).pop() || null;
 
-async function decideNow(usage, now = new Date()) {
+async function decideNow(usage, job, now = new Date()) {
   const { decide } = await import('./lib/governor.mjs');
   const { lastReset } = await import('./lib/merge-policy.mjs');
   const ownerUsedPct = usage ? attribution(readJsonl('runs'), usage.weekly.pct, lastReset(now)).ownerPct : null;
-  const d = decide({ now, usage, ownerUsedPct });
+  const d = decide({ now, usage, ownerUsedPct, profile: job });
   // The owner at the machine (typing, a game, a full-screen app) outranks the budget: start nothing new.
   const { presence } = await import('./lib/presence.mjs');
   const p = presence();
@@ -25,13 +25,13 @@ async function usage(args) {
   const raw = JSON.parse(fs.readFileSync(src === '-' ? 0 : src, 'utf8'));
   const u = fromGetUsage(raw.plan ?? raw);
   if (u) appendJsonl('usage', { at: new Date().toISOString(), usage: u });
-  await decideNow(u);
+  await decideNow(u, flag(args, '--job'));
 }
 
 // A reading older than 15 minutes is not trusted, so the governor runs blind.
-async function gate() {
+async function gate(args = []) {
   const row = newestUsage();
-  await decideNow(row && Date.now() - new Date(row.at) <= 15 * 60000 ? row.usage : null);
+  await decideNow(row && Date.now() - new Date(row.at) <= 15 * 60000 ? row.usage : null, flag(args, '--job'));
 }
 
 function run([event, ...args]) {
