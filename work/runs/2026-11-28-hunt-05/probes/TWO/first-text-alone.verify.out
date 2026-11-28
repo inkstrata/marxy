@@ -1,0 +1,4 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/TWO/first-text-alone.verify.mjs" "--browser" "chromium"
+J alone first text per pane (s):  / 18.9
+K in both at once first text per pane (s): 24.1 / 20.7
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-1014

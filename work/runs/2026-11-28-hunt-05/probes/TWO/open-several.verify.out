@@ -1,0 +1,2 @@
+one payload of 3 paths, opened: ["/a.md"]
+held before launch, 2 payloads (2 + 1 paths), opened: ["/a.md","/c.md"]

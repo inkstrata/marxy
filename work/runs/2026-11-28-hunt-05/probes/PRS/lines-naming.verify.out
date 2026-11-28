@@ -1,0 +1,7 @@
+2 MB text, 1000 distinct paths: 614 ms, 1000 hits
+2 MB text, 2000 distinct paths: 1098 ms, 2000 hits
+2 MB text, 4000 distinct paths: 2200 ms, 4000 hits
+2 MB text, 8000 distinct paths: 4139 ms, 8000 hits
+1 MB text, 2000 paths: 582 ms
+2 MB text, 2000 paths: 1130 ms
+4 MB text, 2000 paths: 2311 ms

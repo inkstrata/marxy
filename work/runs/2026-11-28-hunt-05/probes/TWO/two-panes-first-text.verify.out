@@ -1,0 +1,5 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/TWO/two-panes-first-text.verify.mjs" "--browser" "chromium"
+H pane 0 alone first text (s):  /  long-task ms by end 22994
+H then other pane first text (s):  / 2.1 long-task ms by end 5540
+I in both at once first text (s): 21.9 / 25.8 long-task ms by end 28597
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-1011

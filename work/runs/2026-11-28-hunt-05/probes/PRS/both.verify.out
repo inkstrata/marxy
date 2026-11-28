@@ -1,0 +1,10 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/PRS/both.verify.mjs" "--browser" "chromium"
+PRS-02 move 2000000B first ok 6701 ms
+PRS-02 move 2000000B second ok 6554 ms
+PRS-02 move 100000B first ok 459 ms
+PRS-02 move 100000B second ok 424 ms
+PRS-04 Alt+6 bom=1 ok 2266 ms
+PRS-04 bom=1 worst answer gap over next 30 s: 7736 ms
+PRS-04 Alt+6 bom=0 ok 2486 ms
+PRS-04 bom=0 worst answer gap over next 30 s: 1299 ms
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-1010
