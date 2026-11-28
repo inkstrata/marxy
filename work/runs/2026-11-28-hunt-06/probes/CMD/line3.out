@@ -1,0 +1,7 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/CMD/line3.mjs"
+source {"mode":"source","panel":false,"findbar":true,"active":"# H","matches":0}
+/alpha 0 ["alpha one3","alpha two7"] {"mode":"source","panel":false,"findbar":true,"active":"# H","matches":0}
+/alpha 1 ["alpha one3","alpha two7"] {"mode":"source","panel":false,"findbar":true,"active":"# H","matches":0}
+//alpha/ 0 ["alpha one3","alpha two7"] {"mode":"source","panel":false,"findbar":true,"active":"# H","matches":0}
+/zzz 0 [] {"mode":"source","panel":false,"findbar":true,"active":"# H","matches":0}
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1026

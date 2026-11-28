@@ -1,0 +1,6 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/CMD/line7.mjs"
+before {"mode":"source","scroll":0,"active":"line number 1","first":"line number 1"}
+:250 {"mode":"source","scroll":5008,"active":"line number 1","first":"line number 1"}
+/number 120 {"mode":"source","scroll":2278,"active":"line number 1","first":"line number 1"}
+read :250 {"mode":"rendered","scroll":0,"active":"line number 1","first":"line number 1"}
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1030

@@ -1,0 +1,22 @@
+import { launchWebkit } from '../../../../../scripts/playwright-webkit.mjs';
+import { bootTwoPanes, closeHarness } from '../../../../../apps/desktop/test/support/two-pane.mjs';
+const B = (...p) => Buffer.concat(p.map((x) => Buffer.from(x)));
+const show = (b) => JSON.stringify(Buffer.from(b).toString('latin1'));
+const browser = await launchWebkit();
+const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+await bootTwoPanes(page, { files: { '/c/a.md': B('# A\r\none\r\n'), '/c/b.md': B('# B\ntwo\n') }, open: ['/c/a.md'] });
+await page.waitForTimeout(1500);
+const mod = 'Control';
+const h = (fn, a) => page.evaluate(fn, a);
+const notices = () => h(() => [...document.querySelectorAll('.marxy-notice')].map((n) => n.textContent.replace(/\s+/g, ' ').slice(0, 200)));
+await page.keyboard.press(mod + '+e'); await page.waitForFunction(() => document.querySelector('.cm-line'));
+await page.keyboard.type('EDIT-A');
+// open b in the same pane while a is dirty (unfolded)
+await h(async () => { window.__o = window.__marxyHandle.open ? 'has' : 'no'; });
+console.log('handle keys', await h(() => Object.keys(window.__marxyHandle).join(',')));
+const opened = h(async () => { await window.__marxyHandle.open('/c/b.md'); return 'opened'; });
+await page.waitForTimeout(1200);
+console.log('after open b: notices', JSON.stringify(await notices()));
+console.log('path now', await h(() => window.__marxyHandle.currentPath?.()));
+console.log('disk a', show(await h(async () => [...await window.__marxyHandle.shell.readFile('/c/a.md')])));
+await browser.close(); await closeHarness();

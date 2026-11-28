@@ -1,0 +1,13 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/back2.mjs"
+A,B,C {"shown":["C.md"],"Back":"on","Fwd":"off","active":"BODY"}
+clicked article {"shown":["C.md"],"Back":"on","Fwd":"off","active":"BODY"}
+key Back (plain opens) {"shown":["C.md"],"Back":"on","Fwd":"off","active":"BODY"}
+key Ctrl+[ {"shown":["C.md"],"Back":"on","Fwd":"off","active":"BODY"}
+Back button {"shown":["B.md"],"Back":"on","Fwd":"on","active":"SECTION"}
+Back button {"shown":["A.md"],"Back":"on","Fwd":"on","active":"SECTION"}
+key Forward (history has forward) {"shown":["A.md"],"Back":"on","Fwd":"on","active":"SECTION"}
+Forward button {"shown":["B.md"],"Back":"on","Fwd":"on","active":"SECTION"}
+link to B {"shown":["B.md"],"Back":"on","Fwd":"on","active":"A"}
+Back button after link {"shown":["A.md"],"Back":"on","Fwd":"on","active":"SECTION"}
+key Forward after link Back {"shown":["A.md"],"Back":"on","Fwd":"on","active":"SECTION"}
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1031

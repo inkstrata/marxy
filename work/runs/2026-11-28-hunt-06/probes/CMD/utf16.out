@@ -1,0 +1,7 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/CMD/utf16.mjs"
+page text "Plain textEvery line is shown as the file writes it, numbered, with nothing join"
+:3 ["Go to line 3of 4"]
+/two ["two2"]
+/café ["four café4"]
+/four ["four café4"]
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1033

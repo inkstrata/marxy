@@ -1,0 +1,12 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/back.mjs"
+A,B,C opened {"panes":["C.md"],"back":["Back","Forward(off)"]}
+Alt+Left {"panes":["C.md"],"back":["Back","Forward(off)"]}
+Alt+Left {"panes":["C.md"],"back":["Back","Forward(off)"]}
+Alt+Right {"panes":["C.md"],"back":["Back","Forward(off)"]}
+button count 1
+Back button {"panes":["B.md"],"back":["Back","Forward"]}
+Forward button {"panes":["C.md"],"back":["Back","Forward(off)"]}
+link to A {"panes":["A.md"],"back":["Back","Forward(off)"]}
+Alt+Left after link {"panes":["C.md"],"back":["Back","Forward(off)"]}
+Alt+Right after link {"panes":["C.md"],"back":["Back","Forward(off)"]}
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1030

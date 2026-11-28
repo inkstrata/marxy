@@ -1,0 +1,16 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/links.mjs"
+/demo/plain to b -> /demo/plain/b.md
+/demo/plain to enc -> /demo/plain/b c.md
+/demo/C# to b -> /demo/C#/a.md
+/demo/C# to enc -> /demo/C#/a.md
+/demo/50% to b -> /demo/50%/a.md
+/demo/50% to enc -> /demo/50%/a.md
+/demo/q?x to b -> /demo/q?x/a.md
+/demo/q?x to enc -> /demo/q?x/a.md
+/demo/a%41 to b -> /demo/a%41/a.md
+/demo/a%41 to enc -> /demo/a%41/a.md
+frag sp [["my-head",5611],["",5746]]
+frag un [["my-head",5611],["",5746]]
+frag enc [["my-head",5611],["",5746]]
+frag s [["my-head",5611],["",5746]]
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1025

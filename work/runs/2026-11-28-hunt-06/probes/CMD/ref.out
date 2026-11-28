@@ -1,0 +1,19 @@
+REF "src/a.ts:12" {"path":"src/a.ts","from":12,"to":null}
+REF "src/a.ts:12:5" {"path":"src/a.ts:12","from":5,"to":null}
+REF "src/a.ts:12-18" {"path":"src/a.ts","from":12,"to":18}
+REF "src/a.ts:12–18" {"path":"src/a.ts","from":12,"to":18}
+REF "src/a.ts#L12" null
+REF "src/a.ts:12-" null
+REF "src/a.ts(12)" null
+REF "a.md:0" null
+REF "a.md:12 " {"path":"a.md","from":12,"to":null}
+REF "`a.md:12`" {"path":"a.md","from":12,"to":null}
+REF "12:5" {"path":"12","from":5,"to":null}
+REF "a.md:12:5-18" {"path":"a.md:12","from":5,"to":18}
+LINE "3" {"from":3,"to":null}
+LINE "3-5" {"from":3,"to":5}
+LINE "5-3" {"from":5,"to":null}
+LINE "3 - 5" {"from":3,"to":5}
+LINE "3:5" null
+LINE "3,5" null
+LINE "３" null

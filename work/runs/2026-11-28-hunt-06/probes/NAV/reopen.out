@@ -1,0 +1,10 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/reopen.mjs"
+D scrolled {"shown":["D.md@700"],"tabs":"pg16-upgrade A.md B.md C.md D.md*"}
+click B {"shown":["B.md@0"],"tabs":"pg16-upgrade A.md B.md* C.md D.md"}
+closed B {"shown":["C.md@0"],"tabs":"pg16-upgrade A.md C.md* D.md"}
+reopen B {"shown":["B.md@0"],"tabs":"pg16-upgrade A.md B.md* C.md D.md"}
+reopen again (none left) {"shown":["B.md@0"],"tabs":"pg16-upgrade A.md B.md* C.md D.md"}
+click D {"shown":["D.md@691"],"tabs":"pg16-upgrade A.md B.md C.md D.md*"}
+close D {"shown":["C.md@0"],"tabs":"pg16-upgrade A.md B.md C.md*"}
+reopen D {"shown":["D.md@691"],"tabs":"pg16-upgrade A.md B.md C.md D.md*"}
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1032

@@ -1,0 +1,8 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/CMD/zoom.mjs"
+start 20px
+Control+= 21px
+Control+Shift+= 21px
+Control+Shift++ 21px
+Control+NumpadAdd 21px
+Control+Equal 22px
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1032
