@@ -1,0 +1,11 @@
+Cloning into 'main'...
+warning: You appear to have cloned an empty repository.
+done.
+To C:/Users/i/AppData/Local/Temp/verify-auto-nRXXFt/origin.git
+ * [new branch]      HEAD -> main
+Preparing worktree (new branch 'agent/a')
+git sees untracked: ?? src/dist/unsaved.rs | ?? src/target/unsaved.rs
+removed  a                              agent/a
+removed  (branch only)                  agent/a
+worktree exists after: false
+archives: [ 'a-2027-01-27: changes.patch' ]

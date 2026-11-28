@@ -1,0 +1,23 @@
+import { chromium } from 'playwright';
+import { bootTwoPanes, closeHarness } from 'file:///D:/Dev/marxy-wt/hunt-04/apps/desktop/test/support/two-pane.mjs';
+const parts = ['# Long line\n', 'Intro zephyr.'];
+for (let i = 0; i < 300; i++) parts.push(`Paragraph ${i} runs on about the lamps and the river and the long road home, so that the column fills and wraps across several lines.`);
+parts.push('```js\nconst data = "' + 'abcdefghij'.repeat(3000) + ' zephyr";\n```');
+for (let i = 0; i < 60; i++) parts.push(`After ${i} the lamps.`);
+parts.push('End zephyr.');
+const text = parts.join('\n\n') + '\n';
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+await bootTwoPanes(page, { files: { '/r/a.md': text }, open: ['/r/a.md'] });
+const mod='Control';
+const count = () => page.textContent('.marxy-find-count');
+const cur = () => page.evaluate(() => { const r = [...(CSS.highlights.get('marxy-find-current') ?? [])][0]; return r ? { t: r.toString(), coll: r.collapsed, blk: (r.startContainer.parentElement?.closest('p,pre,code')?.textContent ?? '').slice(0, 25) } : null; });
+console.log('omitted before', await page.evaluate(() => document.querySelectorAll('#doc .marxy-line-omitted').length));
+await page.keyboard.press(`${mod}+KeyF`); await page.keyboard.type('zephyr');
+await page.waitForFunction(() => /^\d+ of \d+$/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 30000 });
+console.log('count', await count(), JSON.stringify(await cur()));
+for (let i = 0; i < 4; i++) { await page.keyboard.press('Enter'); await page.waitForTimeout(700); console.log('step', i, await count(), JSON.stringify(await cur()), 'omitted', await page.evaluate(() => document.querySelectorAll('#doc .marxy-line-omitted').length)); }
+await page.keyboard.press('Escape');
+await page.keyboard.press(`${mod}+KeyF`); await page.keyboard.type('zephyr'); await page.waitForTimeout(1500);
+console.log('fresh', await count());
+await browser.close(); await closeHarness();

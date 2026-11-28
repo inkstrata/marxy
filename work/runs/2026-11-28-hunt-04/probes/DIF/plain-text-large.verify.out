@@ -1,0 +1,16 @@
+✖ a 2 MB plain .txt is mounted in runs and never holds the page for long once its first text is up (10863.7794ms)
+  AssertionError [ERR_ASSERTION]: the page was held 572 ms at 251 ms, after first text at 173 ms
+      at TestContext.<anonymous> (file:///D:/Dev/marxy-wt/hunt-04/apps/desktop/test/plain-text-large.test.mjs:92:12)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+2 MB .txt: first text 154 ms with 15 of 246 runs, complete at 1213 ms, held at most 775 ms at a time after first text (at 236 ms)
+✖ a 2 MB plain .txt is mounted in runs and never holds the page for long once its first text is up (11114.5501ms)
+2 MB .txt: first text 154 ms (parsed then: false), parsed behind the page at 40828 ms, 3928 blocks
+✔ a 2 MB plain .txt shows its first text before any Markdown parse, and is parsed behind the page after (42095.0234ms)
