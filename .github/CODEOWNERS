@@ -5,6 +5,8 @@
 /AGENTS.md @inkstrata
 /CLAUDE.md @inkstrata
 /docs/working.md @inkstrata
+/scripts/verify.mjs @inkstrata
+/scripts/check.mjs @inkstrata
 /scripts/allowlists/dependencies.json @inkstrata
 /scripts/allowlists/dependency-licences.json @inkstrata
 /scripts/allowlists/crate-licences.json @inkstrata

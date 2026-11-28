@@ -1,6 +1,7 @@
 // The standing dashboard: render() is pure Markdown from collected data; collect() gathers it.
 import fs from 'node:fs';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const TZ = 'America/Los_Angeles';
@@ -20,7 +21,9 @@ const pct = (v) => (typeof v === 'number' ? `${Math.round(v * 10) / 10}%` : 'n/a
 // Cells of the first table under a heading, header and rule rows removed.
 export function tableRows(markdown, heading) {
   const lines = String(markdown ?? '').split(/\r?\n/);
-  const at = lines.findIndex((l) => l.trim().toLowerCase() === `## ${heading}`.toLowerCase());
+  // A heading ending in a space matches by its start ("Waiting on " finds the owner's section whatever its name).
+  const want = `## ${heading}`.toLowerCase();
+  const at = lines.findIndex((l) => (want.endsWith(' ') ? l.trim().toLowerCase().startsWith(want) : l.trim().toLowerCase() === want));
   if (at < 0) return [];
   const end = lines.findIndex((l, i) => i > at && l.startsWith('## '));
   return lines.slice(at + 1, end < 0 ? undefined : end).filter((l) => l.trim().startsWith('|'))
@@ -109,12 +112,18 @@ export async function evaluatedPRs({ root = ROOT, now = new Date() } = {}) {
   const gh = await import('./github.mjs');
   const policy = await import('./merge-policy.mjs');
   const co = await import('./codeowners.mjs');
-  let rules = [];
-  for (const p of ['.github/CODEOWNERS', 'CODEOWNERS', 'docs/CODEOWNERS']) {
-    try { rules = co.parseCodeowners(fs.readFileSync(path.join(root, p), 'utf8')); break; } catch { /* next */ }
-  }
+  // The owner paths come from main as GitHub has it, never from a pull request or a stale checkout; if they
+  // cannot be read the gate holds everything rather than treating every path as unowned.
+  let rules = null;
+  try {
+    execFileSync('git', ['-C', root, 'fetch', '-q', 'origin', 'main'], { stdio: 'ignore' });
+    rules = co.parseCodeowners(execFileSync('git', ['-C', root, 'show', 'origin/main:.github/CODEOWNERS'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
+  } catch { /* held below */ }
   const lastResetAt = policy.lastReset(now);
-  return gh.listOpenPRs().map((p) => ({ ...p, ...policy.evaluate(p, { now, ownerRules: rules, lastResetAt }) }));
+  return gh.listOpenPRs().map((p) => {
+    const v = policy.evaluate(p, { now, ownerRules: rules || [], lastResetAt });
+    return rules ? { ...p, ...v } : { ...p, merge: false, reasons: [...v.reasons, 'CODEOWNERS on main could not be read'] };
+  });
 }
 
 export function newestWeek(root = ROOT) {
@@ -142,7 +151,7 @@ export async function collect({ root = ROOT, now = new Date() } = {}) {
     prs: prs.map(({ number, title, headRefName, merge, reasons }) => ({ number, title, headRefName, merge, reasons })),
     merged: quiet(() => gh.mergedSince(new Date(now.getTime() - 30 * 86400e3).toISOString().slice(0, 10)), []),
     queue: weekFile ? { week: path.basename(weekFile, '.md'), rows: tableRows(fs.readFileSync(weekFile, 'utf8'), 'Queue') } : null,
-    waitingOnOwner: tableRows(read('work/todo.md', ''), 'Waiting on Ian'),
+    waitingOnOwner: tableRows(read('work/todo.md', ''), 'Waiting on '),
     ci: quiet(() => gh.mainCi(), null),
     devices,
     usage,

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import {
-  browserDue, deviceOk, failedBrowserFiles, isFresh, linuxOnExternalPower, macLowPower, macOnAc, makeResult,
+  browserDue, deviceOk, exec, timeoutReason, failedBrowserFiles, isFresh, linuxOnExternalPower, macLowPower, macOnAc, makeResult,
   pacificDate, rerunAlone, rerunVerdict, shouldRun, sleepInWindow, summarizeVerify,
 } from './device.mjs';
 
@@ -105,4 +105,18 @@ test('freshness: 20 hours and good', () => {
   assert.equal(browserDue(null, now), true);
   assert.equal(browserDue({ lastBrowser: { at: new Date(now - 3 * 864e5).toISOString() } }, now), false);
   assert.equal(browserDue({ lastBrowser: { at: new Date(now - 8 * 864e5).toISOString() } }, now), true);
+});
+
+test('a command past its limit is killed and reported', async () => {
+  const r = await exec(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { timeoutMs: 300 });
+  assert.equal(r.timedOut, true);
+  assert.notEqual(r.code, 0);
+  assert.equal(timeoutReason(r, 30), 'timed out after 30 min');
+  const ok = await exec(process.execPath, ['-e', '0'], { timeoutMs: 20000 });
+  assert.equal(ok.timedOut, false);
+  assert.equal(timeoutReason(ok, 30), null);
+});
+
+test('a skipped install is not good', () => {
+  assert.equal(deviceOk({ finishedAt: new Date().toISOString(), install: { ok: null, skipped: 'Marxy is running' } }), false);
 });

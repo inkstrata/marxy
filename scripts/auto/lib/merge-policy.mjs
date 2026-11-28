@@ -26,6 +26,8 @@ export function lastReset(now, policy = POLICY) {
 
 const isAutomation = (body) => String(body ?? '').includes('<!-- marxy-');
 const time = (c) => new Date(c.createdAt).getTime();
+// "sonnet", "Sonnet 5.5" and "claude-sonnet-5-5" are one model family for the independence rule.
+const family = (m) => (String(m ?? '').toLowerCase().match(/opus|sonnet|haiku|fable/) ?? [String(m ?? '').toLowerCase()])[0];
 
 function reviewReasons(pr, author) {
   if (!author) return ['no independent approval: the author is unknown'];
@@ -39,7 +41,7 @@ function reviewReasons(pr, author) {
   const approvals = reviews.filter((r) => r.verdict === 'approve');
   if (!approvals.length) return ['no approval of the current head'];
   // A second look counts only from another run on another model.
-  const independent = approvals.filter((r) => r.run !== author.run && r.model !== author.model);
+  const independent = approvals.filter((r) => r.run !== author.run && family(r.model) !== family(author.model));
   if (!independent.length) return ['approval is not independent of the author (same run or model)'];
   const newestApproval = Math.max(...independent.map((r) => r.at));
   if (reviews.some((r) => r.verdict === 'changes' && r.at > newestApproval)) {
@@ -58,9 +60,8 @@ function checkReasons(checks = []) {
 }
 
 function planReasons(pr, now, lastResetAt) {
-  // A plan is merged only after the weekly reset, and only once the intake has answered
-  // everything the owner said on it.
-  if (now < lastResetAt) return ['plan waits for the weekly reset'];
+  // A plan is merged only once an intake made after the weekly reset has answered everything the owner
+  // said on it; the planner opens it before the reset, so the intake is what holds it until then.
   const comments = pr.comments ?? [];
   const intakes = comments
     .flatMap((c) => parseMarkers(c.body).filter((m) => m.kind === 'intake').map((m) => ({ ...m, at: time(c) })))
@@ -97,7 +98,10 @@ export function evaluate(pr, { now = new Date(), ownerRules = [], lastResetAt } 
   if (labels.includes('hold')) reasons.push('labelled hold');
   if (pr.mergeStateStatus !== 'CLEAN') reasons.push(`merge state is ${pr.mergeStateStatus ?? 'unknown'}, not CLEAN`);
   if (localParts(now).hour >= POLICY.lastBlockEnd) reasons.push('outside merge hours');
-  if (labels.includes('plan')) reasons.push(...planReasons(pr, now, lastResetAt ?? lastReset(now)));
+  // A plan is known by its branch as well as its label, so a missing label cannot skip the intake rule.
+  if (labels.includes('plan') || String(pr.headRefName ?? '').startsWith('agent/plan-')) {
+    reasons.push(...planReasons(pr, now, lastResetAt ?? lastReset(now)));
+  }
 
   return { merge: reasons.length === 0, reasons };
 }

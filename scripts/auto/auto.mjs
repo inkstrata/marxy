@@ -38,18 +38,20 @@ function run([event, ...args]) {
 async function status() {
   const { collect, newestWeek } = await import('./lib/dashboard.mjs');
   const d = await collect();
-  out({ prs: d.prs, nightly: d.nightly, devices: d.devices, plan: newestWeek() });
+  out({ prs: d.prs, devices: d.devices, plan: newestWeek() });
 }
 
 async function merge(args) {
   const dry = args.includes('--dry-run');
   const { evaluatedPRs } = await import('./lib/dashboard.mjs');
   const { mergePR } = await import('./lib/github.mjs');
+  // One merge per tick: the next pull request is judged again against the new main half an hour later.
+  let merged = false;
   for (const pr of await evaluatedPRs()) {
-    const row = { at: new Date().toISOString(), number: pr.number, merge: pr.merge, reasons: pr.reasons, dryRun: dry };
-    if (pr.merge && !dry) {
-      try { mergePR(pr.number); } catch (e) { Object.assign(row, { merge: false, reasons: [`merge failed: ${first(e)}`] }); }
-    }
+    const row = { at: new Date().toISOString(), number: pr.number, merge: pr.merge && !merged, reasons: pr.merge && merged ? ['one merge per tick'] : pr.reasons, dryRun: dry };
+    if (row.merge && !dry) {
+      try { mergePR(pr.number, pr.headRefOid); merged = true; } catch (e) { Object.assign(row, { merge: false, reasons: [`merge failed: ${first(e)}`] }); }
+    } else if (row.merge) merged = true;
     if (!dry) appendJsonl('merge', row);
     console.log(`#${row.number} ${row.merge ? (dry ? 'would merge' : 'merged') : 'held'}${row.reasons.length ? `: ${row.reasons.join('; ')}` : ''}`);
   }

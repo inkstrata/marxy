@@ -57,7 +57,7 @@ From Friday 2026-12-04 20:00 to Friday 2026-12-11 20:00 (Pacific).
 
 | # | Rows | Piece | Size | Branch |
 | --- | --- | --- | --- | --- |
-| 1 | L21 | <what changes, one line; "after 2" when it waits on piece 2> | M | `scale-store` |
+| 1 | <row id> | <what changes, one line; "after 2" when it waits on piece 2> | M | `<branch>` |
 
 ## Hunt
 

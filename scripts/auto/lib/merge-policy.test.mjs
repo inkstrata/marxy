@@ -104,9 +104,25 @@ test('plan PR: owner comment after the intake blocks it', () => {
   assert.deepEqual(r.reasons, ['owner commented after the intake']);
 });
 
-test('plan PR: before the reset refused', () => {
+test('plan PR: held until an intake made after the reset', () => {
   const r = run(plan([intake('2026-11-22T01:00:00')]), { lastResetAt: la('2026-11-27T20:00:00') });
-  assert.deepEqual(r.reasons, ['plan waits for the weekly reset']);
+  assert.deepEqual(r.reasons, ['plan intake is older than the weekly reset']);
+});
+
+test('plan PR: known by its branch when the label is missing', () => {
+  const pr = plan([]);
+  pr.labels = [];
+  pr.headRefName = 'agent/plan-2026-12-04';
+  assert.ok(run(pr).reasons.includes('plan has no intake'));
+});
+
+test('independence compares model families, not spellings', () => {
+  const pr = plan([]);
+  pr.labels = [];
+  pr.headRefName = 'agent/x';
+  pr.body = '<!-- marxy-author run=a model=claude-sonnet-5-5 -->';
+  pr.comments = [{ body: `<!-- marxy-review verdict=approve head=${pr.headRefOid} run=b model=Sonnet -->`, createdAt: '2026-11-28T01:00:00Z' }];
+  assert.ok(run(pr).reasons.some((x) => x.startsWith('approval is not independent')));
 });
 
 test('plan PR: intake from before the reset refused', () => {

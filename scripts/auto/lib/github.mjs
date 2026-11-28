@@ -22,21 +22,30 @@ export function gh(args, { json = false, input } = {}) {
   return json ? JSON.parse(out || 'null') : out;
 }
 
-const PR_FIELDS = 'number,title,isDraft,state,headRefName,headRefOid,labels,body,files,comments,statusCheckRollup,mergeStateStatus';
+// Every changed path, a rename's old path included: `gh pr list` stops at 100 files and drops where a file came
+// from, and either gap could hide an owner path from the gate.
+export function prFiles(n) {
+  const out = gh(['api', '--paginate', `repos/${REPO}/pulls/${n}/files?per_page=100`, '--jq', '.[] | .filename, (.previous_filename // empty)']);
+  return out.split(/\r?\n/).filter(Boolean);
+}
+
+const PR_FIELDS = 'number,title,isDraft,state,headRefName,headRefOid,labels,body,comments,statusCheckRollup,mergeStateStatus';
 export function listOpenPRs() {
   const rows = gh(['pr', 'list', '-R', REPO, '--state', 'open', '--limit', '100', '--json', PR_FIELDS], { json: true }) || [];
   return rows.map((p) => ({
     number: p.number, title: p.title, isDraft: p.isDraft, state: p.state, headRefName: p.headRefName, headRefOid: p.headRefOid,
     labels: (p.labels || []).map((l) => l.name),
-    body: p.body || '', files: (p.files || []).map((f) => f.path),
+    body: p.body || '', files: prFiles(p.number),
     comments: (p.comments || []).map((c) => ({ body: c.body, createdAt: c.createdAt })),
     checks: (p.statusCheckRollup || []).map((c) => ({ name: c.name || c.context, conclusion: c.conclusion || c.state, status: c.status })),
     mergeStateStatus: p.mergeStateStatus,
   }));
 }
 
-export function mergePR(n) {
-  return gh(['pr', 'merge', String(n), '--squash', '--delete-branch', '-R', REPO]);
+// The merge names the commit the gate judged: a push after the judgement makes GitHub refuse it.
+export function mergePR(n, head) {
+  if (!/^[0-9a-f]{40}$/i.test(String(head))) throw new Error(`no head commit to pin for #${n}`);
+  return gh(['pr', 'merge', String(n), '--squash', '--delete-branch', '--match-head-commit', head, '-R', REPO]);
 }
 
 export function mergedSince(isoDate) {

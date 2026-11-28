@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { git, workspace } from '../lib/workspace.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const MIN = 60e3;
 const HOUR = 3600e3;
 const FRESH_HOURS = 20;
 const BROWSER_DAYS = 7;
@@ -131,20 +132,33 @@ export function makeResult({ os, sha, startedAt, finishedAt, verify = null, reru
 
 // ---- running things ----------------------------------------------------------------------------------------------------
 
-/** Runs a command, appending its output to `log`; resolves { code, out } with the last 200 KB of output. */
-function exec(cmd, args, { cwd, env, log, shell = false, timeoutMs } = {}) {
+/** Failure reason for a command that hit its limit, else null. */
+export function timeoutReason(r, minutes) {
+  return r?.timedOut ? `timed out after ${minutes} min` : null;
+}
+
+/**
+ * Runs a command, appending its output to `log`; resolves { code, out, timedOut } with the last 200 KB of output.
+ * At `timeoutMs` the whole process tree is killed (a shell or caffeinate wrapper would otherwise leave its child).
+ */
+export function exec(cmd, args, { cwd, env, log, shell = false, timeoutMs } = {}) {
   return new Promise(done => {
     let out = '';
-    const child = spawn(cmd, args, { cwd, env: { ...process.env, ...env }, shell, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(cmd, args, { cwd, env: { ...process.env, ...env }, shell, detached: !WIN, stdio: ['ignore', 'pipe', 'pipe'] });
+    let timedOut = false;
     const sink = d => {
       if (log) appendFileSync(log, d);
       out = (out + d).slice(-200_000);
     };
     child.stdout.on('data', sink);
     child.stderr.on('data', sink);
-    const timer = timeoutMs ? setTimeout(() => child.kill(), timeoutMs) : null;
-    child.on('error', e => done({ code: -1, out: String(e) }));
-    child.on('close', code => { clearTimeout(timer); done({ code: code ?? 1, out }); });
+    const timer = timeoutMs ? setTimeout(() => {
+      timedOut = true;
+      if (WIN) spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
+      else { try { process.kill(-child.pid, 'SIGKILL'); } catch { child.kill('SIGKILL'); } }
+    }, timeoutMs) : null;
+    child.on('error', e => done({ code: -1, out: String(e), timedOut }));
+    child.on('close', code => { clearTimeout(timer); done({ code: code ?? 1, out, timedOut }); });
   });
 }
 
@@ -170,13 +184,19 @@ async function rerunReds(verifyRows, wt, logs) {
   const row = verifyRows.find(r => r.name === 'browser' && r.status !== 'pass');
   if (!row?.log || !existsSync(row.log)) return [];
   const files = failedBrowserFiles(readFileSync(row.log, 'utf8'));
-  const runOnce = async f => (await exec(process.execPath, ['scripts/browser-tests.mjs', f], { cwd: wt, log: join(logs, 'rerun.log') })).code === 0;
+  const runOnce = async f => (await exec(process.execPath, ['scripts/browser-tests.mjs', f], { cwd: wt, log: join(logs, 'rerun.log'), timeoutMs: 15 * MIN })).code === 0;
   const out = [];
   for (const f of files) out.push(await rerunAlone(f, runOnce));
   return out;
 }
 
 // ---- nightly (Windows) -------------------------------------------------------------------------------------------------
+
+/** True when a marxy.exe process is running. */
+function marxyRunning() {
+  const q = spawnSync('tasklist', ['/FI', 'IMAGENAME eq marxy.exe', '/NH'], { encoding: 'utf8' });
+  return /marxy\.exe/i.test(q.stdout ?? '');
+}
 
 /** Where the per-user installer put marxy.exe: the uninstall entry's folder, else the default. */
 function installedExe() {
@@ -209,34 +229,47 @@ export async function nightly(args = [], deps = {}) {
   }
   const sha = git(wt, 'rev-parse', 'HEAD').trim();
 
-  let i = await exec('pnpm', ['install', '--offline'], { cwd: wt, shell: true, log: join(logs, 'install.log') });
-  if (i.code !== 0) i = await exec('pnpm', ['install'], { cwd: wt, shell: true, log: join(logs, 'install.log') });
-  if (i.code !== 0) throw new Error(`pnpm install failed in ${wt}`);
-
-  const v = await exec(process.execPath, ['scripts/verify.mjs', '--tier', 'full', '--logs', logs], { cwd: wt, log: join(logs, 'verify.out') });
-  const summary = readJson(join(logs, 'summary.json'));
-  const verify = summarizeVerify(summary, v.code);
-  const reruns = await rerunReds(summary?.rows ?? [], wt, logs);
-
-  // The repo's own installer path: build, self-sign, keep, install for this user. No launch there: the smoke
-  // check below launches the installed exe on its own data folder, so the owner's settings stay untouched.
-  const inst = await exec(process.execPath, ['scripts/work.mjs', 'installer', '-Ref', 'origin/main', '-Sign', 'self', '-NoLaunch'],
-    { cwd: wt, log: join(logs, 'installer.log'), timeoutMs: 2.5 * HOUR });
-  const kept = /^installer:\s*(.+)$/m.exec(inst.out)?.[1]?.trim() ?? 'unknown';
-  let smoke = 'not run';
-  const exe = installedExe();
-  if (inst.code === 0 && existsSync(exe)) {
-    // Not "required": a locked screen delivers no frames, and the smoke script then says it skipped.
-    const s = await exec(process.execPath, ['apps/desktop/scripts/smoke-cli-open.mjs'], { cwd: wt, env: { MARXY_BIN: exe }, log: join(logs, 'smoke.log'), timeoutMs: 10 * 60e3 });
-    smoke = s.code !== 0 ? `fail (${lastLine(s.out)})` : /skip/i.test(s.out) ? 'skipped (no frames)' : 'pass';
+  const pnpm = args => exec('pnpm', args, { cwd: wt, shell: true, log: join(logs, 'install.log'), timeoutMs: 30 * MIN });
+  let i = await pnpm(['install', '--offline']);
+  if (i.code !== 0) i = await pnpm(['install']);
+  let verify;
+  let reruns = [];
+  if (i.code !== 0) {
+    // Nothing to verify without dependencies; the installer below installs its own.
+    verify = { ok: false, steps: [], reason: timeoutReason(i, 30) ?? 'pnpm install failed' };
+  } else {
+    const v = await exec(process.execPath, ['scripts/verify.mjs', '--tier', 'full', '--logs', logs], { cwd: wt, log: join(logs, 'verify.out'), timeoutMs: 3 * HOUR });
+    const summary = readJson(join(logs, 'summary.json'));
+    verify = summarizeVerify(summary, v.code);
+    if (v.timedOut) verify = { ...verify, ok: false, reason: timeoutReason(v, 180) };
+    else reruns = await rerunReds(summary?.rows ?? [], wt, logs);
   }
-  const install = {
-    ok: inst.code === 0 && existsSync(exe) && !smoke.startsWith('fail'),
-    notes: `installer exit ${inst.code}; kept ${kept}; installed exe ${existsSync(exe) ? exe : 'missing'}; smoke ${smoke}`,
-  };
+
+  let install;
+  if (marxyRunning()) {
+    // The owner may have the app open and the installer would stop it. Not a failure, but not good either, so tomorrow retries.
+    install = { ok: null, skipped: 'Marxy is running' };
+  } else {
+    // The repo's own installer path: build, self-sign, keep, install for this user. No launch there: the smoke
+    // check below launches the installed exe on its own data folder, so the owner's settings stay untouched.
+    const inst = await exec(process.execPath, ['scripts/work.mjs', 'installer', '-Ref', 'origin/main', '-Sign', 'self', '-NoLaunch'],
+      { cwd: wt, log: join(logs, 'installer.log'), timeoutMs: 60 * MIN });
+    const kept = /^installer:\s*(.+)$/m.exec(inst.out)?.[1]?.trim() ?? 'unknown';
+    let smoke = 'not run';
+    const exe = installedExe();
+    if (inst.code === 0 && existsSync(exe)) {
+      // Not "required": a locked screen delivers no frames, and the smoke script then says it skipped.
+      const sm = await exec(process.execPath, ['apps/desktop/scripts/smoke-cli-open.mjs'], { cwd: wt, env: { MARXY_BIN: exe }, log: join(logs, 'smoke.log'), timeoutMs: 10 * MIN });
+      smoke = sm.code !== 0 ? `fail (${timeoutReason(sm, 10) ?? lastLine(sm.out)})` : /skip/i.test(sm.out) ? 'skipped (no frames)' : 'pass';
+    }
+    install = {
+      ok: inst.code === 0 && existsSync(exe) && !smoke.startsWith('fail'),
+      notes: `${timeoutReason(inst, 60) ?? `installer exit ${inst.code}`}; kept ${kept}; installed exe ${existsSync(exe) ? exe : 'missing'}; smoke ${smoke}`,
+    };
+  }
   const result = makeResult({ os: 'windows', sha, startedAt, finishedAt: new Date(), verify, reruns, install });
   await publishResult(state, result, date);
-  console.log(`nightly: ${sha.slice(0, 7)} verify ${verify.ok ? 'ok' : 'red'}, ${reruns.length} rerun(s), install ${install.ok ? 'ok' : 'failed'}`);
+  console.log(`nightly: ${sha.slice(0, 7)} verify ${verify.ok ? 'ok' : 'red'}, ${reruns.length} rerun(s), install ${install.ok === null ? 'skipped' : install.ok ? 'ok' : 'failed'}`);
   return 0;
 }
 
@@ -255,20 +288,23 @@ async function macCheck(prev, logs) {
   const sleptIn = (a, b) => sleepInWindow(pmsetLog(), a, b).length > 0;
 
   const startedAt = new Date();
-  const pull = spawnSync('git', ['-C', main, 'pull', '--ff-only'], { encoding: 'utf8' });
+  // Pull only a checkout that is on a clean main; anything else is run as it stands.
+  const clean = git(main, 'rev-parse', '--abbrev-ref', 'HEAD').trim() === 'main' && git(main, 'status', '--porcelain').trim() === '';
+  const pull = clean ? spawnSync('git', ['-C', main, 'pull', '--ff-only'], { encoding: 'utf8' }) : { status: 0 };
+  const pullNote = clean ? `pull ${pull.status === 0 ? 'ok' : 'failed'}` : 'checkout not on clean main, not pulled';
   const sha = git(main, 'rev-parse', 'HEAD').trim();
   // --no-install: the build, signature check and kept copy run, but the installed /Applications copy and its
   // Launch Services registration are not touched. The fresh bundle is then launched in place by the smoke check.
   const t0 = new Date();
   const [c1, a1] = awake(process.execPath, 'scripts/work.mjs', 'installer', '--no-install');
-  const inst = await exec(c1, a1, { cwd: main, log: join(logs, 'installer.log') });
+  const inst = await exec(c1, a1, { cwd: main, log: join(logs, 'installer.log'), timeoutMs: 60 * MIN });
   const app = join(ws.worktrees, 'app');
   const bin = join(app, 'apps/desktop/src-tauri/target/release/bundle/macos/Marxy.app/Contents/MacOS/marxy');
   let smoke = 'not run';
   if (pull.status === 0 && inst.code === 0 && existsSync(bin)) {
     const [c2, a2] = awake(process.execPath, join(app, 'apps/desktop/scripts/smoke-cli-open.mjs'));
-    const s = await exec(c2, a2, { cwd: app, env: { MARXY_BIN: bin }, log: join(logs, 'smoke.log'), timeoutMs: 10 * 60e3 });
-    smoke = s.code !== 0 ? `fail (${lastLine(s.out)})` : /skip/i.test(s.out) ? 'skipped (no frames)' : 'pass';
+    const s = await exec(c2, a2, { cwd: app, env: { MARXY_BIN: bin }, log: join(logs, 'smoke.log'), timeoutMs: 10 * MIN });
+    smoke = s.code !== 0 ? `fail (${timeoutReason(s, 10) ?? lastLine(s.out)})` : /skip/i.test(s.out) ? 'skipped (no frames)' : 'pass';
   }
   let install;
   if (sleptIn(t0, new Date())) {
@@ -277,7 +313,7 @@ async function macCheck(prev, logs) {
   } else {
     install = {
       ok: pull.status === 0 && inst.code === 0 && existsSync(bin) && !smoke.startsWith('fail'),
-      notes: `pull ${pull.status === 0 ? 'ok' : 'failed'}; installer exit ${inst.code} (no-install, /Applications untouched); smoke ${smoke}`,
+      notes: `${pullNote}; ${timeoutReason(inst, 60) ?? `installer exit ${inst.code}`} (no-install, /Applications untouched); smoke ${smoke}`,
     };
   }
 
@@ -285,11 +321,12 @@ async function macCheck(prev, logs) {
   let lastBrowser = prev?.lastBrowser;
   if (browserDue(prev)) {
     const b0 = new Date();
-    await exec('pnpm', ['install', '--frozen-lockfile', '--offline'], { cwd: main, shell: true, log: join(logs, 'install.log') });
+    await exec('pnpm', ['install', '--frozen-lockfile', '--offline'], { cwd: main, shell: true, log: join(logs, 'install.log'), timeoutMs: 30 * MIN });
     const [c3, a3] = awake(process.execPath, 'scripts/verify.mjs', '--only', 'browser', '--logs', join(logs, 'browser'));
-    const v = await exec(c3, a3, { cwd: main, log: join(logs, 'browser.out') });
+    const v = await exec(c3, a3, { cwd: main, log: join(logs, 'browser.out'), timeoutMs: 2 * HOUR });
     const b1 = new Date();
     verify = summarizeVerify(readJson(join(logs, 'browser', 'summary.json')), v.code);
+    if (v.timedOut) verify = { ...verify, ok: false, reason: timeoutReason(v, 120) };
     if (sleptIn(b0, b1)) {
       slept = true;
       verify = { ...verify, ok: null, inconclusive: 'slept' };
@@ -336,13 +373,13 @@ async function linuxCheck() {
   let sha = 'unknown';
   let install;
   try {
-    const list = spawnSync('gh', ['run', 'list', '-R', 'inkstrata/marxy', '--workflow', 'installers', '--branch', 'main', '--status', 'success', '--limit', '1', '--json', 'databaseId,headSha'], { encoding: 'utf8' });
+    const list = spawnSync('gh', ['run', 'list', '-R', 'inkstrata/marxy', '--workflow', 'installers', '--branch', 'main', '--status', 'success', '--limit', '1', '--json', 'databaseId,headSha'], { encoding: 'utf8', timeout: 5 * MIN });
     const run = list.status === 0 ? JSON.parse(list.stdout)[0] : null;
     if (!run) {
       install = { ok: false, notes: `no successful installers run on main (gh exit ${list.status})` };
     } else {
       sha = run.headSha;
-      const dl = spawnSync('gh', ['run', 'download', String(run.databaseId), '-R', 'inkstrata/marxy', '-n', 'linux-appimage', '-D', tmp], { encoding: 'utf8' });
+      const dl = spawnSync('gh', ['run', 'download', String(run.databaseId), '-R', 'inkstrata/marxy', '-n', 'linux-appimage', '-D', tmp], { encoding: 'utf8', timeout: 15 * MIN });
       const bin = dl.status === 0 ? findFile(tmp, /\.AppImage$/) : null;
       if (!bin) {
         install = { ok: false, notes: `download of run ${run.databaseId} failed (gh exit ${dl.status})` };
@@ -356,7 +393,7 @@ async function linuxCheck() {
           how = 'extract-and-run (no FUSE)';
           l = await launchAppImage(bin, ['--appimage-extract-and-run'], env, inhibit);
         }
-        spawnSync(bin, ['--appimage-extract'], { cwd: tmp, stdio: 'ignore' });
+        spawnSync(bin, ['--appimage-extract'], { cwd: tmp, stdio: 'ignore', timeout: 2 * MIN });
         const root = join(tmp, 'squashfs-root');
         const desktop = existsSync(root) && readdirSync(root).some(f => f.endsWith('.desktop'));
         install = {
