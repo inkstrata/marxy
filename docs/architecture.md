@@ -87,6 +87,19 @@ path ─ shell.detectFiles (head) ─ shell.readFile ─ decode if not UTF-8 ─
 Binary files skip the buffer: their viewer (`apps/desktop/src/viewers/`) reads what it needs through the
 shell (headers, ranges, archive entries, table pages) and draws its own page; Source shows the hex view.
 
+### The page as a byte model
+
+`packages/core/src/position/byte-model.ts` holds a Markdown page as numbers, before any HTML exists: one record per
+top-level block of the parse (`byteModelOf`), with the block's length in bytes, its height in whole grid units, and
+flags for measured, mounted and typeset. A record's bytes run from its block's start to the next block's start, so the
+records tile the file and a blank line belongs to the block above it. The height is an estimate from the block's kind
+and size (`estimateUnits`) until something measures it. Where a block starts, in bytes or in units, is a prefix sum
+rebuilt lazily from the first record that changed, so `splice` over blocks costs the blocks it replaces and the blocks
+after them move with no work of their own. An `Anchor` (block, byte, grid units into the block) names a place that
+`resolve` finds again after an edit by its byte. `position/geometry.ts` holds the rules for settling measured boxes
+(`settleRecords`) and searching them. Nothing in the app reads the model yet: no adapter measures blocks and no reader
+asks it for a place.
+
 ### Work on untrusted files
 
 Every file is untrusted, so each reader in core bounds the work a file can make it do: bytes read, items kept, levels

@@ -7,6 +7,7 @@
 // takes a whole document, or a new shape of input that a reader meets, gets a case here (docs/big-files.md).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { byteModelOf, createByteModel } from './position/byte-model.ts';
 import { createBuffer, splice } from './buffer/buffer.ts';
 import { diffLines } from './diff/lines.ts';
 import { parseMarkdown } from './parse/parse.ts';
@@ -117,6 +118,24 @@ for (const shape of ['prose']) {
     holds(`parseScale ${shape}`, (runs) => growth(make, (doc) => parseScale(doc), { small: 1024 * 1024, runs }));
   });
 }
+
+for (const shape of ['prose', 'blocks']) {
+  test(`the byte model of a parsed page (${shape}) is built and queried in linear time`, () => {
+    const make = (n: number) => ({ doc: parseMarkdown(enc(MARKDOWN[shape]!(n)), { file: 'big.md' }), n });
+    holds(`byteModelOf ${shape}`, (runs) => growth(make, ({ doc, n }) => {
+      const m = byteModelOf(doc, n);
+      return m.indexAtByte(n >> 1) + m.totalUnits;
+    }, { small: SMALL, runs }));
+  });
+}
+
+test('a model with many blocks takes block splices and lazy sums in time that grows with the blocks after them', () => {
+  const make = (n: number) => createByteModel(Array.from({ length: n >> 6 }, () => ({ kind: 'paragraph' as const, bytes: 60 })));
+  holds('byteModel splice', (runs) => growth(make, (m) => {
+    m.splice(m.count >> 1, 1, [{ kind: 'paragraph', bytes: 90 }]);
+    return m.startByte(m.count) + m.indexAtByte(m.byteLength >> 1);
+  }, { small: SMALL * 4, runs }));
+});
 
 const READINGS: Record<string, (bytes: number) => string> = {
   'rows.csv': (b) => `id,word,value,phrase\n${fill(b, (i) => `${i},${WORDS[i % 19]},${i * 1.5},"${words(i, 5)}"\n`)}`,
