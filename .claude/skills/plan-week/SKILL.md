@@ -76,8 +76,11 @@ From Friday 2026-12-04 20:00 to Friday 2026-12-11 20:00 (Pacific).
 - [ ] Allow Fable for <job> this week: <what for, and why Sonnet and Opus are not enough>
 ```
 
-- Queue pieces come from the tracker, in its order: carry-over first, then Next, then the build order a
-  section sets out (Big files has one). Each piece is one branch a reviewer can read as one change; give a
+- Queue pieces come from the tracker in the order of "Order of work" in `scripts/auto/README.md` (carry-over, data
+  loss, cause rows, then severity), then the build order a section sets out (Big files has one). First do a
+  causes pass over rows added since the last plan (a hunt's new rows): symptoms merge into the cause row as in the
+  `bug-triage` skill. Find and copy findings that disagree with the drawn page, for example, are symptoms of the
+  row that moves find and copy onto the model, and fold into it. Each piece is one branch a reviewer can read as one change; give a
   piece that touches the same files as another an `after` note.
 - **Size the queue to the budget.** Pieces per week is nights and day slots left times the pieces a slot
   typically finishes, from the last Outcomes (landed, not started). The first weeks are conservative: 4 to 8

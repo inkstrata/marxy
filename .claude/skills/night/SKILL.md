@@ -68,7 +68,8 @@ in this run; anything else becomes a tracker row in a small `work/`-only pull re
 
 Reasons a builder cannot fix (CODEOWNERS paths, `hold`, a draft) wait for the owner.
 
-**Data loss first.** Rows a fresh hunt rated as data loss or corruption go first, right after carry-over.
+**Data loss first.** Rows a fresh hunt rated as data loss or corruption go first, right after carry-over; the rest
+follow "Order of work" in `scripts/auto/README.md`, which `next.steps` already applies to top-up rows.
 
 **Saturday night: plan intake.** The plan pull request (label `plan`) is answered before any building. Read
 every owner comment on it (any comment by `inkstrata` that is not a review or intake comment; the gate ignores

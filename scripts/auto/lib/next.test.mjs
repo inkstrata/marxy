@@ -81,3 +81,11 @@ test('needsBuilder: changes, red checks, behind or conflicting, but not held', (
   assert.ok(!needsBuilder(pr(['ci has not passed'])));
   assert.ok(!needsBuilder(pr(['failed checks: ci'], 'feature/x')));
 });
+
+test('readyRows ranks cause rows by what they cover, then data loss, S1 to S3, then tracker order', () => {
+  const row = (id, why) => `| ${id} | text | ${why} | S | |`;
+  const md = ['## Next', '| # | What | Why | Size | Branch |', '| --- | --- | --- | --- | --- |',
+    row('A', 'plain'), row('B', 'S3 odd'), row('C', 'S2 slow'), row('D', 'S1 freeze'), row('E', 'data loss on save'),
+    row('F', 'Covers: X-01, X-02; core'), row('G', 'Covers: X-03, X-04, B7; core'), row('H', 'S1 again')].join('\n');
+  assert.deepEqual(readyRows(md).map((r) => r.id), ['G', 'F', 'E', 'D', 'H', 'C', 'B', 'A']);
+});

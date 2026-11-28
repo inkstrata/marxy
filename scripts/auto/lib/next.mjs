@@ -56,11 +56,16 @@ export function readyRows(todoMd, sections = ['Next', 'Structure', 'Big files'])
       if (!l.trim().startsWith('|')) continue;
       const cells = l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim());
       if (cells.length < 5 || /^(#|:?-+:?)$/.test(cells[0])) continue;
-      if (cells[cells.length - 1] === '' && !WAITS.test(cells.slice(1).join(' '))) out.push({ id: cells[0], section: name, what: cells[1].slice(0, 120) });
+      if (cells[cells.length - 1] === '' && !WAITS.test(cells.slice(1).join(' '))) out.push({ id: cells[0], section: name, what: cells[1].slice(0, 120), why: cells[2] });
     }
   }
-  return out;
+  // The README's "Order of work": cause rows (most findings covered first), then data loss, then S1 to S3; Array.sort is stable, so tracker order breaks ties.
+  return out.sort((a, b) => rank(a) - rank(b));
 }
+
+const covered = (r) => (/^Covers:([^;]*)/i.exec(r.why || '')?.[1].match(/\b[A-Z]{1,4}-?\d+\b/g) || []).length;
+const rank = (r) => (/^Covers:/i.test(r.why || '') ? -1000 - covered(r)
+  : /data loss|corruption/i.test(r.why) ? -4 : /\bS([123])\b/.test(r.why || '') ? -3 + Number(/\bS([123])\b/.exec(r.why)[1]) : 1);
 
 export const needsBuilder = (pr) => String(pr.headRefName).startsWith('agent/') && (pr.reasons || []).some((r) => NEEDS_BUILDER.test(r))
   && !(pr.reasons || []).some((r) => /^labelled hold|^draft/.test(r));

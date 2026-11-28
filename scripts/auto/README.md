@@ -79,6 +79,19 @@ top-up|small-hunt|state --data <json>`; the `state` note also writes `run-state.
 restarted session reads if it is under six hours old. Every run ends with `auto.mjs dashboard`, so the dashboard's
 "Last runs" section (the newest summary per job on `auto-state`) is current when the run is over.
 
+## Order of work
+
+One rule, used by the plan, the night skill and `lib/next.mjs`:
+
+1. carry-over;
+2. data loss or corruption;
+3. cause rows (a row whose Why starts `Covers:`), the ones covering the most findings first;
+4. the rest by severity, S1 before S3;
+5. tracker order breaks ties.
+
+A structural change still waits until no in-flight branch touches its files (AGENTS.md); meanwhile only
+data-loss symptoms get a narrow fix, plus a row.
+
 ## The merge gate
 
 No agent merges. Auto mode's classifier refuses to merge a pull request no person approved, and the fleet's
