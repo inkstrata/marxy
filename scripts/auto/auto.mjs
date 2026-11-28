@@ -24,7 +24,8 @@ async function usage(args) {
   const { fromGetUsage } = await import('./lib/governor.mjs');
   const src = flag(args, '--json') ?? '-';
   const raw = JSON.parse(fs.readFileSync(src === '-' ? 0 : src, 'utf8'));
-  const u = fromGetUsage(raw.plan ?? raw);
+  // get_usage's own `plan` object carries a `plan: "Max"` string, so unwrap only an object that holds the meters.
+  const u = fromGetUsage(Array.isArray(raw?.windows) ? raw : raw?.plan);
   if (u) appendJsonl('usage', { at: new Date().toISOString(), usage: u });
   await decideNow(u, flag(args, '--job'));
 }
