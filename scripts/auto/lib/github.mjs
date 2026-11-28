@@ -29,14 +29,16 @@ export function prFiles(n) {
   return out.split(/\r?\n/).filter(Boolean);
 }
 
-const PR_FIELDS = 'number,title,isDraft,state,headRefName,headRefOid,labels,body,comments,statusCheckRollup,mergeStateStatus';
+// Where the head lives and who wrote each comment: the gate trusts only the contributor's own branches and words.
+const PR_FIELDS = 'number,title,isDraft,state,headRefName,headRefOid,isCrossRepository,headRepositoryOwner,labels,body,comments,statusCheckRollup,mergeStateStatus';
 export function listOpenPRs() {
   const rows = gh(['pr', 'list', '-R', REPO, '--state', 'open', '--limit', '100', '--json', PR_FIELDS], { json: true }) || [];
   return rows.map((p) => ({
     number: p.number, title: p.title, isDraft: p.isDraft, state: p.state, headRefName: p.headRefName, headRefOid: p.headRefOid,
+    isCrossRepository: p.isCrossRepository, headRepositoryOwner: p.headRepositoryOwner?.login ?? null,
     labels: (p.labels || []).map((l) => l.name),
     body: p.body || '', files: prFiles(p.number),
-    comments: (p.comments || []).map((c) => ({ body: c.body, createdAt: c.createdAt })),
+    comments: (p.comments || []).map((c) => ({ author: c.author?.login ?? null, body: c.body, createdAt: c.createdAt })),
     checks: (p.statusCheckRollup || []).map((c) => ({ name: c.name || c.context, conclusion: c.conclusion || c.state, status: c.status })),
     mergeStateStatus: p.mergeStateStatus,
   }));
