@@ -14,15 +14,16 @@ Pacific time. `schedule.json` holds the same list as data.
 | When | Job | Kind, where | Does |
 | --- | --- | --- | --- |
 | daily 00:20, until 05:00 | `night` | agent, Osiris | carry-over, then the week's queue (the `night` skill); Saturday the plan intake, Tuesday a bug hunt within half the night's allowance, Thursday and Friday the sweep |
-| daily 05:15 | `nightly` | script, Osiris | full verify of `main` with the browser suite and `check:tauri`, red browser files rerun alone, the Windows install check |
+| daily 05:15 | `nightly` | script, Osiris | full verify of `main` with `check:tauri` and the Windows install check; the browser suite is skipped here (`browser-nightly` runs it hosted) |
 | Sunday 04:30 | `clean` | script, Osiris | `work clean --stale --apply` (old worktrees, folders and branches, archived first), then old logs and temporary folders pruned |
-| daily 08:45, until 13:30 | `day` | agent, Osiris | triage of the nightly and device results, then more building (the `night` skill, day mode) |
+| daily 08:45, until 13:30 | `day` | agent, Osiris | triage of the nightly, device and `browser-nightly` results, then more building (the `night` skill, day mode) |
 | Friday 14:05, until 19:55 | `friday` | agent, Osiris | the final sweep (the `night` skill, final mode) |
 | Friday 08:15 | `plan` | agent, Osiris | the week's outcome, `work/STATE.md`, the ledger row and next week's plan as a pull request (the `plan-week` skill) |
 | every 30 minutes | `tick` | script, Osiris | the merge gate (any hour) and the dashboard issue |
 | hourly, on power | `device` | script, Eris | macOS build and install check, the macOS browser suite weekly, runs spoiled by sleep retried, the weekly cleanup |
 | hourly, on power | `device` | script, Set | Linux install check of CI's AppImage, the weekly cleanup |
 | daily 01:30 | `installers` | GitHub Actions | Linux AppImage and deb from `main` |
+| daily 02:30 | `browser-nightly` | GitHub Actions | every browser test file on a hosted Windows runner (`--jobs 2`, up to 180 minutes, logs uploaded), so the suite no longer loads the owner's machine |
 | Wednesday 02:00 | `browser-windows` | GitHub Actions | the hosted Windows browser files |
 
 **The week.** It starts at the usage reset, Friday 20:00. Its plan is `work/weeks/<that Friday>.md`, written on
@@ -43,7 +44,11 @@ The job's own session stays thin and delegates; its agents are defined in `.clau
 | planner | Opus, medium | the plan job's own session |
 
 At most 3 builders at once. Follow-ups go to the same agent (`SendMessage`) before a fresh one is spawned.
-Fable is used only when the week's plan pull request has its Fable box ticked by the owner.
+Fable is used only when the owner ticked it in the plan pull request's Decisions.
+
+`.claude/settings.json` sets `subagentPromptCacheTtl` to `1h`, so a long run reuses its agents' cached prompts. The Friday plan should compare the cost per piece before and after.
+
+**Decisions.** The plan pull request's body has a `## Decisions` section: one question per open owner decision (the tracker's Waiting-on rows, pull requests held for the owner, the Fable ask), options as checkboxes, one marked `(default)`. Saturday's intake reads the ticks (`gh pr view <n> --json body`), applies the ticked options or the defaults, and lists them in the intake comment. The dashboard's "Waiting for you" links the open plan.
 
 ## The budget
 
@@ -118,6 +123,7 @@ and a marker inside it, quoted or mentioned, counts for nothing.
 - the `ci` check passed and no check failed;
 - it touches no path in `.github/CODEOWNERS` (those wait for the owner);
 - it has no `hold` label, and GitHub calls it `CLEAN` (merges happen at any hour);
+- the newest finished `ci` run on `main` did not fail ("main is red: fix it first"); a run still going does not hold, one that cannot be read does;
 - for a `plan` pull request: the weekly reset has passed, and the newest `<!-- marxy-intake head=<sha> -->`
   comment is for the current head and newer than every owner comment (an edited one counts from its last edit).
 

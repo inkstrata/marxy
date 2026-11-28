@@ -50,7 +50,14 @@ read it from its pull request's head.
 
 Each of these comes first, in this order, when it applies.
 
+**Main is red.** When `status` shows the newest finished `ci` run on `main` failed, the gate holds every pull
+request ("main is red: fix it first"), so the first piece is to fix `main`: a builder from the failing log. If the
+latest automation merge broke it and the fix is not clear, open a revert PR of that merge instead; it is reviewed
+and gated like any other.
+
 **Day mode: triage.** Read the newest nightly and device results (`status`, and `auto-state`'s `nights/`).
+Also read the newest nightly browser run, which runs in CI and not on Osiris
+(`gh run list --workflow browser-nightly --limit 1`; on failure `gh run view <id> --log-failed`).
 For each red: a load red (passes alone) is noted in the summary and nothing more. A real failure gets a scout
 (`scout` agent) to find the cause from the log and the tree. A small, clear cause becomes an S fix piece built
 in this run; anything else becomes a tracker row in a small `work/`-only pull request.
@@ -73,11 +80,14 @@ follow "Order of work" in `scripts/auto/README.md`, which `next.steps` already a
 
 **Saturday night: plan intake.** The plan pull request (label `plan`) is answered before any building. Read
 every owner comment on it (any comment by `inkstrata` that is not a review or intake comment; the gate ignores
-everyone else's). Change the plan to answer each, or reply why not. If the plan changed, push, and have a reviewer on a model other than the one that edited it re-review
+everyone else's). Then read the plan pull request's `## Decisions` (`gh pr view <n> --json body`): each question's ticked option, or
+its `(default)` when none is ticked, is applied to the tracker and the plan (a row moved, removed or reworded; the
+Fable box taken as ticked or not) and listed in the intake comment under "Decisions applied". Change the plan to
+answer each comment, or reply why not. If the plan changed, push, and have a reviewer on a model other than the one that edited it re-review
 the change and post its marker for the new head. Then post the intake comment, body via `--body-file`:
 
 ```
-Intake: <what changed, or "no owner comments">.
+Intake: <what changed, or "no owner comments">. Decisions applied: <question: option (ticked|default), or none>.
 <!-- marxy-intake head=<40-hex head sha> run=<run-id> -->
 ```
 
@@ -107,7 +117,7 @@ branch on origin):
 - a step list that ends in `stop` means nothing is needed: write the summary and stop.
 
 Start each piece from the main checkout: `pnpm work start <branch> --from origin/main`, `<branch>` from the
-queue's Branch column (written without `agent/`, as in the tracker).
+queue's Branch column (written without `agent/`, as in the tracker; `next.steps` names it with the prefix, so drop it).
 
 **Fable** is used only when the week's plan pull request has its Fable box ticked by the owner, and only for
 the job and piece it names.

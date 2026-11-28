@@ -130,7 +130,17 @@ function planReasons(pr, lastResetAt, { automation, owner }) {
   return reasons;
 }
 
-export function evaluate(pr, { now = new Date(), ownerRules = [], lastResetAt } = {}) {
+/**
+ * Why nothing may merge while main's last finished ci run failed: a pull request merged on top of a red main is
+ * judged against a base nobody has checked. A run still going does not hold; a run that could not be read does,
+ * since the gate cannot tell red from green.
+ */
+export function mainRedReason(run, readable = true) {
+  if (!readable || !run) return "main's ci could not be read";
+  return ['failure', 'timed_out', 'startup_failure'].includes(String(run.conclusion ?? '').toLowerCase()) ? 'main is red: fix it first' : null;
+}
+
+export function evaluate(pr, { now = new Date(), ownerRules = [], lastResetAt, mainHold = null } = {}) {
   const reasons = [];
   const labels = (pr.labels ?? []).map((l) => String(typeof l === 'string' ? l : l?.name).toLowerCase());
   const author = authorMarker(pr.body);
@@ -153,6 +163,7 @@ export function evaluate(pr, { now = new Date(), ownerRules = [], lastResetAt } 
     reasons.push(`waits for the owner: CODEOWNERS paths ${owned.slice(0, 3).join(', ')}${more}`);
   }
   if (labels.includes('hold')) reasons.push('labelled hold');
+  if (mainHold) reasons.push(mainHold);
   if (pr.mergeStateStatus !== 'CLEAN') reasons.push(`merge state is ${pr.mergeStateStatus ?? 'unknown'}, not CLEAN`);
   // A plan is known by its branch as well as its label, so a missing label cannot skip the intake rule.
   if (labels.includes('plan') || String(pr.headRefName ?? '').startsWith('agent/plan-')) {

@@ -6,11 +6,12 @@
     { "id": "friday", "kind": "agent", "host": "osiris", "when": "5 14 * * 5", "skill": "night", "mode": "final", "model": "sonnet", "what": "the final sweep: spend what is left of the week before the 20:00 reset, up to 90% of the 5-hour limit" },
     { "id": "plan", "kind": "agent", "host": "osiris", "when": "15 8 * * 5", "skill": "plan-week", "model": "opus", "what": "the week's outcome, STATE and ledger, and next week's plan as a pull request before the 20:00 reset" },
     { "id": "tick", "kind": "script", "host": "osiris", "when": "*/30 * * * *", "command": "node scripts/auto/auto.mjs tick", "what": "merge gate (any hour) and dashboard" },
-    { "id": "nightly", "kind": "script", "host": "osiris", "when": "15 5 * * *", "command": "node scripts/auto/auto.mjs nightly", "what": "full verify of main with the browser suite and check:tauri, alone reruns, Windows install check" },
+    { "id": "nightly", "kind": "script", "host": "osiris", "when": "15 5 * * *", "command": "node scripts/auto/auto.mjs nightly", "what": "full verify of main (browser suite skipped: browser-nightly runs it in CI) with check:tauri, alone reruns, Windows install check" },
     { "id": "clean", "kind": "script", "host": "osiris", "when": "30 4 * * 0", "command": "node scripts/auto/auto.mjs clean", "what": "weekly: archive and remove old worktrees, leftover folders and branches, prune old logs and temporary folders; waits for the owner to be idle" },
     { "id": "device-macos", "kind": "script", "host": "eris", "when": "hourly, on power", "command": "node scripts/auto/auto.mjs device", "what": "macOS install check, weekly macOS browser suite, sleep-tainted runs retried, the weekly cleanup" },
     { "id": "device-linux", "kind": "script", "host": "set", "when": "hourly, on power", "command": "node scripts/auto/auto.mjs device", "what": "Linux AppImage install check from the nightly installers build, the weekly cleanup" },
     { "id": "installers", "kind": "ci", "when": "30 9 * * * UTC", "what": "GitHub Actions: Linux AppImage and deb from main" },
+    { "id": "browser-nightly", "kind": "ci", "when": "30 10 * * * UTC", "what": "GitHub Actions: every browser test file on a hosted Windows runner, nightly; the Osiris nightly skips the suite" },
     { "id": "browser-windows", "kind": "ci", "when": "0 10 * * 3 UTC", "what": "GitHub Actions: hosted Windows browser files, weekly" }
   ]
 }

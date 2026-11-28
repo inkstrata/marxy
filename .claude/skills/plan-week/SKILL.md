@@ -73,11 +73,9 @@ proposal it took, and why this week>
 ## Waiting on the owner
 
 - <rows and decisions, each one line>
-
-## Fable
-
-- [ ] Allow Fable for <job> this week: <what for, and why Sonnet and Opus are not enough>
 ```
+
+The Fable ask is a decision in the pull request body (section 4), not a section of the file.
 
 - Queue pieces come from the tracker in the order of "Order of work" in `scripts/auto/README.md` (carry-over, data
   loss, cause rows, then severity), then the build order a section sets out (Big files has one). First do a
@@ -90,8 +88,8 @@ proposal it took, and why this week>
   pieces. A week that landed all its queue gets about two more next time; one that landed under half gets
   fewer, and the Outcome says why.
 - **Fable** is asked for only for a piece that needs it (a design judgement Opus got wrong twice, a hard
-  proof). With no such piece the box stays, unticked, after "None asked this week." The runs use Fable only
-  when the owner has ticked the box on the plan's pull request.
+  proof), as a decision in the body (section 4). With no such piece it is not asked. The runs use Fable only
+  when the owner ticked it.
 
 **STATE.** Rewrite `work/STATE.md` for where `main` stands after this week, in its own form.
 
@@ -105,9 +103,20 @@ is rewritten here.
 
 1. Commit (`plan(week): <date>`), push `agent/plan-<date>`, and open it with
    `gh pr create --base main -R inkstrata/marxy --title "plan(week): <date>" --label plan --body-file <file>`.
-   The body: the goals, the queue, what waits for the owner, the Fable ask, and that the owner can comment or
-   push changes until Saturday's night run. Last line:
+   The body: the goals, the queue, that the owner can comment or push changes until Saturday's night run, and
+   a `## Decisions` section. Last line:
    `<!-- marxy-author run=plan-<YYYYMMDD>-<HHMM> model=opus -->`.
+   **Decisions.** One entry per open owner decision of the week: each row of `work/todo.md`'s "Waiting on" section,
+   each pull request the gate holds for the owner, and the Fable ask when there is one. Entry form, so the Saturday
+   intake can read it:
+
+   ```markdown
+   ### <Short question, one line>
+   - [ ] <option> (default)
+   - [ ] <option>
+   ```
+
+   The `(default)` option applies if nothing is ticked, so choose the safe one. Put the release decision first.
 2. Have it checked by a scout (Haiku) or a `reviewer` agent with `model: sonnet`, using the `review` skill:
    rows exist and are not taken, ids are not reused, branches are free, sizes fit, the outcome matches the
    merged pull requests. It posts the review comment and marker as any review does.

@@ -90,3 +90,8 @@ test('Last runs gives one line per job with a link, or says no run yet', () => {
   assert.ok(section.includes('- friday: no run yet') && section.includes('- plan: no run yet'));
   assert.ok(md.indexOf('# Marxy dashboard') < md.indexOf('## Last runs'));
 });
+
+test('Waiting for you leads with the open plan pull request', () => {
+  const out = render({ ...fixture, prs: [...fixture.prs, { number: 60, title: 'plan(week)', headRefName: 'agent/plan-2026-12-04', merge: false, reasons: [] }] });
+  assert.match(out, /## Waiting for you\n- Decisions to tick in the plan: #60/);
+});

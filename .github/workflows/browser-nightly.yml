@@ -1,0 +1,38 @@
+name: browser-nightly
+# Every browser test file on a hosted Windows runner, nightly, so the owner's machine does not run the suite itself
+# (the nightly script there skips it). Files known to fail on a hosted runner show up red here: the day run reads
+# this run's log and sorts load reds from real ones.
+on:
+  schedule:
+    - cron: "30 10 * * *" # 02:30 Pacific
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  browser:
+    runs-on: windows-latest
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - name: WebKit for the browser tests
+        run: pnpm exec playwright install webkit
+      - name: Browser tests
+        env:
+          MARXY_BROWSER_TESTS_REQUIRED: "1"
+          MARXY_TIMINGS: ${{ runner.temp }}/verify/browser-timings.jsonl
+        # --tier full with --only browser runs every browser test file, whatever the verify map says changed.
+        run: node scripts/verify.mjs --tier full --only browser --jobs 2 --no-lock --logs "$RUNNER_TEMP/verify"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-nightly-logs
+          path: ${{ runner.temp }}/verify
+          if-no-files-found: ignore
