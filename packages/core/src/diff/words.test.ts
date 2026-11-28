@@ -28,6 +28,21 @@ test('a rewrite, an unchanged line and a change only in space are left whole', (
   assert.deepEqual(pairChangedLines(['a  b c'], ['a b c']), []);
 });
 
+test('tokens stop at the limit', () => {
+  assert.deepEqual(wordTokens('a b c d', 3), ['a', ' ', 'b']);
+  assert.deepEqual(wordTokens('a b', 10), ['a', ' ', 'b']);
+});
+
+test('a run of very long changed lines is left whole, in time bounded by the token cap', () => {
+  const long = (w: string): string => `${w} `.repeat(200_000);
+  const dels = Array.from({ length: 40 }, (_, i) => long(`old${i}`));
+  const adds = Array.from({ length: 40 }, (_, i) => long(`new${i}`));
+  const start = performance.now();
+  assert.deepEqual(pairChangedLines(dels, adds), []);
+  // Tokenising every line whole is about 32 million tokens; capped it is a few thousand. Generous for a hosted runner.
+  assert.ok(performance.now() - start < 1000, `took ${Math.round(performance.now() - start)} ms`);
+});
+
 test('a removed line is used once', () => {
   const pairs = pairChangedLines(['one two three four'], ['one two three five', 'one two three six']);
   assert.equal(pairs.length, 1);

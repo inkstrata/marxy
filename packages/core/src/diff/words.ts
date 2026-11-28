@@ -2,9 +2,19 @@
 // with the removed line most like it, and the words the two do not share are the ones to mark. A line with no likely
 // partner is left whole: a rewrite is not a word change. Pure; no DOM.
 
-/** Words, runs of space, and each other character on its own. */
-export function wordTokens(text: string): string[] {
-  return text.match(/\s+|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu) ?? [];
+const TOKEN = /\s+|[\p{L}\p{N}_]+|[^\s\p{L}\p{N}_]/gu;
+
+/** Words, runs of space, and each other character on its own. It stops after `limit` tokens, so a long line costs the limit. */
+export function wordTokens(text: string, limit = Infinity): string[] {
+  const out: string[] = [];
+  const re = new RegExp(TOKEN.source, TOKEN.flags);
+  // Every alternative matches at least one character, so the loop always advances.
+  while (out.length < limit) {
+    const m = re.exec(text);
+    if (m === null) break;
+    out.push(m[0]);
+  }
+  return out;
 }
 
 export interface WordPair {
@@ -54,8 +64,9 @@ function common(a: readonly string[], b: readonly string[]): { keepA: boolean[];
 /** The pairs to mark between a run of removed lines and the run of added lines after it (marker characters left off). */
 export function pairChangedLines(dels: readonly string[], adds: readonly string[]): WordPair[] {
   if (dels.length === 0 || adds.length === 0 || dels.length > MAX_RUN || adds.length > MAX_RUN) return [];
-  const delTokens = dels.map(wordTokens);
-  const addTokens = adds.map(wordTokens);
+  // One token past the cap is enough to know a line is too long to read word by word.
+  const delTokens = dels.map((line) => wordTokens(line, MAX_TOKENS + 1));
+  const addTokens = adds.map((line) => wordTokens(line, MAX_TOKENS + 1));
   const words = (ts: readonly string[]): number => ts.filter((t) => !isSpace(t)).length;
   const used = new Set<number>();
   const pairs: WordPair[] = [];
