@@ -5,6 +5,8 @@
 .DESCRIPTION
   "Marxy - tick"     every 30 minutes, all day: node scripts/auto/auto.mjs tick (at most 25 minutes per run).
   "Marxy - nightly"  daily 05:15, after the night's agents: node scripts/auto/auto.mjs nightly (at most 4 hours).
+  "Marxy - clean"    Sunday 04:30: node scripts/auto/auto.mjs clean (at most 2 hours): old worktrees, branches and logs.
+  The nightly and clean tasks wait until the owner has been idle for 10 minutes (up to 8 hours); all run at below-normal priority.
 
   Both run hidden through conhost --headless, from the main checkout (two folders above this script), with
   stdout and stderr appended to ~\.local\state\fleet\marxy\logs\<tick|nightly>.log. Same pattern as
@@ -23,9 +25,10 @@ $logs = Join-Path $HOME '.local\state\fleet\marxy\logs'
 
 $tick    = 'Marxy - tick'
 $nightly = 'Marxy - nightly'
+$clean   = 'Marxy - clean'
 
 function Show-Status {
-    foreach ($n in $tick, $nightly) {
+    foreach ($n in $tick, $nightly, $clean) {
         $t = Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue
         if (-not $t) { Write-Host ("{0,-16} not registered" -f $n); continue }
         $i = $t | Get-ScheduledTaskInfo
@@ -36,7 +39,7 @@ function Show-Status {
 if ($Status) { Show-Status; return }
 
 if ($Remove) {
-    foreach ($n in $tick, $nightly) {
+    foreach ($n in $tick, $nightly, $clean) {
         if (Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue) {
             Stop-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue
             Unregister-ScheduledTask -TaskName $n -Confirm:$false
@@ -57,9 +60,15 @@ function New-MarxyAction([string]$command) {
     $line = '--headless cmd.exe /d /s /c ""{0}" "{1}" {2} >> "{3}" 2>&1"' -f $node, $script, $command, $log
     New-ScheduledTaskAction -Execute 'conhost.exe' -WorkingDirectory $repo -Argument $line
 }
-function New-MarxySettings([TimeSpan]$limit) {
-    New-ScheduledTaskSettingsSet -ExecutionTimeLimit $limit -MultipleInstances IgnoreNew `
-        -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+function New-MarxySettings([TimeSpan]$limit, [switch]$WhenIdle) {
+    # Priority 7 is below normal: a build never competes with a game.
+    $set = @{ ExecutionTimeLimit = $limit; MultipleInstances = 'IgnoreNew'; Priority = 7 }
+    if ($WhenIdle) {
+        # Windows itself holds the task until the owner has been away ten minutes, and waits up to eight hours for
+        # that. It is not stopped when the owner returns: device.mjs checks between its own steps.
+        $set += @{ RunOnlyIfIdle = $true; IdleDuration = (New-TimeSpan -Minutes 10); IdleWaitTimeout = (New-TimeSpan -Hours 8); DontStopOnIdleEnd = $true }
+    }
+    New-ScheduledTaskSettingsSet @set -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 }
 
 $tickTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 30)
@@ -70,6 +79,12 @@ Write-Host "registered $tick"
 
 $nightTrigger = New-ScheduledTaskTrigger -Daily -At '05:15'
 Register-ScheduledTask -TaskName $nightly -Action (New-MarxyAction 'nightly') -Trigger $nightTrigger -Principal $principal `
-    -Settings (New-MarxySettings (New-TimeSpan -Hours 4)) -Force `
+    -Settings (New-MarxySettings (New-TimeSpan -Hours 4) -WhenIdle) -Force `
     -Description 'Marxy nightly full verify and installer check on origin/main. marxy/scripts/auto/osiris.ps1' | Out-Null
 Write-Host "registered $nightly"
+
+$cleanTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At '04:30'
+Register-ScheduledTask -TaskName $clean -Action (New-MarxyAction 'clean') -Trigger $cleanTrigger -Principal $principal `
+    -Settings (New-MarxySettings (New-TimeSpan -Hours 2) -WhenIdle) -Force `
+    -Description 'Marxy weekly cleanup of old worktrees, branches and logs. marxy/scripts/auto/osiris.ps1' | Out-Null
+Write-Host "registered $clean"

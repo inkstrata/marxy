@@ -80,9 +80,9 @@ for (const [name, over, reason] of failing) {
   });
 }
 
-test('outside merge hours', () => {
-  const r = run(validPr(), { now: la('2026-11-24T14:05:00') });
-  assert.deepEqual(r, { merge: false, reasons: ['outside merge hours'] });
+test('merges at any hour', () => {
+  assert.equal(run(validPr(), { now: la('2026-11-24T14:05:00') }).merge, true);
+  assert.equal(run(validPr(), { now: la('2026-11-24T22:00:00') }).merge, true);
 });
 
 test('every failed reason is listed', () => {

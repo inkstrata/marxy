@@ -7,10 +7,11 @@
 // (exit 0); a non-zero exit means the run itself broke.
 import { spawn, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { constants, setPriority, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { git, workspace } from '../lib/workspace.mjs';
+import { presence } from './lib/presence.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MIN = 60e3;
@@ -18,6 +19,7 @@ const HOUR = 3600e3;
 const FRESH_HOURS = 20;
 const BROWSER_DAYS = 7;
 const WIN = process.platform === 'win32';
+const BUSY = 'owner using the machine';
 
 // ---- pure helpers (tested) -------------------------------------------------------------------------------------------
 
@@ -66,9 +68,9 @@ export function sleepInWindow(text, start, end) {
   return out;
 }
 
-/** A device result counts as good when its install check passed and no part of it slept. */
+/** A device result counts as good when its install check passed, no part of it slept and no step was skipped. */
 export function deviceOk(r) {
-  return !!r && r.install?.ok === true && !r.slept;
+  return !!r && r.install?.ok === true && !r.slept && !r.skipped?.length;
 }
 
 /** Newest result is good and under 20 hours old. */
@@ -124,9 +126,10 @@ export function summarizeVerify(summary, code) {
 }
 
 /** The published result. `slept` is only present for device runs. */
-export function makeResult({ os, sha, startedAt, finishedAt, verify = null, reruns = [], install, slept }) {
+export function makeResult({ os, sha, startedAt, finishedAt, verify = null, reruns = [], install, slept, skipped = [] }) {
   const r = { os, sha, startedAt: startedAt.toISOString(), finishedAt: finishedAt.toISOString(), verify, reruns, install };
   if (slept !== undefined) r.slept = slept;
+  if (skipped.length) r.skipped = skipped;
   return r;
 }
 
@@ -162,6 +165,17 @@ export function exec(cmd, args, { cwd, env, log, shell = false, timeoutMs } = {}
   });
 }
 
+/** Below-normal priority for this process; children inherit it on Windows and Linux. */
+function lowerPriority() {
+  try { setPriority(constants.priority.PRIORITY_BELOW_NORMAL); } catch {}
+}
+
+/** The reason the owner is using the machine, or null. `deps.presence` lets tests stand in. */
+function ownerBusy(deps = {}) {
+  const p = (deps.presence ?? presence)();
+  return p.busy ? p.why.join('; ') : null;
+}
+
 function readJson(file) {
   try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return null; }
 }
@@ -180,10 +194,11 @@ function lastLine(text) {
 }
 
 /** Re-runs each red browser file alone (from the worktree root) and gives the verdicts. */
-async function rerunReds(verifyRows, wt, logs) {
+async function rerunReds(verifyRows, wt, logs, halted = () => null) {
   const row = verifyRows.find(r => r.name === 'browser' && r.status !== 'pass');
   if (!row?.log || !existsSync(row.log)) return [];
   const files = failedBrowserFiles(readFileSync(row.log, 'utf8'));
+  if (files.length && halted()) return null;
   const runOnce = async f => (await exec(process.execPath, ['scripts/browser-tests.mjs', f], { cwd: wt, log: join(logs, 'rerun.log'), timeoutMs: 15 * MIN })).code === 0;
   const out = [];
   for (const f of files) out.push(await rerunAlone(f, runOnce));
@@ -209,6 +224,9 @@ function installedExe() {
 
 export async function nightly(args = [], deps = {}) {
   if (!WIN) { console.log('nightly: Windows only'); return 0; }
+  lowerPriority();
+  const stop = ownerBusy(deps);
+  if (stop) { console.log(`nightly: stopped, ${stop}`); return 0; }
   const state = await loadState(deps);
   const startedAt = new Date();
   const date = pacificDate(startedAt);
@@ -232,21 +250,34 @@ export async function nightly(args = [], deps = {}) {
   const pnpm = args => exec('pnpm', args, { cwd: wt, shell: true, log: join(logs, 'install.log'), timeoutMs: 30 * MIN });
   let i = await pnpm(['install', '--offline']);
   if (i.code !== 0) i = await pnpm(['install']);
+  // Checked again before each long step; once the owner is back, the rest is skipped and tomorrow retries it.
+  let busy = null;
+  const halted = () => (busy ||= ownerBusy(deps));
+  const skipped = [];
   let verify;
   let reruns = [];
   if (i.code !== 0) {
     // Nothing to verify without dependencies; the installer below installs its own.
     verify = { ok: false, steps: [], reason: timeoutReason(i, 30) ?? 'pnpm install failed' };
+  } else if (halted()) {
+    verify = { ok: null, steps: [], skipped: BUSY };
+    skipped.push('verify');
   } else {
-    const v = await exec(process.execPath, ['scripts/verify.mjs', '--tier', 'full', '--logs', logs], { cwd: wt, log: join(logs, 'verify.out'), timeoutMs: 3 * HOUR });
+    const v = await exec(process.execPath, ['scripts/verify.mjs', '--tier', 'full', '--logs', logs], { cwd: wt, env: { MARXY_NICE: '1' }, log: join(logs, 'verify.out'), timeoutMs: 3 * HOUR });
     const summary = readJson(join(logs, 'summary.json'));
     verify = summarizeVerify(summary, v.code);
     if (v.timedOut) verify = { ...verify, ok: false, reason: timeoutReason(v, 180) };
-    else reruns = await rerunReds(summary?.rows ?? [], wt, logs);
+    else {
+      const r = await rerunReds(summary?.rows ?? [], wt, logs, halted);
+      if (r) reruns = r; else skipped.push('reruns');
+    }
   }
 
   let install;
-  if (marxyRunning()) {
+  if (halted()) {
+    install = { ok: null, skipped: BUSY };
+    skipped.push('install');
+  } else if (marxyRunning()) {
     // The owner may have the app open and the installer would stop it. Not a failure, but not good either, so tomorrow retries.
     install = { ok: null, skipped: 'Marxy is running' };
   } else {
@@ -267,7 +298,9 @@ export async function nightly(args = [], deps = {}) {
       notes: `${timeoutReason(inst, 60) ?? `installer exit ${inst.code}`}; kept ${kept}; installed exe ${existsSync(exe) ? exe : 'missing'}; smoke ${smoke}`,
     };
   }
-  const result = makeResult({ os: 'windows', sha, startedAt, finishedAt: new Date(), verify, reruns, install });
+  const result = makeResult({ os: 'windows', sha, startedAt, finishedAt: new Date(), verify, reruns, install, skipped });
+  // Nothing ran: there is nothing to publish.
+  if (skipped.includes('verify') && skipped.includes('install')) { console.log(`nightly: stopped, ${busy}`); return 0; }
   await publishResult(state, result, date);
   console.log(`nightly: ${sha.slice(0, 7)} verify ${verify.ok ? 'ok' : 'red'}, ${reruns.length} rerun(s), install ${install.ok === null ? 'skipped' : install.ok ? 'ok' : 'failed'}`);
   return 0;
@@ -280,7 +313,7 @@ function pmsetLog() {
   return r.stdout ?? '';
 }
 
-async function macCheck(prev, logs) {
+async function macCheck(prev, logs, halted) {
   const ws = workspace(ROOT);
   const main = ws.main;
   const awake = (...a) => ['caffeinate', ['-dimsu', ...a]];
@@ -319,11 +352,14 @@ async function macCheck(prev, logs) {
 
   let verify = null;
   let lastBrowser = prev?.lastBrowser;
-  if (browserDue(prev)) {
+  const skipped = [];
+  if (browserDue(prev) && halted()) {
+    skipped.push('browser');
+  } else if (browserDue(prev)) {
     const b0 = new Date();
     await exec('pnpm', ['install', '--frozen-lockfile', '--offline'], { cwd: main, shell: true, log: join(logs, 'install.log'), timeoutMs: 30 * MIN });
     const [c3, a3] = awake(process.execPath, 'scripts/verify.mjs', '--only', 'browser', '--logs', join(logs, 'browser'));
-    const v = await exec(c3, a3, { cwd: main, log: join(logs, 'browser.out'), timeoutMs: 2 * HOUR });
+    const v = await exec(c3, a3, { cwd: main, env: { MARXY_NICE: '1' }, log: join(logs, 'browser.out'), timeoutMs: 2 * HOUR });
     const b1 = new Date();
     verify = summarizeVerify(readJson(join(logs, 'browser', 'summary.json')), v.code);
     if (v.timedOut) verify = { ...verify, ok: false, reason: timeoutReason(v, 120) };
@@ -334,7 +370,7 @@ async function macCheck(prev, logs) {
       lastBrowser = { at: b1.toISOString(), ok: verify.ok };
     }
   }
-  const result = makeResult({ os: 'macos', sha, startedAt, finishedAt: new Date(), verify, install, slept });
+  const result = makeResult({ os: 'macos', sha, startedAt, finishedAt: new Date(), verify, install, slept, skipped });
   if (lastBrowser) result.lastBrowser = lastBrowser;
   return result;
 }
@@ -409,6 +445,7 @@ async function linuxCheck() {
 }
 
 export async function device(args = [], deps = {}) {
+  lowerPriority();
   const os = process.platform === 'darwin' ? 'macos' : process.platform === 'linux' ? 'linux' : null;
   if (!os) { console.log('device: macOS and Linux only'); return 0; }
   const state = await loadState(deps);
@@ -418,13 +455,22 @@ export async function device(args = [], deps = {}) {
   const onPower = os === 'macos' ? macOnAc(spawnSync('pmset', ['-g', 'batt'], { encoding: 'utf8' }).stdout ?? '') : linuxOnExternalPower();
   const lowPower = os === 'macos' && macLowPower(spawnSync('pmset', ['-g'], { encoding: 'utf8' }).stdout ?? '');
   const d = shouldRun({ force: args.includes('--force'), onPower, lowPower, prev });
-  if (!d.run) { console.log(`device: skip, ${d.why}`); return 0; }
+  // The weekly cleanup rides on this hourly run, on power only; cleanNow itself stands down when the owner is there.
+  const sweep = async () => {
+    if (!onPower || lowPower) return;
+    const { cleanDue, cleanNow } = await import('./lib/clean.mjs');
+    if (cleanDue(JSON.parse(state.readPublished(`clean/${os}.json`) ?? 'null'))) (deps.clean ?? cleanNow)();
+  };
+  if (!d.run) { console.log(`device: skip, ${d.why}`); await sweep(); return 0; }
+  const stop = ownerBusy(deps);
+  if (stop) { console.log(`device: stopped, ${stop}`); return 0; }
   const date = pacificDate();
   const logs = join(state.stateDir(), 'logs', `device-${date}`);
   mkdirSync(logs, { recursive: true });
-  const result = os === 'macos' ? await macCheck(prev, logs) : await linuxCheck();
+  const result = os === 'macos' ? await macCheck(prev, logs, () => ownerBusy(deps)) : await linuxCheck();
   await publishResult(state, result, date);
   console.log(`device: ${os} ${result.sha.slice(0, 7)} install ${result.install.ok === null ? 'inconclusive (slept)' : result.install.ok ? 'ok' : 'failed'}`);
+  await sweep();
   return 0;
 }
 

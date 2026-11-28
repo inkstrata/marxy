@@ -120,3 +120,9 @@ test('a command past its limit is killed and reported', async () => {
 test('a skipped install is not good', () => {
   assert.equal(deviceOk({ finishedAt: new Date().toISOString(), install: { ok: null, skipped: 'Marxy is running' } }), false);
 });
+
+test('a run that skipped steps for the owner is not good', () => {
+  const r = { finishedAt: new Date().toISOString(), install: { ok: true }, skipped: ['reruns'] };
+  assert.equal(deviceOk(r), false);
+  assert.equal(deviceOk({ ...r, skipped: undefined }), true);
+});

@@ -4,15 +4,19 @@ import fs from 'node:fs';
 import { readJsonl, appendJsonl, publish, attribution } from './lib/state.mjs';
 
 const out = (o) => console.log(JSON.stringify(o, null, 2));
-const flag = (args, name) => args[args.indexOf(name) + 1];
+const flag = (args, name) => { const i = args.indexOf(name); return i < 0 ? undefined : args[i + 1]; };
 const first = (e) => String(e.stderr || e.message).split('\n')[0];
 const newestUsage = () => readJsonl('usage', { limit: 20 }).filter((r) => r.usage).pop() || null;
 
-async function decideNow(usage, now = new Date()) {
+async function decideNow(usage, job, now = new Date()) {
   const { decide } = await import('./lib/governor.mjs');
   const { lastReset } = await import('./lib/merge-policy.mjs');
   const ownerUsedPct = usage ? attribution(readJsonl('runs'), usage.weekly.pct, lastReset(now)).ownerPct : null;
-  out(decide({ now, usage, ownerUsedPct }));
+  const d = decide({ now, usage, ownerUsedPct, profile: job });
+  // The owner at the machine (typing, a game, a full-screen app) outranks the budget: start nothing new.
+  const { presence } = await import('./lib/presence.mjs');
+  const p = presence();
+  out(p.busy ? { ...d, allowed: false, reason: `owner is using this machine: ${p.why.join('; ')}`, presence: p } : d);
 }
 
 async function usage(args) {
@@ -21,13 +25,13 @@ async function usage(args) {
   const raw = JSON.parse(fs.readFileSync(src === '-' ? 0 : src, 'utf8'));
   const u = fromGetUsage(raw.plan ?? raw);
   if (u) appendJsonl('usage', { at: new Date().toISOString(), usage: u });
-  await decideNow(u);
+  await decideNow(u, flag(args, '--job'));
 }
 
 // A reading older than 15 minutes is not trusted, so the governor runs blind.
-async function gate() {
+async function gate(args = []) {
   const row = newestUsage();
-  await decideNow(row && Date.now() - new Date(row.at) <= 15 * 60000 ? row.usage : null);
+  await decideNow(row && Date.now() - new Date(row.at) <= 15 * 60000 ? row.usage : null, flag(args, '--job'));
 }
 
 function run([event, ...args]) {
@@ -87,6 +91,7 @@ function record([kind, file]) {
 const [cmd, ...rest] = process.argv.slice(2);
 const commands = {
   usage, gate, run, status, merge, dashboard, tick, record,
+  clean: async () => { (await import('./lib/clean.mjs')).cleanNow(); },
   nightly: async (a) => (await import('./device.mjs')).nightly(a),
   device: async (a) => (await import('./device.mjs')).device(a),
 };

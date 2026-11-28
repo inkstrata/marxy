@@ -193,3 +193,8 @@ test('a piece of work from start to cleared, in a workspace of its own', () => {
     rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
   }
 });
+
+test('clean takes --stale', () => {
+  assert.equal(parseArgs(['clean', '--stale', '--apply']).stale, true);
+  assert.equal(parseArgs(['clean']).stale, false);
+});

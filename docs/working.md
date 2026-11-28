@@ -173,8 +173,7 @@ programs) stays in the tracker under its own heading until someone has tried it.
 `main` moves only through a pull request. In scheduled runs the merge gate, `node scripts/auto/auto.mjs tick`,
 merges it, and no agent does: the pull request is not a draft, its head is `agent/*`, an approve marker for
 its current head comes from a run and model other than its author's, the `ci` check is green, it touches no
-path in `.github/CODEOWNERS`, it has no `hold` label, GitHub calls it clean, and the time is between 00:00 and
-14:00 Pacific. Anything else waits for the owner. In a session the owner drives, the owner merges. A
+path in `.github/CODEOWNERS`, it has no `hold` label, GitHub calls it clean (merges happen at any hour). Anything else waits for the owner. In a session the owner drives, the owner merges. A
 run lands with `pnpm verify --tier full` behind it. The pull request carries the tracker change (its rows
 removed), and for a run the new `work/ledger.md` row and the rewritten `work/STATE.md`. Then:
 
@@ -184,12 +183,23 @@ git fetch --prune                       # merged branches lose their upstream
 pnpm work todo --check                  # names any row whose branch has landed
 pnpm work clean                         # lists the worktrees and branches that have landed
 pnpm work clean --apply                 # removes them
+pnpm work clean --stale                 # also lists old worktrees, leftover folders and branches safe elsewhere
+pnpm work clean --stale --apply         # archives what is worth keeping, then removes them
 ```
 
 `clean` touches only `agent/` branches that have landed (every commit in `main`, or upstream gone). It
 keeps a worktree with uncommitted or untracked files and says which files, keeps a branch that sits on
 `main`'s own commit or that nothing has been committed on since it was made (work about to begin, wherever
 it was cut), and never touches a worktree on no branch. `--keep a,b` holds back the named ones.
+
+`--stale` adds, after a `git fetch --prune`: worktrees (other than the main checkout and `<checkout>-wt/nightly`) whose
+newest commit is over 30 days old; folders in `<checkout>-wt/` that git does not know and nothing has touched for 14
+days; and local branches with no worktree whose tip is on `origin/main` or under an `archive/*` tag. A worktree
+whose tip is on no origin branch and under no archive tag is first tagged `archive/branch/<name>` and pushed.
+Uncommitted changes are saved as `changes.patch` and `untracked.tar` (a folder as a tar without `node_modules` and
+`target`) in `~/.local/state/fleet/marxy/archive/worktrees/<name>-<date>/`, and the tar is read back before anything
+is deleted. A worktree with a commit from the last 30 days is never touched by `--stale`. The automation runs this
+weekly (`auto.mjs clean`, see `scripts/auto/README.md`).
 
 ## The schedule
 
@@ -203,7 +213,8 @@ jobs are `node scripts/auto/auto.mjs <command>` run by the machine's scheduler. 
 | daily 05:15 | `nightly` (script) | full verify of `main` with the browser suite and `check:tauri`, alone reruns, the Windows install check |
 | daily 08:45 to 13:30 | `day` (agent) | triage of the nightly and device results, then more building |
 | Friday 08:15 | `plan` (agent) | the week's outcome, `STATE.md`, the ledger row, and next week's plan as a pull request |
-| every 30 minutes | `tick` (script) | the merge gate (00:00 to 14:00) and the dashboard issue |
+| Sunday 04:30 | `clean` (script) | `pnpm work clean --stale --apply`, then old logs and temporary folders |
+| every 30 minutes | `tick` (script) | the merge gate (any hour) and the dashboard issue |
 | hourly, on power | device scripts | install checks on Eris and Set |
 
 The owner's window, 14:00 to midnight, has no agent work. The week starts at the usage reset, Friday 20:00:
@@ -271,7 +282,7 @@ answered. Answers are acted on in the tracker: a row leaves Waiting with its dec
 | `pnpm work init` | makes `<checkout>-wt/`, `builds/`, and `work/todo.md` if the tree has none; leaves what exists |
 | `pnpm work start <name> [--from <ref>] [--no-install]` | branch `agent/<name>` and worktree `<checkout>-wt/<name>` |
 | `pnpm work list [--dirty]` | every worktree: branch, commit, state (`open`, `merged`, `unstarted`, `at-base`, `detached`, `gone`), and with `--dirty` its uncommitted changes |
-| `pnpm work clean [--apply] [--keep a,b]` | merged worktrees and branches; lists them, and removes them with `--apply` |
+| `pnpm work clean [--apply] [--keep a,b] [--stale]` | merged worktrees and branches; lists them, and removes them with `--apply`; `--stale` adds worktrees with no commit for 30 days, leftover folders and branches safe elsewhere, archived first |
 | `pnpm work todo [--check] [--file <path>]` | the tracker's rows against the branches |
 | `pnpm work installer [<arguments>]` | Windows: `scripts/installer-windows.ps1` with the checkout's paths; everything after `installer` goes to it unchanged, a `--` first is dropped |
 | `pnpm work ask [list\|new\|build\|serve\|read] <set>` | questions for the owner and their answers ([above](#questions-for-the-owner)); everything after `ask` goes to it |

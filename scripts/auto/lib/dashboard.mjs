@@ -66,7 +66,7 @@ function waiting(d) {
 // One line per device: the install check, the Windows verify and its reruns, and whether a sleep spoiled it.
 function deviceLine(os, r, now) {
   if (!r) return `- ${os}: no data yet`;
-  const state = r.slept ? 'inconclusive (slept)' : r.install?.skipped ? `skipped (${r.install.skipped})` : r.install?.ok ? 'ok' : 'failed';
+  const state = r.slept ? 'inconclusive (slept)' : r.skipped?.length ? `partial (skipped ${r.skipped.join(', ')}: owner using the machine)` : r.install?.skipped ? `skipped (${r.install.skipped})` : r.install?.ok ? 'ok' : 'failed';
   const real = (r.reruns || []).filter((x) => x.verdict === 'real').length;
   const verify = r.verify ? `, verify ${r.verify.ok ? 'ok' : 'failed'}${real ? ` (${real} real reds)` : ''}` : '';
   const note = r.install?.notes ? `, ${short(String(r.install.notes), 70)}` : '';
@@ -77,6 +77,7 @@ function health(d) {
   return [
     d.ci ? `- main CI: ${d.ci.conclusion || d.ci.status || 'unknown'}, ${age(d.ci.createdAt, d.now)} ago` : '- main CI: no data yet',
     ...['windows', 'macos', 'linux'].map((os) => deviceLine(os, d.devices?.[os], d.now)),
+    ...['windows', 'macos', 'linux'].filter((os) => d.clean?.[os]).map((os) => `- last cleanup ${os}: ${age(d.clean[os].at, d.now)} ago`),
   ];
 }
 
@@ -151,6 +152,8 @@ export async function collect({ root = ROOT, now = new Date() } = {}) {
   // The nightly and device runs publish their newest result per OS as devices/<os>.json.
   const devices = {};
   for (const os of ['windows', 'macos', 'linux']) devices[os] = quiet(() => JSON.parse(state.readPublished(`devices/${os}.json`)), null);
+  const clean = {};
+  for (const os of ['windows', 'macos', 'linux']) clean[os] = quiet(() => JSON.parse(state.readPublished(`clean/${os}.json`)), null);
   const usage = state.readJsonl('usage', { limit: 1 }).pop() || null;
   return {
     now: now.toISOString(),
@@ -160,6 +163,7 @@ export async function collect({ root = ROOT, now = new Date() } = {}) {
     waitingOnOwner: tableRows(read('work/todo.md', ''), 'Waiting on '),
     ci: quiet(() => gh.mainCi(), null),
     devices,
+    clean,
     usage,
     budget: state.attribution(state.readJsonl('runs'), usage?.usage?.weekly?.pct, policy.lastReset(now)),
     jobs: JSON.parse(read('scripts/auto/schedule.json', '{"jobs":[]}')).jobs,

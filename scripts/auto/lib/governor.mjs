@@ -10,6 +10,9 @@ export const POLICY = {
   reset: { weekday: 5, hour: 20 },
   slots: [{ id: 'night', hour: 0, minute: 20 }, { id: 'day', hour: 8, minute: 45 }],
   blind: { maxBuilders: 2, maxHours: 3 },
+  // Job profiles other than the default night/day/research-night rules. research-now serves requests the owner
+  // marked "run now": any hour, but a stricter 5-hour line so that the owner coming back still has room.
+  profiles: { 'research-now': { ignoreWindow: true, fiveHour: { soft: 60, hard: 70 }, maxHours: 3 } },
 };
 
 const HOUR = 3600e3;
@@ -85,27 +88,32 @@ export function fromGetUsage(plan) {
 
 const round1 = (n) => Math.round(n * 10) / 10;
 
-export function decide({ now, usage, ownerUsedPct = null, policy = POLICY }) {
+export function decide({ now, usage, ownerUsedPct = null, policy = POLICY, profile = 'night' }) {
+  const prof = policy.profiles?.[profile];
+  const line = prof?.fiveHour ?? policy.fiveHour;
   const out = {
     allowed: false, reason: '', noNewAgents: false, stopAt: null, allowancePct: null,
     sweep: false, blind: usage == null, reservePct: null, headroomPct: null,
   };
   const refuse = (reason) => ({ ...out, allowed: false, reason });
   const l = localParts(now, policy.tz);
-  if (l.hour >= policy.ownerWindow.start && l.hour < policy.ownerWindow.end) return refuse('owner window');
+  if (!prof?.ignoreWindow && l.hour >= policy.ownerWindow.start && l.hour < policy.ownerWindow.end) return refuse('owner window');
 
   // The owner's day starts at 14:00, and a 5-hour block running into it would eat their budget.
   const cutoff = zonedTime(l.year, l.month, l.day, policy.lastBlockEnd, 0, policy.tz);
   const fh = usage?.fiveHour;
   const resets = fh?.resetsAt ? new Date(fh.resetsAt) : null;
   const active = Boolean(resets && resets > now && fh.pct > 0);
-  if (active && resets > cutoff) return refuse('block reaches the owner window');
-  if (!active && now.getTime() + 5 * HOUR > cutoff.getTime()) return refuse('a new block would reach the owner window');
+  if (!prof?.ignoreWindow && active && resets > cutoff) return refuse('block reaches the owner window');
+  if (!prof?.ignoreWindow && !active && now.getTime() + 5 * HOUR > cutoff.getTime()) return refuse('a new block would reach the owner window');
   // Once the current block expires, the next message would open a new one that crosses 14:00.
   let stopAt = cutoff;
   if (active && resets.getTime() + 5 * HOUR > cutoff.getTime() && resets < cutoff) stopAt = resets;
+  if (prof?.ignoreWindow) stopAt = new Date(now.getTime() + prof.maxHours * HOUR);
   out.stopAt = stopAt.toISOString();
 
+  // A run in the owner's own hours needs the meter to protect their allowance; blind is for the quiet night only.
+  if (!usage && prof?.ignoreWindow) return refuse(`${profile} needs a usage reading`);
   if (!usage) {
     const capEnd = new Date(Math.min(stopAt.getTime(), now.getTime() + policy.blind.maxHours * HOUR));
     return {
@@ -114,8 +122,8 @@ export function decide({ now, usage, ownerUsedPct = null, policy = POLICY }) {
     };
   }
 
-  if (fh.pct >= policy.fiveHour.hard) return refuse('5-hour hard stop');
-  out.noNewAgents = fh.pct >= policy.fiveHour.soft;
+  if (fh.pct >= line.hard) return refuse('5-hour hard stop');
+  out.noNewAgents = fh.pct >= line.soft;
 
   const w = policy.weekly;
   const weeklyPct = usage.weekly.pct;

@@ -16,7 +16,8 @@ commands to GitHub take `GH_TOKEN=$(gh auth token -u inkstrata)` (PowerShell:
 3. Update every doc that describes the changed behaviour, in the same commits. Register a new browser test
    file in `scripts/verify-map.json`; new `data-marxy-*`, `marxy:` events, marks or `--marxy-*` in
    `scripts/registry.json`.
-4. `pnpm verify --tier changed` must pass. Browser tests with `--jobs 2` at most. Don't edit source while
+4. `MARXY_NICE=1 pnpm verify --tier changed` must pass (PowerShell: `$env:MARXY_NICE = '1'; pnpm verify --tier changed`);
+   run browser test batches the same way, so the owner's machine stays responsive. Browser tests with `--jobs 2` at most. Don't edit source while
    browser tests run. If a browser file fails, run it alone before calling it load.
 5. `check-scale` runs in `pnpm check`: read AGENTS.md "Big files are ordinary", `docs/big-files.md` and the
    `big-files` skill. A bounded shape gets `// scale: <why>`; `--write` records a drop. Never raise a

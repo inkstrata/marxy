@@ -28,6 +28,7 @@ const fixture = {
     windows: { os: 'windows', finishedAt: '2026-11-28T14:30:00Z', install: { ok: true }, verify: { ok: false }, reruns: [{ file: 'a', verdict: 'real' }, { file: 'b', verdict: 'load' }] },
     macos: { os: 'macos', finishedAt: '2026-11-28T16:00:00Z', install: { ok: true }, slept: true },
   },
+  clean: { windows: { at: '2026-11-26T18:00:00Z', removed: 3, archived: 1 } },
   usage: { at: '2026-11-28T17:30:00Z', usage: { fiveHour: { pct: 12 }, weekly: { pct: 41.25 }, fable: { pct: 3 } } },
   budget: { autoPct: 6, ownerPct: 35.25, totalPct: 41.25 },
   jobs: [{ id: 'night', kind: 'agent', when: '20 0 * * *' }, { id: 'tick', kind: 'script', when: '*/30 * * * *' }],

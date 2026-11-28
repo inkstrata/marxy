@@ -142,4 +142,4 @@ About the machines' workspaces, not this repository.
 
 | # | What | State |
 | --- | --- | --- |
-| H6 | About 570 worktrees beside the Mac checkout are from the earlier architecture, 93 with uncommitted edits, and its main checkout holds 345 untracked files under `orchestration/` | After the tag: a patch per dirty worktree, then remove; every branch is tagged `archive/branch/<name>`; never `git clean` the checkout. The Windows machine's old-pipeline leftovers were archived and removed on 2026-11-27; only the Mac's remain |
+| H6 | About 570 worktrees beside the Mac checkout are from the earlier architecture, 93 with uncommitted edits, and its main checkout holds 345 untracked files under `orchestration/` | The weekly clean archives and removes them (a patch and tar per dirty worktree, an `archive/branch/<name>` tag for a tip not safe elsewhere); the 345 untracked files in the main checkout stay by hand, and never `git clean` it. The Windows machine's old-pipeline leftovers were archived and removed on 2026-11-27; only the Mac's remain |
