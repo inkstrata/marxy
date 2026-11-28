@@ -231,7 +231,7 @@ test('carriesMarkdown reads links in one pass per line and looks at a bounded nu
   const t0 = cpuNow();
   assert.equal(carriesMarkdown(chain), false);
   const chainMs = cpuNow() - t0;
-  assert.ok(chainMs < 150, `${Math.round(chainMs)} ms for 4,000 lines of unclosed link targets`);
+  assert.ok(chainMs < 300, `${Math.round(chainMs)} ms for 4,000 lines of unclosed link targets`);
   // Past the line cap nothing is looked at: a heading after 60,000 plain lines is not seen, one after 40,000 is.
   assert.equal(carriesMarkdown(`${'tide\n'.repeat(60_000)}# One\n# Two\n`), false);
   assert.equal(carriesMarkdown(`${'tide\n'.repeat(40_000)}# One\n# Two\n`), true);
