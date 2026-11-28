@@ -66,8 +66,8 @@ in this run; anything else becomes a tracker row in a small `work/`-only pull re
 Reasons a builder cannot fix (CODEOWNERS paths, `hold`, a draft) wait for the owner.
 
 **Saturday night: plan intake.** The plan pull request (label `plan`) is answered before any building. Read
-every owner comment on it (a comment with no `<!-- marxy-` marker). Change the plan to answer each, or reply
-why not. If the plan changed, push, and have a reviewer on a model other than the one that edited it re-review
+every owner comment on it (any comment by `inkstrata` that is not a review or intake comment; the gate ignores
+everyone else's). Change the plan to answer each, or reply why not. If the plan changed, push, and have a reviewer on a model other than the one that edited it re-review
 the change and post its marker for the new head. Then post the intake comment, body via `--body-file`:
 
 ```
