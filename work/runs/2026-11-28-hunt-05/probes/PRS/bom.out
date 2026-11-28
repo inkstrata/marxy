@@ -1,0 +1,48 @@
+BOM=1
+18266ms draw left/frame.ts:295
+18183ms redraw left/frame.ts:147
+18088ms render panels/links.ts:117
+18084ms (anon) model/links.ts:84
+18075ms (anon) panels/links.ts:155
+18075ms linksFound model/links-found.ts:6
+17953ms linksOfPane left/doc-links.ts:18
+17903ms saidOf left/doc-links.ts:38
+17821ms linesNaming left/doc-model.ts:271
+2985ms step render/progressive.ts:99
+2985ms (anon) startup/idle-work.ts:12
+2803ms onChunk view/rendered-view.ts:1699
+2779ms parseMarkdownChunked parse/chunked.ts:13
+2756ms parseMarkdownSteps parse/chunked.ts:23
+2740ms parseBlocksIn parse/parse.ts:36
+2740ms adopt src/index.ts:664
+2700ms readKilled src/index.ts:282
+2697ms getPropertyValue :0
+2697ms killed src/index.ts:284
+2639ms fromMarkdown deps/mdast-util-from-markdown.js?v=9f314842:1594
+2092ms blocksOf view/rendered-view.ts:295
+2007ms snap view/rendered-view.ts:815
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-1000
+BOM=0
+16374ms draw left/frame.ts:295
+16301ms redraw left/frame.ts:147
+16211ms render panels/links.ts:117
+16205ms (anon) model/links.ts:84
+16195ms (anon) panels/links.ts:155
+16195ms linksFound model/links-found.ts:6
+16069ms linksOfPane left/doc-links.ts:18
+16020ms saidOf left/doc-links.ts:38
+15958ms linesNaming left/doc-model.ts:271
+2847ms step render/progressive.ts:99
+2847ms (anon) startup/idle-work.ts:12
+2755ms parseMarkdownChunked parse/chunked.ts:13
+2741ms parseMarkdownSteps parse/chunked.ts:23
+2724ms parseBlocksIn parse/parse.ts:36
+2685ms onChunk view/rendered-view.ts:1699
+2615ms adopt src/index.ts:664
+2596ms fromMarkdown deps/mdast-util-from-markdown.js?v=9f314842:1594
+2576ms getPropertyValue :0
+2576ms readKilled src/index.ts:282
+2576ms killed src/index.ts:284
+1929ms blocksOf view/rendered-view.ts:295
+1824ms snap view/rendered-view.ts:815
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-1001

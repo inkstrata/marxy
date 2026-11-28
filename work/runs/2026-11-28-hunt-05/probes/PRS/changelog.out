@@ -1,0 +1,6 @@
+$ node scripts/shots.mjs "D:\\Dev\\marxy-wt\\hunt-05\\work\\runs\\2026-11-28-hunt-05\\probes\\PRS\\changelog.mjs"
+open 7678 ms
+kind changelog
+palette open (first when-eval) 2748 ms
+second palette open, same version 3291 ms
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-0952

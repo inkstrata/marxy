@@ -1,0 +1,7 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/TWO/twopanes2.mjs"
+seqA 0.5s ["BIGA"]
+seq other pane 1.2s ["BIGA","BIGA"]
+concurrent C 19.2s ["BIGA","BIGA"]
+concurrent C 28.0s ["BIGA","BIGC"]
+concurrent C 32.5s ["BIGC","BIGC"]
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-0954

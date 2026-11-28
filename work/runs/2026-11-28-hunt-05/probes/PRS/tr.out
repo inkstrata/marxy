@@ -1,0 +1,17 @@
+BOM=1
+9925ms parseMarkdown parse/parse.ts:23
+5535ms (anon) left/transforms-model.ts:89
+5534ms onRegion left/transforms-model.ts:66
+5374ms (anon) left/transforms-model.ts:91
+5022ms byNodes left/transforms-model.ts:114
+5013ms parseOf left/transforms-model.ts:106
+BOM=0
+583ms onRegion left/transforms-model.ts:66
+583ms (anon) left/transforms-model.ts:89
+438ms (anon) left/transforms-model.ts:91
+227ms measure left/transforms-model.ts:27
+189ms byNodes left/transforms-model.ts:114
+174ms pieces left/transforms-model.ts:14
+102ms eachLine left/transforms-model.ts:77
+
+[exited with code 0]

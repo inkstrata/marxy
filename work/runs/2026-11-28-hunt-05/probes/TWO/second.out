@@ -1,0 +1,11 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-05/work/runs/2026-11-28-hunt-05/probes/TWO/second.mjs"
+0.5s h1=Postgres 14 → 16 upgrade plan
+1.0s h1=Postgres 14 → 16 upgrade plan
+1.5s h1=Postgres 14 → 16 upgrade plan
+2.1s h1=Postgres 14 → 16 upgrade plan
+2.6s h1=Postgres 14 → 16 upgrade plan
+3.1s h1=Postgres 14 → 16 upgrade plan
+3.6s h1=SMALLFILE
+small shown after ms 3580
+final h1 SMALLFILE
+0 pictures in D:\Dev\marxy-wt\hunt-05\work\shots\hunt-05-20261128-0951
