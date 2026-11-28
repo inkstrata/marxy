@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { nextSteps, unstartedPieces, readyRows, huntFacts, runCounts, needsBuilder } from './next.mjs';
+import { nextSteps, unstartedPieces, readyRows, huntFacts, huntDates, runCounts, needsBuilder, resumable } from './next.mjs';
 
-const base = { prsNeedingBuilder: [], queueUnstarted: [], readyRows: [], daysSinceHunt: 1, huntsThisWeek: 0, topUpsThisRun: 0, smallHuntsThisRun: 0, weekday: 1, sweep: false, finalSweep: false };
+const base = { huntToday: false, prsNeedingBuilder: [], queueUnstarted: [], readyRows: [], daysSinceHunt: 1, huntsThisWeek: 0, topUpsThisRun: 0, smallHuntsThisRun: 0, weekday: 1, sweep: false, finalSweep: false };
 const names = (f) => nextSteps({ ...base, ...f }).map((s) => s.step);
 const rows = (n) => Array.from({ length: n }, (_, i) => ({ id: `R${i}` }));
 
@@ -49,14 +49,14 @@ test('readyRows takes empty-branch rows from the three sections and skips waitin
     '## Next', '', '| # | What | Why | Size | Branch |', '| --- | --- | --- | --- | --- |',
     '| A1 | plain | why | S | |', '| A2 | taken | why | S | `x` |', '| A3 | waits for A1 | why | S | |', '',
     '## Later', '| # | What | Why | Size | Branch |', '| --- | --- | --- | --- | --- |', '| Z1 | later | w | S | |', '',
-    '## Big files', '| # | What | Why | Size | Branch |', '| --- | --- | --- | --- | --- |', '| L1 | held back | w | S | |', '| L2 | fine | w | M | |',
+    '## Big files', '| # | What | Why | Size | Branch |', '| --- | --- | --- | --- | --- |', '| L1 | after L9 lands | w | S | |', '| L2 | fine | w | M | |',
   ].join('\n');
   assert.deepEqual(readyRows(md).map((r) => r.id), ['A1', 'L2']);
 });
 
 test('huntFacts counts from the weekly reset', () => {
   const now = new Date('2026-12-01T20:00:00Z');
-  const f = huntFacts(['2026-11-27-hunt-01', '2026-11-28-hunt-02', '2026-11-20-hunt-00', '2026-11-27-wave-02'], now);
+  const f = huntFacts(huntDates({ folders: ['2026-11-27-hunt-01', '2026-11-28-hunt-02', '2026-11-20-hunt-00', '2026-11-27-wave-02'] }), now);
   assert.equal(f.daysSinceHunt, 3);
   assert.equal(f.huntsThisWeek, 1);
   assert.equal(huntFacts([], now).daysSinceHunt, null);
@@ -67,9 +67,9 @@ test('runCounts counts notes after the run start only', () => {
     { event: 'start', run: 'night-1' }, { event: 'note', run: 'night-1', kind: 'top-up' },
     { event: 'start', run: 'night-2' }, { event: 'note', run: 'night-2', kind: 'small-hunt' }, { event: 'note', run: 'night-2', kind: 'state' },
   ];
-  assert.deepEqual(runCounts(r, 'night-2'), { topUpsThisRun: 0, smallHuntsThisRun: 1 });
-  assert.deepEqual(runCounts(r), { topUpsThisRun: 0, smallHuntsThisRun: 1 });
-  assert.deepEqual(runCounts(r, 'night-1'), { topUpsThisRun: 1, smallHuntsThisRun: 0 });
+  assert.deepEqual(runCounts(r, 'night-2'), { topUpsThisRun: 0, smallHuntsThisRun: 1, targetedHuntsThisRun: 0 });
+  assert.deepEqual(runCounts(r), { topUpsThisRun: 0, smallHuntsThisRun: 1, targetedHuntsThisRun: 0 });
+  assert.deepEqual(runCounts(r, 'night-1'), { topUpsThisRun: 1, smallHuntsThisRun: 0, targetedHuntsThisRun: 0 });
 });
 
 test('needsBuilder: changes, red checks, behind or conflicting, but not held', () => {
@@ -82,10 +82,59 @@ test('needsBuilder: changes, red checks, behind or conflicting, but not held', (
   assert.ok(!needsBuilder(pr(['failed checks: ci'], 'feature/x')));
 });
 
-test('readyRows ranks cause rows by what they cover, then data loss, S1 to S3, then tracker order', () => {
+test('readyRows ranks data loss, then cause rows by what they cover, then S1 to S3, then tracker order', () => {
   const row = (id, why) => `| ${id} | text | ${why} | S | |`;
   const md = ['## Next', '| # | What | Why | Size | Branch |', '| --- | --- | --- | --- | --- |',
     row('A', 'plain'), row('B', 'S3 odd'), row('C', 'S2 slow'), row('D', 'S1 freeze'), row('E', 'data loss on save'),
     row('F', 'Covers: X-01, X-02; core'), row('G', 'Covers: X-03, X-04, B7; core'), row('H', 'S1 again')].join('\n');
-  assert.deepEqual(readyRows(md).map((r) => r.id), ['G', 'F', 'E', 'D', 'H', 'C', 'B', 'A']);
+  assert.deepEqual(readyRows(md).map((r) => r.id), ['E', 'G', 'F', 'D', 'H', 'C', 'B', 'A']);
+});
+
+test('data loss outranks a cause row, and a one-id Covers row ranks by its severity', () => {
+  const row = (id, why) => `| ${id} | text | ${why} | S | |`;
+  const md = ['## Next', '| # | What | Why | Size | Branch |', '| --- | --- | --- | --- | --- |',
+    row('A', 'S3 plain'), row('B', 'Covers: X-01; S3 core'), row('C', 'S1 freeze'), row('D', 'S2 data loss on save'),
+    row('E', 'Covers: X-01, X-02, X-03; core')].join('\n');
+  assert.deepEqual(readyRows(md).map((r) => r.id), ['D', 'E', 'C', 'A', 'B']);
+});
+
+test('only a named row makes a row wait', () => {
+  const row = (id, what) => `| ${id} | ${what} | S2 | S | |`;
+  const md = ['## Structure', '| # | What | Why | Size | Branch |', '| --- | --- | --- | --- | --- |',
+    row('Q7', 'With E22 the windowed rows move'), row('Q8', 'Fix the drawer after the page opens'), row('Q9', 'waits for L21'),
+    row('Q1', 'the parked panel and a held key'), row('Q2', 'after 2 and with the rest')].join('\n');
+  assert.deepEqual(readyRows(md).map((r) => r.id), ['Q8', 'Q1', 'Q2']);
+});
+
+test('hunts are counted once across notes, open pull requests and folders, by Pacific date', () => {
+  const now = new Date('2026-12-02T03:30:00Z'); // still Dec 1 in Pacific
+  const dates = huntDates({
+    folders: ['2026-11-30-hunt-05'],
+    runs: [{ event: 'note', kind: 'hunt', at: '2026-12-01T08:00:00Z' }, { event: 'note', kind: 'top-up', at: '2026-12-01T08:00:00Z' }, { event: 'note', kind: 'small-hunt', at: '2026-11-30T09:00:00Z' }],
+    prs: [{ headRefName: 'agent/hunt-06', createdAt: '2026-12-02T01:00:00Z' }, { headRefName: 'agent/other', createdAt: '2026-12-02T01:00:00Z' }],
+  });
+  assert.deepEqual(dates, ['2026-11-30', '2026-12-01']);
+  const f = huntFacts(dates, now);
+  assert.equal(f.huntToday, true);
+  assert.equal(f.huntsThisWeek, 2);
+  assert.ok(!names({ weekday: 2, huntToday: true }).includes('hunt'));
+});
+
+test('targeted hunt notes are counted for the run', () => {
+  assert.equal(runCounts([{ event: 'start', run: 'r' }, { event: 'note', run: 'r', kind: 'targeted-hunt' }], 'r').targetedHuntsThisRun, 1);
+});
+
+test('GitHub unreachable stops everything', () => {
+  const s = nextSteps({ ...base, offline: true, queueUnstarted: [{}], readyRows: rows(3) });
+  assert.deepEqual(s, [{ step: 'stop', reason: 'GitHub unreachable' }]);
+});
+
+test('a saved state resumes only for the same job, young and not ended', () => {
+  const state = { at: '2026-12-01T10:00:00Z', job: 'night', run: 'night-1' };
+  const now = Date.parse('2026-12-01T12:00:00Z');
+  assert.equal(resumable(state, [], 'night', now), state);
+  assert.equal(resumable(state, [], 'day', now), null);
+  assert.equal(resumable(state, [], 'night', Date.parse('2026-12-01T16:30:00Z')), null);
+  assert.equal(resumable(state, [{ event: 'end', run: 'night-1' }], 'night', now), null);
+  assert.equal(resumable(null, [], 'night', now), null);
 });

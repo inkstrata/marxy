@@ -40,13 +40,15 @@ function run([event, ...args]) {
   if (event === 'note') return note(job, runId, args);
   if (event !== 'start' && event !== 'end') throw new Error('run start|end|note --job <id> --run <run-id>');
   appendJsonl('runs', { at: new Date().toISOString(), event, job, run: runId, usage: newestUsage()?.usage ?? null });
+  // A finished run has nothing to resume.
+  if (event === 'end') fs.rmSync(path.join(stateDir(), 'run-state.json'), { force: true });
 }
 
 // Notes are how a run counts its own top-ups and small hunts; the state note also leaves a file so a restarted
 // or compacted session can see which agents, worktrees and pull requests are in flight.
 function note(job, runId, args) {
   const kind = flag(args, '--kind');
-  if (!['top-up', 'small-hunt', 'targeted-hunt', 'state'].includes(kind)) throw new Error('run note --kind top-up|small-hunt|targeted-hunt|state --data <json>');
+  if (!['hunt', 'top-up', 'small-hunt', 'targeted-hunt', 'state'].includes(kind)) throw new Error('run note --kind hunt|top-up|small-hunt|targeted-hunt|state --data <json>');
   const data = JSON.parse(flag(args, '--data') ?? 'null');
   const at = new Date().toISOString();
   appendJsonl('runs', { at, event: 'note', job, run: runId, kind, data });
@@ -56,9 +58,11 @@ function note(job, runId, args) {
 async function status(args = []) {
   const { collect, newestWeek, ROOT } = await import('./lib/dashboard.mjs');
   const d = await collect();
-  const { gatherFacts, nextSteps } = await import('./lib/next.mjs');
+  const { gatherFacts, nextSteps, resumable } = await import('./lib/next.mjs');
   const facts = gatherFacts(d, { root: ROOT, runId: flag(args, '--run') });
-  out({ prs: d.prs, devices: d.devices, plan: newestWeek(), next: { facts, steps: nextSteps(facts) } });
+  let saved = null;
+  try { saved = JSON.parse(fs.readFileSync(path.join(stateDir(), 'run-state.json'), 'utf8')); } catch { /* none saved */ }
+  out({ prs: d.prs, devices: d.devices, plan: newestWeek(), resume: resumable(saved, readJsonl('runs'), flag(args, '--job')), next: { facts, steps: nextSteps(facts) } });
 }
 
 async function merge(args) {

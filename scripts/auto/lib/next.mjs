@@ -7,13 +7,16 @@ import { lastReset } from './merge-policy.mjs';
 import { readJsonl } from './state.mjs';
 
 const TOP_UP_ROWS = 2;
-const WAITS = /waits for|after |held|parked/i;
+// A row waits only when it names the row it waits on; the bare word "after" in prose means nothing.
+const WAITS = /\b(?:[Aa]fter|[Ww]aits for|[Ww]ith) [A-Z]{1,3}\d+\b/;
 const NEEDS_BUILDER = /^changes requested|^failed checks|merge state is (BEHIND|DIRTY|CONFLICTING)/;
 const TUESDAY = 2;
 
 // An empty queue used to mean "stop" and a night did nothing; now it means "look for work", in a fixed order.
 // Skipping is still the right answer when nothing is needed.
 export function nextSteps(f) {
+  // Without GitHub the unstarted pieces cannot be told from started ones, so nothing starts blind.
+  if (f.offline) return [{ step: 'stop', reason: 'GitHub unreachable' }];
   const steps = [];
   const prs = f.prsNeedingBuilder || [];
   const unstarted = f.queueUnstarted || [];
@@ -29,7 +32,8 @@ export function nextSteps(f) {
   if (f.weekday !== TUESDAY && ready.length < 3 && (f.huntsThisWeek || 0) < 2 && quiet && !f.smallHuntsThisRun) {
     steps.push({ step: 'small-hunt', reason: `only ${ready.length} ready row(s), ${f.huntsThisWeek || 0} hunt(s) this week, last hunt ${f.daysSinceHunt ?? 'never'} day(s) ago` });
   }
-  if (f.weekday === TUESDAY) steps.push({ step: 'hunt', reason: "Tuesday's regular hunt" });
+  // The day run must not hunt again after the night's hunt.
+  if (f.weekday === TUESDAY && !f.huntToday) steps.push({ step: 'hunt', reason: "Tuesday's regular hunt" });
   if (!steps.length) {
     const why = f.finalSweep || f.sweep ? 'sweep night with no ready rows and no hunt due' : 'queue empty, no ready rows, no hunt due';
     steps.push({ step: 'stop', reason: why });
@@ -59,13 +63,13 @@ export function readyRows(todoMd, sections = ['Next', 'Structure', 'Big files'])
       if (cells[cells.length - 1] === '' && !WAITS.test(cells.slice(1).join(' '))) out.push({ id: cells[0], section: name, what: cells[1].slice(0, 120), why: cells[2] });
     }
   }
-  // The README's "Order of work": cause rows (most findings covered first), then data loss, then S1 to S3; Array.sort is stable, so tracker order breaks ties.
+  // The README's "Order of work": data loss, then cause rows (most ids covered first), then S1 to S3; Array.sort is stable, so tracker order breaks ties.
   return out.sort((a, b) => rank(a) - rank(b));
 }
 
 const covered = (r) => (/^Covers:([^;]*)/i.exec(r.why || '')?.[1].match(/\b[A-Z]{1,4}-?\d+\b/g) || []).length;
-const rank = (r) => (/^Covers:/i.test(r.why || '') ? -1000 - covered(r)
-  : /data loss|corruption/i.test(r.why) ? -4 : /\bS([123])\b/.test(r.why || '') ? -3 + Number(/\bS([123])\b/.exec(r.why)[1]) : 1);
+// A cause row covers two or more ids; a single-id "Covers:" row is an ordinary row and ranks by its severity.
+const rank = (r) => (/data loss|corruption/i.test(r.why) ? 0 : covered(r) >= 2 ? 1 - covered(r) / 1000 : 2 + Number(/\bS([123])\b/.exec(r.why || '')?.[1] ?? 4));
 
 export const needsBuilder = (pr) => String(pr.headRefName).startsWith('agent/') && (pr.reasons || []).some((r) => NEEDS_BUILDER.test(r))
   && !(pr.reasons || []).some((r) => /^labelled hold|^draft/.test(r));
@@ -73,20 +77,34 @@ export const needsBuilder = (pr) => String(pr.headRefName).startsWith('agent/') 
 const ptDay = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: POLICY.tz }).format(d);
 const dayNumber = (s) => Date.parse(`${s}T00:00:00Z`) / 86400e3;
 
-// Hunt folders are `<date>-hunt-<nn>`. A hunt belongs to this week when its date is after the reset's date.
-export function huntFacts(folderNames, now) {
-  const dates = folderNames.map((n) => /^(\d{4}-\d{2}-\d{2})-hunt-\d+/.exec(n)?.[1]).filter(Boolean).sort();
+// A hunt shows in three places: a note a run wrote, an open hunt pull request and a hunt folder on main. Each gives
+// a Pacific calendar date (a folder's name already is one), and the dates are deduplicated, so one hunt counts once.
+export function huntDates({ folders = [], runs = [], prs = [] }) {
+  const named = folders.map((n) => /^(\d{4}-\d{2}-\d{2})-hunt-\d+/.exec(n)?.[1]);
+  const noted = runs.filter((r) => r.event === 'note' && ['hunt', 'small-hunt', 'targeted-hunt'].includes(r.kind)).map((r) => ptDay(new Date(r.at)));
+  const open = prs.filter((p) => p.createdAt && p.headRefName.startsWith('agent/hunt-')).map((p) => ptDay(new Date(p.createdAt)));
+  return [...new Set([...named, ...noted, ...open].filter(Boolean))].sort();
+}
+
+// A hunt belongs to this week when its date is after the reset's date.
+export function huntFacts(dates, now) {
   const today = ptDay(now);
   const since = ptDay(lastReset(now));
-  return { daysSinceHunt: dates.length ? dayNumber(today) - dayNumber(dates.at(-1)) : null, huntsThisWeek: dates.filter((d) => d > since).length };
+  return { daysSinceHunt: dates.length ? dayNumber(today) - dayNumber(dates.at(-1)) : null, huntsThisWeek: dates.filter((d) => d > since).length, huntToday: dates.includes(today) };
 }
 
 // Notes of this run only, counted from its start so an earlier run with the same id prefix never counts.
 export function runCounts(rows, runId) {
   const starts = rows.map((r, i) => (r.event === 'start' && (!runId || r.run === runId) ? i : -1)).filter((i) => i >= 0);
-  const from = starts.length ? starts.at(-1) : 0;
-  const mine = rows.slice(from).filter((r) => r.event === 'note' && (!runId || r.run === runId));
-  return { topUpsThisRun: mine.filter((r) => r.kind === 'top-up').length, smallHuntsThisRun: mine.filter((r) => r.kind === 'small-hunt').length };
+  const mine = rows.slice(starts.length ? starts.at(-1) : 0).filter((r) => r.event === 'note' && (!runId || r.run === runId));
+  const n = (kind) => mine.filter((r) => r.kind === kind).length;
+  return { topUpsThisRun: n('top-up'), smallHuntsThisRun: n('small-hunt'), targetedHuntsThisRun: n('targeted-hunt') };
+}
+
+// A saved run state is resumable only for the same job, under 6 hours old, and while its run has not ended.
+export function resumable(state, runs, job, now = Date.now()) {
+  if (!state || state.job !== job || now - new Date(state.at) > 6 * 3600e3) return null;
+  return runs.some((r) => r.event === 'end' && r.run === state.run) ? null : state;
 }
 
 function originBranches(root) {
@@ -98,6 +116,7 @@ function originBranches(root) {
 // `collected` is the dashboard's collect() result: open PRs with the gate's reasons, merged PRs, the queue.
 export function gatherFacts(collected, { root, now = new Date(), runId } = {}) {
   const read = (p) => { try { return fs.readFileSync(path.join(root, p), 'utf8'); } catch { return ''; } };
+  const runs = readJsonl('runs');
   let hunts = [];
   try { hunts = fs.readdirSync(path.join(root, 'work', 'runs')); } catch { /* none yet */ }
   const queued = new Set((collected.queue?.rows || []).flatMap((r) => String(r[1]).split(/[^A-Za-z0-9]+/)));
@@ -108,8 +127,9 @@ export function gatherFacts(collected, { root, now = new Date(), runId } = {}) {
     queueUnstarted: unstartedPieces(collected.queue?.rows || [], collected.prs, collected.merged, originBranches(root)),
     // A row the week's queue already names is that piece's, not spare work.
     readyRows: readyRows(read('work/todo.md')).filter((r) => !queued.has(r.id)),
-    ...huntFacts(hunts, now),
-    ...runCounts(readJsonl('runs'), runId),
+    ...huntFacts(huntDates({ folders: hunts, runs, prs: collected.prs }), now),
+    ...runCounts(runs, runId),
+    offline: !!collected.offline,
     weekday: l.weekday,
     sweep: l.weekday === 4 || (l.weekday === 5 && l.hour < POLICY.lastBlockEnd),
     finalSweep,

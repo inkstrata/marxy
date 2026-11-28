@@ -80,9 +80,9 @@ first) and of hunts' READMEs. Rank them with the ledger rule below and take the 
 hunt takes the top proposal first. A proposal taken or dropped is accounted for in the hunt's `triage.md`.
 
 **Coverage ledger.** `work/hunt-coverage.md` says where hunts have looked, with what lens, at which commit and
-with what yield. An axis whose area and lens last confirmed nothing is not run again there until
-`git log <commit>..origin/main -- <paths>` shows the area changed; otherwise it waits four weeks and returns with
-a different lens. Rank candidate axes by whether the area changed since its last sweep, then by the lens's past
+with what yield. The same lens on an area that last confirmed nothing is not run again there until
+`git log <commit>..origin/main -- <paths>` shows the area changed; after four weeks without a change, only a
+different lens may run there. Rank candidate axes by whether the area changed since its last sweep, then by the lens's past
 confirmed yield, then by severity. The Tuesday hunt and the triggered small hunt both follow this.
 
 **Target.** A hunt may be aimed at a pull request number, a branch, a tracker row id or a set of paths. The scope
@@ -136,17 +136,16 @@ node .claude/skills/bug-catch/finding.mjs yield <run>/findings.md <run>/verifica
 
 Copy the table into the README under the round. Then:
 
-- **Another round** (after round one, only as the second-round rule below allows) when the round's axes found two or more bugs alone (confirmed or plausible, not found by
-  any other axis or known before). Send the planner again with the table (its **Last round** paragraph):
+- **Another round**, at most three in all: round 2 only if round 1 confirmed two or more findings and the budget
+  gate allows it (not `noNewAgents`, allowance left); round 3 only if round 2 did the same. Send the planner again with the table (its **Last round** paragraph):
   extend the axes that found bugs alone, drop those that found none, and run the axes still waiting.
 - **Stop** when they found fewer than two, or when a round's findings were only duplicates. Saying "a round
   found nothing" about a cheap model says more about the model than the code, so the README names the areas
   covered and found clean by two or more axes ("Converged"). Each goes one of three ways, written down: one
   Opus catcher on the riskiest (the reader core, the big-file guards, anything holding an S1 before), the
   real window or WebKit (`scripts/browser-tests.mjs`) for what headless Chromium cannot show, or closed.
-- **A second round, in any hunt,** only when round one has two or more confirmed findings and the budget gate
-  allows it (not `noNewAgents`, allowance left). A third round that still finds bugs is reported to the owner as a
-  structural problem, in the hunt's README and triage, and is not answered with a fourth.
+- **A third round that still finds bugs** is reported to the owner as a structural problem, in the hunt's README
+  and triage, and is not answered with a fourth.
 
 Then go on to `bug-triage`.
 

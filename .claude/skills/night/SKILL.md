@@ -21,10 +21,10 @@ export GH_TOKEN=$(gh auth token -u inkstrata)          # PowerShell: $env:GH_TOK
 
 1. `git fetch --prune`; fast-forward `main` if the checkout is clean. If it is dirty or on another branch, leave
    it, work from `origin/main` and say so in the summary.
-2. `node scripts/auto/auto.mjs run start --job <night|day> --run <run-id>`. **Resume:** read `run-state.json` in
-   the state folder (`~/.local/state/fleet/marxy/`); if it is under 6 hours old, pick up from it (its agents,
-   worktrees and pull requests) instead of starting those pieces again. At each step, write what is in flight with
-   `auto.mjs run note --job <job> --run <run-id> --kind state --data <json>`.
+2. `node scripts/auto/auto.mjs run start --job <night|day> --run <run-id>`. **Resume:** `auto.mjs status --job <job>`
+   returns `resume` when an unfinished run of this job left a state under 6 hours old; pick up from it (its
+   agents, worktrees and pull requests) instead of starting those pieces again. At each step, write what is in
+   flight with `auto.mjs run note --job <job> --run <run-id> --kind state --data <json>`; `run end` clears it.
 3. Usage: load the tool with ToolSearch `select:mcp__ccd_session_mgmt__get_usage`, call it, write the returned
    `plan` object to a temp file and run `node scripts/auto/auto.mjs usage --json <file>`. If the tool is not
    there, run `node scripts/auto/auto.mjs gate`: blind mode, at most 2 builders and 3 hours.
@@ -84,7 +84,8 @@ Intake: <what changed, or "no owner comments">.
 The gate merges the plan after the reset once the intake is newer than every owner comment.
 
 **Tuesday night: the hunt.** Run a bug hunt with the `bug-catch`, `bug-verify` and `bug-triage` skills, one
-round, the axis the week's plan names, within half the night's allowance. Its pull request (rows only) is
+round, the axis the week's plan names, within half the night's allowance; record it with `run note --kind hunt`, and the `hunt` step is not offered again
+today. Its pull request (rows only) is
 reviewed and gated like any other. Building takes the other half.
 
 ## 4. Pick from the queue
@@ -123,10 +124,9 @@ same agent with `SendMessage`; a fresh agent only when the old one is gone.
 is always on a different model from the builder: a `work/`- or docs-only pull request built by Haiku or Opus
 gets a Sonnet reviewer, passed as the Agent tool's `model`.
 
-**Targeted hunt.** For an L-size piece, or a diff touching `packages/core/src/buffer`, `packages/core/src/encoding`,
-`packages/core/src/sanitize`, `apps/desktop/src-tauri` or a save path, run a targeted hunt (`bug-catch`, "Target") on
-the pull request before the reviewer's verdict, and give the reviewer its findings. At most one per run; record it
-with `run note --kind targeted-hunt`. M pieces keep the reviewer's single break-it probe.
+**Targeted hunt.** For the pieces the `review` skill names ("Break it first"), run one (`bug-catch`, "Target") on the
+pull request before the reviewer's verdict and give the reviewer its findings, which take the route `bug-catch`
+states. At most one per run (`next.facts.targetedHuntsThisRun`); record it with `run note --kind targeted-hunt`.
 
 **Changes.** A `CHANGES` verdict goes back to the same builder with the review's findings. When it has pushed,
 the same reviewer re-reviews only what changed since its last review and posts a new comment and marker for
@@ -168,7 +168,8 @@ Structure, Big files) as in section 6. Never pull from next week's plan before t
    - Carry-over: <what was fixed or re-run>
    - Triage (day): <reds, causes, rows or fix pieces>
    - Hunt / intake: <when it ran>
-   - Usage: 5-hour <start>% to <end>%, weekly <start>% to <end>%, allowance <pct>%, blind <yes|no>
+   - Usage: spent ~<n> weekly points, 5-hour within limits <yes|no>, blind <yes|no> (summaries are public: never the
+     owner's meters or absolute percentages)
    - Stopped: <queue empty | soft stop | hard stop | stopAt | not allowed: reason>
    - Waits for the owner: <PRs and why>
 
@@ -179,6 +180,7 @@ Structure, Big files) as in section 6. Never pull from next week's plan before t
    ## Axes proposed
    <up to three, only from evidence in this run, each in the form of a hunt's axes.md entry:>
    ### XYZ · <what one catcher looks for>
+   - Round: <left empty>
    - Type: <domain|pattern|invariant|spec|shape|environment>
    - Source: <run id> and <the PR or review comment>
    - Lens: <an order to the catcher, one to three sentences>

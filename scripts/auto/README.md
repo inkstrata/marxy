@@ -75,8 +75,11 @@ Structure and Big files when fewer than two pieces are unstarted; once per run);
 when fewer than three rows are ready, fewer than two hunts ran this week and none in the last two days; once
 per run); Tuesday's regular hunt; otherwise `stop` with a reason. A run records its top-ups and small hunts, and
 its in-flight agents, worktrees and pull requests, with `auto.mjs run note --job <id> --run <run-id> --kind
-top-up|small-hunt|targeted-hunt|state --data <json>`; the `state` note also writes `run-state.json` in the state folder, which a
-restarted session reads if it is under six hours old. Every run ends with `auto.mjs dashboard`, so the dashboard's
+hunt|top-up|small-hunt|targeted-hunt|state --data <json>`; the `state` note also writes `run-state.json` in the state
+folder (`run end` removes it), and `status --job <id>` returns it as `resume` when the same job left it under six hours
+ago and its run has not ended. Hunts this week are counted from notes, open `agent/hunt-*` pull requests and hunt
+folders, once each. Run summaries are published on the public `auto-state` branch, so they carry the automation's own
+spend only, never the owner's usage meters. Every run ends with `auto.mjs dashboard`, so the dashboard's
 "Last runs" section (the newest summary per job on `auto-state`) is current when the run is over.
 
 ## Order of work
@@ -85,7 +88,7 @@ One rule, used by the plan, the night skill and `lib/next.mjs`:
 
 1. carry-over;
 2. data loss or corruption;
-3. cause rows (a row whose Why starts `Covers:`), the ones covering the most findings first;
+3. cause rows (a row whose Why starts `Covers:` and lists two or more ids), the ones covering the most first;
 4. the rest by severity, S1 before S3;
 5. tracker order breaks ties.
 

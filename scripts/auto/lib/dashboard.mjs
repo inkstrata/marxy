@@ -166,8 +166,8 @@ export async function collect({ root = ROOT, now = new Date() } = {}) {
   const gh = await import('./github.mjs');
   const state = await import('./state.mjs');
   const policy = await import('./merge-policy.mjs');
-  let prs = [];
-  try { prs = await evaluatedPRs({ root, now }); } catch (e) { console.error(`dashboard: ${e.message.split('\n')[0]}`); }
+  let prs = [], offline = false;
+  try { prs = await evaluatedPRs({ root, now }); } catch (e) { offline = true; console.error(`dashboard: ${e.message.split('\n')[0]}`); }
   const weekFile = newestWeek(root);
   const read = (file, fallback) => quiet(() => fs.readFileSync(path.join(root, file), 'utf8'), fallback);
   // The nightly and device runs publish their newest result per OS as devices/<os>.json.
@@ -178,7 +178,8 @@ export async function collect({ root = ROOT, now = new Date() } = {}) {
   const usage = state.readJsonl('usage', { limit: 1 }).pop() || null;
   return {
     now: now.toISOString(),
-    prs: prs.map(({ number, title, headRefName, merge, reasons }) => ({ number, title, headRefName, merge, reasons })),
+    offline,
+    prs: prs.map(({ number, title, headRefName, merge, reasons, createdAt }) => ({ number, title, headRefName, merge, reasons, createdAt })),
     merged: quiet(() => gh.mergedSince(new Date(now.getTime() - 30 * 86400e3).toISOString().slice(0, 10)), []),
     queue: weekFile ? { week: path.basename(weekFile, '.md'), rows: tableRows(fs.readFileSync(weekFile, 'utf8'), 'Queue') } : null,
     waitingOnOwner: tableRows(read('work/todo.md', ''), 'Waiting on '),

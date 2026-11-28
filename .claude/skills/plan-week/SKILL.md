@@ -41,7 +41,7 @@ All in the plan branch, one pull request.
 - what else landed (carry-over, triage fixes, sweep rows, the hunt's rows);
 - Learned this week: a short merge of the week's run retrospectives (`## Learned` in the summaries on `auto-state`),
   deduplicated;
-- the budget: the automation's and the owner's weekly use (from `status`), nights that stopped early and why;
+- the budget: the automation's own spend, nights that stopped early and why (the plan is public: no owner meters);
 - misses: anything the runs got wrong or that waited on the owner, and what next week does about it.
 
 **Next week's file.** `work/weeks/<new Friday>.md`, short:
