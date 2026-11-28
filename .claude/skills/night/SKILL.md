@@ -171,6 +171,19 @@ Structure, Big files) as in section 6. Never pull from next week's plan before t
    - Usage: 5-hour <start>% to <end>%, weekly <start>% to <end>%, allowance <pct>%, blind <yes|no>
    - Stopped: <queue empty | soft stop | hard stop | stopAt | not allowed: reason>
    - Waits for the owner: <PRs and why>
+
+   ## Learned
+   - <up to three bullets, each with its evidence: a reviewer's repeated finding, a builder escalated on the same
+     module, a file that keeps going red, a surprise in a measurement; or "nothing new">
+
+   ## Axes proposed
+   <up to three, only from evidence in this run, each in the form of a hunt's axes.md entry:>
+   ### XYZ · <what one catcher looks for>
+   - Type: <domain|pattern|invariant|spec|shape|environment>
+   - Source: <run id> and <the PR or review comment>
+   - Lens: <an order to the catcher, one to three sentences>
+   - Start in: <paths>
+   - Model: sonnet
    ```
 
 3. `node scripts/auto/auto.mjs record <night|day|friday> <file>` (the job id; final mode is `friday`) publishes it

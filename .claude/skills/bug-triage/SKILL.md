@@ -55,7 +55,8 @@ one change would fix share one row (name every id in `Why`). If **Next** has mor
 put S2 rows that touch no promised behaviour under **Later** and say so in `triage.md`.
 
 `pnpm work todo --check` must pass after the edit. Append one row per axis run to `work/hunt-coverage.md` (date,
-hunt, axis, lens, area paths, the commit it ran on, confirmed count).
+hunt, axis, lens, area paths, the commit it ran on, confirmed count, and Source: `planner` or `proposed:<run-id>`).
+When the hunt took or dropped a proposed axis, `triage.md` says which and why.
 
 ## 3. Write triage.md and the account
 
@@ -67,7 +68,8 @@ The hunt's `README.md` gains the counts: findings, verdicts and rows made, and t
 `node .claude/skills/bug-catch/finding.mjs yield <run>/findings.md <run>/verification.md`, with a column
 for the rows each axis's findings became. The next hunt's planner reads this table first.
 
-It ends with **For the next hunt**, in three short lists the planner can act on:
+Proposals share one format: write each **Extend** item as an `axes.md` entry (see "Axes" in
+`../bug-catch/format.md`) under `## Axes proposed` in the README. It ends with **For the next hunt**, in three short lists the planner can act on:
 - **Extend**: axes that found bugs alone, and the variant to try (narrower, a sibling area, the same cause
   elsewhere).
 - **Drop**: axes that found nothing alone, and why (no bugs there, or a lens the model could not use).

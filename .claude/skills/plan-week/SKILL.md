@@ -39,6 +39,8 @@ All in the plan branch, one pull request.
 
 - landed against planned: each Queue piece with its pull request, or why it did not land;
 - what else landed (carry-over, triage fixes, sweep rows, the hunt's rows);
+- Learned this week: a short merge of the week's run retrospectives (`## Learned` in the summaries on `auto-state`),
+  deduplicated;
 - the budget: the automation's and the owner's weekly use (from `status`), nights that stopped early and why;
 - misses: anything the runs got wrong or that waited on the owner, and what next week does about it.
 
@@ -61,7 +63,8 @@ From Friday 2026-12-04 20:00 to Friday 2026-12-11 20:00 (Pacific).
 
 ## Hunt
 
-<Tuesday's axis, chosen by the bug-catch skill's rules, and why this week>
+<Tuesday's axis, chosen from the proposed axes and the coverage ledger by the bug-catch skill's rules; name the
+proposal it took, and why this week>
 
 ## Hardening
 

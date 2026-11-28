@@ -74,6 +74,11 @@ The domain table is one source of axes and the map of where things live:
 
 Paths under `src/` are `apps/desktop/src/`. Add a row here when a hunt finds an area the table lacks.
 
+**Proposed axes.** Before inventing axes, read those proposed in the last 14 days: the `## Axes proposed` of run
+summaries in `~/.local/state/fleet/marxy/auto-state/nights/` (`git -C ~/.local/state/fleet/marxy/auto-state pull`
+first) and of hunts' READMEs. Rank them with the ledger rule below and take the best first; the triggered small
+hunt takes the top proposal first. A proposal taken or dropped is accounted for in the hunt's `triage.md`.
+
 **Coverage ledger.** `work/hunt-coverage.md` says where hunts have looked, with what lens, at which commit and
 with what yield. An axis whose area and lens last confirmed nothing is not run again there until
 `git log <commit>..origin/main -- <paths>` shows the area changed; otherwise it waits four weeks and returns with
