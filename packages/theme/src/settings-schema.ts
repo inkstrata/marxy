@@ -147,7 +147,7 @@ export const SETTINGS: readonly SettingRow[] = [
     category: 'appearance',
     label: 'Theme',
     description: 'The look of the page. A theme folder named in config.toml is shown as it is and left alone.',
-    words: ['colour', 'color', 'night', 'paper', 'ink', 'dusk', 'sepia', 'fjord', 'polar', 'midnight', 'black', 'ember', 'solarized', 'gruvbox', 'rose', 'pine', 'catppuccin', 'dark', 'palette', 'look'],
+    words: ['colour', 'color', 'night', 'paper', 'ink', 'dusk', 'sepia', 'fjord', 'polar', 'indigo', 'chalk', 'midnight', 'black', 'ember', 'solarized', 'gruvbox', 'rose', 'pine', 'catppuccin', 'dark', 'palette', 'look'],
     control: { kind: 'choice', options: THEME_OPTIONS },
     default: '',
     defaultLabel: 'Ink',

@@ -5,7 +5,7 @@
 /// <reference types="vite/client" />
 
 // In the Studio's shelf order (packages/theme/src/looks/index.ts); each sheet but Night and Paper's is written from its look.
-export const BUNDLED_THEME_NAMES = ['ink', 'night-paper', 'midnight', 'black', 'ember', 'fjord', 'polar', 'warm', 'solarized', 'gruvbox', 'rose-pine', 'catppuccin', 'high-contrast'] as const;
+export const BUNDLED_THEME_NAMES = ['ink', 'night-paper', 'midnight', 'black', 'ember', 'fjord', 'polar', 'indigo', 'warm', 'solarized', 'gruvbox', 'rose-pine', 'catppuccin', 'high-contrast'] as const;
 export type BundledThemeName = (typeof BUNDLED_THEME_NAMES)[number];
 
 /** The theme worn when config.toml names none (or names it as ""). */
@@ -20,6 +20,7 @@ const LOADERS: Record<BundledThemeName, () => Promise<{ default: string }>> = {
   ember: () => import('../../../../packages/theme/ember/theme.css?inline'),
   warm: () => import('../../../../packages/theme/warm/theme.css?inline'),
   fjord: () => import('../../../../packages/theme/fjord/theme.css?inline'),
+  indigo: () => import('../../../../packages/theme/indigo/theme.css?inline'),
   solarized: () => import('../../../../packages/theme/solarized/theme.css?inline'),
   gruvbox: () => import('../../../../packages/theme/gruvbox/theme.css?inline'),
   'rose-pine': () => import('../../../../packages/theme/rose-pine/theme.css?inline'),
