@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { archiveTag, keepable, normPath, staleBranches, staleFolders, staleTrees } from './stale.mjs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { archiveTag, normPath, staleBranches, staleFolders, staleTrees, toArchive } from './stale.mjs';
+import { runStale } from './stale-run.mjs';
+import { workspace } from './workspace.mjs';
 
 const NOW = Date.parse('2026-11-27T12:00:00Z');
 const ago = d => NOW - d * 864e5;
@@ -38,8 +44,47 @@ test('unregistered folders untouched for 14 days are picked; nightly, registered
   assert.deepEqual(out.map(x => x.name), win ? ['old'] : ['old', 'tree']);
 });
 
-test('what a build can remake is not archived', () => {
-  assert.deepEqual(keepable(['.env', 'src/a.ts', 'node_modules/x/y.js', 'a/target/b', 'web/dist/c.js', '.venv/bin/p', '.pnpm-store/v3/f']), ['.env', 'src/a.ts']);
+test('only ignored files under a build folder are left out of the archive', () => {
+  const ignored = ['.env', 'node_modules/x/y.js', 'a/target/b', 'web/dist/c.js', '.venv/bin/p', '.pnpm-store/v3/f'];
+  const untracked = ['src/a.ts', 'docs/dist/notes.md', 'node_modules/mine.md', 'crates/target/plan.txt'];
+  assert.deepEqual(toArchive(untracked, ignored), ['src/a.ts', 'docs/dist/notes.md', 'node_modules/mine.md', 'crates/target/plan.txt', '.env']);
+});
+
+test('the stale pass archives an untracked file under a folder named dist before it removes the worktree', () => {
+  // `.native` expands a Windows short name (a hosted runner's temp folder is under RUNNER~1); git reports the long one.
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'marxy-stale-test-')));
+  const before = process.env.MARXY_STATE_DIR;
+  process.env.MARXY_STATE_DIR = join(dir, 'state');
+  try {
+    const sh = (cwd, ...args) => execFileSync('git', ['-C', cwd, '-c', 'user.email=test@example.invalid', '-c', 'user.name=test', '-c', 'commit.gpgsign=false', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    sh(dir, 'init', '-q', '--bare', '-b', 'main', 'origin.git');
+    const main = join(dir, 'app');
+    sh(dir, 'clone', '-q', 'origin.git', 'app');
+    writeFileSync(join(main, '.gitignore'), '.env\nweb/dist/\n');
+    writeFileSync(join(main, 'a.txt'), 'a\n');
+    sh(main, 'add', '-A');
+    sh(main, 'commit', '-q', '-m', 'base');
+    sh(main, 'push', '-q', 'origin', 'HEAD:main');
+    const trees = join(dir, 'app-wt');
+    const tree = join(trees, 'a');
+    sh(main, 'worktree', 'add', '-q', '-b', 'agent/a', tree);
+    mkdirSync(join(tree, 'docs', 'dist'), { recursive: true });
+    writeFileSync(join(tree, 'docs', 'dist', 'notes.md'), 'the only copy\n');
+    writeFileSync(join(tree, 'newfile.md'), 'kept\n');
+    writeFileSync(join(tree, '.env'), 'LOCAL=1\n');
+    mkdirSync(join(tree, 'web', 'dist'), { recursive: true });
+    writeFileSync(join(tree, 'web', 'dist', 'bundle.js'), 'built\n');
+
+    const ws = workspace(main, { MARXY_WORKTREES: trees });
+    const r = runStale({ ws, root: main }, { apply: true, now: Date.now() + 60 * 864e5, date: '2027-01-01' });
+    assert.ok(!existsSync(tree), r.lines.join('\n'));
+    const archive = join(dir, 'state', 'archive', 'worktrees', 'a-2027-01-01');
+    const listed = execFileSync('tar', ['-tf', 'untracked.tar'], { cwd: archive, encoding: 'utf8' }).split(/\r?\n/).filter(l => l && !l.endsWith('/')).sort();
+    assert.deepEqual(listed, ['.env', 'docs/dist/notes.md', 'newfile.md']);
+  } finally {
+    if (before === undefined) delete process.env.MARXY_STATE_DIR; else process.env.MARXY_STATE_DIR = before;
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  }
 });
 
 test('local branches with no worktree and safe tips go; the base and held ones stay', () => {
