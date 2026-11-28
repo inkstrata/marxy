@@ -1,0 +1,94 @@
+[
+ {
+  "kind": "md-prose",
+  "bytes": 250945,
+  "steps": {
+   "open": {
+    "wallMs": 7092,
+    "taskMs": 4256,
+    "scriptMs": 1208,
+    "layoutMs": 478,
+    "styleMs": 560,
+    "layouts": 416,
+    "longestMs": 312,
+    "nodes": 26408
+   },
+   "key": {
+    "wallMs": 1140,
+    "taskMs": 37,
+    "scriptMs": 11,
+    "layoutMs": 1,
+    "styleMs": 8,
+    "layouts": 4,
+    "longestMs": 0,
+    "nodes": 26866
+   },
+   "toSource": {
+    "wallMs": 4002,
+    "taskMs": 1089,
+    "scriptMs": 106,
+    "layoutMs": 20,
+    "styleMs": 85,
+    "layouts": 16,
+    "longestMs": 85,
+    "nodes": 18672
+   },
+   "find": {
+    "wallMs": 1590,
+    "taskMs": 281,
+    "scriptMs": 48,
+    "layoutMs": 81,
+    "styleMs": 94,
+    "layouts": 11,
+    "longestMs": 51,
+    "nodes": 24896
+   }
+  }
+ },
+ {
+  "kind": "md-prose",
+  "bytes": 502027,
+  "steps": {
+   "open": {
+    "wallMs": 30155,
+    "taskMs": 25690,
+    "scriptMs": 6405,
+    "layoutMs": 3038,
+    "styleMs": 3535,
+    "layouts": 1112,
+    "longestMs": 119,
+    "nodes": 44862
+   },
+   "key": {
+    "wallMs": 1157,
+    "taskMs": 62,
+    "scriptMs": 16,
+    "layoutMs": 5,
+    "styleMs": 14,
+    "layouts": 3,
+    "longestMs": 0,
+    "nodes": 45302
+   },
+   "toSource": {
+    "wallMs": 5205,
+    "taskMs": 1615,
+    "scriptMs": 121,
+    "layoutMs": 21,
+    "styleMs": 139,
+    "layouts": 16,
+    "longestMs": 117,
+    "nodes": 34914
+   },
+   "find": {
+    "wallMs": 1512,
+    "taskMs": 223,
+    "scriptMs": 47,
+    "layoutMs": 55,
+    "styleMs": 74,
+    "layouts": 11,
+    "longestMs": 0,
+    "nodes": 41138
+   }
+  }
+ }
+]

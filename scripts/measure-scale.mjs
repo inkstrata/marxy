@@ -13,10 +13,13 @@
 // main-thread work, so it is steadier than the wall clock on a busy machine, but still a number of this machine.
 //
 // usage: node scripts/measure-scale.mjs [--kinds md-prose,txt,...] [--sizes 1m,2m,4m] [--steps open,key,...]
-//                                       [--browser chromium|chrome|msedge] [--cap <seconds>] [--json <path>]
+//                                       [--browser chromium|chrome|msedge|webkit] [--cap <seconds>] [--json <path>]
 //   --kinds    shapes from scripts/lib/big-files.mjs (default md-prose,md-transcript,txt,json-pretty,csv,log)
 //   --sizes    sizes, `k` or `m` suffixed (default 1m,2m,4m); 5.2m is about the biggest whole page, 5.3m the smallest lines reading (the threshold is 5 MiB)
 //   --steps    a subset of the steps above (default all)
+//   --browser  webkit has no CDP: its "task time" is the lag of a 5 ms timer (the main thread's busy time as the page sees
+//              it, close to but not the same as the browser's own count) and layouts are not counted; compare webkit with
+//              webkit, and use it for the nodes and the shape of growth
 //   --cap      seconds before a step is called stalled (default 120)
 //   --json     also write every number as JSON
 import { writeFileSync } from 'node:fs';
@@ -86,6 +89,17 @@ export function table(results, steps) {
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const race = (p, ms, label) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error(`over ${Math.round(ms / 1000)} s at ${label}`)), ms))]);
 
+/** The slice of a CDP session `metricsOf` uses, for an engine without CDP: busy time from the page's timer lag, node count from the DOM. */
+function timerProbe(page) {
+  return {
+    send: async (method) => {
+      if (method !== 'Performance.getMetrics') return {};
+      const { busy, nodes } = await page.evaluate(() => ({ busy: window.__marxyBusy, nodes: document.getElementsByTagName('*').length }));
+      return { metrics: METRICS.map((name) => ({ name, value: name === 'TaskDuration' ? busy / 1000 : name === 'Nodes' ? nodes : 0 })) };
+    },
+  };
+}
+
 async function metricsOf(cdp) {
   const { metrics } = await cdp.send('Performance.getMetrics');
   return Object.fromEntries(metrics.filter((m) => METRICS.includes(m.name)).map((m) => [m.name, m.value]));
@@ -141,6 +155,9 @@ async function runOne({ browser, base, capMs, steps }, kind, bytes, log) {
   try {
     const page = await ctx.newPage();
     await page.addInitScript(() => {
+      window.__marxyBusy = 0;
+      let last = performance.now();
+      setInterval(() => { const n = performance.now(); window.__marxyBusy += Math.max(0, n - last - 5); last = n; }, 5);
       window.__marxyLongTasks = [];
       try {
         new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__marxyLongTasks.push(e.duration); }).observe({ type: 'longtask', buffered: true });
@@ -149,7 +166,7 @@ async function runOne({ browser, base, capMs, steps }, kind, bytes, log) {
     await page.goto(`${base}/?open=${encodeURIComponent('reading/on-the-measure.md')}`, { timeout: 180_000 });
     await page.waitForFunction(() => !!window.marxy?.handle, null, { timeout: 90_000 });
     await page.evaluate(() => window.marxy.handle.contentComplete());
-    const cdp = await ctx.newCDPSession(page);
+    const cdp = browser.browserType().name() === 'webkit' ? timerProbe(page) : await ctx.newCDPSession(page);
     await cdp.send('Performance.enable');
     const s = { page, cdp, capMs };
     await quiet(cdp, capMs);
@@ -224,11 +241,11 @@ if (import.meta.main) {
   }
   const require = createRequire(join(DESKTOP, 'package.json'));
   const { createServer } = await import(pathToFileURL(require.resolve('vite')).href);
-  const { chromium } = await import('playwright');
+  const { chromium, webkit } = await import('playwright');
   const server = await createServer({ root: DESKTOP, configFile: join(DESKTOP, 'vite.config.ts'), logLevel: 'error', server: { port: 1490, strictPort: false, host: '127.0.0.1', hmr: false, watch: null } });
   await server.listen();
   const base = `http://127.0.0.1:${server.httpServer.address().port}`;
-  const browser = await chromium.launch({
+  const browser = o.browser === 'webkit' ? await webkit.launch({ headless: true }) : await chromium.launch({
     ...(o.browser === 'chromium' ? {} : { channel: o.browser }),
     headless: true,
     ignoreDefaultArgs: ['--hide-scrollbars'],
@@ -252,6 +269,6 @@ if (import.meta.main) {
   await browser.close();
   await server.close();
   console.log(table(results, o.steps.filter((s) => results.some((r) => r.steps[s]))));
-  console.log('\nms: main-thread task time (Chromium, this machine); + still busy at the cap, so the real figure is higher. ×/2: growth per doubling from the size above; 2 is linear, over 2.5 is marked !.');
+  console.log('\nms: main-thread task time (this machine; webkit: timer lag); + still busy at the cap, so the real figure is higher. ×/2: growth per doubling from the size above; 2 is linear, over 2.5 is marked !.');
   process.exit(failed ? 1 : 0);
 }
