@@ -10,6 +10,7 @@ outside this folder. Nothing in `apps/`, `packages/`, `scripts/` or `docs/` refe
 | --- | --- | --- |
 | `todo.md` | the tracker: open work in sections (Next, To try in a real window, Waiting on the owner, Later, Housekeeping) | every branch that takes, finishes or adds a row |
 | `STATE.md` | where `main` stands now: what the app does, platforms, latest verify, performance, open work, risks | rewritten each week by the plan pull request, and by the branch that lands a run |
+| `hunt-coverage.md` | where bug hunts have looked: one row per axis run with its lens, area, commit and confirmed count, so the planner skips ground that came up empty | `bug-triage`, when a hunt lands |
 | `ledger.md` | one row per landing, oldest first: date, run or week, pull request or commit, what changed for the reader, verify | one row a week from the plan pull request; a row from each run or hunt that lands |
 | `weeks/<date>.md` | one week of the schedule, named for the Friday it starts at 20:00: the plan (goals, `## Queue`, hunt axis, hardening, what waits for the owner, the Fable box), then the `## Outcome` the next plan appends | the `plan-week` skill; the owner, on the plan's pull request |
 | `runs/<date>-<kind>-<nn>/` | one orchestration run (a `wave` or a `round`): the branches cut together, built, reviewed and landed as one; or a `hunt`: a bug-catch cycle whose output is tracker rows | the run's orchestrator |

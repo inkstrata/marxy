@@ -45,11 +45,11 @@ export function prComments(n) {
 }
 
 // Where the head lives: the gate trusts only the contributor's own branches.
-const PR_FIELDS = 'number,title,isDraft,state,headRefName,headRefOid,isCrossRepository,headRepositoryOwner,labels,body,statusCheckRollup,mergeStateStatus';
+const PR_FIELDS = 'number,title,isDraft,state,headRefName,headRefOid,isCrossRepository,headRepositoryOwner,labels,body,createdAt,statusCheckRollup,mergeStateStatus';
 export function listOpenPRs() {
   const rows = gh(['pr', 'list', '-R', REPO, '--state', 'open', '--limit', '100', '--json', PR_FIELDS], { json: true }) || [];
   return rows.map((p) => ({
-    number: p.number, title: p.title, isDraft: p.isDraft, state: p.state, headRefName: p.headRefName, headRefOid: p.headRefOid,
+    number: p.number, createdAt: p.createdAt, title: p.title, isDraft: p.isDraft, state: p.state, headRefName: p.headRefName, headRefOid: p.headRefOid,
     isCrossRepository: p.isCrossRepository, headRepositoryOwner: p.headRepositoryOwner?.login ?? null,
     labels: (p.labels || []).map((l) => l.name),
     body: p.body || '', files: prFiles(p.number),

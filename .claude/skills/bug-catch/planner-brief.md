@@ -35,6 +35,12 @@ finds bugs no other axis would, and few false ones. You read the tree; the only 
    the last hunt> --stat origin/main` for what changed since. A `domain` axis is the fallback for an area
    that changed a lot and that no other axis covers.
 
+**Proposals.** Read the axes proposed in the last 14 days (`bug-catch`, "Proposed axes") before deriving any; rank them
+with the coverage rule and take the best first.
+
+**Coverage.** Read `work/hunt-coverage.md` and apply the rule in `bug-catch` ("Coverage ledger"): do not propose an
+axis whose area and lens last confirmed nothing unless its area changed since that commit.
+
 **Rank and cut.** Propose at most <12> axes for this round. Rank by expected bugs that only this axis
 would find, times severity, divided by cost. Two axes whose catchers would read the same files for the same
 reason are one axis. Leave out what is already known: `work/todo.md` and <known lists in briefs/>.

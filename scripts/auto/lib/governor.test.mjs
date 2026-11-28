@@ -173,3 +173,18 @@ test('final sweep: a research-now decision with the owner at the machine', () =>
 test('slotsUntilReset stays at one through the final sweep', () => {
   for (const t of ['14:00:00', '19:59:00']) assert.equal(slotsUntilReset(la(`2026-11-27T${t}`)), 1);
 });
+
+test('a get_usage plan object (with its own plan: "Max" field) is read, not mistaken for a wrapper', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { writeFileSync, mkdtempSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const os = await import('node:os');
+  const dir = mkdtempSync(join(os.tmpdir(), 'usage-'));
+  const file = join(dir, 'plan.json');
+  writeFileSync(file, JSON.stringify({ status: 'ok', plan: 'Max', windows: [
+    { label: '5-hour limit', percentUsed: 37, resetsAt: '2026-11-28T11:10:00Z' },
+    { label: 'Weekly · all models', percentUsed: 9, resetsAt: '2026-12-05T04:00:00Z' } ] }));
+  const env = { ...process.env, MARXY_STATE_DIR: join(dir, 'state') };
+  const out = execFileSync(process.execPath, [new URL('../auto.mjs', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'), 'usage', '--json', file], { env, encoding: 'utf8' });
+  assert.equal(JSON.parse(out).blind, false);
+});

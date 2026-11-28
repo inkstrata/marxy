@@ -65,6 +65,36 @@ Fable is used only when the week's plan pull request has its Fable box ticked by
 - `auto.mjs run start|end --job <id> --run <run-id>` brackets each job, so the weekly meter's growth during
   runs is counted as the automation's and the rest as the owner's.
 
+## When the queue runs out
+
+The week plan's queue is seven pieces at most and a night builds up to three, so it can run dry in two or three
+nights. Rather than stop, a run follows `auto.mjs status`'s `next.steps`, built by `lib/next.mjs` from facts it
+computes (open pull requests that need a builder, unstarted queue pieces, ready tracker rows, the days since a
+hunt, what this run already did). In order: `carry-over`; `queue`; `top-up` (up to two ready rows from Next,
+Structure and Big files when fewer than two pieces are unstarted; once per run); `small-hunt` (a short bug hunt
+when fewer than three rows are ready, fewer than two hunts ran this week and none in the last two days; once
+per run); Tuesday's regular hunt; otherwise `stop` with a reason. A run records its top-ups and small hunts, and
+its in-flight agents, worktrees and pull requests, with `auto.mjs run note --job <id> --run <run-id> --kind
+hunt|top-up|small-hunt|targeted-hunt|state --data <json>`; the `state` note also writes `run-state.json` in the state
+folder (`run end` removes it), and `status --job <id>` returns it as `resume` when the same job left it under six hours
+ago and its run has not ended. Hunts this week are counted from notes, open `agent/hunt-*` pull requests and hunt
+folders, once each. Run summaries are published on the public `auto-state` branch, so they carry the automation's own
+spend only, never the owner's usage meters. Every run ends with `auto.mjs dashboard`, so the dashboard's
+"Last runs" section (the newest summary per job on `auto-state`) is current when the run is over.
+
+## Order of work
+
+One rule, used by the plan, the night skill and `lib/next.mjs`:
+
+1. carry-over;
+2. data loss or corruption;
+3. cause rows (a row whose Why starts `Covers:` and lists two or more ids), the ones covering the most first;
+4. the rest by severity, S1 before S3;
+5. tracker order breaks ties.
+
+A structural change still waits until no in-flight branch touches its files (AGENTS.md); meanwhile only
+data-loss symptoms get a narrow fix, plus a row.
+
 ## The merge gate
 
 No agent merges. Auto mode's classifier refuses to merge a pull request no person approved, and the fleet's
@@ -180,6 +210,7 @@ reached about 10,000 lines against about 12,000 of product and was torn out. Gro
 | `lib/clean.mjs` | the weekly cleanup: runs `work clean --stale`, prunes old logs, rows and temporary folders, publishes the result |
 | `lib/presence.mjs` | whether the owner is using this machine: input, a full-screen app, a game |
 | `lib/codeowners.mjs` | which changed files `.github/CODEOWNERS` gives to the owner |
+| `lib/next.mjs` | what a run does next: the ordered steps and the facts they come from |
 | `lib/state.mjs` | local run logs and the `auto-state` data branch |
 | `lib/github.mjs` | the `gh` calls, with the contributor's token |
 | `lib/dashboard.mjs` | collects the state and renders the dashboard issue |

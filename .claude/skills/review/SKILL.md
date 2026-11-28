@@ -42,6 +42,12 @@ alone before it is called load. No full `pnpm verify` unless the diff is wide.
 Mutation-check the key tests: revert the fix in your worktree (`git checkout origin/main -- <file>`), run the
 test and see it fail, then restore. A test that passes without the change proves nothing.
 
+**Break it first.** An L-size piece, or a diff touching `packages/core/src/buffer`, `packages/core/src/encoding`,
+`packages/core/src/sanitize`, `apps/desktop/src-tauri` or a save path, gets a targeted hunt from the night run before
+your verdict (one per run); take its findings into account. When none ran, and for every M piece, write one probe
+that tries to break the change (hostile input, a boundary, an encoding) and run it before approving. The probe and
+its result go in the comment, a few lines.
+
 ## 3. What to read for
 
 - input the reader did not write (a file's bytes, an archive's directory, a paste): the work it can cause is

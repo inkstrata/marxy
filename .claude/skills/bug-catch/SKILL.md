@@ -74,6 +74,32 @@ The domain table is one source of axes and the map of where things live:
 
 Paths under `src/` are `apps/desktop/src/`. Add a row here when a hunt finds an area the table lacks.
 
+**Proposed axes.** Before inventing axes, read those proposed in the last 14 days: the `## Axes proposed` of run
+summaries in `~/.local/state/fleet/marxy/auto-state/nights/` (`git -C ~/.local/state/fleet/marxy/auto-state pull`
+first) and of hunts' READMEs. Rank them with the ledger rule below and take the best first; the triggered small
+hunt takes the top proposal first. A proposal taken or dropped is accounted for in the hunt's `triage.md`.
+
+**Coverage ledger.** `work/hunt-coverage.md` says where hunts have looked, with what lens, at which commit and
+with what yield. The same lens on an area that last confirmed nothing is not run again there until
+`git log <commit>..origin/main -- <paths>` shows the area changed; after four weeks without a change, only a
+different lens may run there. Rank candidate axes by whether the area changed since its last sweep, then by the lens's past
+confirmed yield, then by severity. The Tuesday hunt and the triggered small hunt both follow this.
+
+**Target.** A hunt may be aimed at a pull request number, a branch, a tracker row id or a set of paths. The scope
+is the changed files (`git diff --name-only` against `origin/main`) plus their direct callers (grep for
+importers); axes are planned only inside it. Lenses: hostile input past the budgets, boundaries and encodings,
+and listener and lifecycle cleanup. Shape: two Sonnet catchers, one round, no Opus planner, verification on the
+other model. Findings on an open pull request become a CHANGES review on it (`review` skill), not tracker rows;
+on merged code they become rows, or the next run's carry-over.
+
+**Standard axis: changes since the last hunt.** Every Tuesday hunt includes it: `git log --stat` of `origin/main`
+since the newest hunt's date, one catcher, a domain axis over whatever changed most.
+
+**Small shape (a triggered hunt).** The night skill's `small-hunt` step uses it when the work runs thin: two to
+four axes, taken from the newest hunt's `axes.md` entries left unrun (`Round:` empty) or, failing those, the
+standard axis above. Sonnet catchers only, one round, no Opus planner, verification on the other model as
+usual, then triage. It does not run a second round unless section 5 allows one.
+
 ## 3. Send the catchers
 
 One agent per axis, with the axis's model (`sonnet` unless `axes.md` says `haiku`), effort medium, in the
@@ -110,16 +136,16 @@ node .claude/skills/bug-catch/finding.mjs yield <run>/findings.md <run>/verifica
 
 Copy the table into the README under the round. Then:
 
-- **Another round** when the round's axes found two or more bugs alone (confirmed or plausible, not found by
-  any other axis or known before). Send the planner again with the table (its **Last round** paragraph):
+- **Another round**, at most three in all: round 2 only if round 1 confirmed two or more findings and the budget
+  gate allows it (not `noNewAgents`, allowance left); round 3 only if round 2 did the same. Send the planner again with the table (its **Last round** paragraph):
   extend the axes that found bugs alone, drop those that found none, and run the axes still waiting.
 - **Stop** when they found fewer than two, or when a round's findings were only duplicates. Saying "a round
   found nothing" about a cheap model says more about the model than the code, so the README names the areas
   covered and found clean by two or more axes ("Converged"). Each goes one of three ways, written down: one
   Opus catcher on the riskiest (the reader core, the big-file guards, anything holding an S1 before), the
   real window or WebKit (`scripts/browser-tests.mjs`) for what headless Chromium cannot show, or closed.
-- **Three rounds at most** per hunt without the owner's word; a hunt that is still finding bugs after three
-  is a sign of a structural problem to raise, not a reason for a fourth.
+- **A third round that still finds bugs** is reported to the owner as a structural problem, in the hunt's README
+  and triage, and is not answered with a fourth.
 
 Then go on to `bug-triage`.
 

@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const TZ = 'America/Los_Angeles';
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const OWNER_REASON = /owner|hold|reset|changes requested|review.*change|plan/i;
 const ptDay = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(d));
 const ptStamp = (d) => `${new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(d))} PT`;
@@ -93,12 +93,33 @@ function budget(d) {
   ];
 }
 
+const REPO_URL = 'https://github.com/inkstrata/marxy/blob/auto-state/nights';
+const JOB_KINDS = ['night', 'day', 'friday', 'plan'];
+
+// The newest summary per job on the auto-state branch. Files are `<date>-<job>.md`, so a sort by name is a sort by day.
+export function lastRuns(files, read) {
+  return JOB_KINDS.map((job) => {
+    const file = files.filter((f) => f.endsWith(`-${job}.md`)).sort().pop();
+    const text = file ? read(file) : null;
+    const first = text ? String(text).split(/\r?\n/).find((l) => l.trim()) : null;
+    return { job, file, line: first ? first.replace(/^#+\s*/, '').trim() : null };
+  });
+}
+
+function lastRunLines(d) {
+  const day = (f) => /^\d{4}-\d{2}-\d{2}/.exec(f)?.[0];
+  const ago = (f) => { const n = Math.round((new Date(ptDay(d.now)) - new Date(day(f))) / 86400e3); return n <= 0 ? 'today' : n === 1 ? 'yesterday' : `${n}d ago`; };
+  return (d.lastRuns?.length ? d.lastRuns : JOB_KINDS.map((job) => ({ job }))).map((r) => (r.file && day(r.file)
+    ? `- ${r.job}: ${short(r.line || '(empty summary)', 140)} (${ago(r.file)}, [summary](${REPO_URL}/${r.file}))` : `- ${r.job}: no run yet`));
+}
+
 export function render(d) {
   const section = (title, lines) => [`## ${title}`, ...lines, ''];
   return [
     '# Marxy dashboard',
     `Updated ${ptStamp(d.now)}. Week of ${d.queue?.week || 'no plan yet'}.`,
     '',
+    ...section('Last runs', lastRunLines(d)),
     ...section('Next up', nextUp(d)),
     ...section('Changelog', changelog(d)),
     ...section('Waiting for you', waiting(d)),
@@ -145,8 +166,8 @@ export async function collect({ root = ROOT, now = new Date() } = {}) {
   const gh = await import('./github.mjs');
   const state = await import('./state.mjs');
   const policy = await import('./merge-policy.mjs');
-  let prs = [];
-  try { prs = await evaluatedPRs({ root, now }); } catch (e) { console.error(`dashboard: ${e.message.split('\n')[0]}`); }
+  let prs = [], offline = false;
+  try { prs = await evaluatedPRs({ root, now }); } catch (e) { offline = true; console.error(`dashboard: ${e.message.split('\n')[0]}`); }
   const weekFile = newestWeek(root);
   const read = (file, fallback) => quiet(() => fs.readFileSync(path.join(root, file), 'utf8'), fallback);
   // The nightly and device runs publish their newest result per OS as devices/<os>.json.
@@ -157,7 +178,8 @@ export async function collect({ root = ROOT, now = new Date() } = {}) {
   const usage = state.readJsonl('usage', { limit: 1 }).pop() || null;
   return {
     now: now.toISOString(),
-    prs: prs.map(({ number, title, headRefName, merge, reasons }) => ({ number, title, headRefName, merge, reasons })),
+    offline,
+    prs: prs.map(({ number, title, headRefName, merge, reasons, createdAt }) => ({ number, title, headRefName, merge, reasons, createdAt })),
     merged: quiet(() => gh.mergedSince(new Date(now.getTime() - 30 * 86400e3).toISOString().slice(0, 10)), []),
     queue: weekFile ? { week: path.basename(weekFile, '.md'), rows: tableRows(fs.readFileSync(weekFile, 'utf8'), 'Queue') } : null,
     waitingOnOwner: tableRows(read('work/todo.md', ''), 'Waiting on '),
@@ -166,6 +188,7 @@ export async function collect({ root = ROOT, now = new Date() } = {}) {
     clean,
     usage,
     budget: state.attribution(state.readJsonl('runs'), usage?.usage?.weekly?.pct, policy.lastReset(now)),
+    lastRuns: quiet(() => lastRuns(state.listPublished('nights'), (f) => state.readPublished(`nights/${f}`)), []),
     jobs: JSON.parse(read('scripts/auto/schedule.json', '{"jobs":[]}')).jobs,
   };
 }

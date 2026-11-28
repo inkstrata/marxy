@@ -22,6 +22,22 @@ work.
 Where catcher and verifier disagree on severity, take the verifier's unless the probe shows otherwise.
 Read the probe output of every S1 before it becomes a row.
 
+## 1a. Causes, before the rows
+
+Group the confirmed findings by mechanism: the same owner module (`docs/principles.md`, one owner per
+concern), the same missing guard, or the same data path. A group of two or more findings, or any finding whose
+real fault is a missing guard, becomes one **cause row**:
+
+- **What**: the mechanism as the reader meets it.
+- **Why**: starts `Covers: <finding ids and/or row ids>;`, then where the cause is.
+- **The fix** (in the row): made at the concern's single owner, plus a guard that fails on the whole class (a
+  test, a `pnpm check` rule or a gate).
+- **The symptoms**: each finding's reproduction becomes one of the row's acceptance tests.
+
+Symptoms a cause row covers get no rows of their own; `triage.md` says "merged into <cause row>". An existing row
+that is the real cause (a planned structural row) absorbs its symptoms instead: its Why gains them and it moves
+up. A finding with no group stays an ordinary row. Rows are ordered by "Order of work" in `scripts/auto/README.md`.
+
 ## 2. Write the rows
 
 Ready to tackle means a builder can start without hunting again. Each row:
@@ -38,7 +54,9 @@ Placement: S1 rows at the top of **Next**; S2 under **Next** after them; S3 unde
 one change would fix share one row (name every id in `Why`). If **Next** has more than about fifteen rows,
 put S2 rows that touch no promised behaviour under **Later** and say so in `triage.md`.
 
-`pnpm work todo --check` must pass after the edit.
+`pnpm work todo --check` must pass after the edit. Append one row per axis run to `work/hunt-coverage.md` (date,
+hunt, axis, lens, area paths, the commit it ran on, confirmed count, and Source: `planner` or `proposed:<run-id>`).
+When the hunt took or dropped a proposed axis, `triage.md` says which and why.
 
 ## 3. Write triage.md and the account
 
@@ -50,7 +68,8 @@ The hunt's `README.md` gains the counts: findings, verdicts and rows made, and t
 `node .claude/skills/bug-catch/finding.mjs yield <run>/findings.md <run>/verification.md`, with a column
 for the rows each axis's findings became. The next hunt's planner reads this table first.
 
-It ends with **For the next hunt**, in three short lists the planner can act on:
+Proposals share one format: write each **Extend** item as an `axes.md` entry (see "Axes" in
+`../bug-catch/format.md`) under `## Axes proposed` in the README. It ends with **For the next hunt**, in three short lists the planner can act on:
 - **Extend**: axes that found bugs alone, and the variant to try (narrower, a sibling area, the same cause
   elsewhere).
 - **Drop**: axes that found nothing alone, and why (no bugs there, or a lens the model could not use).
