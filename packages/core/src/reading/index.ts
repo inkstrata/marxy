@@ -4,6 +4,7 @@
 // shows the bytes; nothing here writes. Pure.
 import { byteOffsets, decodeWithOffsets, type ByteOffsets } from '../parse/byte-offsets.ts';
 import { decodeBytes, sniff } from '../encoding/decode.ts';
+import { budget } from '../util/budget.ts';
 import { fileOffsetOf } from '../encoding/byte-map.ts';
 import { delimiterFor } from '../data/delimited.ts';
 import { isTreeTop, parseJson, parseToml, parseXml, parseYaml, TreeError, treeFromCode, type TreeFrom, type TreeNode } from './tree.ts';
@@ -1136,7 +1137,8 @@ export function carriesMarkdown(text: string): boolean {
   let marked = 0;
   let start = 0;
   // Lines are walked in place, not split into an array, and no more than MARK_LINES are looked at.
-  for (let n = 0; n < MARK_LINES && start <= text.length; n++) {
+  const lines = budget(MARK_LINES);
+  while (start <= text.length && lines.take()) {
     LINE_END.lastIndex = start;
     const hit = LINE_END.exec(text);
     const end = hit ? hit.index : text.length;
@@ -1152,16 +1154,16 @@ export function carriesMarkdown(text: string): boolean {
 
 /**
  * Whether `line` holds a link, `[text](target)`: text of no brackets, a target of no space or `)`. Found from each `](`
- * in one pass: a target that fails ends where every later `](` inside it would end too, so none is scanned twice.
+ * in one pass: the target of a `](` inside another's target stops where that one does, so it is scanned once.
  */
 function hasLink(line: string): boolean {
-  let at = line.indexOf('](');
-  while (at >= 0) {
+  let end = -1;
+  for (let at = line.indexOf(']('); at >= 0; at = line.indexOf('](', at + 1)) {
+    if (at + 2 > end) end = scanTarget(line, at + 2);
+    if (end === at + 2 || line[end] !== ')') continue;
     let open = at - 1;
     while (open >= 0 && line[open] !== '[' && line[open] !== ']') open--;
-    const end = scanTarget(line, at + 2);
-    if (open >= 0 && line[open] === '[' && open < at - 1 && end > at + 2 && line[end] === ')') return true;
-    at = line.indexOf('](', Math.max(end, at + 1));
+    if (open >= 0 && line[open] === '[' && open < at - 1) return true;
   }
   return false;
 }

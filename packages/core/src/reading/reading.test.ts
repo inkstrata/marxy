@@ -224,7 +224,7 @@ test('the Markdown marks are looked for in each line\'s first characters only: a
 
 test('carriesMarkdown reads links in one pass per line and looks at a bounded number of lines', () => {
   // Links the pattern used to find still count, and the near misses do not.
-  for (const yes of ['[a](b)', '![a](b)', 'x [a]b](c) [d](e)', '[a](b [c](d)', '[[x]](y) [z](w)']) assert.equal(carriesMarkdown(`${yes}\n${yes}\n`), true, yes);
+  for (const yes of ['[a](b)', '![a](b)', 'x [a]b](c) [d](e)', '[a](b [c](d)', '[[x]](y) [z](w)', 'a](b[c](d)', '[a]b](c[d](e)']) assert.equal(carriesMarkdown(`${yes}\n${yes}\n`), true, yes);
   for (const no of ['[](b)', '[a]()', '[a](b c)', '[a [b](c', '[a]](b', '[a](b']) assert.equal(carriesMarkdown(`${no}\n${no}\n`), false, no);
   // Each line of unclosed targets is scanned once, not from every `](` to its end.
   const chain = `${'[a](b'.repeat(190)}\n`.repeat(4000);
