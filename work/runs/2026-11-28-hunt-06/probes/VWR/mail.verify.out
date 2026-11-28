@@ -1,0 +1,9 @@
+VWR-01 a [{"name":"","address":"Jane <jane@y.org>"}]
+VWR-01 b [{"name":"","address":"\"Doe, J\" <j@x>"}]
+VWR-01 c [{"name":"","address":"john@x.com (John"},{"name":"","address":"Jr.)"},{"name":"","address":"b@y"}]
+VWR-01 ctl (no comment) [{"name":"Jane","address":"jane@y.org"}]
+VWR-02 body "caf�"
+VWR-02 explicit utf-8 (expected lossy) "caf�"
+VWR-02 html meta "<meta charset=\"iso-8859-1\">caf�"
+VWR-07 "just words, not a database" -> subject "" text "" parts 1
+VWR-07 "Subject: hi\r\nFrom: a@b\r\nbody line no blank" -> subject "hi" text "" parts 1

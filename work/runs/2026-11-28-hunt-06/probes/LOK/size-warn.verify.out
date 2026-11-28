@@ -1,0 +1,12 @@
+"size = 12\nmeasure = 20\nchrome_size = 40" -> size 15 measure 45 theme null 
+  warnings: ["chrome_size 40 is outside 11–26 px; using 26"] 
+  readSettings warnings: ["chrome_size 40 is outside 11–26 px; using 26"]
+"size = 99\nmeasure = 200" -> size 50 measure 80 theme null 
+  warnings: [] 
+  readSettings warnings: []
+"theme = 5" -> size 20 measure 66 theme null 
+  warnings: [] 
+  readSettings warnings: []
+"size = \"big\"\nmeasure = \"wide\"" -> size 20 measure 66 theme null 
+  warnings: ["size was invalid; using 20","measure was invalid; using 66"] 
+  readSettings warnings: ["size was invalid; using 20","measure was invalid; using 66"]

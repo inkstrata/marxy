@@ -1,0 +1,10 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/CMD/hist.verify.mjs" "--browser" "chromium"
+followed Doc B
+Control+[ Doc A
+Control+] Doc A
+Alt+ArrowLeft Doc A
+Alt+ArrowRight Doc A
+after back again Doc A
+palette rows ["ForwardCtrl+]","Transform clipboard: Unwrap hard-wrapped lines","Transform: Unwrap hard-wrapped lines"]
+after palette Forward Doc A
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1048

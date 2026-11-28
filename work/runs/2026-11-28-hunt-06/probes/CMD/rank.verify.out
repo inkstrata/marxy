@@ -1,0 +1,7 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/CMD/rank.verify.mjs" "--browser" "chromium"
+read ["|Out of the part: to what holds it, then to its heading|H|","|Previous heading|[|","|Always open this folder as readme|","|Read as: why, and the other ways|"]
+source ["|A lens: only the tasks, the code, the links, your notes, odd characte","|Source|Ctrl+3|","|Split: Read and Source side by side|Ctrl+2|","|Switch between Read and Source|Ctrl+E|"]
+open ["|Into the part: the items of a list, the blocks of a quote, the parts ","|Open the next file in this folder|Ctrl+Alt+]|","|Open the previous file in this folder|Ctrl+Alt+[|","|Out of the part: to what holds it, then to its heading|H|"]
+previous tab ["|Previous tab|Ctrl+Shift+Tab|","|Previous tab|T|"]
+next tab ["|Next tab|Ctrl+Tab|","|Next tab|g t|"]
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1048

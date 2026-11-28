@@ -1,0 +1,6 @@
+VWR-03 ordered outside       "1) one\n2) two\n"
+VWR-03 ordered in cell       "| one<br>two |\n| --- |\n"
+VWR-03 bullet in cell        "| • one<br>• two |\n| --- |\n"
+VWR-08 numbered outside      "1) item 1\n2) item 2\n"
+VWR-08 numbered in cell      "| • item 1• item 2 |\n| --- |\n"
+VWR-08 bullets in cell       "| • item 1• item 2 |\n| --- |\n"

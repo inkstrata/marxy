@@ -1,0 +1,4 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/CMD/repeat.mjs"
+before ["Paragraph number 1.","Paragraph number 2.","Paragraph number 3.","Paragraph number 4.","Paragraph number 5.","Paragraph number 6.","Paragraph number 7.","Paragraph number 8."]
+after one held d ["Paragraph number 1.","Paragraph number 2.","Paragraph number 3.","Paragraph number 4.","Paragraph number 5."]
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1030

@@ -1,0 +1,5 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/place8.mjs"
+plan pg16-upgrade-plan.md 1000 max=1741
+reading reading-in-3a.md 1000 max=1052
+README README.md 0 max=0
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1029

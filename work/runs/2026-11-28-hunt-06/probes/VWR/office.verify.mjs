@@ -1,0 +1,22 @@
+import { readOffice } from '../../../../../packages/core/src/office/index.ts';
+import { partsReader } from '../../../../../packages/core/src/office/testing/samples.ts';
+const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"';
+const R = (x) => `<w:r><w:t>${x}</w:t></w:r>`;
+const li = (t, id) => `<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="${id}"/></w:numPr></w:pPr>${R(t)}</w:p>`;
+const num = `<w:numbering ${W}><w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/></w:lvl></w:abstractNum><w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:numFmt w:val="bullet"/></w:lvl></w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num></w:numbering>`;
+const rels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="n" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/></Relationships>';
+const docx = async (name, body) => {
+  const parts = { '[Content_Types].xml': '<Types/>', '_rels/.rels': '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="r1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>', 'word/document.xml': `<w:document ${W}><w:body>${body}</w:body></w:document>`, 'word/numbering.xml': num, 'word/_rels/document.xml.rels': rels };
+  console.log(name.padEnd(28), JSON.stringify((await readOffice('docx', partsReader(parts))).markdown));
+};
+const tbl = (c) => `<w:tbl><w:tr><w:tc>${c}</w:tc></w:tr></w:tbl>`;
+await docx('VWR-03 ordered outside', li('one', 1) + li('two', 1));
+await docx('VWR-03 ordered in cell', tbl(li('one', 1) + li('two', 1)));
+await docx('VWR-03 bullet in cell', tbl(li('one', 2) + li('two', 2)));
+const NS = 'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"';
+const st = '<office:automatic-styles><text:list-style style:name="L1"><text:list-level-style-number text:level="1" style:num-format="1"/></text:list-style><text:list-style style:name="B1"><text:list-level-style-bullet text:level="1"/></text:list-style></office:automatic-styles>';
+const odt = async (name, body) => console.log(name.padEnd(28), JSON.stringify((await readOffice('odt', partsReader({ 'content.xml': `<office:document-content ${NS}>${st}<office:body><office:text>${body}</office:text></office:body></office:document-content>` }))).markdown));
+const items = '<text:list-item><text:p>item 1</text:p></text:list-item><text:list-item><text:p>item 2</text:p></text:list-item>';
+await odt('VWR-08 numbered outside', `<text:list text:style-name="L1">${items}</text:list>`);
+await odt('VWR-08 numbered in cell', `<table:table><table:table-row><table:table-cell><text:list text:style-name="L1">${items}</text:list></table:table-cell></table:table-row></table:table>`);
+await odt('VWR-08 bullets in cell', `<table:table><table:table-row><table:table-cell><text:list text:style-name="B1">${items}</text:list></table:table-cell></table:table-row></table:table>`);

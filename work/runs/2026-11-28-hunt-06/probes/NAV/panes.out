@@ -1,0 +1,12 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/panes.mjs"
+opened {"panes":["C.md"],"focused":0,"tabs":["pg16-upgrade-plan.","A.md","B.md","C.md*"]}
+split (C|C) {"panes":["C.md","C.md"],"focused":0,"tabs":["pg16-upgrade-plan.","A.md","B.md","C.md*"]}
+close focused (pane0) {"panes":["B.md"],"focused":0,"tabs":["pg16-upgrade-plan.","A.md","B.md*"]}
+reopen {"panes":["C.md"],"focused":0,"tabs":["pg16-upgrade-plan.","A.md","B.md","C.md*"]}
+split again {"panes":["C.md","C.md"],"focused":0,"tabs":["pg16-upgrade-plan.","A.md","B.md","C.md*"]}
+focus pane1 {"panes":["C.md","C.md"],"focused":1,"tabs":["pg16-upgrade-plan.","A.md","B.md","C.md*"]}
+open A in pane1 {"panes":["C.md","A.md"],"focused":1,"tabs":["pg16-upgrade-plan.","A.md⇄*","B.md","C.md⇄"]}
+close A in pane1 {"panes":["C.md","B.md"],"focused":1,"tabs":["pg16-upgrade-plan.","B.md⇄*","C.md⇄"]}
+back in focused {"panes":["C.md","B.md"],"focused":1,"tabs":["pg16-upgrade-plan.","B.md⇄*","C.md⇄"]}
+forward {"panes":["C.md","B.md"],"focused":1,"tabs":["pg16-upgrade-plan.","B.md⇄*","C.md⇄"]}
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1030

@@ -1,0 +1,18 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/links.verify.mjs"
+NAV-03 /demo/plain -> /demo/plain/b.md
+NAV-03 /demo/C# -> /demo/C#/a.md
+NAV-03 /demo/50% -> /demo/50%/a.md
+NAV-03 /demo/q?x -> /demo/q?x/a.md
+NAV-03 /demo/a%41 -> /demo/a%41/a.md
+NAV-06 click x -> /demo/h/b#1.md
+NAV-06 click y -> /demo/h/c?.md
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1050
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/links.verify.mjs"
+NAV-03 /demo/plain -> /demo/plain/b.md
+NAV-03 /demo/C# -> /demo/C#/a.md
+NAV-03 /demo/50% -> /demo/50%/a.md
+NAV-03 /demo/q?x -> /demo/q?x/a.md
+NAV-03 /demo/a%41 -> /demo/a%41/a.md
+NAV-06 click x -> /demo/h/b#1.md
+NAV-06 click y -> /demo/h/c?.md
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1051

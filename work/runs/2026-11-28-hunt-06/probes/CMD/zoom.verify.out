@@ -1,0 +1,8 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/CMD/zoom.verify.mjs" "--browser" "chromium"
+start 20px
+Control+Equal 20px -> 21px
+Control+Shift+Equal 21px -> 21px
+Control+NumpadAdd 21px -> 21px
+Control+Minus 21px -> 20px
+[["Control","ControlLeft",false,false],["=","Equal",false,true],["Control","ControlLeft",false,false],["Shift","ShiftLeft",true,false],["+","Equal",true,false],["Control","ControlLeft",false,false],["+","NumpadAdd",false,false],["Control","ControlLeft",false,false],["-","Minus",false,true]]
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1048

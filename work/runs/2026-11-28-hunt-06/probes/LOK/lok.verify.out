@@ -1,0 +1,7 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/LOK/lok.verify.mjs" "--browser" "chromium"
+LOK-01 control (no look): size32+light -> {"v":"light","look":null,"size":"32px","art":"32px"}
+LOK-03 auto before key: dark-> dark light-> light
+LOK-03 after Mod+-, system dark -> light (auto should be dark) config: "size = 31\nvariant = \"auto\"\n"
+LOK-03 after Mod+-, system light -> light
+LOK-01 look paper, size 40 -> {"v":"light","look":"paper","size":"20.5px","art":"20.5px"} config has size: false
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1055

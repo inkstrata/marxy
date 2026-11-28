@@ -1,0 +1,7 @@
+LINE 5-3 {"from":5,"to":null}
+LINE 9-5 {"from":9,"to":null}
+LINE 5-9 {"from":5,"to":9}
+LINE 7-7 {"from":7,"to":null}
+REF src/a.ts:12 {"path":"src/a.ts","from":12,"to":null}
+REF src/a.ts:12:5 {"path":"src/a.ts:12","from":5,"to":null}
+REF a.ts:9-5 {"path":"a.ts","from":9,"to":null}

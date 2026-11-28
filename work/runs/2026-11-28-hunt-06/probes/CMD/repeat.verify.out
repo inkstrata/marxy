@@ -1,0 +1,5 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/CMD/repeat.verify.mjs" "--browser" "chromium"
+tap null Para 1.|Para 2.|Para 3.|Para 4.|Para 5.|Para 7.|Para 8.
+held [false,true,true,true,true] Para 1.|Para 2.|Para 3.|Para 4.|Para 5.|Para 7.
+held [false,false,true,true,true,true,true,true,true,true] Para 1.|Para 2.|Para 3.|Para 4.|Para 5.
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1049

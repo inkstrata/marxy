@@ -1,0 +1,14 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/frag2.mjs"
+<h1 id="my-head" data-marxy-s="391" data-marxy-e="400" dir="auto">My Head</h1>
+<h1 data-marxy-s="405" data-marxy-e="412" dir="auto">Café</h1>
+<h1 data-marxy-s="564" data-marxy-e="575" dir="auto" lang="">日本語</h1>
+<h1 id="dup" data-marxy-s="577" data-marxy-e="582" dir="auto">Dup</h1>
+<h1 id="dup-1" data-marxy-s="584" data-marxy-e="589" dir="auto">Dup</h1>
+#my%20head | #café | #caf%C3%A9 | #my-head | #日本語 | #dup-1
+#my%20head 4711,4846,7186,7276,7366 -> 4711,4846,7186,7276,7366
+#café 4711,4846,7186,7276,7366 -> 4711,4846,7186,7276,7366
+#caf%C3%A9 4711,4846,7186,7276,7366 -> 4711,4846,7186,7276,7366
+#my-head 4711,4846,7186,7276,7366 -> 360,495,2835,2925,3015
+#日本語 4711,4846,7186,7276,7366 -> 4711,4846,7186,7276,7366
+#dup-1 4711,4846,7186,7276,7366 -> -2295,-2160,180,270,360
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1026

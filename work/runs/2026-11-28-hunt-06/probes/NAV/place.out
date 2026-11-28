@@ -1,0 +1,12 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/place.mjs"
+A scrolled [["A.md",3075,"rendered"]]
+B open [["B.md",3075,"rendered"]]
+A again [["A.md",3075,"rendered"]]
+A scrolled 3000 [["A.md",3075,"rendered"]]
+after close [["B.md",3075,"rendered"]]
+after reopen [["A.md",3075,"rendered"]]
+C 4000 [["C.md",4043,"rendered"]]
+split [["C.md",4043,"rendered"],["C.md",4087,"source"]]
+pane1 scrolled [["C.md",4043,"rendered"],["C.md",4087,"source"]]
+after insert at top (pane1 was 4087) [["C.md",4233,"rendered"],["C.md",4320,"source"]]
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1027
