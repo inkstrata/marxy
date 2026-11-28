@@ -273,15 +273,22 @@ export function mountRows(o: RowsOptions): RowsView {
   };
   document.addEventListener('scroll', onScroll, { capture: true, passive: true });
   // A new width or text size can change a row's height; the table's own height changing as it draws must not redraw it.
+  // The redraw is made on the next frame, not inside the observer's delivery: drawing changes the table's height, which is
+  // observed too, and a change made while notifications are delivered ends the frame with a "loop completed with undelivered
+  // notifications" error (how often depends on how slowly the machine paints).
   let seen = '';
+  let resizeFrame = 0;
   const resize = new ResizeObserver(() => {
     const sc = o.scroller();
     const now = `${root.clientWidth}x${sc.clientHeight}`;
     if (now === seen) return;
     seen = now;
-    if (!windowed()) return;
-    rowPx = 0;
-    draw(true);
+    if (!windowed() || resizeFrame !== 0) return;
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      rowPx = 0;
+      draw(true);
+    });
   });
   resize.observe(root);
   window.addEventListener('resize', onResize);
@@ -645,6 +652,7 @@ export function mountRows(o: RowsOptions): RowsView {
       resize.disconnect();
       window.removeEventListener('resize', onResize);
       if (frame !== 0) cancelAnimationFrame(frame);
+      if (resizeFrame !== 0) cancelAnimationFrame(resizeFrame);
       views.delete(table);
     },
   };

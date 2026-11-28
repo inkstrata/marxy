@@ -9,7 +9,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { after, test as nodeTest } from 'node:test';
 import { closeHarness } from './support/two-pane.mjs';
-import { cardText, cardsOf, showCardPanel, skip, withFrame } from './support/frame.mjs';
+import { cardText, cardsOf, showCardPanel, showPanel, withFrame } from './support/frame.mjs';
+import { scrollSettled, skip } from './support/kit.mjs';
 import { longPdf } from '../scripts/pdf-fixture.mjs';
 
 const test = (name, fn) => nodeTest(name, { skip, timeout: 120_000 }, fn);
@@ -88,12 +89,11 @@ test('a PDF opens as its pages, drawn from ranges: the bar, the text layer, the 
 
 test('a PDF opened with Outline shown opens at its first page: the dot that follows the page never draws one to find it', async () => {
   await withFrame({ files: FILES, open: ['/r/README.md'] }, async (page) => {
-    await page.evaluate(() => window.__marxyHandle.frame().left.show('outline', undefined, false));
-    await page.waitForTimeout(300);
+    await showPanel(page, 'outline');
     await page.evaluate((p) => window.__marxyHandle.open(p), ESSAY);
     await page.waitForFunction(() => document.querySelector('.marxy-drawer [data-marxy-left-row="u:page=3"]'), null, { timeout: 30000 });
     await page.waitForFunction(() => document.querySelector('.marxy-viewer-mount:not([hidden]) .marxy-pdf-page[data-marxy-page="0"] .marxy-pdf-text span'), null, { timeout: 30000 });
-    await page.waitForTimeout(500);
+    await scrollSettled(page, '.marxy-viewer-mount:not([hidden]) .marxy-pdf-stage');
     const at = await page.evaluate(() => ({
       top: document.querySelector('.marxy-viewer-mount:not([hidden]) .marxy-pdf-stage').scrollTop,
       drawn: [...document.querySelectorAll('.marxy-viewer-mount:not([hidden]) .marxy-pdf-page')].map((e) => Number(e.dataset.marxyPage)),
@@ -158,14 +158,18 @@ test('a new query over a long PDF never shows the last query\'s count while its 
     await page.keyboard.press(`${mod}+f`);
     await page.fill('.marxy-find-input', 'Page 1 of');
     await page.waitForFunction(() => /^1 of 1( |$)/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 60000 });
-    await page.evaluate(() => {
+    // From the moment the second query is typed (in the same task, so nothing the first query's count still reads can be
+    // taken for the second's), every text the count shows is kept.
+    const first = await page.evaluate(() => {
       const el = document.querySelector('.marxy-find-count');
+      const input = document.querySelector('.marxy-find-input');
       window.__counts = [];
       new MutationObserver(() => window.__counts.push(el.textContent)).observe(el, { childList: true, characterData: true, subtree: true });
+      input.value = 'Nothing';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      return el.textContent;
     });
-    await page.fill('.marxy-find-input', 'Nothing');
-    const at = () => page.textContent('.marxy-find-count');
-    assert.doesNotMatch(await at(), /^1 of 1( |$)/, 'the first count is gone the moment the second query is typed');
+    assert.doesNotMatch(first, /^1 of 1( |$)/, 'the first count is gone the moment the second query is typed');
     await page.waitForFunction(() => /^\d+ of [1-9]\d* · still counting$/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 60000 });
     await page.waitForFunction(() => /^\d+ of 399$/.test(document.querySelector('.marxy-find-count')?.textContent ?? ''), null, { timeout: 90000 });
     const seen = await page.evaluate(() => window.__counts);

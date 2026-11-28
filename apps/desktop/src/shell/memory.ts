@@ -75,8 +75,11 @@ export type MemoryShell = Pick<
   /** Make `from` a symlink to the folder `to` for `realPath` (harness; the store itself holds no links). */
   link(from: string, to: string): void;
   queueSaveDialog(path: string | null): void;
-  /** Next writeFileAtomic (or writeFileNew) rejects with this shell error code (harness). */
-  rejectNextWrite(code: 'permission' | 'io'): void;
+  /**
+   * Next writeFileAtomic (or writeFileNew) rejects with this shell error code (harness). With `path`, the next write to
+   * that file: Marxy's own state files are written on their own schedule and must not take a refusal meant for a save.
+   */
+  rejectNextWrite(code: 'permission' | 'io', path?: string): void;
   /**
    * Put `bytes` at `path` as another program would (harness): unrecorded, emits nothing, no checks. With `beforeWriteNew` it is a
    * creator that wins the name between a caller's look and its write.
@@ -368,7 +371,7 @@ export function createMemoryShell(
     return null;
   };
   let queuedSave: string | null | undefined;
-  let writeReject: 'permission' | 'io' | null = null;
+  let writeReject: { code: 'permission' | 'io'; path?: string } | null = null;
   const assetScopes = new Set<string>();
   // The fake pasteboard. Nothing below touches it except the three clipboard methods.
   let pasteboard: Record<string, Uint8Array>[] = [];
@@ -634,8 +637,8 @@ export function createMemoryShell(
       guard(path, 'write');
       // The next write a test means is the reader's or Marxy's other state; Marxy's version copies (`versions-<sha1>`) are
       // written on their own schedule after first text and must not take the refusal meant for a save.
-      if (writeReject && !/\/versions-[0-9a-f]{40}(?:\.json|-\d\d)$/.test(path)) {
-        const code = writeReject;
+      if (writeReject && (writeReject.path === undefined || writeReject.path === path) && !/\/versions-[0-9a-f]{40}(?:\.json|-\d\d)$/.test(path)) {
+        const { code } = writeReject;
         writeReject = null;
         const err = new Error(`${path}: refused`) as Error & { code: typeof code; path: string };
         err.code = code;
@@ -656,8 +659,8 @@ export function createMemoryShell(
       record('writeFileNew', [path, bytes]);
       guard(path, 'create');
       beforeNew?.(path);
-      if (writeReject) {
-        const code = writeReject;
+      if (writeReject && (writeReject.path === undefined || writeReject.path === path)) {
+        const { code } = writeReject;
         writeReject = null;
         const err = new Error(`${path}: refused`) as Error & { code: typeof code; path: string };
         err.code = code;
@@ -673,8 +676,8 @@ export function createMemoryShell(
       }
       store.set(path, bytes.slice());
     },
-    rejectNextWrite(code) {
-      writeReject = code;
+    rejectNextWrite(code, path) {
+      writeReject = { code, path };
     },
     plant(path, bytes) {
       store.set(path, bytes.slice());

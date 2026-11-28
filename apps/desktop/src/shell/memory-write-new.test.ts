@@ -96,3 +96,14 @@ test('the call is recorded with its path and bytes, and a refused one too', asyn
   await assert.rejects(shell.writeFileNew('/r/a.md', TWO), exists);
   assert.deepEqual(shell.calls.filter((c) => c.method === 'writeFileNew').map((c) => c.args[0]), ['/r/b.md', '/r/a.md']);
 });
+
+test('a refusal named for a file waits for that file: another write, such as Marxy\'s own state, does not take it', async () => {
+  const shell = createMemoryShell({ '/r/a.md': ONE });
+  shell.rejectNextWrite('io', '/r/a.md');
+  await shell.writeFileAtomic('/data/state.json', TWO);
+  await shell.writeFileNew('/r/b.md', TWO);
+  await assert.rejects(shell.writeFileAtomic('/r/a.md', TWO), (err: { code?: string }) => err.code === 'io');
+  assert.deepEqual([...(await shell.peekFile('/r/a.md'))], [...ONE], 'the refused write changed nothing');
+  await shell.writeFileAtomic('/r/a.md', TWO);
+  assert.deepEqual([...(await shell.peekFile('/r/a.md'))], [...TWO], 'and only the one write was refused');
+});

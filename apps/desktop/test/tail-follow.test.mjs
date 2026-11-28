@@ -4,14 +4,13 @@
 // whose `calls` count every `readFile` and `readRange`.
 import { strict as assert } from 'node:assert';
 import { after, before, test as nodeTest } from 'node:test';
-import { launchWebkit } from '../../../scripts/playwright-webkit.mjs';
 import { closeHarness, harnessBase } from './support/two-pane.mjs';
-import { skip } from './support/frame.mjs';
+import { idle, openBrowser, skip } from './support/kit.mjs';
 
 const test = (name, fn) => nodeTest(name, { skip, timeout: 240_000 }, fn);
 let browser = null;
 before(async () => {
-  if (!skip) browser = await launchWebkit();
+  if (!skip) browser = await openBrowser();
 });
 after(async () => {
   await browser?.close();
@@ -81,7 +80,7 @@ function growBy(page, text) {
       await shell.plant(path, next);
       const from = shell.calls.length;
       shell.emit([{ kind: 'modified', path }]);
-      for (let i = 0; i < 1000 && marks() === before; i++) await new Promise((r) => setTimeout(r, 10));
+      while (marks() === before) await new Promise((r) => requestAnimationFrame(r));
       await window.marxy.handle.contentComplete();
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       const made = shell.calls.slice(from);
@@ -123,8 +122,13 @@ const scrollTo = (page, where) =>
   page.evaluate(async (where) => {
     const s = document.scrollingElement;
     s.scrollTop = where === 'end' ? s.scrollHeight : where === 'middle' ? s.scrollHeight / 2 : where;
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    await new Promise((r) => setTimeout(r, 300));
+    // Held still for twelve frames: the scroll and what it drew have finished.
+    let last = NaN;
+    for (let still = 0; still < 12; ) {
+      await new Promise((r) => requestAnimationFrame(r));
+      still = s.scrollTop === last ? still + 1 : 0;
+      last = s.scrollTop;
+    }
   }, where);
 
 const place = (page) => page.evaluate(() => window.marxy.handle.sourceHarness().byteOffset);
@@ -150,6 +154,11 @@ test('a log at its end appends its new lines, reads only the new bytes, and stay
     // The next append is followed again.
     await growBy(page, newLines(5, 'SECOND-ROUND'));
     await page.waitForFunction(() => document.querySelector('.marxy-article')?.textContent.includes('SECOND-ROUND 4'));
+    // The reader at the end is taken to the new end as the lines are drawn, a frame or more after they are in the text.
+    await page.waitForFunction(() => {
+      const s = document.scrollingElement;
+      return s.scrollHeight - s.clientHeight - s.scrollTop <= 2;
+    });
     assert.ok((await distanceToEnd(page)) <= 2);
   });
 });
@@ -180,7 +189,7 @@ test('a truncated log is read whole and shows the new file', async () => {
       await shell.plant(path, new TextEncoder().encode('2026-11-20T10:00:00.000Z INFO  fresh start after truncation\n'));
       const from = shell.calls.length;
       shell.emit([{ kind: 'modified', path }]);
-      for (let i = 0; i < 1000 && marks() === before; i++) await new Promise((r) => setTimeout(r, 10));
+      while (marks() === before) await new Promise((r) => requestAnimationFrame(r));
       return { reloaded: marks() > before, was: old.length, readFiles: shell.calls.slice(from).filter((c) => c.method === 'readFile').length };
     }, PATH);
     assert.equal(got.reloaded, true);
@@ -202,7 +211,7 @@ test('a log rotated to a larger file is read whole', async () => {
       await shell.plant(path, new TextEncoder().encode(text));
       const from = shell.calls.length;
       shell.emit([{ kind: 'modified', path }]);
-      for (let i = 0; i < 1000 && marks() === before; i++) await new Promise((r) => setTimeout(r, 10));
+      while (marks() === before) await new Promise((r) => requestAnimationFrame(r));
       return { reloaded: marks() > before, readFiles: shell.calls.slice(from).filter((c) => c.method === 'readFile').length, bigger: text.length > old.length };
     }, PATH);
     assert.equal(rotated.bigger, true);
@@ -227,7 +236,7 @@ test('a log copied and truncated, then grown past its old size in one tick, is r
       await shell.plant(path, next);
       const from = shell.calls.length;
       shell.emit([{ kind: 'modified', path }]);
-      for (let i = 0; i < 1000 && marks() === before; i++) await new Promise((r) => setTimeout(r, 10));
+      while (marks() === before) await new Promise((r) => requestAnimationFrame(r));
       return { reloaded: marks() > before, readFiles: shell.calls.slice(from).filter((c) => c.method === 'readFile').length };
     }, PATH);
     assert.equal(got.reloaded, true);
@@ -253,7 +262,7 @@ test('a log with unsaved edits in Marxy is not appended to: the change waits for
       await shell.plant(path, next);
       const from = shell.calls.length;
       shell.emit([{ kind: 'modified', path }]);
-      for (let i = 0; i < 100 && store.conflict() === null; i++) await new Promise((r) => setTimeout(r, 20));
+      while (store.conflict() === null) await new Promise((r) => requestAnimationFrame(r));
       const made = shell.calls.slice(from);
       return {
         typed,
@@ -367,7 +376,7 @@ test('Lines: a 5 MB log appends only the new bytes and a reader at the end stays
     assert.ok(got.oldLength > 5 * 1024 * 1024, 'the file is over the Lines size');
     await page.waitForFunction(() => document.querySelector('.marxy-article .marxy-lines-row'));
     await page.waitForFunction((n) => [...document.querySelectorAll('.marxy-lines-no')].some((e) => Number(e.textContent) === n), made.lines + 40);
-    await page.waitForTimeout(400);
+    await idle(page);
     const rows = await rowsOf(page);
     const last = rows[rows.length - 1];
     assert.equal(last.no, made.lines + 40, 'the last line drawn is the last new line');
@@ -396,7 +405,7 @@ test('Lines: a reader above the end keeps the line at the top of the screen; a t
     const seen = (await rowsOf(page)).find((r) => r.top >= 0);
     const got = await growBy(page, newLines(40, 'LINES-ABOVE'));
     assert.equal(got.readFiles, 0);
-    await page.waitForTimeout(500);
+    await idle(page);
     const after = (await rowsOf(page)).find((r) => r.no === seen.no);
     assert.ok(after && after.top >= -2 && after.top < 860, `line ${seen.no} is still on screen`);
     assert.ok(Math.abs(after.top - seen.top) < 60, `line ${seen.no} moved from ${seen.top} to ${after.top}`);
@@ -408,7 +417,7 @@ test('Lines: a reader above the end keeps the line at the top of the screen; a t
       await shell.plant(path, new TextEncoder().encode('2026-11-20T10:00:00.000Z INFO  lines fresh start\n'));
       const from = shell.calls.length;
       shell.emit([{ kind: 'modified', path }]);
-      for (let i = 0; i < 1000 && marks() === before; i++) await new Promise((r) => setTimeout(r, 10));
+      while (marks() === before) await new Promise((r) => requestAnimationFrame(r));
       return { reloaded: marks() > before, readFiles: shell.calls.slice(from).filter((c) => c.method === 'readFile').length };
     }, PATH);
     assert.equal(cut.reloaded, true);
@@ -430,7 +439,7 @@ test('Lines: the level filter and the line count follow the appended lines', asy
     const errors = Array.from({ length: 7 }, (_, i) => `${stamp(i)} ERROR tail: boom ${i}\n`).join('');
     await growBy(page, newLines(10, 'QUIET') + errors);
     await page.waitForFunction(() => document.querySelector('.marxy-lines-row'));
-    await page.waitForTimeout(600);
+    await idle(page);
     await scrollTo(page, 'end');
     await scrollTo(page, 'end');
     const after = await page.evaluate(async () => {

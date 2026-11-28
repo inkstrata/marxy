@@ -310,6 +310,8 @@ test('a WebP with no extension is read from its bytes and the Reading card says 
     await page.click('.marxy-rs-source');
     await page.waitForSelector('.marxy-hexpage');
     assert.match(await page.textContent('.marxy-hexbar-what'), /418 bytes · the first 8 bytes are the PNG signature/);
+    // The first row is drawn on a frame after the page: wait for it, then count.
+    await page.waitForFunction(() => document.querySelectorAll('.marxy-hexrow:first-child i.marxy-hex-magic').length > 0);
     assert.equal(await page.$$eval('.marxy-hexrow:first-child i.marxy-hex-magic', (els) => els.length), 16, 'the signature underlined, in bytes and text');
     assert.deepEqual((await cardsOf(page)).map((c) => c.title), ['Reading', 'Facts']);
     await page.click('.marxy-rs-read');

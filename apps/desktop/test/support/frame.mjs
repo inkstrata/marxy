@@ -3,7 +3,7 @@
 // as the reader sees it: the rail, the drawer and its panels, the window's tabs, and the cards the panels hold.
 import { existsSync } from 'node:fs';
 import { webkit } from 'playwright';
-import { launchWebkit } from '../../../../scripts/playwright-webkit.mjs';
+import { openBrowser } from './kit.mjs';
 import { bootTwoPanes } from './two-pane.mjs';
 
 export const skip = !existsSync(webkit.executablePath()) && process.env.MARXY_BROWSER_TESTS_REQUIRED !== '1'
@@ -15,10 +15,10 @@ export const frameFile = (frame) => `${JSON.stringify({ version: 1, frame }, nul
 
 /**
  * Boots the app on `files` with `open[0]` (and `open[1]` beside it), waits for the panel's cards, and runs
- * `fn(page, { mod, errors })`. `mod` is the platform's Mod key as Playwright presses it; `errors` collects page errors,
+ * `fn(page, { mod, errors })`, each in its own context of the file's one browser (kit.mjs `openBrowser`). `mod` is the platform's Mod key as Playwright presses it; `errors` collects page errors,
  * and any left at the end fail the test.
  */
-export async function withFrame({ files, open, config, frame, viewport = { width: 1440, height: 900 }, media, sparse, launch = launchWebkit }, fn) {
+export async function withFrame({ files, open, config, frame, viewport = { width: 1440, height: 900 }, media, sparse, launch = openBrowser }, fn) {
   const browser = await launch();
   try {
     const page = await browser.newPage({ viewport });

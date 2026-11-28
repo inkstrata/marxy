@@ -1,0 +1,46 @@
+name: browser-windows
+# Browser test files on a hosted Windows runner, by hand: the files of the `files` input (space separated, paths
+# relative to apps/desktop/test), or, left empty, scripts/browser-windows.json. ci.yml runs no browser suite on Windows
+# (docs/testing.md, "Browser tests on a hosted runner"); this is how a file is proved there. Timings are uploaded.
+on:
+  workflow_dispatch:
+    inputs:
+      files:
+        description: "test files, space separated (empty: scripts/browser-windows.json)"
+        type: string
+        default: ""
+      scale:
+        description: "MARXY_BUDGET_SCALE for held budgets"
+        type: string
+        default: "1"
+permissions: { contents: read }
+jobs:
+  browser:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+        with:
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - name: WebKit for the browser tests
+        run: pnpm exec playwright install webkit
+      - name: Browser tests
+        env:
+          MARXY_BROWSER_TESTS_REQUIRED: "1"
+          MARXY_BUDGET_SCALE: ${{ inputs.scale }}
+          MARXY_TIMINGS: ${{ runner.temp }}/browser-timings.jsonl
+          FILES: ${{ inputs.files }}
+        run: |
+          if [ -z "$FILES" ]; then FILES=$(node -e "console.log(require('./scripts/browser-windows.json').files.join(' '))"); fi
+          node scripts/browser-tests.mjs --jobs 2 $(for f in $FILES; do echo "test/$f"; done)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-windows-timings
+          path: ${{ runner.temp }}/browser-timings.jsonl
+          if-no-files-found: ignore

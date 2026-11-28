@@ -78,7 +78,8 @@ the app does; `runs/2026-11-26-import/README.md` has the table.
 CI (`.github/workflows/ci.yml`) has two jobs. **macOS** runs the 16 steps above at `--tier full`, with no
 browser suite until M4 is done. **Windows** runs the same steps but the release build, on a pull request and on
 `main`, and any tier by hand. Its first run, on the import pull request, ran the browser suite too: 2521 pass and
-14 fail on a hosted runner, against 2536/0 on the Windows desktop (`todo.md`, M5). Neither job runs the browser
+14 fail on a hosted runner, against 2536/0 on the Windows desktop; those 14 files now pass there (the `browser-windows` workflow,
+`docs/testing.md`). Neither job runs the browser
 suite or `check:tauri`, so a person still runs both on a Windows desktop.
 
 **Flaky under load** (passes when run alone): `split-narrow` (waves 2 to 4, round 9, round 16),
@@ -110,7 +111,6 @@ All of it is in `todo.md`.
   - M2: use the app on macOS.
   - M3: use it on a Linux desktop.
   - M4: the 14 browser test files that fail on macOS.
-  - M5: the 14 browser test files that fail on a hosted Windows runner.
 - **Next:**
   - P11, P12: lines-of-text and container budgets. Built in round 16, lost, being rebuilt.
   - E22, E23: geometry table and near-reader typesetting. Built in wave 5, lost, being rebuilt.
