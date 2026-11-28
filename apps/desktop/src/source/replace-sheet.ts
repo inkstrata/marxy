@@ -42,6 +42,7 @@ import {
 } from './replace.ts';
 import { closeButton } from '../frame/dom.ts';
 import { maxOf } from '@marxy/core/src/util/spread.ts';
+import { isMac } from '../platform.ts';
 
 /** What an editor is to the functions here: its state and a way to change it (an `EditorView`, or a test's stand-in). */
 export interface ReplaceTarget {
@@ -59,7 +60,6 @@ export const MAYBE_STALE_REPLACE =
 export const DISK_REPLACE =
   'The file changed on disk while the preview was open. Nothing was replaced; choose which version to keep, then run Replace all again.';
 
-const isMac = (): boolean => typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 
 /** The editor's word test (its language's word characters), for By word. */
 export function wordTestOf(state: EditorState): IsWord {

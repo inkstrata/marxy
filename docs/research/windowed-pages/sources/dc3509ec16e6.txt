@@ -1,0 +1,382 @@
+WebKit Bugzilla
+
+New
+
+Browse
+
+Search+
+
+Log In
+
+&times;
+
+Sign in with GitHub
+
+or
+
+Remember my login
+
+Create Account
+
+·
+
+Forgot Password
+
+Forgotten password account recovery
+
+RESOLVED
+FIXED256288
+
+AX: Build the isolated tree asynchroniously.
+https://bugs.webkit.org/show_bug.cgi?id=256288
+
+Summary
+
+AX: Build the isolated tree asynchroniously.
+
+Andres Gonzalez
+
+Reported
+2023-05-03 18:25:51 PDT
+
+Currently the isolated tree is built on first request blocking the response to a client.
+
+Attachments
+
+Patch
+
+(12.45 KB,
+patch)
+
+2023-05-03 18:36 PDT,
+
+Andres Gonzalez
+
+no flags
+
+DetailsFormatted DiffDiff
+
+Patch
+
+(13.98 KB,
+patch)
+
+2023-05-04 14:54 PDT,
+
+Andres Gonzalez
+
+no flags
+
+DetailsFormatted DiffDiff
+
+Patch
+
+(15.07 KB,
+patch)
+
+2023-05-04 19:15 PDT,
+
+Andres Gonzalez
+
+no flags
+
+DetailsFormatted DiffDiff
+
+Show
+Obsolete (2)
+View All
+
+Add attachment
+proposed patch, testcase, etc.
+
+Radar WebKit Bug Importer
+
+Comment 1
+2023-05-03 18:26:05 PDT
+
+<rdar://problem/108871141>
+
+Andres Gonzalez
+
+Comment 2
+2023-05-03 18:36:09 PDT
+
+Created attachment 466203 [details]
+Patch
+
+Tyler Wilcock
+
+Comment 3
+2023-05-04 11:43:04 PDT
+
+Comment on attachment 466203 [details]
+Patch
+
+View in context: https://bugs.webkit.org/attachment.cgi?id=466203&action=review
+
+> Source/WebCore/accessibility/AXObjectCache.cpp:233
+> + , m_buildIsolatedTreeTimer(*this, &AXObjectCache::buildIsolatedTree)
+
+I think we need to add an equivalent to the !ENABLE(ACCESSIBLITY) AXObjectCache constructor to avoid breaking their build. See how other timers are handled (e.g. m_performCacheUpdateTimer + performCacheUpdateTimerFired)
+
+> Source/WebCore/accessibility/AXObjectCache.cpp:843
+> + Accessibility::performFunctionOnMainThread([&tree, this] () {
+> + tree = AXIsolatedTree::createEmpty(this);
+> + setIsolatedTreeRoot(tree->rootNode().get());
+> + });
+
+It might be helpful to have a comment here explaining why we are creating an empty tree.
+
+> Source/WebCore/accessibility/AXObjectCache.cpp:859
+> + m_buildIsolatedTreeTimer.stop();
+
+Would it be more robust to stop the timer first, even before the m_pageID check? That way AXObjectCaches without pageIDs don't have runaway timers (although that's not a concern because you use startOneShot...but might be more robust anyways?)
+
+> Source/WebCore/accessibility/isolatedtree/AXIsolatedTree.cpp:90
+> + Locker locker { s_storeLock };
+> + treePageCache().set(*pageID, tree.copyRef());
+
+Maybe overkill so feel free to ignore, but rather than holding the lock until the end of the function, including the return, what if we scoped it to just the statement we need it for:
+
+{
+Locker locker { s_storeLock };
+treePageCache().set(*pageID, tree.copyRef());
+}
+
+> Source/WebCore/accessibility/isolatedtree/AXIsolatedTree.cpp:91
+> + tree->updateLoadingProgress(axObjectCache->loadingProgress());
+
+Is it necessary to hold the s_storeLock when calling updateLoadingProgress? Or can we move it before the lock acquisition?
+
+Andres Gonzalez
+
+Comment 4
+2023-05-04 14:54:11 PDT
+
+Created attachment 466214 [details]
+Patch
+
+Andres Gonzalez
+
+Comment 5
+2023-05-04 15:11:47 PDT
+
+(In reply to Tyler Wilcock from comment #3)
+> Comment on attachment 466203 [details]
+> Patch
+>
+> View in context:
+> https://bugs.webkit.org/attachment.cgi?id=466203&action=review
+>
+> > Source/WebCore/accessibility/AXObjectCache.cpp:233
+> > + , m_buildIsolatedTreeTimer(*this, &AXObjectCache::buildIsolatedTree)
+>
+> I think we need to add an equivalent to the !ENABLE(ACCESSIBLITY)
+> AXObjectCache constructor to avoid breaking their build. See how other
+> timers are handled (e.g. m_performCacheUpdateTimer +
+> performCacheUpdateTimerFired)
+
+I think it is not needed because this line in the cmake takes care of it:
+
+WEBKIT_OPTION_DEPEND(ENABLE_ACCESSIBILITY_ISOLATED_TREE ENABLE_ACCESSIBILITY)
+
+but if the build fails for other platforms, will add it.
+>
+> > Source/WebCore/accessibility/AXObjectCache.cpp:843
+> > + Accessibility::performFunctionOnMainThread([&tree, this] () {
+> > + tree = AXIsolatedTree::createEmpty(this);
+> > + setIsolatedTreeRoot(tree->rootNode().get());
+> > + });
+>
+> It might be helpful to have a comment here explaining why we are creating an
+> empty tree.
+
+Added the comment and in deeper examination, this function cannot be called off the main thread, so removed the dispatch to the main thread altogether. The reason why that was there in the first place is because of the TestRunner was calling this on the AX thread.
+
+>
+> > Source/WebCore/accessibility/AXObjectCache.cpp:859
+> > + m_buildIsolatedTreeTimer.stop();
+>
+> Would it be more robust to stop the timer first, even before the m_pageID
+> check? That way AXObjectCaches without pageIDs don't have runaway timers
+> (although that's not a concern because you use startOneShot...but might be
+> more robust anyways?)
+
+Moved it to the top of the function, but was wondering if we need to stop at all a one shot timer. The reason I put it at the end before was to avoid another build of the iso tree to start while one was already in progress, but since this runs all on the main thread, that is not possible.
+>
+> > Source/WebCore/accessibility/isolatedtree/AXIsolatedTree.cpp:90
+> > + Locker locker { s_storeLock };
+> > + treePageCache().set(*pageID, tree.copyRef());
+>
+> Maybe overkill so feel free to ignore, but rather than holding the lock
+> until the end of the function, including the return, what if we scoped it to
+> just the statement we need it for:
+>
+> {
+> Locker locker { s_storeLock };
+> treePageCache().set(*pageID, tree.copyRef());
+> }
+
+Yes, we ought to go all the way here... Added a a storeTree method to do this. Eventually I would like to get rid off the PageID map, it is actually not needed, we could use the TreeStore for everything.
+>
+> > Source/WebCore/accessibility/isolatedtree/AXIsolatedTree.cpp:91
+> > + tree->updateLoadingProgress(axObjectCache->loadingProgress());
+>
+> Is it necessary to hold the s_storeLock when calling updateLoadingProgress?
+> Or can we move it before the lock acquisition?
+
+I thought so, because trusted my memory and we were talking about using the lock or an std::atomic and going back and forth, and thought that ended up using the lock. Fixed now.
+
+Andres Gonzalez
+
+Comment 6
+2023-05-04 19:15:08 PDT
+
+Created attachment 466217 [details]
+Patch
+
+Tyler Wilcock
+
+Comment 7
+2023-05-05 11:14:01 PDT
+
+Comment on attachment 466217 [details]
+Patch
+
+View in context: https://bugs.webkit.org/attachment.cgi?id=466217&action=review
+
+> Source/WebCore/accessibility/isolatedtree/AXIsolatedTree.cpp:130
+> + treePageCache().set(*axObjectCache->pageID(), tree.copyRef());
+
+Ref::copyRef was deprecated here:
+
+https://bugs.webkit.org/show_bug.cgi?id=211705
+
+You might just be able to use the implicit copy-constructor here?
+
+EWS
+
+Comment 8
+2023-05-05 15:27:09 PDT
+
+Found 1 new test failure: imported/w3c/web-platform-tests/screen-orientation/fullscreen-interactions.html
+
+EWS
+
+Comment 9
+2023-05-06 01:45:38 PDT
+
+Committed 263752@main (290519ffb9d7): <https://commits.webkit.org/263752@main>
+
+All reviewed patches have been landed. Closing bug and clearing flags on attachment 466217 [details].
+
+Note
+You need to
+log in
+before you can comment on or make changes to this bug.
+
+Status
+
+RESOLVED
+
+Resolution
+
+FIXED
+
+Priority
+
+P2
+
+Severity
+
+Normal
+
+Classification
+
+Unclassified
+
+Version
+
+WebKit Nightly Build
+
+Hardware
+
+All
+
+OS
+
+All
+
+Product
+
+WebKit
+
+Component
+
+Accessibility
+
+Assignee
+
+Andres Gonzalez
+
+Reported
+
+2023-05-03 18:25 PDT
+
+Modified
+
+2023-05-06 01:45 PDT
+History
+
+CC List
+
+11
+users
+
+Show
+
+aboxhall
+andresg_22
+apinheiro
+cfleizach
+dmazzoni
+ews-watchlist
+jcraig
+jdiggs
+samuel_white
+tyler_w
+webkit-bug-importer
+
+URL
+
+Keywords
+
+InRadar
+
+Depends on
+
+Blocks
+
+See Also
+
+Alias
+
+None
+
+Top of Page
+
+Format For Printing
+
+XML
+
+Clone This Bug
+
+New
+
+Browse
+
+Search+
+
+Reports
+
+Requests

@@ -1,0 +1,63 @@
+{
+ "chapter": "05-engine-support.md",
+ "pass": 1,
+ "stamped": "2026-11-27",
+ "findings": {
+  "ENG-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "655b77714913"
+  },
+  "ENG-02": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "fb5a0ea10703"
+  },
+  "ENG-03": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "b66e00de89d7"
+  },
+  "ENG-04": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "f7833d390d9a"
+  },
+  "ENG-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "c1f99efc8d9d"
+  },
+  "ENG-06": {
+   "tags": [
+    "confirmed",
+    "unverified"
+   ],
+   "hash": "6e6d123a1d9b"
+  },
+  "ENG-07": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "871d02c93a25"
+  },
+  "ENG-08": {
+   "tags": [
+    "confirmed",
+    "likely"
+   ],
+   "hash": "094b3bdc898a"
+  },
+  "ENG-09": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "f4d43a8cd884"
+  }
+ }
+}

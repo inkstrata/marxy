@@ -7,6 +7,7 @@
 // empty value, a key that appears twice, a TOML array, inline table or multi-line string, and every key below a TOML `[table]`.
 // A front matter with a line this reader does not understand is `unreadable` as a whole.
 import type { Document } from '../contracts/ast.ts';
+import { utf8Length } from '../util/count.ts';
 
 export type Quoting = 'plain' | 'double' | 'single';
 export type FrontMatterFormat = 'yaml' | 'toml';
@@ -559,7 +560,6 @@ function scanBlock(block: string): Scan {
 }
 
 const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
-const encoder = new TextEncoder();
 
 interface Located {
   readonly block: string;
@@ -583,7 +583,6 @@ function locate(document: Document, bytes: Uint8Array): Located | string {
   return { block, start, file, scan: scanBlock(block) };
 }
 
-const byteLength = (text: string): number => encoder.encode(text).length;
 
 /**
  * The top-level keys of `document`'s front matter with what each shows and whether it is one scalar. Null when the
@@ -603,7 +602,7 @@ export function frontMatterValues(document: Document, bytes: Uint8Array): FrontM
       seenChar = 0;
       seenByte = start;
     }
-    seenByte += byteLength(block.slice(seenChar, at));
+    seenByte += utf8Length(block.slice(seenChar, at));
     seenChar = at;
     return seenByte;
   };

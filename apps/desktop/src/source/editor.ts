@@ -18,6 +18,7 @@ import { appHandle } from '../commands/app-handle.ts';
 import { formatsPath } from './format-ops.ts';
 import { sourceEditChords } from '../commands/source-edit.ts';
 import { pushAll } from '@marxy/core/src/util/spread.ts';
+import { isMac } from '../platform.ts';
 
 export interface SourceEditorOptions {
   readonly parent: HTMLElement;
@@ -176,10 +177,6 @@ function foldMarker(open: boolean): HTMLElement {
   return marker;
 }
 
-function isMacPlatform(): boolean {
-  return typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
-}
-
 /** Base extensions shared by create and tests. */
 export async function baseExtensions(
   buffer: Buffer,
@@ -245,7 +242,7 @@ export async function baseExtensions(
         },
       },
       // The chords the command registry binds in Source are its alone, so a press runs one thing.
-      ...withoutRegistryChords([...defaultKeymap, ...historyKeymap, ...searchKeymap], sourceEditChords(), isMacPlatform()),
+      ...withoutRegistryChords([...defaultKeymap, ...historyKeymap, ...searchKeymap], sourceEditChords(), isMac()),
       // `Mod+I` is Italic in a Markdown file (the registry's) and CodeMirror's select-parent-syntax in every other file: the
       // file the editor holds now decides, so a mount that takes another file follows it.
       {

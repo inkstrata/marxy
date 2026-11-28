@@ -1,0 +1,1065 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+nvaccess
+
+nvda
+
+Repository navigation
+
+Code
+
+Issues2.2k ( 2.2k )
+
+Pull requests18 ( 18 )
+
+Discussions
+
+Actions
+
+Projects
+
+Wiki
+
+Security and quality26 ( 26 )
+
+Insights
+
+More items
+
+Feature request: build JavaScript accessibility bridge to improve accessibility of web applications
+
+#15995
+
+mltony
+
+started this conversation in
+Ideas
+
+Feature request: build JavaScript accessibility bridge to improve accessibility of web applications
+
+#15995
+
+mltony
+
+Jan 1, 2024
+·
+19 comments
+·
+1 reply
+
+Return to top
+
+Discussion options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+mltony
+
+Jan 1, 2024
+
+This is a proposal for future direction NVDA project can take, rather than a concrete feature request. I would like to see if there is an alignment with NVDA devs on whether this is a reasonable direction. I apologize for creating another huge issue - it'll probably take ~10 minutes to read it; however since I am proposing a brand new direction, I had to lay out extraordinary justifications in order to convince people that this is right direction. There are many headings below for ease of navigation.
+
+TL;DR
+
+The world is rapidly moving towards web technologies and away from natively executed computer programs - think of Google Docs or VSCode - just to name a few examples. Current state of accessibility of many web applications is unsatisfactory (examples below) and the reason is that communication between screenreader and web applications happens through accessibility APIs (mostly IAccessible2) that either don't account for needs of modern web apps (Google Docs) or are poorly implemented (e.g. large text in edit boxes in Google Chrome is too slow).
+
+I propose to start working on a fundamental solution to this problem: build a JavaScript accessibility bridge to allow screenreaders to communicate directly with JavaScript environment of web apps running inside browser instead of relying on IAccessible2 with all its flaws.
+
+Below I list some concrete problems of status quo and propose a fundamental solution.
+
+Problems with accessibility of web applications
+
+Google Docs
+
+The main problem with Google Docs is that they effectively implemented their own screenreader running inside the browser. While this is understandable (what else could Google devs have done at the time to make it accessible to screenreader users), and I feel gratitude to Google devs for making Google Docs accessible; this is not a good solution in the long run.
+
+Here are some reasons why implementing your own screenreader in every web-based office solution is a problem for screenreader users:
+
+It's wrong for every online office suite to build their own screenreader. We will end up in the world where every vendor building their own screenreader with their own set of shortcuts, that will likely be incompatible with each other. This will be an extra obstacle for visually impaired people to get a job or switch to another online office suite. While it is understandable that some shurtcuts for advanced functions will be different across different apps - in the end even for sighted people there is a learning curve when switching to a new vendor - but it is wrong to have difrferent set of shortcuts for basic tasks, like jump to next heading or jump to next word. Instead we would like to mimic the situation with native office suites: it is relatively easy for NVDA users to switch between Microsoft Word and LibreOffice Writer, since most of the navigational keystrokes are NVDA keystrokes and don't need to be relearned.
+
+Weird behavior of word and character navigation. When pressing RightArrow Google Docs speaks the previous symbol, instead of current one; Same applies to Control+RightArrow. This is inconvenient for NVDA users (and probably Jaws users as well). It is wrong that NVDA and Jaws users have to relearn basic character and word navigation commands in order to be able to work with Google Docs. This is mitigated by turning on Braille mode though.
+
+Very complicated shortcuts. Jump to next heading is Control+Alt+N Control+Alt+H. Jump to next table is even worse: Control+Alt+Shift+N Control+Alt+Shift+T. On one hand it is understandable, since for web apps the selection of keystrokes is limited, but on the other hand the end result is still bad. Not to mention that in practice these shortcuts are often unreliable.
+
+Building screenreaders is costly for vendors. While Google Docs appears to be the leader on the market, there might be other smaller companies offering their own online office suites, that are not accessible, just because there is no simple interface they can implement to enable accessibility (think of IAccessible2 or UIA for native apps), while they can't afford to build a brand new web-bbased screenreader themselves. Cursory Google search of competitors (QUIP and Zoho Writer) reveals that despite they claim to be screenreader-compatible, neither of them appears to have jump to next heading keystroke, which likely means that their screenreader support is only very basic if present at all. If we, screenreader developers, provide an easy-to-implement accessibility API in JavaScript, then it's more likely small companies will be able to afford to implement it in their products.
+
+Screenreader in Google docs is closed source and is not extensible. For example they still don't have sentence navigation. Being closed source means that blind developers can't implement features they need. And besides, Google is well known for their unwillingness to talk to people outside, so trying to submit a feature request is not a very promising idea.
+
+VSCode and Monaco editor
+
+VSCode is an electron based application running from within chromium-like browser, and this means that all the communication between screenreader and its UI elements happens through IAccessible2 with all its limitations.
+
+Monaco is a browser based code editor with rich set of features written in TypeScript. While claiming to be accessible, it has one big accessibility flaw: it only provides 500 or so lines of your source code file through accessibility API at a time. More details can be found in microsoft/vscode#41423, which is blocked on this and that chromium issues.
+
+So if NVDA tries to retrieve some lines in current editable via TextInfo API, it would only see 500 lines, no more - VSCode effectively truncates the document. Why having access to only 500 lines of code is not enough?
+
+SayAll doesn't work
+
+Indentation navigation in source code (via IndentNav add-on) doesn't work.
+
+Paragraph navigation with multi line break style (as introduced in Improve Paragraph Navigation - add single and multi line break style #13798) doesn't work correctly in VSCode. Despite the author claiming to have tested it with VSCode, around line 500 it won't work correctly since it is using textInfo API, which would only see the first 500 lines of the file.
+
+Sentence navigation (via SentenceNav add-on) doesn't work.
+
+Quick search function (via Tony's enhancements add-on) doesn't work.
+
+In general, one can come up with many other ideas of new functions that can be implemented via TextInfo API. None of them would work correctly beyond 500 lines of code in VSCode or other Monaco-based web applications.
+
+CodeMirror editor
+
+CodeMirror is another popular open-source online code editor and is a direct competitor to Monaco. It is being used most notably in Chrome and Firefox Developer Tools, Coderpad online editor (frequently used by major IT companies for online interviews) and GitHub's in-browser edit feature (full list can be found on CodeMirror real world uses page.
+
+The previous version CodeMirror 5 was not accessible by screenreaders as it only presented an empty text area - this was tracked in codemirror/codemirror5#4604 - notably CodeMirror maintainers are stating that adding accessibility support will require a major redesign and even proposing to raise funds for this.
+
+It appears however that recently some accessibility has indeed been implemented in CodeMirror 6, which is current production version. However when I try CodeMirror in the sandbox they only expose 35 lines to the screenreader, which is much less than Monaco. Therefore all the problems of Monaco that I laid out in the previous section apply to CodeMirror 6 as well, but all these problems are even much more severe here, due to much smaller frame size.
+
+Proposed solution
+
+I envision that the fundamental solution to the problems I mentioned above would be a new JavaScript accessibility API that the authors of web apps can easily implement. Let's call it JSAccessible for now. Then we'd need to figure out a way for NVDA to talk directly to that API bypassing IAccessible2 - more on that below.
+
+To illustrate this proposed accessibility API, for plain text editors we can think of something like this:
+
+interface IJSAccessiblePlainTextEditable {
+// functions to be implemented by Monaco or CodeMirror
+getTextInRange(startIndex: number, endIndex: number): string;
+getCursorIndex(): number;
+setCursorIndex(index: number);
+/// ....
+};
+
+If we can have Monaco and CodeMirror implement this API, then we can update NVDA to check whether current TextArea in browser happens to implement this API and if so, transparently switch from IAccessible2 to JSAccessible and retrieve text contents via IJSAccessiblePlainTextEditable::getTextInRange(startIndex, endIndex) call. This way we'd be able to easily have access to the entire buffer inside Monaco/CodeMirror instead of a frame containing only a a few hundred lines.
+
+Similarly, for online office solutions another more complicated interface can be developed that would provide NVDA information about text and its formatting, like font size and bold/italic attributes. The challenge here would be convincing Google to implement this interface for Google Docs, but my hope is if we produce a working prototype that works for plain text editors and this project gains some steam, eventually we'll be able to find a live human inside Google who can implement this JSAccessible interface for Google Docs.
+
+The next big question is how can we make NVDA to talk to that interface? A browser has an isolated JavaScript VM for every page and it's not easy to have a native application to talk to any code living within that VM. I can think of two approaches here:
+
+Build a browser extension. Chrome and Firefox extensions have access to JavaScript environment of web pages. Then we can make use of Native Messaging API to have our extension to talk directly to NVDA binary via JSON protocol.
+
+Selenium is an online automation/testing framework. It appears to be using WebDriver tool to access internals of browsers. Selenium allows to write scripts in many languages including Python.
+
+I am not an expert on JavaScript and web technologies, so I am not sure which way is the best. It would be great if anyone more knowledgeable can chime in on pros or cons of both approaches. But from my cursory investigation it seems at this point that either approach can do the job.
+
+So to summarize proposed design, we will need to punch a hole into JavaScript world inside browser environments by implementing either a browser extension that can talk to NVDA or via Selenium WebDriver; and then we can redesign implementation of NVDAObjects to try querying current text area in the browser via new JSAccessible interface; with a potential fallback to IAccessible2.
+
+Discussion
+
+Here I answer some questions ahead of time, that I anticipate to be asked to address potential skepticism.
+
+Why do I need to align anyone instead of just implementing a prototype myself?
+
+This is a huge project proposal that would require cooperation from many parties, like VSCode team, CodeMirror, Electron, potentially also Google Chrome and Google Docs teams. It would greatly help if NVDA devs are aligned, so that I'd be able to readch out to those parties on behalf of NVDA rather than an unknown independent dev - that would improve chances of PRs being accepted and in case of Google with closed source Google Docs it would increase the chances they'll be willing to collaborate.
+
+Also without alignment, my work can end up being an NVDA add-on instead of NVDA core feature and as it happens with add-ons, many people either hesitate or don't know how to use add-ons, so the impact of this project will be limited.
+
+We should follow W3C/WCAG standards. This proposal is unacceptable because it doesn't conform to the standards.
+
+We are facing the situation when current set of accessibility standards is not doing a satisfactory job - see lists of problems in the previous sections. In case of Monaco and CodeMirror it's actually the problem of Chromium implementation that prompts web application devs to search for workarounds. In case of Google Docs its developers chose to implement a new screenreader on their side because there was no effective way to communicate with a proper native screenreader from inside browser using existing accessibility APIs.
+
+I feel it is up to us, screenreader users and developers: either we are fine to put up with all the drawbacks of status quo - in fact that's one of the reasons why I am submitting this proposal - to see if perhaps most of the people here are not bothered by the problems I outlined above. Or if the problems are bothersome enough, it is up to us to work on a better solution. But in either case we shouldn't be constrained by the set of standards that were developed years ago and that most importantly do not solve accessibility issues that I outlined above.
+
+Why invent a new accessibility API instead of improving IAccessible2/UIA?
+
+Google Chrome, being the most popular browser on the market, has limitations in its implementation of IAccessible2, especially when it comes to large amounts of text in editables. Despite the fact that these issues were reported years ago (links to the issues can be found in Monaco section), not much progress has been done, so it appears that Chrome developers are either not much interested in fixing these issues, or proper fix is going to be technically challenging enough. So working on this direction doesn't appear to be hopeful to address accessibility of Monaco and CodeMirror.
+
+As for Google Docs, I only have a limited knowledge of IAccessible2 and cannot say for sure that it's not enough for Google Docs to expose document structure to screenreader the way Microsoft Word and LibreOffice do that. But I assume they had some good technical reasons to go the hard way and implement their own screenreader. However, if anyone is more familiar with IAccessible2 and accessibility layer of Google Docs, please feel free to chime in and tell us if an upgraded version of IAccessible2 can be used to improve Google Docs accessibility.
+
+Some people argue that having access to only a singole line of a document at a time is enough and screenreaders shouldn't provide more sophisticated functionality.
+
+For some people using only simple functions is enough. Others use more advanced functions. A couple of examples of my own use cases that are blocked by current state of accessibility:
+
+Working with long SQL queries is challenging unless you use some form of structural navigation like IndentNav. For my work I have to routinely read and write large SQL queries that are 500+ lines long. My company is using a web SQL client built with a customized version of Monaco, that only exposes a few lines to the screenreader, and therefore, IndentNav doesn't work correctly in it. As a result every time before editing a query I have to copy it to Notepad++, edit there with IndentNav and then copy it back, which is quite cumbersome and error-prone.
+
+Google Docs shortcuts are painful to use. For example there was a document where I had to jump to the second table; I would have to press Control+Shift+Alt+N Control+Shift+Alt+T, then I actually need to release Control, Shift and Alt - otherwise it doesn't work, then press Control+Shift+Alt+N Control+Shift+Alt+T again. It doesn't have to be that painful.
+
+So for some users simple use cases are enough and they might not understand my frustration with my use cases. But given the fact that working in a large IT companies often requires these sophisticated use cases, I would argue that NVDA should be the tool to help visually impaired people to get meaningful employment. That is NVDA shouldn't ignore basic use cases in favor of sophisticated ones, but focus on both and not neglect sophisticated ones.
+
+Some people argue that advanced logic should be encoded in application-specific scripts rather than NVDA.
+
+There are multiple issues with this approach:
+
+Many applications are not scriptable: e.g. Jupyter, Google Docs.
+
+Even if an application is scriptable, it requires a significant effort to learn new language, new API in order to write application-specific scripts
+
+Many applications have different sets of available keyboard shortcuts. As an example I ported my IndentNav NVDA add-on to VSCode(link), but there was no way to assign familiar NVDA+Alt+Up/Down keystrokes to it because it doesn't treat Insert key as a possible modifier. As a result muscle memory never has a chance to develop, which reduces efficiency.
+
+Conclusion
+
+I guess with this feature request I would like to hear what NVDA devs and users think about this project proposal.
+
+Do people think the problems I outlined above severe enough to deserve a proper solution?
+
+Is this proposal in general reasonable? crazy? insane?
+
+Are there any good alternatives that I am perhaps missing?
+
+Are there any technical details that I am missing and that need to be thought of before considering this undertaking?
+
+In conclusion I wanted to say that it's a shame that while modern consumer computers can process gigabytes of data per second, we, screenreader users, only have access to puny 500 or 35 lines of code at a time. It is also too bad that (as CodeMirror maintainer stated in Accessibility for blind and visually impaired screen reader users codemirror/codemirror5#4604) about accessibility on the web:
+
+proper a11y support isn't easy (otherwise everyone would do it!
+
+I feel it's our responsibility to make accessibility support easy for the authors of web applications - this way we will eventually live in a world with much more accessible web applications, that are more friendly to the screenreader users.
+
+4
+You must be logged in to vote
+
+👍
+4
+
+All reactions
+
+👍
+4
+
+Replies:
+
+19 comments
+
+·
+
+1 reply
+
+Oldest
+
+Newest
+
+Top
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+lukaszgo1
+
+Jan 1, 2024
+
+Many thanks for the interesting read @mltony ! While I certainly agree that issues you've described are severe and they should be solved by us, I am not certain the proposed solution goes in the right direction. Starting with the web based coding editors I see two non exclusive solutions which seems more promising:
+
+Try to fix bugs in Chromium. While you have mentioned that this has not happened for a long time, and that Chromium devs appear not to be interested , I don't think anyone directly affected tried to look into them.
+
+In general many of these issues won't exist if editor developers would be able to use contentEditable for their editors. They're not doing so due to various bugs / slowness in the browsers, but I'm afraid many of these are not reported to browser developers, since the majority is fine with status quo.
+
+Why I believe implementing fixes in the web browsers is nicer:
+
+All screen reader / magnifier users benefit. While opinions may differ about being accommodating for users of different commercial screen readers for Windows, I hope no one argues against improving access of users on MacOS and Linux.
+
+The accessibility benefits would be inherited by Electron based desktop apps. This point shows the biggest flaw in your idea IMO, namely that we need to communicate with a given process via an add-on. While that works for browsers and, at least in theory, would work for VS Code as it supports add-ons, there will always be additional applications some of them don't even support external components. To use a real life example: RStudio is a desktop application which embeds a web based editor, yet as far as I can tell it has no support for external add-ons. It would be much easier to convince its developers to update the version of editor and Electron (since both of these would have to updated eventually if the product should remain on the market) than star with 'you need to implement an ability for external add-ons'.
+
+As to the Google Docs issues most of these are solved in JAWS, which shows that no additional API's are needed. Note that their way of implementing quick nav is a bit strange, we could certainly do it better, but it requires just switching to the quick nav mode and then familiar single keys work. This is possible in JAWS since they have an ability to implement scripts for specific web apps, something which NVDA lacks and implementing it probably would be useful for myriad of other use cases. I've skimmed scripts for Docs, they mostly rely on IA2, using a custom solution for accessing HTML directly (we probably could do the same with ISimpleDOM).
+
+Given that JAWS works better here, I see very little chances of convincing Google developers to implement a different standard.
+
+Note also that if contentEditable would work better, additional SAAS office suites would use it, essentially allowing accessibility to work the same way in most of them.
+
+There is of course a matter of limited resources. I'd be a real pita to spent time on the JS Accessibility Bridge, find out that it has not been implemented anywhere or almost anywhere, so working on fixing text area issues in browsers / adding ability to script web apps has to be implemented after all. What I have proposed certainly requires a lot of time and skills, but, if done, guarantees results. The same cannot be said about the JS Accessibility Bridge idea IMHO.
+
+If I had your programming skills, and be affected by the issues described in the initial comment to the extend you are, I'd at least try to investigate these avenues.
+
+2
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+mltony
+
+Jan 2, 2024
+
+Author
+
+@lukaszgo1,
+
+Could you tell me more where can I find Jaws scripts for Google Docs? I am not very familiar with our dearest competitor, but I played with it a bit today and indeed it can find headings in the entire document, while NVDA can only see some of them, presumably the ones that are displayed on the screen. I might consider implementing similar support for NVDA if I can figure out how Jaws counterpart works.
+
+I already have some functionality in BrowserNav to provide website-specific bookmarks, so I might be able to extend this to support Google Docs. Or maybe I can write a similar framework that would allow to build custom AppModules for websites in NVDA core.
+
+• Try to fix bugs in Chromium.
+
+My assessment is that it's not realistic. A couple of years ago VS Code increased their frame size from 10 to 500 because Chromium addressed some issue related to performance of large text areas. My intuition tells me that if they didn't go all the way, there must have been some difficult technical issue that they weren't able to solve, and probably I won't be able either. I expect even if I plunbge in learning chromium internals, I might spend like a couple of months and in the end not produce a satisfactory solution to be merged. While with JavaScript accessibility bridge I see a clear path to a working prototype. And the only thing that's really uncertain is collaboration with Google - which I am fine to drop if Google chooses to not collaborate.
+
+use contentEditable for their editors
+
+I am not very familiar with contentEditable. But I don't see how would this help? The problem that Monaco and CodeMirror are facing is that Chrome can't handle large text inside text areas. In my understanding contentEditableis just an attribute, so I don't understand how setting this attribute would help textArea performance - it seems to be orthogonal. Or am I misunderstanding this?
+
+many of these [bugs] are not reported to browser developers, since the majority is fine with status quo
+
+I agree. It appears to be a convenient status quo for sighted people. If Monaco only provides 500 lines - they can still claim things are accessible. Same is true of Chrome, text areas are kind of accessible. Incremental improvement is hard and the gain is marginal in the eyes of sighted people. Who cares if Monaco displays 500 or 1000 lines via IAccessible2. And that's the reason why I was trying to find a way to disrupt this status quo.
+
+I believe implementing fixes in the web browsers is nicer
+
+I agree it would be a more elegant solution. However realistically I don't think I ccan make a difference by tinkering with chromium because I anticipate it'd be quite difficult from technical point of view. But I can see I can produce a working prototype of JavaScript accessibility bridge in 1-2 months.
+
+Re electron apps and JavaScript accessibility bridge:
+
+Cursory investigation shows that Selenium WebDriver is already available for Electron. On the other hand, if we choose the extension way, I believe we can reach out to electron developers and convince them to include the extension into their next version. In practice most people are sympathetic to the cause of accessibility, as long as no effort is required on their side.
+
+2
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+mwhapples
+
+Jan 2, 2024
+
+The part of this discussion relating to electron apps and needing to include an addon or something for an access bridge put me in mind of the Java Access Bridge. My experience in the (java world is that in apps where the developer ships there app with a bundled Java runtime, they do not always include the (java Access Bridge. In these cases for those with the know how it is possible to insert the (java Access Bridge into the bundled Java runtime, but this is probably beyond the knowledge of the average user and so such app is not accessible to many. This may be made worse by the jpackage tool included in the JDK not including the access bridge by default for a modular (java app, it would always need specifying. So for electron I could foresee a similar mess of not accessible apps occuring, particularly if the addon needed the developer to always select something to be included. Also with electron I don't know whether even with the right technical knowledge whether it would even be possible to insert such an addon after should a developer leave it out.
+
+Whether the (java developers deliberately made the access bridge optional I do not know, it may have just been a consequence of the mechanism they used to loosely link it in allowing for easy substitution for other implementations.
+
+In short, personally I am more in favour of options where accessibility is built in by default and ideally not optional. Further to that I would say the implementation should be such that it takes deliberate intentional effort to break accessibility (eg. Java could have done it by requiring there to always be an access bridge provider and the standard JDK access bridge implementation by default).
+
+So I would personally prefer the fixing browsers and enhancing accessibility APIs/standards over an access bridge in this case. However working solutions are what really matter and so it would be whichever can practically be done with the available resources and access to code bases.
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+lukaszgo1
+
+Jan 2, 2024
+
+Could you tell me more where can I find Jaws scripts for Google Docs?
+
+Pressing Insert + 0 when in Google Docs should be sufficient. If not scripts are located in %programdata%\Freedom Scientific\JAWS\ver_num\Scripts. Note that I have no idea how exactly code of scripts included in JAWS is licensed, so I don't want to suggest using them as an example too much.
+
+• Try to fix bugs in Chromium.
+
+My assessment is that it's not realistic. A couple of years ago VS Code increased their frame size from 10 to 500 because Chromium addressed some issue related to performance of large text areas. My intuition tells me that if they didn't go all the way, there must have been some difficult technical issue that they weren't able to solve, and probably I won't be able either. I expect even if I plunbge in learning chromium internals, I might spend like a couple of months and in the end not produce a satisfactory solution to be merged.
+
+I always thought that simply no one cared enough, but this is not something which can be proved in any way.
+
+While with JavaScript accessibility bridge I see a clear path to a working prototype. And the only thing that's really uncertain is collaboration with Google - which I am fine to drop if Google chooses to not collaborate.
+
+I won't be so sure that developers of Monaco, CodeMirror and ACE (to name only a few of web based editors() will implement whatever is needed to work with the JS Accessibility.
+
+use contentEditable for their editors
+
+I am not very familiar with contentEditable. But I don't see how would this help? The problem that Monaco and CodeMirror are facing is that Chrome can't handle large text inside text areas. In my understanding contentEditableis just an attribute, so I don't understand how setting this attribute would help textArea performance - it seems to be orthogonal. Or am I misunderstanding this?
+
+I'm not a web expert, but my understanding is that, since the content of the edited file is already in the DOM, using contentEditable makes is no longer necessary to create a fake text area for screen reader users - we would just be able to interact with whatever is already in the document. For some working examples see Etherpad and Dropbox Paper (they're not perfect, but quite usable).
+
+I believe implementing fixes in the web browsers is nicer
+
+I agree it would be a more elegant solution. However realistically I don't think I ccan make a difference by tinkering with chromium because I anticipate it'd be quite difficult from technical point of view. But I can see I can produce a working prototype of JavaScript accessibility bridge in 1-2 months.
+
+It looks like I misunderstood something here: to what extend each of the web based editors would have to be changed to implement the JSA bridge in your opinion?
+
+2
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+mltony
+
+Jan 3, 2024
+
+Author
+
+@lukaszgo1,
+
+Appreciate for jaws scripts. I will study them and see if we can implement something similar in NVDA.
+
+I won't be so sure that developers of Monaco, CodeMirror and ACE (to name only a few of web based editors() will implement whatever is needed to work with the JS Accessibility.
+
+Perhaps I didn't make it clear in my proposal - I will implement accessibility for Monaco and CodeMirror myself. And talk to electron to convince them to include the extension by default.
+
+I'm not a web expert, but my understanding is that, since the content of the edited file is already in the DOM, using contentEditable makes is no longer necessary to create a fake text area for screen reader users - we would just be able to interact with whatever is already in the document.
+
+No, contents of edited file are not in DOM, they are in a JavaScript variable. They only put 500 lines to the DOM due to performance considerations. That's the reason why I thought JavaScript Accessibilty bridge would come in handy, since implementing that API for Monaco or CodeMirror would be a bunch of one-liners.
+
+It looks like I misunderstood something here: to what extend each of the web based editors would have to be changed to implement the JSA bridge in your opinion?
+
+They would have to implement a bunch of simple functions. E.g. IJSAccessiblePlainTextEditable::getTextInRange would be a one-liner - well I perhaps exagerate here, but not much. We'd need to see how exactly Monaco and CodeMirror store their data. If that's a plain string, then that's a one-liner. If they store an array of strings, then we'd need to calculate what do these offsets map to, but in any case the implementation will be quite straightforward.
+
+2
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+mltony
+
+Jan 3, 2024
+
+Author
+
+@mwhapples
+
+There is no need to translate problems of Java Accessibility Bridge to this proposal just because the name is similar. As I mentioned before, if we decide to go extension way, I will try to convince Electron maintainers to include this in their default distribution. I am relatively confident that this won't be a blocker, again since
+
+most people are sympathetic to the cause of accessibility, as long as no effort is required on their side.
+
+So TL;DR no configuration will be required in my envisioned prototype.
+
+1
+You must be logged in to vote
+
+All reactions
+
+1 reply
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+mwhapples
+
+Jan 3, 2024
+
+@mltony it wasn't the naming similarity which made me think of the Java Access Bridge comparison, it was the fact its a separate non-built-in API. May be you can convince electron to bundle it by default, what about .NET MAUI hybrid blazor apps, what about other frameworks which use embedded web views and what about custom home-made embedded web view apps? If I understood some of the other comments in the discussion editor controls and other web components within the page would need to add support. Then there is the fact screen readers need to also choose to support it. Again referring to (java Access Bridge, Window-Eyes never took the (java Access Bridge route when they finally added (java access support, Narrator has just ignored (java accessibility. You could have a lot of persuading on your hands and then there could still be gaps. If chromium could get enhanced/fixed then many browsers and apps will get it automatically, Mozilla would need to do their own fixes, but I think its a lot fewer places to get changes introduced.
+
+All reactions
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+mltony
+
+Jan 3, 2024
+
+Author
+
+@lukaszgo1,
+
+I looked at Script MoveToNextHeading in our dearest competitor's script and it appears from my limited understanding of their language, that they are just sending Control+Alt+N Control+Alt+H'. I don't see where they add Control+Alt, but probably they must be added somewhere, since I see they are sending N Hkeys. I don't see any usage of ISimpleDomAPI there - correct me if I'm wrong. I quickly tried to reproduce this with NVDA, sendingControl+Alt+H` works, but this is bound to toggle braille mode. Sending two keystrokes one after another doesn't seem to work for some reason, but most likely I can solve it by spending more time tinkering.
+
+So actually my assessment about Google Docs stays the same; what I can add to it is the fact that built-in Google Docs shortcuts are so crappy that even our dearest competitor wrote a wrapper around them to make them more humane.
+
+That might also be our short term solution. I will look into possibility of extending add-on API to create AppModules but not for apps but for websites, and make them override QuickNav scripts.
+
+But it looks like all my other points about problems of Google Docs still apply, so this feature request is still valid and in my eyes it's the only feasible fundamental solution.
+
+2
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+edited
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+AAClause
+
+Jan 3, 2024
+
+@mltony Perhaps you would be interested in the WeBaccess add-on? See https://github.com/accessolutions/WebAccessForNVDA
+
+CC @frederic-brugnot @JulienCochuyt
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+mltony
+
+Jan 3, 2024
+
+Author
+
+@AAClause,
+
+It seems to me that French NVDA community does a lot of interesting work, yet not many people in the global community are aware of that work. At least I was not aware. It is very interesting for me to check this add-on, as my BrowserNav QuickJump appears to be almost exactly the same thing. What I called bookmarks in BrowserNav is called markers in WebModules. I am amazed to read the list of options and they are often very similar to the list of options for QuickJump bookmarks. Yet I developed BrowserNav QuickJump about 3 years ago - because I wasn't aware of WebModules - and apparently I saw the same opportunity as the authoer of WebModules.
+
+If you know the author of WebModules, I would strongly suggest them to publish WebModules on the official NVDA Addons store. I think the entire community would benefit from that - as if I knew about WebModules I wouldn't have spent my time reimplementing essentially same functionality in BrowserNav.
+
+But also on the other hand this add-on seems to have little to do with this feature request as what I propose cannot be accomplished via bookmarks or markers.
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+AAClause
+
+Jan 3, 2024
+
+It is very interesting for me to check this add-on, as my BrowserNav QuickJump appears to be almost exactly the same thing.
+
+The documentation is here, But it currently does not cover all the features of the add-on. For instance, it's possible to add Python code to a web module (JSON file). This enables the addition of specific actions, enhancement of certain interactions, and so on.
+
+You can use the add-on with NVDA 2023.x but you need to build the add-on from the branch develop.
+
+If you know the author of WebModules, I would strongly suggest them to publish WebModules on the official NVDA Addons store. I think the entire community would benefit from that - as if I knew about WebModules I wouldn't have spent my time reimplementing essentially same functionality in BrowserNav.
+
+It's planned! :) We need to finish certain tasks first.
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+mltony
+
+Jan 6, 2024
+
+Author
+
+@lukaszgo1,
+
+FWIW, I just announced Google docs accessibility add-on on nvda-addons mailing list. This closes the gap with our dearest competitor regarding Google Docs accessibility. It might be a good short-term solution, and it might invalidate this statement of yours:
+
+Given that JAWS works better here, I see very little chances of convincing Google developers to implement a different standard.
+
+But the fact is this level of accessibility is not enough and this new add-on is just a quick hack and it doesn't solve the problem fundamentally, so this feature request still remains unchanged.
+
+3
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+Adriani90
+
+Jan 20, 2024
+
+Collaborator
+
+@mltony would it actually be possible to point Google to put their editing area of a document in a modal dialog? Then we could use the focus and browse mode of NVDA within the modal dialog without having to translate key strokes into NVDA virtual document. Not sure though if scrolling the screen only within the dialog is possible. What do you think?
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+mltony
+
+Jan 22, 2024
+
+Author
+
+@Adriani90, not sure I fully understand your idea. You propose to show document content in a modal dialog. Is that going to be editable content or just non-editable text? If the first - then how is that different from current implementation - I think it will also suffer from all current problems. If the second one - then how are users supposed to edit text?
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+Adriani90
+
+Feb 1, 2024
+
+Collaborator
+
+Actually the second one. My idea was that there could be a button or a keystroke which shows the document in a non editable mode (let's call it preview mode) meaning it is displayed in a modal dialog. Then you could close the dialog landing again in the editable area.
+
+But in the end this idea does not really make sense because people want to edit and review at the same time in an efficient way so switching between editable and non editable does actually not really improve the experience I guess.
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+gerald-hartig
+
+Feb 12, 2024
+
+Hi @mltony and everyone else who’s contributed to the discussion so far. Thanks for bringing the proposal of a JavaScript accessibility bridge to our attention and the robust discussion around it. I wanted to share NV Access’s perspective:
+
+We recognise the potential of a JavaScript accessibility bridge to enhance web accessibility significantly. Such innovation could streamline the interaction between web applications and screen readers, addressing some longstanding challenges.
+
+We aim to support adoption and implementation of accessibility improvements by integrating with the accessibility ecosystem in such a way that avoids the fragmentation and inconsistency that can arise from standards proliferation.
+
+The development and implementation of a new accessibility bridge presents considerable technical, resource and collaboration challenges. These include ensuring widespread adoption, maintaining security and aligning with global web standards.
+
+It is crucial to achieve critical mass in order for the JSAccessibility bridge to become a default, rather than an optional add-on for technology providers. This requires the involvement and commitment of a broad spectrum of stakeholders, including web standards organisations, browser vendors, technology companies, accessibility advocacy groups and the developer community at large.
+
+Based on a probable roadmap for engaging these stakeholders, NV Access would likely be a later participant in this initiative. Our role would primarily involve advocacy for the bridge's adoption once accepted by web standards organisations, ensuring NVDA compatibility, and contributing our expertise to refine the bridge's accessibility features.
+
+We are prepared to engage with other stakeholders, offering our support and expertise to ensure that any new developments in web accessibility are fully compatible with NVDA and serve the best interests of our users.
+
+Your expertise, advocacy, and feedback are vital as we navigate these discussions and collaborations, and we are committed to working toward solutions that enhance web accessibility. We will continue to monitor this initiative's progress closely and engage at the appropriate juncture, with a keen interest in developments that align with our mission to ensure that the web is accessible to all.
+
+I suggest that to gain the necessary traction, this proposal would need to go through the following (partially overlapping) steps:
+
+Partnership with a leading academic institution with a track record of advancing web technologies and accessibility, to develop a detailed proposal outlining the need for a JavaScript accessibility bridge, its benefits, technical considerations, and potential challenges. Institutions such as: MIT CSAIL, UCambridge CCAT, TUM, UToronto IDRC or UTokyo RCAST.
+
+Present the proposal for feedback and endorsement to web standards organisations such as W3C / WAI, ECMA International & WHATWG and explore opportunities for standardisation.
+
+Collaborate with accessibility advocacy groups like the NFB, WBU, UFA, AUB, AICB, VOS to seek endorsements or partnerships for advocacy.
+
+Engage with browser vendors and technology companies, after gaining some traction with web standards organisations and advocacy groups to show broad support.
+
+Collaborate with NV Access and our friends over in Freedom Scientific to implement compatibility with the new standard.
+
+Reach out to other open source projects to encourage adoption of the new standard.
+
+In conclusion, while we see the value in the proposed JavaScript accessibility bridge, our immediate focus is on advocating for built-in accessibility and engaging with initiatives that promise to be broadly supported and effectively implemented.
+
+We look forward to contributing to this dialogue and continuing to explore how such innovations can benefit NVDA users.
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+mltony
+
+Feb 12, 2024
+
+Author
+
+Hi @gerald-hartig, thanks for your reply. So it seems like that's a polite no from you.
+
+Going through the route of advocating a new standard seems to me to be a dead end. We'll just get bogged down in endless discussions, someone would claim for sure that IAccessible2/UIA is good enough and we just need to push Google harder to provide a better implementation and this'll go nowhere. And the utility of this proposal wouldn't be that obvious to the bureaucrats - in the end why 10 lines of code that Monaco exposes is not enough, right? And they wouldn't care about IndentNav not working . I was just hoping that more technically minded community of NVDA devs would see the utility of making IndentNav to work in Monaco and VSCode, but I guess I was wrong here.
+
+And again, alignment with dozens of orgs wouldn't be needed for the initial prototype that I was hoping to build in the next month or two. The stake holders for the initial prototype would be Microsoft with Monaco - I'm relatively confident they won't mind me adding new API to Monaco since they have always been pretty open-minded regarding accessibility; and potentially Electron (for VSCode) - which we'd have to ask to include the actual JS bridge extension that I'd implement - and that was the reason why I wanted to gain support from NVAccess.
+
+It is crucial to achieve critical mass in order for the JSAccessibility bridge to become a default
+
+That's not likely to happen. Most people are quite content with having 10 lines of code at a time. It's the minority of power users who would appreciate new feature.
+
+Anyway, LMK if you ever change your mind.
+
+3
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+cary-rowen
+
+May 22, 2024
+
+I'm glad to see @mltony proposing this.
+
+As a visually impaired person working for a large IT company I can relate to @mltony’s point about the difficulties we are facing right now.
+
+If @mltony had a prototype, I'm sure I could advocate for it on Google Docs and chromium.
+
+I'd love to see NV Access support this along the way.
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+gerald-hartig
+
+May 22, 2024
+
+Hi @cary-rowen, we're happy to support it, but we feel that the point where we can really make a difference is at the end of a long line of other dependencies. We also don't want to discourage @mltony from working on this. It's just that right now, we feel that the return on investment would not justify NV Access investing significant effort into it when we have so many other things on the roadmap. Everything that we choose to support means that something else is delayed. As you suggested, if @mltony gets a prototype up and running, and you get some traction with google docs and chromium, then that's another matter. And this is similar to what I was suggesting in my (rather overlong) message above. Possibly all of those pre-requisites above won't be required, but I included them to illustrate that this may require more than an excellent technical solution.
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Comment options
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Quote reply
+
+mltony
+
+May 24, 2024
+
+Author
+
+@cary-rowen,
+
+thanks for your support. I probably won't have time for JavaScript Bridge this year, but I'm still passionate about it, so I am hoping to find some time for it in the future. Hope we can arrange some collaboration with Google Docs once I have a prototype.
+
+@gerald-hartig,
+
+Thanks for your last message - now I clearly understand NVAccess position. Perhaps I am not very good at understanding corporate speak. So it looks like there is potentially a way to get this into NVDA as long as we can make enough impact. Enough impact in this context I assume means improving Google docs accessibility and bringing it to the same level as MSWord. I agree that what I proposed before - improving Monaco accessiblity itself would have lesser impact. If my understanding is correct - that motivates me to work on JS bridge in the future.
+
+1
+You must be logged in to vote
+
+All reactions
+
+0 replies
+
+Sign up for free
+to join this conversation on GitHub.
+Already have an account?
+Sign in to comment
+
+Category
+
+💡
+
+Ideas
+
+Labels
+
+None yet
+
+7 participants
+
+Converted from issue
+
+This discussion was converted from issue #15991 on January 01, 2024 22:49.
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

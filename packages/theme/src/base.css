@@ -365,6 +365,23 @@ html, body { margin: 0; background: var(--marxy-color-bg); color: var(--marxy-co
   overflow-wrap: break-word;
   -webkit-text-size-adjust: none;
 }
+/* The page behind Source (or behind a viewer's page) is hidden without being taken down: skipped, not removed from
+   layout. `display: none` threw away every block's style and layout, and showing the page again laid out the whole
+   article from nothing (0.6 s to 2.6 s on a 1 MB file, whatever was edited). Skipped, it keeps both, draws and
+   answers nothing, and shows again at the cost of what changed. It takes no room while skipped: size containment zeroes
+   its content, and its own block margins and padding go too (the framed pane's margin is the more specific rule, so it
+   is named here), so the window or the pane scrolls no further than it did with the page gone. Only block space is
+   zeroed: the width the blocks were set for stays, so showing the page again moves its box and lays out nothing in it. */
+@supports (content-visibility: hidden) {
+  .marxy-article[hidden],
+  body[data-marxy-frame] .marxy-pane > .marxy-article[hidden] {
+    display: block;
+    content-visibility: hidden;
+    margin-block: 0;
+    padding-block: 0;
+    min-block-size: 0;
+  }
+}
 .marxy-article, .marxy-article * { font-variation-settings: 'wght' var(--marxy-wght); }
 .marxy-article > :first-child { margin-top: 0; }
 .marxy-article > :last-child { margin-bottom: 0; }

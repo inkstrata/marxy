@@ -1,0 +1,482 @@
+[
+ {
+  "kind": "md-dense",
+  "size": "60k",
+  "bytes": 60009,
+  "has": "keep",
+  "browser": "webkit",
+  "version": "26.6",
+  "openWallS": 0.5,
+  "typesetQuiet": true,
+  "settleS": 1.1,
+  "nodes": {
+   "article": 12001,
+   "articleAll": 28051,
+   "doc": 30339,
+   "blocks": 3674
+  },
+  "sample": {
+   "html": "<p data-marxy-s=\"0\" data-marxy-e=\"8\" dir=\"auto\">para one</p>",
+   "nodesInP": 0,
+   "typesetAttrs": 0
+  },
+  "interactions": {
+   "key": {
+    "total": {
+     "med": 57,
+     "min": 42,
+     "max": 74
+    },
+    "sync": {
+     "med": 17,
+     "min": 6,
+     "max": 38
+    },
+    "frame": {
+     "med": 1,
+     "min": 1,
+     "max": 3
+    }
+   },
+   "scroll": {
+    "total": {
+     "med": 52,
+     "min": 39,
+     "max": 60
+    },
+    "sync": null,
+    "frame": {
+     "med": 1,
+     "min": 1,
+     "max": 2
+    }
+   },
+   "forcedLayoutOneBlock": {
+    "total": {
+     "med": 41,
+     "min": 22,
+     "max": 57
+    },
+    "sync": {
+     "med": 5,
+     "min": 3,
+     "max": 10
+    },
+    "frame": {
+     "med": 2,
+     "min": 1,
+     "max": 2
+    }
+   },
+   "forcedLayoutArticleWidth": {
+    "total": {
+     "med": 42,
+     "min": 25,
+     "max": 59
+    },
+    "sync": {
+     "med": 19,
+     "min": 11,
+     "max": 30
+    },
+    "frame": {
+     "med": 1,
+     "min": 1,
+     "max": 2
+    }
+   },
+   "appendOneBlock": {
+    "total": {
+     "med": 53,
+     "min": 38,
+     "max": 63
+    },
+    "sync": {
+     "med": 3,
+     "min": 1,
+     "max": 10
+    },
+    "frame": {
+     "med": 2,
+     "min": 1,
+     "max": 3
+    }
+   },
+   "widthChange": {
+    "total": {
+     "med": 143,
+     "min": 123,
+     "max": 192
+    },
+    "sync": null,
+    "frame": {
+     "med": 1,
+     "min": 0,
+     "max": 1
+    },
+    "note": "trigger to end of next frame; includes Playwright round trip, so an upper bound"
+   }
+  },
+  "__w": 1
+ },
+ {
+  "kind": "md-dense",
+  "size": "250k",
+  "bytes": 250002,
+  "has": "keep",
+  "browser": "webkit",
+  "version": "26.6",
+  "openWallS": 2.1,
+  "typesetQuiet": true,
+  "settleS": 11.7,
+  "nodes": {
+   "article": 50002,
+   "articleAll": 116935,
+   "doc": 124122,
+   "blocks": 15325
+  },
+  "sample": {
+   "html": "<p data-marxy-s=\"0\" data-marxy-e=\"8\" dir=\"auto\">para one</p>",
+   "nodesInP": 0,
+   "typesetAttrs": 0
+  },
+  "interactions": {
+   "key": {
+    "total": {
+     "med": 124,
+     "min": 94,
+     "max": 154
+    },
+    "sync": {
+     "med": 29,
+     "min": 19,
+     "max": 55
+    },
+    "frame": {
+     "med": 4,
+     "min": 3,
+     "max": 6
+    }
+   },
+   "scroll": {
+    "total": {
+     "med": 104,
+     "min": 76,
+     "max": 121
+    },
+    "sync": null,
+    "frame": {
+     "med": 3,
+     "min": 3,
+     "max": 4
+    }
+   },
+   "forcedLayoutOneBlock": {
+    "total": {
+     "med": 125,
+     "min": 88,
+     "max": 131
+    },
+    "sync": {
+     "med": 24,
+     "min": 9,
+     "max": 32
+    },
+    "frame": {
+     "med": 6,
+     "min": 6,
+     "max": 7
+    }
+   },
+   "forcedLayoutArticleWidth": {
+    "total": {
+     "med": 136,
+     "min": 100,
+     "max": 154
+    },
+    "sync": {
+     "med": 69,
+     "min": 46,
+     "max": 85
+    },
+    "frame": {
+     "med": 4,
+     "min": 2,
+     "max": 4
+    }
+   },
+   "appendOneBlock": {
+    "total": {
+     "med": 125,
+     "min": 109,
+     "max": 161
+    },
+    "sync": {
+     "med": 16,
+     "min": 12,
+     "max": 22
+    },
+    "frame": {
+     "med": 7,
+     "min": 5,
+     "max": 7
+    }
+   },
+   "widthChange": {
+    "total": {
+     "med": 657,
+     "min": 626,
+     "max": 745
+    },
+    "sync": null,
+    "frame": {
+     "med": 2,
+     "min": 2,
+     "max": 3
+    },
+    "note": "trigger to end of next frame; includes Playwright round trip, so an upper bound"
+   }
+  },
+  "__w": 1
+ },
+ {
+  "kind": "md-dense",
+  "size": "500k",
+  "bytes": 500009,
+  "has": "keep",
+  "browser": "webkit",
+  "version": "26.6",
+  "openWallS": 5.4,
+  "typesetQuiet": true,
+  "settleS": 35.2,
+  "nodes": {
+   "article": 99994,
+   "articleAll": 233866,
+   "doc": 245901,
+   "blocks": 30645
+  },
+  "sample": {
+   "html": "<p data-marxy-s=\"0\" data-marxy-e=\"8\" dir=\"auto\">para one</p>",
+   "nodesInP": 0,
+   "typesetAttrs": 0
+  },
+  "interactions": {
+   "key": {
+    "total": {
+     "med": 237,
+     "min": 189,
+     "max": 578
+    },
+    "sync": {
+     "med": 74,
+     "min": 48,
+     "max": 99
+    },
+    "frame": {
+     "med": 11,
+     "min": 8,
+     "max": 144
+    }
+   },
+   "scroll": {
+    "total": {
+     "med": 152,
+     "min": 129,
+     "max": 172
+    },
+    "sync": null,
+    "frame": {
+     "med": 7,
+     "min": 6,
+     "max": 140
+    }
+   },
+   "forcedLayoutOneBlock": {
+    "total": {
+     "med": 184,
+     "min": 129,
+     "max": 208
+    },
+    "sync": {
+     "med": 21,
+     "min": 19,
+     "max": 23
+    },
+    "frame": {
+     "med": 24,
+     "min": 9,
+     "max": 96
+    }
+   },
+   "forcedLayoutArticleWidth": {
+    "total": {
+     "med": 235,
+     "min": 209,
+     "max": 241
+    },
+    "sync": {
+     "med": 126,
+     "min": 112,
+     "max": 142
+    },
+    "frame": {
+     "med": 5,
+     "min": 4,
+     "max": 5
+    }
+   },
+   "appendOneBlock": {
+    "total": {
+     "med": 166,
+     "min": 135,
+     "max": 190
+    },
+    "sync": {
+     "med": 17,
+     "min": 12,
+     "max": 21
+    },
+    "frame": {
+     "med": 8,
+     "min": 7,
+     "max": 10
+    }
+   },
+   "widthChange": {
+    "total": {
+     "med": 1860,
+     "min": 1802,
+     "max": 3771
+    },
+    "sync": null,
+    "frame": {
+     "med": 6,
+     "min": 5,
+     "max": 36
+    },
+    "note": "trigger to end of next frame; includes Playwright round trip, so an upper bound"
+   }
+  },
+  "__w": 1
+ },
+ {
+  "kind": "md-dense",
+  "size": "1m",
+  "bytes": 1000005,
+  "has": "keep",
+  "browser": "webkit",
+  "version": "26.6",
+  "openWallS": 16.4,
+  "typesetQuiet": false,
+  "settleS": 165.6,
+  "nodes": {
+   "article": 200006,
+   "articleAll": 467754,
+   "doc": 490280,
+   "blocks": 61288
+  },
+  "sample": {
+   "html": "<p data-marxy-s=\"0\" data-marxy-e=\"8\" dir=\"auto\">para one</p>",
+   "nodesInP": 0,
+   "typesetAttrs": 0
+  },
+  "interactions": {
+   "key": {
+    "total": {
+     "med": 1296,
+     "min": 935,
+     "max": 23361
+    },
+    "sync": {
+     "med": 157,
+     "min": 125,
+     "max": 635
+    },
+    "frame": {
+     "med": 281,
+     "min": 212,
+     "max": 364
+    }
+   },
+   "scroll": {
+    "total": {
+     "med": 640,
+     "min": 524,
+     "max": 847
+    },
+    "sync": null,
+    "frame": {
+     "med": 453,
+     "min": 207,
+     "max": 730
+    }
+   },
+   "forcedLayoutOneBlock": {
+    "total": {
+     "med": 612,
+     "min": 492,
+     "max": 765
+    },
+    "sync": {
+     "med": 60,
+     "min": 52,
+     "max": 72
+    },
+    "frame": {
+     "med": 442,
+     "min": 247,
+     "max": 645
+    }
+   },
+   "forcedLayoutArticleWidth": {
+    "total": {
+     "med": 706,
+     "min": 607,
+     "max": 18806
+    },
+    "sync": {
+     "med": 265,
+     "min": 236,
+     "max": 284
+    },
+    "frame": {
+     "med": 276,
+     "min": 224,
+     "max": 18513
+    }
+   },
+   "appendOneBlock": {
+    "total": {
+     "med": 608,
+     "min": 480,
+     "max": 1123
+    },
+    "sync": {
+     "med": 35,
+     "min": 32,
+     "max": 43
+    },
+    "frame": {
+     "med": 367,
+     "min": 264,
+     "max": 605
+    }
+   },
+   "widthChange": {
+    "total": {
+     "med": 25576,
+     "min": 10849,
+     "max": 57707
+    },
+    "sync": null,
+    "frame": {
+     "med": 572,
+     "min": 100,
+     "max": 16230
+    },
+    "note": "trigger to end of next frame; includes Playwright round trip, so an upper bound"
+   }
+  },
+  "__w": 1
+ }
+]

@@ -1,0 +1,405 @@
+{
+ "meta": {
+  "browser": "chromium",
+  "version": "153.0.8010.12",
+  "kind": "md-prose",
+  "mb": 1,
+  "mode": "off",
+  "load": [
+   8.89,
+   7.14,
+   11.66
+  ],
+  "cpus": 10,
+  "date": "2026-11-27T21:31:06.961Z",
+  "loadEnd": [
+   6.35,
+   6.78,
+   11.27
+  ]
+ },
+ "runs": [
+  {
+   "mode": "off",
+   "open": {
+    "firstTextMs": 502.29999999701977,
+    "readyMs": 586.5999999940395,
+    "contentCompleteMs": 679.2999999970198,
+    "workAtContent": 86.2000000178814,
+    "blocks": 3103,
+    "bytes": 1004138
+   },
+   "settle": {
+    "typesetDoneMs": 5658.29999999702,
+    "work": 2154.899999946356,
+    "estMs": 0,
+    "set": 2864,
+    "paragraphs": 2864,
+    "marks": {
+     "bundled_theme": 7.799999997019768,
+     "script_start": 15.700000002980232,
+     "weight_offset": 15.700000002980232,
+     "args": 15.700000002980232,
+     "file_read": 421.40000000596046,
+     "parsed": 426.59999999403954,
+     "rendered": 502.29999999701977,
+     "first_screen": 502.5,
+     "fonts_ready": 509.40000000596046,
+     "render": 510.29999999701977,
+     "painted": 530.7000000029802,
+     "first_text": 530.7000000029802,
+     "typeset_viewport": 577.2999999970198,
+     "position_restored": 582.9000000059605,
+     "index_loaded": 585.7000000029802,
+     "content_complete": 673.0999999940395,
+     "highlight_ms": 728.0999999940395,
+     "typeset_done": 5658.29999999702
+    },
+    "events": {
+     "skipped": 0,
+     "shown": 0
+    },
+    "scrollHeight": 547905,
+    "done": true,
+    "waitedS": 5,
+    "cdp": {
+     "taskMs": 4478,
+     "layoutMs": 543,
+     "styleMs": 486,
+     "layouts": 433,
+     "nodes": 86625
+    },
+    "cdpIdleAfterMs": 12
+   },
+   "residualIdle": 2165.4999999403954,
+   "setTrace": {
+    "atDone": 2864,
+    "afterScrolls": 2864,
+    "final": 2864,
+    "sample": [
+     {
+      "i": 0,
+      "set": true,
+      "cls": "marxy-set",
+      "h": 90,
+      "html": 315
+     },
+     {
+      "i": 100,
+      "set": true,
+      "cls": "marxy-set",
+      "h": 120,
+      "html": 359
+     },
+     {
+      "i": 400,
+      "set": true,
+      "cls": "marxy-set",
+      "h": 120,
+      "html": 361
+     },
+     {
+      "i": 700,
+      "set": true,
+      "cls": "marxy-set",
+      "h": 120,
+      "html": 361
+     }
+    ]
+   },
+   "scrollMid": {
+    "medianWallMs": 9.2,
+    "minWallMs": 8,
+    "medianScriptMs": 2.9,
+    "medianCdpTaskMs": 10.2,
+    "medianLayouts": 2,
+    "n": 3
+   },
+   "scrollEnd": {
+    "medianWallMs": 11.8,
+    "minWallMs": 10.4,
+    "medianScriptMs": 0.8,
+    "medianCdpTaskMs": 2.7,
+    "medianLayouts": 0,
+    "n": 3
+   },
+   "scrollHeightAfter": 548026,
+   "key": {
+    "medianWallMs": 10.1,
+    "minWallMs": 8.4,
+    "medianScriptMs": 0,
+    "medianCdpTaskMs": 4.9,
+    "medianLayouts": 0,
+    "n": 5
+   },
+   "relayoutMs": {
+    "median": 0.9,
+    "min": 0.6
+   },
+   "find": {
+    "count": "20961 of 21001",
+    "wallMs": 725,
+    "scriptMs": 90.7,
+    "cdpTaskMs": 246.3,
+    "layouts": 17
+   },
+   "findStep": {
+    "text": "20962 of 21001",
+    "scriptMs": 1.6,
+    "cdpTaskMs": 11.1
+   },
+   "geometry": {
+    "blocks": 3103,
+    "checkVisibilitySupported": true,
+    "skippedNow": 0,
+    "zeroHeightRects": 0,
+    "offGridTops": 0,
+    "nearBlocks": 8,
+    "offGridNear": 0,
+    "cv": "visible",
+    "cis": "none",
+    "total": 494070,
+    "setCount": 2864
+   },
+   "estimateVsReal": {
+    "H2": {
+     "n": 239,
+     "ratioP10": 3,
+     "ratioP50": 3,
+     "ratioP90": 3,
+     "estSum": 21510,
+     "realSum": 7170
+    },
+    "P": {
+     "n": 2864,
+     "ratioP10": 0.88,
+     "ratioP50": 1,
+     "ratioP90": 1.33,
+     "estSum": 472560,
+     "realSum": 486900
+    }
+   },
+   "skippedProbe": {
+    "before": {
+     "visible": true,
+     "h": 120,
+     "offsetH": 120,
+     "rects": 1,
+     "w": 35,
+     "clientRects": 1
+    },
+    "afterRangeRead": {
+     "visible": true,
+     "h": 120,
+     "rects": 1,
+     "w": 35,
+     "forcedMs": 0
+    },
+    "inView": {
+     "visible": true,
+     "h": 120,
+     "rects": 1,
+     "w": 35,
+     "set": true,
+     "scrollTop": 76246
+    }
+   },
+   "events": {
+    "skipped": 0,
+    "shown": 0
+   },
+   "version": "153.0.8010.12"
+  },
+  {
+   "mode": "off",
+   "open": {
+    "firstTextMs": 516.8999999910593,
+    "readyMs": 598.3999999910593,
+    "contentCompleteMs": 705.5999999940395,
+    "workAtContent": 95.39999996125698,
+    "blocks": 3103,
+    "bytes": 1004138
+   },
+   "settle": {
+    "typesetDoneMs": 5571.5999999940395,
+    "work": 2148.100000038743,
+    "estMs": 0,
+    "set": 2864,
+    "paragraphs": 2864,
+    "marks": {
+     "bundled_theme": 6,
+     "script_start": 12,
+     "weight_offset": 12,
+     "args": 12,
+     "file_read": 441.69999998807907,
+     "parsed": 445.29999999701977,
+     "rendered": 516.8999999910593,
+     "first_screen": 517.1999999880791,
+     "fonts_ready": 518.3999999910593,
+     "render": 519.1999999880791,
+     "painted": 541.5,
+     "first_text": 541.5,
+     "typeset_viewport": 588.8999999910593,
+     "position_restored": 594.5,
+     "index_loaded": 597.5999999940395,
+     "content_complete": 698.1999999880791,
+     "highlight_ms": 750.8999999910593,
+     "typeset_done": 5571.5999999940395
+    },
+    "events": {
+     "skipped": 0,
+     "shown": 0
+    },
+    "scrollHeight": 547905,
+    "done": true,
+    "waitedS": 5,
+    "cdp": {
+     "taskMs": 4505,
+     "layoutMs": 543,
+     "styleMs": 475,
+     "layouts": 410,
+     "nodes": 86988
+    },
+    "cdpIdleAfterMs": 12
+   },
+   "residualIdle": 2158.900000050664,
+   "setTrace": {
+    "atDone": 2864,
+    "afterScrolls": 2864,
+    "final": 2864,
+    "sample": [
+     {
+      "i": 0,
+      "set": true,
+      "cls": "marxy-set",
+      "h": 90,
+      "html": 315
+     },
+     {
+      "i": 100,
+      "set": true,
+      "cls": "marxy-set",
+      "h": 120,
+      "html": 359
+     },
+     {
+      "i": 400,
+      "set": true,
+      "cls": "marxy-set",
+      "h": 120,
+      "html": 361
+     },
+     {
+      "i": 700,
+      "set": true,
+      "cls": "marxy-set",
+      "h": 120,
+      "html": 361
+     }
+    ]
+   },
+   "scrollMid": {
+    "medianWallMs": 9.1,
+    "minWallMs": 7.3,
+    "medianScriptMs": 2.5,
+    "medianCdpTaskMs": 8.9,
+    "medianLayouts": 2,
+    "n": 3
+   },
+   "scrollEnd": {
+    "medianWallMs": 10.5,
+    "minWallMs": 9.6,
+    "medianScriptMs": 1.3,
+    "medianCdpTaskMs": 5.3,
+    "medianLayouts": 0,
+    "n": 3
+   },
+   "scrollHeightAfter": 548026,
+   "key": {
+    "medianWallMs": 10.7,
+    "minWallMs": 10.6,
+    "medianScriptMs": 0,
+    "medianCdpTaskMs": 4.1,
+    "medianLayouts": 0,
+    "n": 5
+   },
+   "relayoutMs": {
+    "median": 1.2,
+    "min": 0.8
+   },
+   "find": {
+    "count": "20949 of 21001",
+    "wallMs": 757,
+    "scriptMs": 122.5,
+    "cdpTaskMs": 379.5,
+    "layouts": 20
+   },
+   "findStep": {
+    "text": "20950 of 21001",
+    "scriptMs": 0.9,
+    "cdpTaskMs": 10.8
+   },
+   "geometry": {
+    "blocks": 3103,
+    "checkVisibilitySupported": true,
+    "skippedNow": 0,
+    "zeroHeightRects": 0,
+    "offGridTops": 0,
+    "nearBlocks": 8,
+    "offGridNear": 0,
+    "cv": "visible",
+    "cis": "none",
+    "total": 494070,
+    "setCount": 2864
+   },
+   "estimateVsReal": {
+    "H2": {
+     "n": 239,
+     "ratioP10": 3,
+     "ratioP50": 3,
+     "ratioP90": 3,
+     "estSum": 21510,
+     "realSum": 7170
+    },
+    "P": {
+     "n": 2864,
+     "ratioP10": 0.88,
+     "ratioP50": 1,
+     "ratioP90": 1.33,
+     "estSum": 472560,
+     "realSum": 486900
+    }
+   },
+   "skippedProbe": {
+    "before": {
+     "visible": true,
+     "h": 120,
+     "offsetH": 120,
+     "rects": 1,
+     "w": 35,
+     "clientRects": 1
+    },
+    "afterRangeRead": {
+     "visible": true,
+     "h": 120,
+     "rects": 1,
+     "w": 35,
+     "forcedMs": 0
+    },
+    "inView": {
+     "visible": true,
+     "h": 120,
+     "rects": 1,
+     "w": 35,
+     "set": true,
+     "scrollTop": 76246
+    }
+   },
+   "events": {
+    "skipped": 0,
+    "shown": 0
+   },
+   "version": "153.0.8010.12"
+  }
+ ]
+}

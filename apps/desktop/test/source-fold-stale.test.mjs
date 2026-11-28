@@ -144,6 +144,30 @@ test('a fold from the Source pane reaches the other pane showing Rendered, and n
   });
 });
 
+test('a column narrowed while Source shows is not lost: Rendered shows the page set for the new width', async () => {
+  await withPanes(['/r/A.md'], async (page, mod) => {
+    await settle(page);
+    const wide = await page.evaluate(() => window.__marxyHandle.panes().panes[0].article.clientWidth);
+    await page.keyboard.press(`${mod}+e`);
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].view.mode === 'source');
+    await settle(page);
+    // The column narrows with Source showing (as when a second pane opens beside it): the page behind keeps its own box,
+    // so this new width is the only change of size it sees, and it sees none when it shows again.
+    // Two frames: the new width is laid out and any observer of it has had its call.
+    await page.evaluate(async (wide) => {
+      window.__marxyHandle.panes().panes[0].article.style.maxWidth = `${wide - 120}px`;
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }, wide);
+    await page.keyboard.press(`${mod}+e`);
+    await page.waitForFunction(() => window.__marxyHandle.panes().panes[0].view.mode === 'rendered');
+    await settle(page);
+    const width = await page.evaluate(() => window.__marxyHandle.panes().panes[0].article.clientWidth);
+    assert.ok(width < wide, `the column narrowed (${wide} to ${width})`);
+    const shown = await markup(page, 0);
+    assert.equal(await wholeRender(page, 0), shown, 'the page that showed is set for the width it shows at');
+  });
+});
+
 test('a narrower column that settles while Source shows is not lost: Rendered shows the page set for the new width', async () => {
   await withPanes(['/r/A.md'], async (page, mod) => {
     // Source once first, so its editor is loaded and showing it again takes a task, not a module load.
@@ -160,7 +184,7 @@ test('a narrower column that settles while Source shows is not lost: Rendered sh
       pane.article.style.maxWidth = `${wide - 120}px`;
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       await pane.view.setMode('source');
-      return { wide, hidden: pane.article.clientWidth === 0 };
+      return { wide, hidden: pane.article.hidden };
     });
     assert.equal(narrowed.hidden, true, 'Source showed inside the burst');
     await new Promise((r) => setTimeout(r, 300));

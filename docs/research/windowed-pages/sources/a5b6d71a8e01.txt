@@ -1,0 +1,105 @@
+Obsidian Forum
+
+Screen reader fails reading long text
+
+Help
+
+aefren
+
+April 14, 2023, 7:28am
+
+1
+
+I am a blind user who uses Obsidian with NVDA. The application is very good, and I believe that with just a few adjustments, it can achieve decent accessibility. The editor works quite well, but it has a very annoying problem.
+
+Steps to reproduce
+
+In editor mode, I insert a long text, of over 20000 characters and start navigating through the text using “control up or control down arrow”, to read paragraph by paragraph, with NVDA.
+
+Expected result
+
+The screen reader should read paragraph by paragraph, in order.
+
+Actual result
+
+After a while of scrolling down with the down arrow, the coherence of the document’s reading is lost, and the reader reads some lines from above or reads the same line twice.
+
+Environment
+
+SYSTEM INFO:
+
+Obsidian version: v1.1.16
+
+Installer version: v1.1.16
+
+Operating system: Windows 10 Pro 10.0.19045
+
+Login status: not logged in
+
+Insider build toggle: off
+
+Live preview: off
+
+Legacy editor: off
+
+Base theme: dark
+
+Community theme: none
+
+Snippets enabled: 0
+
+Restricted mode: on
+
+RECOMMENDATIONS:
+
+none
+
+Additional information
+
+I solve this by moving the mouse wheel, avoiding the cursor being at the top or bottom edge of the editor.
+
+An option that allows keeping the cursor in the center of the editor would be very helpful.
+
+It would only move down when the end of the document is reached and only move up when the beginning of the document is reached.
+
+Just an idea.
+
+CawlinTeffid
+
+April 14, 2023, 8:19pm
+
+2
+
+As a workaround, there is at least 1 plugin (Typewriter Scroll) that keeps the current line centered on the screen.
+
+WhiteNoise
+
+April 16, 2023, 9:04pm
+
+3
+
+This is likely due to the long note optimization that obsidian uses. Only what is on screen is actually rendered.
+
+@CawlinTeffid has good suggestion of using a plugin that scrolls the page automatically (since it’s likely that the screen reader is not doing it)
+
+aefren
+
+April 20, 2023, 1:09am
+
+4
+
+Yes, that plugin is the solution.
+
+I hope this feature is added by default. Many blind users have surely not been able to take advantage of the benefits of Obsidian because it was not accessible from the beginning.
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Privacy Policy
+
+Powered by Discourse, best viewed with JavaScript enabled

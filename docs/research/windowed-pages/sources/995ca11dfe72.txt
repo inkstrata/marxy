@@ -1,0 +1,300 @@
+WebKit Bugzilla
+
+New
+
+Browse
+
+Search+
+
+Log In
+
+&times;
+
+Sign in with GitHub
+
+or
+
+Remember my login
+
+Create Account
+
+·
+
+Forgot Password
+
+Forgotten password account recovery
+
+RESOLVED
+FIXED246426
+
+AX: List size is still announced by VoiceOver despite use of aria-setsize=-1
+https://bugs.webkit.org/show_bug.cgi?id=246426
+
+Summary
+
+AX: List size is still announced by VoiceOver despite use of aria-setsize=-1
+
+Todd Kloots
+
+Reported
+2022-10-12 15:14:40 PDT
+
+Created attachment 462949 [details]
+Video demo of the issue
+
+What steps will reproduce the problem?
+(1) Start VoiceOver
+(2) Open https://codepen.io/toddlr/pen/abGXbzN
+(3) Use tab to move focus to the first item in the list
+
+What is the expected result?
+
+VoiceOver should not announce the size of the list
+
+What happens instead?
+
+VoiceOver announces the size of the list on initial focus ("List with three items").
+
+Attachments
+
+Video demo of the issue
+
+(20.92 MB,
+video/quicktime)
+
+2022-10-12 15:14 PDT,
+
+Todd Kloots
+
+no flags
+
+Details
+
+Patch
+
+(9.16 KB,
+patch)
+
+2022-11-16 08:38 PST,
+
+Andres Gonzalez
+
+no flags
+
+DetailsFormatted DiffDiff
+
+Patch
+
+(9.15 KB,
+patch)
+
+2022-11-17 07:01 PST,
+
+Andres Gonzalez
+
+no flags
+
+DetailsFormatted DiffDiff
+
+Patch
+
+(8.90 KB,
+patch)
+
+2022-11-18 14:18 PST,
+
+Andres Gonzalez
+
+no flags
+
+DetailsFormatted DiffDiff
+
+Show
+Obsolete (2)
+View All
+
+Add attachment
+proposed patch, testcase, etc.
+
+Radar WebKit Bug Importer
+
+Comment 1
+2022-10-12 15:15:02 PDT
+
+<rdar://problem/101099199>
+
+Todd Kloots
+
+Comment 2
+2022-10-12 15:24:06 PDT
+
+For more context: all lists in Slack are virtualized. And so, with only the items scrolled into view actually rendered into the DOM VoiceOver reports the list size according to what is rendered into the DOM/scrolled into view. Therefore in 99.99% of cases in Slack the list size announced by VoiceOver will be inaccurate (“list of 5 items” when in fact it is a channel with loads and loads of messages) and could be confusing for users.
+
+The ARIA spec indicates use of set-size="-1" when the size of the list is unknown. We've implemented this for all our virtualized lists in Slack, and yet VoiceOver is still announcing the list size.
+
+Sommer Panage
+
+Comment 3
+2022-11-15 18:54:57 PST
+
+Confirming this still reproduces on 13.1 Beta (22C5044e)
+
+Andres Gonzalez
+
+Comment 4
+2022-11-16 08:38:30 PST
+
+Created attachment 463557 [details]
+Patch
+
+Andres Gonzalez
+
+Comment 5
+2022-11-16 08:40:35 PST
+
+This is the WebKit portion of the fix, a VO change is also necessary.
+
+Andres Gonzalez
+
+Comment 6
+2022-11-17 07:01:25 PST
+
+Created attachment 463580 [details]
+Patch
+
+Now works for ATSPI as well.
+
+Andres Gonzalez
+
+Comment 7
+2022-11-18 14:18:48 PST
+
+Created attachment 463612 [details]
+Patch
+
+EWS
+
+Comment 8
+2022-11-18 16:19:26 PST
+
+Committed 256861@main (ca1977fd4ef6): <https://commits.webkit.org/256861@main>
+
+All reviewed patches have been landed. Closing bug and clearing flags on attachment 463612 [details].
+
+Todd Kloots
+
+Comment 9
+2023-11-30 16:31:38 PST
+
+Verified fixed. Tested using Mac OS 14.1.1 in both Chrome (Version 119.0.6045.199) and Safari (Version 17.1 (19616.2.9.11.7).
+
+Note
+You need to
+log in
+before you can comment on or make changes to this bug.
+
+Status
+
+RESOLVED
+
+Resolution
+
+FIXED
+
+Priority
+
+P2
+
+Severity
+
+Normal
+
+Classification
+
+Unclassified
+
+Version
+
+Safari 16
+
+Hardware
+
+Mac (Intel)
+
+OS
+
+macOS 12
+
+Product
+
+WebKit
+
+Component
+
+Accessibility
+
+Assignee
+
+Andres Gonzalez
+
+Reported
+
+2022-10-12 15:14 PDT
+
+Modified
+
+2023-11-30 16:31 PST
+History
+
+CC List
+
+11
+users
+
+Show
+
+aboxhall
+andresg_22
+apinheiro
+cfleizach
+dmazzoni
+ews-watchlist
+jcraig
+jdiggs
+samuel_white
+spanage
+webkit-bug-importer
+
+URL
+
+Keywords
+
+InRadar
+
+Depends on
+
+Blocks
+
+See Also
+
+Alias
+
+None
+
+Top of Page
+
+Format For Printing
+
+XML
+
+Clone This Bug
+
+New
+
+Browse
+
+Search+
+
+Reports
+
+Requests

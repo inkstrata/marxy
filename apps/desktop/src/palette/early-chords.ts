@@ -3,6 +3,7 @@
 // installed at launch, takes the press the way the palette would (so the browser or the editor never sees it),
 // remembers each one, and hands them over when the palette mounts. Nothing here loads the palette.
 import { paletteChordFor, type PaletteChord } from './chords.ts';
+import { isMac } from '../platform.ts';
 
 export interface HeldChords {
   /** Stops listening. Returns every chord pressed meanwhile, in order (none: empty). */
@@ -12,7 +13,7 @@ export interface HeldChords {
 export function holdPaletteChords(): HeldChords {
   let held: PaletteChord[] = [];
   const onKey = (event: KeyboardEvent): void => {
-    const mac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+    const mac = isMac();
     if (!(mac ? event.metaKey : event.ctrlKey) || event.altKey) return;
     const chord = paletteChordFor(event.key, event.shiftKey);
     if (!chord) return;

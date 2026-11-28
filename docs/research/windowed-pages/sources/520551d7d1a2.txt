@@ -1,0 +1,248 @@
+WebKit Bugzilla
+
+New
+
+Browse
+
+Search+
+
+Log In
+
+&times;
+
+Sign in with GitHub
+
+or
+
+Remember my login
+
+Create Account
+
+·
+
+Forgot Password
+
+Forgotten password account recovery
+
+NEW224547
+
+Images and iframes with attribute loading=lazy do not print if not viewed (scrolled to) first
+https://bugs.webkit.org/show_bug.cgi?id=224547
+
+Summary
+
+Images and iframes with attribute loading=lazy do not print if not viewed (sc...
+
+groek_de_bc
+
+Reported
+2021-04-14 08:08:03 PDT
+
+* SUMMARY
+Lazy loaded images and iframes that have not been on screen yet, are not loaded when printing, producing empty elements.
+
+* STEPS TO REPRODUCE
+1. Open Safari/WebKit.
+2. Enable lazy loading of images in the Experimental features.
+3. Visit a page that contains lazy loaded images or iframes that are not visible on page load (i.e. below the fold).
+4. Print the page
+
+* EXPECTED RESULTS
+All images should be visible in the printed version
+
+* ACTUAL RESULTS
+Only images that were already loaded before executing the print command are visible.
+
+* REGRESSION
+I think this never worked.
+
+* TEST CASE
+https://www.ecb.europa.eu/lazy-loading-test/
+
+Printing this page should show the numbers 1 through 6.
+
+* RELATED LINKS
+https://github.com/whatwg/html/issues/6581
+
+Attachments
+
+Patch
+
+(4.89 KB,
+patch)
+
+2021-09-30 07:33 PDT,
+
+Rob Buis
+
+no flags
+
+DetailsFormatted DiffDiff
+
+View All
+
+Add attachment
+proposed patch, testcase, etc.
+
+Radar WebKit Bug Importer
+
+Comment 1
+2021-04-21 08:08:15 PDT
+
+<rdar://problem/76959554>
+
+Rob Buis
+
+Comment 2
+2021-09-30 07:33:35 PDT
+
+Created attachment 439736 [details]
+Patch
+
+Derk-Jan Hartman
+
+Comment 3
+2023-11-21 07:15:42 PST
+
+This bug still exists. The same issue in Chrome was fixed in January of 2022 https://bugs.chromium.org/p/chromium/issues/detail?id=875403
+
+This is currently blocking Wikipedia (esp Desktop) from using the native attribute, as people still want to print Wikipedia and expect that to work.
+
+I even tried something like:
+<script>
+window.onbeforeprint = () => {
+console.log( 'print' )
+document.querySelectorAll( 'img' ).forEach( (elem, index) => {
+elem.removeAttribute( 'loading' );
+})
+}
+</script>
+
+But it seems that this is only processed async, and the print still misses images.
+
+Related wikipedia ticket: https://phabricator.wikimedia.org/T148047
+
+Derk-Jan Hartman
+
+Comment 4
+2024-08-14 04:39:25 PDT
+
+For Safari 17.6 (Desktop) images, I can now set a beforeprint handler, to remove the loading attribute, or explicitly sets it to 'eager' and this will force the images to load.
+
+Of course I shouldn't have to set a onbeforeprint handler, but at least that might offer a workaround for the time this remains broken.
+
+Still have to verify on the iPhone and I haven't tested iframe behaviour.
+
+Note
+You need to
+log in
+before you can comment on or make changes to this bug.
+
+Status
+
+NEW
+
+Resolution
+
+Priority
+
+P2
+
+Severity
+
+Normal
+
+Classification
+
+Unclassified
+
+Version
+
+WebKit Nightly Build
+
+Hardware
+
+All
+
+OS
+
+All
+
+Product
+
+WebKit
+
+Component
+
+Images
+
+Assignee
+
+Nobody
+
+Reported
+
+2021-04-14 08:08 PDT
+
+Modified
+
+2024-11-08 09:07 PST
+History
+
+CC List
+
+14
+users
+
+Show
+
+cdumez
+changseok
+eoconnor
+esprehn+autocc
+ews-watchlist
+gyuyoung.kim
+hartman.wiki
+kangil.han
+koivisto
+rbuis
+sabouhallawa
+simon.fraser
+thorton
+webkit-bug-importer
+
+URL
+
+Keywords
+
+InRadar
+
+Depends on
+
+Blocks
+
+See Also
+
+208094
+
+Alias
+
+None
+
+Top of Page
+
+Format For Printing
+
+XML
+
+Clone This Bug
+
+New
+
+Browse
+
+Search+
+
+Reports
+
+Requests

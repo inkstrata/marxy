@@ -29,25 +29,34 @@ fn header(request: &tauri::ipc::Request<'_>, name: &str) -> Option<String> {
 }
 
 /// The frame `decode_text` answers with: the head's JSON length (u32, little-endian), the head (`found` and the map's
-/// kind), the table's length in u32s and the table (little-endian), then the text as UTF-8.
+/// kind), the table's index (its length in u32s, then the u32s, little-endian), the table's runs (their length in
+/// bytes, then the bytes; see `table.rs`), then the text as UTF-8. A map that is not a table has both empty.
 pub fn frame(decoded: &Decoded) -> Vec<u8> {
-    let (map, table): (serde_json::Value, &[u32]) = match &decoded.map {
-        ByteMap::Identity => (serde_json::json!({ "kind": "identity" }), &[]),
+    let (map, index, runs): (serde_json::Value, &[u32], &[u8]) = match &decoded.map {
+        ByteMap::Identity => (serde_json::json!({ "kind": "identity" }), &[], &[]),
         ByteMap::Units { unit, utf16 } => (
             serde_json::json!({ "kind": "units", "unit": unit, "count": if *utf16 { "utf16" } else { "scalar" } }),
             &[],
+            &[],
         ),
-        ByteMap::Table(pairs) => (serde_json::json!({ "kind": "table" }), pairs.as_slice()),
+        ByteMap::Table(t) => (
+            serde_json::json!({ "kind": "table" }),
+            t.index.as_slice(),
+            t.runs.as_slice(),
+        ),
     };
     let head = serde_json::to_vec(&serde_json::json!({ "found": decoded.found, "map": map }))
         .unwrap_or_default();
-    let mut out = Vec::with_capacity(8 + head.len() + table.len() * 4 + decoded.text.len());
+    let mut out =
+        Vec::with_capacity(12 + head.len() + index.len() * 4 + runs.len() + decoded.text.len());
     out.extend_from_slice(&(head.len() as u32).to_le_bytes());
     out.extend_from_slice(&head);
-    out.extend_from_slice(&(table.len() as u32).to_le_bytes());
-    for v in table {
+    out.extend_from_slice(&(index.len() as u32).to_le_bytes());
+    for v in index {
         out.extend_from_slice(&v.to_le_bytes());
     }
+    out.extend_from_slice(&(runs.len() as u32).to_le_bytes());
+    out.extend_from_slice(runs);
     out.extend_from_slice(&decoded.text);
     out
 }

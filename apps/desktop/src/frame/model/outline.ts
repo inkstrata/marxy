@@ -262,9 +262,9 @@ export async function applyOutlineAction(
     // The heading's own first byte is `indent` bytes after its line starts.
     landed = action === 'move-up' ? plan.range.start + (heading.src.start - plan.split) : plan.range.start + swapped.firstAtByte + (heading.src.start - plan.range.start);
     // The write is checked before it is made: the blocks that come out are the blocks that went in, in their new order.
-    const candidate = new Uint8Array(bytes.length - (plan.range.end - plan.range.start) + encoder.encode(result.replacement).length);
-    candidate.set(bytes.subarray(0, plan.range.start), 0);
     const middle = encoder.encode(result.replacement);
+    const candidate = new Uint8Array(bytes.length - (plan.range.end - plan.range.start) + middle.length);
+    candidate.set(bytes.subarray(0, plan.range.start), 0);
     candidate.set(middle, plan.range.start);
     candidate.set(bytes.subarray(plan.range.end), plan.range.start + middle.length);
     const swap = { range: plan.range, split: plan.split };

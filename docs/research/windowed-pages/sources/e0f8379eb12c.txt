@@ -1,0 +1,77 @@
+discuss.CodeMirror
+
+how can make sure the whole document is always rendered?(in codemirror6)
+
+v6
+
+WenyaoL
+
+November 4, 2022, 8:43am
+
+1
+
+In Codemirror5, I can configure the viewportMargin to make the entire document always present.
+
+But in Codemirror6, I haven’t found a configuration like viewportMargin. Let Codemirror6 ensure full text rendering.
+
+How do I configure Codemirror6 to ensure full text rendering？
+
+marijn
+
+November 4, 2022, 9:11am
+
+2
+
+You can’t, since it would destroy performance.
+
+WenyaoL
+
+November 4, 2022, 9:42am
+
+3
+
+thank you very much.
+
+I found this problem when exporting pictures and PDFs.
+
+I found that when I exported pictures and PDFs, code snippets were lost.
+
+When I export images, I need Codemirror to ensure the rendering of the entire document (I use html2canvas to export images).
+
+Maybe, I need to return Codemirror6 to Codemirror5, so as to ensure that the exported image will not have missing text fragments. I think it is a good function if I can control the rendering range of documents.
+
+Thanks again for your help.The Codemirror is a great editor!
+
+marijn
+
+November 4, 2022, 11:35am
+
+4
+
+The editor listens to the beforeprint event to avoid this problem when printing, but I’m not sure what kind of export you’re using here.
+
+WenyaoL
+
+November 4, 2022, 1:54pm
+
+5
+
+167203317391651258×872 63.9 KB
+
+I use html2canvas to export images. (It is a tool to generate canvas by using DOM elements on the page)
+
+When I export a picture, I pass DOM elements to the script, and the script will help me generate a canvas.
+
+However, because the codemirror only renders the part of the document that is currently scrolled to the view, html2canvas cannot obtain DOM elements outside the view, so the generated canvas can only display part of the text in the codemirror editor. Although I am not sure whether it is caused by this.
+
+Sometimes, I really want to get all the string of DOM in the codemirror on the page. (I need to extract some information from it) Especially when only one or two hundred lines of code are displayed in the codemirror, it may not be necessary to optimize.
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Powered by Discourse, best viewed with JavaScript enabled

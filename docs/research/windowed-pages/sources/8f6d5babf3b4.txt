@@ -1,0 +1,258 @@
+WebKit Bugzilla
+
+New
+
+Browse
+
+Search+
+
+Log In
+
+&times;
+
+Sign in with GitHub
+
+or
+
+Remember my login
+
+Create Account
+
+·
+
+Forgot Password
+
+Forgotten password account recovery
+
+RESOLVED
+FIXED292380
+
+AX: content-visibility change from hidden to visible ignored by VoiceOver
+https://bugs.webkit.org/show_bug.cgi?id=292380
+
+Summary
+
+AX: content-visibility change from hidden to visible ignored by VoiceOver
+
+Nathan Knowler
+
+Reported
+2025-05-01 09:47:05 PDT
+
+Created attachment 475105 [details]
+Reduction: checkboxes controlling adjacent content’s `content-visibility` property
+
+When CSS content-visibility changes from hidden to visible the content is still ignored by VoiceOver. It does seem like further interaction with adjacent elements can eventually make the content available for VoiceOver. It doesn’t seem to be a timing issue (i.e. waiting for any length of time does not make a difference — the content is still ignored).
+
+macOS 15.4.1 (24E263)
+iOS 18.4.1 (22E252)
+
+Safari versions tested (on macOS):
+
+- Version 18.4 (20621.1.15.11.10)
+- Release 217 (Safari 18.4, WebKit 20622.1.9.19.2)
+
+Attachments
+
+Reduction: checkboxes controlling adjacent content’s `content-visibility` property
+
+(1.06 KB,
+text/html)
+
+2025-05-01 09:47 PDT,
+
+Nathan Knowler
+
+no flags
+
+Details
+
+iOS VoiceOver interacting with the reduction demonstrating the issue.
+
+(5.83 MB,
+video/mp4)
+
+2025-05-01 10:01 PDT,
+
+Nathan Knowler
+
+no flags
+
+Details
+
+View All
+
+Add attachment
+proposed patch, testcase, etc.
+
+Radar WebKit Bug Importer
+
+Comment 1
+2025-05-01 09:47:24 PDT
+
+<rdar://problem/150453039>
+
+Nathan Knowler
+
+Comment 2
+2025-05-01 10:01:14 PDT
+
+Created attachment 475106 [details]
+iOS VoiceOver interacting with the reduction demonstrating the issue.
+
+Here’s a screen recording of using iOS VoiceOver to interact with the reduction. You can see both the described issue of the content being ignored AND how interactions with adjacent, unrelated elements sometimes cause the content to be available for VoiceOver.
+
+Nathan Knowler
+
+Comment 3
+2025-05-01 10:16:58 PDT
+
+When inspecting the element’s accessibility properties in Web Inspector, I’m noticing that it remains ignored with the reason of it being hidden. If I select another node in Element panel and then switch back to the original element, this value updates and when I focus the page with VoiceOver again, the content is available. It seems like the accessibility tree isn’t being updated.
+
+Tyler Wilcock
+
+Comment 4
+2025-05-01 11:07:06 PDT
+
+Hey again Nathan! Thanks for reporting this one — I believe it's fixed on `main`. If possible, could you try a nightly build and confirm? https://webkit.org/build-archives
+
+Nathan Knowler
+
+Comment 5
+2025-05-01 11:26:16 PDT
+
+I’m still experiencing this issue in the latest build of main 294377.
+
+Tyler Wilcock
+
+Comment 6
+2025-05-01 12:28:42 PDT
+
+Ahh whoops, I can too — had something misconfigured on my end. Will investigate.
+
+Tyler Wilcock
+
+Comment 7
+2025-05-01 16:53:40 PDT
+
+Pull request: https://github.com/WebKit/WebKit/pull/44812
+
+EWS
+
+Comment 8
+2025-05-02 02:03:54 PDT
+
+Committed 294420@main (ff17b1c5fada): <https://commits.webkit.org/294420@main>
+
+Reviewed commits have been landed. Closing PR #44812 and removing active labels.
+
+Nathan Knowler
+
+Comment 9
+2025-05-02 06:54:17 PDT
+
+I can confirm this works for me in the latest build of main as of writing this (294427). Thank you for the quick turnaround!
+
+Note
+You need to
+log in
+before you can comment on or make changes to this bug.
+
+Status
+
+RESOLVED
+
+Resolution
+
+FIXED
+
+Priority
+
+P2
+
+Severity
+
+Normal
+
+Classification
+
+Unclassified
+
+Version
+
+Safari Technology Preview
+
+Hardware
+
+All
+
+OS
+
+All
+
+Product
+
+WebKit
+
+Component
+
+Accessibility
+
+Assignee
+
+Tyler Wilcock
+
+Reported
+
+2025-05-01 09:47 PDT
+
+Modified
+
+2025-05-02 06:54 PDT
+History
+
+CC List
+
+4
+users
+
+Show
+
+andresg_22
+nathan
+tyler_w
+webkit-bug-importer
+
+URL
+
+Keywords
+
+HasReduction, InRadar
+
+Depends on
+
+Blocks
+
+See Also
+
+Alias
+
+None
+
+Top of Page
+
+Format For Printing
+
+XML
+
+Clone This Bug
+
+New
+
+Browse
+
+Search+
+
+Reports
+
+Requests

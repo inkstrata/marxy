@@ -9,13 +9,12 @@ import { viewerOf } from '@marxy/core/src/kind/registry.ts';
 import type { FileStat } from '@marxy/shell-api';
 import type { AppHandle } from '../app-types.ts';
 import { openAppPage } from './app-page.ts';
-import { el } from './dom.ts';
+import { el, plural } from './dom.ts';
 import { folderPictures, imageWords, isImageFolder } from './folder-pictures.ts';
 import { modifiedWords } from './model/metadata.ts';
 import { leftOutWhy, readAsWords } from './model/places.ts';
 
 const count = (n: number): string => n.toLocaleString('en-GB');
-const plural = (n: number, one: string, many: string): string => `${count(n)} ${n === 1 ? one : many}`;
 
 const dateWords = (ms: number): string => (ms ? modifiedWords(ms) : '');
 

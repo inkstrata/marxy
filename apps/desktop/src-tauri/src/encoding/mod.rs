@@ -7,6 +7,9 @@
 //! Pure: bytes in, bytes out. `commands.rs` is the IPC.
 
 pub mod commands;
+pub mod table;
+
+pub use table::Table;
 
 use encoding_rs::{DecoderResult, EncoderResult, Encoding};
 use serde::Serialize;
@@ -31,6 +34,9 @@ pub const CANDIDATES: &[(&str, &str)] = &[
 /// Most bytes chardetng is fed, and Read with encoding... counts unreadable bytes in, per encoding.
 pub const GUESS_BYTES: usize = 1024 * 1024;
 pub const COUNT_BYTES: usize = 8 * 1024 * 1024;
+/// Read with encoding... counts each candidate's unreadable bytes in this many bytes of the file, not more: thirteen
+/// decodes of the file would cost seconds at 5 MB.
+pub const READING_BYTES: usize = 1024 * 1024;
 /// The bytes each encoding reads in Read with encoding...: around the first byte above 7F.
 const SAMPLE_BYTES: usize = 120;
 
@@ -123,8 +129,8 @@ pub enum ByteMap {
     /// Every character is `unit` bytes in the file, counted by scalar value (single-byte, UTF-32) or by UTF-16 unit.
     Units { unit: u8, utf16: bool },
     /// A multi-byte legacy encoding: (UTF-8 offset, file offset) pairs at each place their difference changes; between
-    /// two, both advance together. The first pair, (0, bom), is implied.
-    Table(Vec<u32>),
+    /// two, both advance together. The first pair, (0, bom), is implied. Held as runs of equal steps (`table.rs`).
+    Table(Table),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -466,13 +472,29 @@ fn decode_body(body: &[u8], label: &str, bom: u32) -> (Vec<u8>, ByteMap, u64) {
 }
 
 /// A multi-byte encoding, a byte at a time, so each character's bytes in the file are known: the pairs of `ByteMap::Table`.
-fn decode_mapped(body: &[u8], enc: &'static Encoding, bom: u32) -> (Vec<u8>, Vec<u32>) {
+/// Where the decoder holds no half character, an ASCII run is copied whole (both offsets advance together there, so it
+/// makes no pair); ISO-2022-JP keeps state across ASCII bytes and is fed a byte at a time.
+fn decode_mapped(body: &[u8], enc: &'static Encoding, bom: u32) -> (Vec<u8>, Table) {
     let mut decoder = enc.new_decoder_without_bom_handling();
+    let ascii_runs = enc.is_ascii_compatible();
     let mut out: Vec<u8> = Vec::with_capacity(body.len() * 3 / 2);
-    let mut pairs: Vec<u32> = Vec::new();
+    let mut table = Table::new(bom);
     let mut delta: i64 = -(bom as i64);
     let mut buf = [0u8; 64];
-    for i in 0..body.len() {
+    // True when the last byte fed finished a character (or none was fed): no lead byte is waiting.
+    let mut clean = true;
+    let mut i = 0;
+    while i < body.len() {
+        if clean && ascii_runs && body[i] < 0x80 {
+            let run = body[i..].iter().take_while(|&&b| b < 0x80).count();
+            // The last byte of the body is fed to the decoder so it can flush; a run never holds it.
+            let run = if i + run == body.len() { run - 1 } else { run };
+            if run > 0 {
+                out.extend_from_slice(&body[i..i + run]);
+                i += run;
+                continue;
+            }
+        }
         let last = i + 1 == body.len();
         let mut input = &body[i..=i];
         let before = out.len();
@@ -485,14 +507,16 @@ fn decode_mapped(body: &[u8], enc: &'static Encoding, bom: u32) -> (Vec<u8>, Vec
             }
         }
         // A lead byte alone writes nothing: the pair is made when its character ends.
+        clean = out.len() > before;
         let u = out.len() as i64;
         let f = (i + 1) as i64 + bom as i64;
-        if out.len() > before && u - f != delta {
+        if clean && u - f != delta {
             delta = u - f;
-            pairs.extend_from_slice(&[u as u32, f as u32]);
+            table.push(u as u32, f as u32);
         }
+        i += 1;
     }
-    (out, pairs)
+    (out, table.finish())
 }
 
 /// Bytes of `body` that `label` cannot read.
@@ -635,7 +659,7 @@ pub struct Reading {
 #[serde(rename_all = "camelCase")]
 pub struct Readings {
     pub rows: Vec<Reading>,
-    /// The bytes the unreadable counts cover: the whole file, or its first `COUNT_BYTES`.
+    /// The bytes the unreadable counts cover: the whole file, or its first `READING_BYTES`.
     pub counted: u64,
     pub sample_at: u64,
 }
@@ -674,9 +698,10 @@ fn sample_range(bytes: &[u8]) -> (usize, usize) {
 
 /// Each candidate's reading of the same few bytes, and how many bytes of the file it cannot read. An encoding the
 /// file was found or guessed in that the list does not hold is added to it.
-pub fn readings(bytes: &[u8]) -> Readings {
-    let (start, end) = sample_range(bytes);
-    let sample = &bytes[start..end];
+pub fn readings(whole: &[u8]) -> Readings {
+    let bytes = &whole[..whole.len().min(READING_BYTES)];
+    let (start, end) = sample_range(whole);
+    let sample = &whole[start..end];
     let (found, ..) = sniff(bytes);
     let mut labels: Vec<String> = CANDIDATES.iter().map(|(l, _)| (*l).to_string()).collect();
     if !labels.contains(&found) {
@@ -705,7 +730,7 @@ pub fn readings(bytes: &[u8]) -> Readings {
         .collect();
     Readings {
         rows,
-        counted: bytes.len().min(COUNT_BYTES) as u64,
+        counted: bytes.len() as u64,
         sample_at: start as u64,
     }
 }

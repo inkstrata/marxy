@@ -2,6 +2,7 @@
 // Pure: no DOM, so Node tests cover it.
 import type { AppContext, Command } from '../commands/registry.ts';
 import { fuzzyScore } from './search.ts';
+import { isMac } from '../platform.ts';
 
 /** The palette's command groups, in the order the `>` list shows them. */
 export const PALETTE_GROUPS = ['Navigate', 'File', 'View', 'Copy', 'Source', 'Extract', 'Transform'] as const;
@@ -207,7 +208,7 @@ export interface KeyOptions {
 
 /** The command a key press runs: first whose `key` or `keys` match, that may run here, and whose `when` holds. */
 export function commandForKey(event: ChordEvent, cmds: readonly Command[], ctx: AppContext, opts: KeyOptions): Command | undefined {
-  const mac = opts.mac ?? (typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC'));
+  const mac = opts.mac ?? isMac();
   for (const cmd of cmds) {
     if (opts.inEditable && cmd.global !== true) continue;
     const specs = specsOf(cmd).filter((spec) => opts.pageKeys === true || !isPageKey(spec));

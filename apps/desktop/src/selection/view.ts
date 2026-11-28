@@ -47,6 +47,7 @@ import { applyLinkDestinations } from '../render/link-dest.ts';
 import { recordDrag } from './drag.ts';
 import { linesViewIn } from '../view/reading-lines.ts';
 import { resolve } from './resolve.ts';
+import { isMac } from '../platform.ts';
 
 const INLINE_TYPES: ReadonlySet<Inline['type']> = new Set([
   'text',
@@ -220,7 +221,7 @@ const DRAG_THRESHOLD_PX = 4;
 /** A right-click, or a Ctrl-click on a Mac: it opens the verb menu, and is not a click that selects. */
 export function isSecondaryClick(ev: MouseEvent): boolean {
   if (ev.button === 2) return true;
-  const mac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+  const mac = isMac();
   return mac && ev.ctrlKey && ev.button === 0;
 }
 
@@ -241,7 +242,7 @@ interface PaneNav {
 /** Whether a Cmd-click (Ctrl-click off a Mac) asks for the link to open in the other pane. */
 function opensBeside(ev: MouseEvent | undefined): boolean {
   if (!ev) return false;
-  const mac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+  const mac = isMac();
   return mac ? ev.metaKey : ev.ctrlKey;
 }
 

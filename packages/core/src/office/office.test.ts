@@ -157,6 +157,23 @@ test('a document’s text never becomes markup', () => {
   }
 });
 
+test('a slide is placed at its byte in the Markdown, after text with a lone surrogate', () => {
+  // A lone surrogate is written as U+FFFD, three bytes; the character after it keeps its own bytes.
+  const doc = {
+    blocks: [
+      { t: 'para' as const, kids: [run('\ud800é and \udc00€')] },
+      { t: 'heading' as const, level: 1, kids: [run('Title')], slide: { n: 1, hidden: false } },
+    ],
+    notes: [],
+    images: [],
+  };
+  const out = writeMarkdown(doc);
+  const encoder = new TextEncoder();
+  const heading = out.markdown.indexOf('# Title');
+  assert.ok(heading > 0, out.markdown);
+  assert.equal(out.slides[0]?.at, encoder.encode(out.markdown.slice(0, heading)).length);
+});
+
 test('the XML reader refuses a document type and expands no entity of its own', () => {
   const budget = (): XmlBudget => ({ elements: 1000, chars: 1000, bytes: 1_000_000 });
   assert.throws(() => readXml('<!DOCTYPE x [<!ENTITY a "aaaa">]><x>&a;</x>', budget(), 'p.xml'), OfficeError);

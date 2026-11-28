@@ -1,0 +1,117 @@
+WebKit
+
+Downloads
+
+Feature Status
+
+CSS Features
+
+Standards Positions
+
+Documentation
+
+Web Inspector
+
+Tracking Prevention
+
+Policies
+
+Project Goals
+
+Bug Prioritization
+
+Bug Report Guidelines
+
+Code Style Guidelines
+
+Commit and Review Policy
+
+Feature Policy
+
+Security Policy
+
+Tracking Prevention Policy
+
+WebKit AI Tool Use Policy
+
+Contribute
+
+Getting Started
+
+Contributing Code
+
+Testing Contributions
+
+How to Report Bugs
+
+GitHub Repository
+
+Blog
+
+News Posts
+
+CSS Posts
+
+Contributing Posts
+
+Privacy Posts
+
+Performance Posts
+
+JavaScript Posts
+
+Standards Posts
+
+Web Inspector Posts
+
+Safari Technology Preview Posts
+
+WebKit Features in Safari 18.6
+
+Jul 25, 2025
+
+by Jen Simmons
+
+This update to Safari is the seventh release of Safari 18.x. WebKit includes four bug fixes:
+
+Rendering
+
+Fixed style invalidation for :has(+:popover-open). (149794951)
+
+WKWebView
+
+Fixed a crash at launch in iOS Simulator for apps built for older deployment targets that bind to specific WebKit API. (152342621)
+
+Web Extensions
+
+Fixed loading a web accessible resource from a subframe at about:blank. (149971391)
+
+Fixed 'allowAllRequests' for declarativeNetRequest. (151015324)
+
+Updating to Safari 18.6
+
+Safari 18.6 is available on iOS 18.6, iPadOS 18.6, macOS Sequoia 15.6, macOS Sonoma, macOS Ventura, and in visionOS 2.6. To get the latest version of Safari on iPhone, iPad or Apple Vision Pro, go to Settings > General > Software Update, and tap to update.
+
+If you are running macOS Sonoma or macOS Ventura, you can update Safari by itself, without updating macOS. Go to  > System Settings > General > Software Update and click “More info…” under Updates Available.
+
+Feedback
+
+We love hearing from you. To share your thoughts, find our web evangelist online: Jen Simmons on Bluesky / Mastodon, Saron Yitbarek on BlueSky, and Jon Davis on Bluesky / Mastodon. You can follow WebKit on LinkedIn. If you run into any issues, we welcome your feedback on Safari UI (learn more about filing Feedback), or your WebKit bug report about web technologies or Web Inspector. If you run into a website that isn’t working as expected, please file a report at webcompat.com. Filing issues really does make a difference.
+
+Download the latest Safari Technology Preview on macOS to stay at the forefront of the web platform and to use the latest Web Inspector features.
+
+You can also find this information in the Safari 18.6 release notes.
+
+NextRelease Notes for Safari Technology Preview 225Learn more
+
+PreviouslyRelease Notes for Safari Technology Preview 224Learn more
+
+@webkit@front-end.social
+
+Site Map
+
+Privacy Policy
+
+Licensing WebKit
+
+WebKit and the WebKit logo are trademarks of Apple Inc.
