@@ -1,0 +1,15 @@
+mounting true
+early count 1 of 8 mounting true
+late count 1 of 8 mounting false
+katex present 2
+early len 803110 late len 803102 equal false
+diff line 6002 "Inline math \text{zephyr}+x^2 here." | "Inline math extzephyr+x2 here."
+diff line 6003 "\text{zephyr}" | "extzephyr"
+diff line 6004 "" | "A note.1"
+diff line 6005 "A note.1" | ""
+diff line 6008 "" | "a"
+diff line 6009 "a" | "b"
+diff line 6010 "b" | ""
+diff line 6014 "" | "zephyr"
+early tail " and the river and the long road home, so that the column fills and wraps across several lines.\nParagraph 5999 runs on about the lamps and the river and the long road home, so that the column fills and wraps across several lines.\nInline math \text{zephyr}+x^2 here.\n\text{zephyr}\n\nA note.1\n\n\n\na\nb\n\n\n\n\nzephyr\ncell two\n\n\nx\ny\n\n\n\nHard break zephyr\nnext line\\nthird line\nconst zephyr = 1;\n\nEnd zephyr.\n\n\nFootnote zephyr text.↩\n"
+late tail "he lamps and the river and the long road home, so that the column fills and wraps across several lines.\nParagraph 5999 runs on about the lamps and the river and the long road home, so that the column fills and wraps across several lines.\nInline math extzephyr+x2 here.\nextzephyr\nA note.1\n\n\n\na\nb\n\n\n\n\nzephyr\ncell two\n\n\nx\ny\n\n\n\nHard break zephyr\nnext line\\nthird line\nconst zephyr = 1;\n\nEnd zephyr.\n\n\nFootnote zephyr text.↩\n"

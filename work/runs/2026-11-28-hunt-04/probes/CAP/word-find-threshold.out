@@ -1,0 +1,8 @@
+  find-4000: page errors: RangeError: Maximum call stack size exceeded | RangeError: Maximum call stack size exceeded | RangeError: Maximum call stack size exceeded
+    at open (D:\Dev\marxy-wt\hunt-04\apps\desktop\scripts\shots.mjs:225:20)
+    at Module.default (D:\Dev\marxy-wt\hunt-04\work\runs\2026-11-28-hunt-04\probes\CAP\word-find-threshold.mjs:15:11)
+    at async main (D:\Dev\marxy-wt\hunt-04\apps\desktop\scripts\shots.mjs:216:5)
+    at async file:///D:/Dev/marxy-wt/hunt-04/apps/desktop/scripts/shots.mjs:239:36
+D:\Dev\marxy-wt\hunt-04\apps\desktop:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @marxy/desktop@0.2.0 shots: `node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-04/work/runs/2026-11-28-hunt-04/probes/CAP/word-find-threshold.mjs"`
+Exit status 1

@@ -1,0 +1,15 @@
+owner plain false
+owner mentions marker { merge: true, reasons: [] }
+owner quoted bot comment { merge: true, reasons: [] }
+2026-11-27T22:00:00Z false owner window null null false
+2026-11-28T08:20:00Z true ok 2026-11-28T22:00:00.000Z 2.1 false
+2026-11-26T08:20:00Z true ok 2026-11-26T22:00:00.000Z 40 true
+2026-11-27T16:45:00Z true ok 2026-11-27T20:00:00.000Z 55 true
+2026-11-27T16:45:00Z false block reaches the owner window null null false
+2026-11-27T20:59:00Z false a new block would reach the owner window null null false
+2026-11-27T21:00:00Z false a new block would reach the owner window null null false
+2026-11-27T21:01:00Z false a new block would reach the owner window null null false
+epic game C:\Program Files\Epic Games\Fortnite\x.exe | WE null | WE tools null
+launcher null | riot client null | riot game C:\Riot Games\VALORANT\live\VALORANT.exe
+xbox C:\XboxGames\Halo\Content\halo.exe | windowsapps game null | GOG C:\GOG Galaxy\Games\X\x.exe | gog real C:\Program Files (x86)\GOG Galaxy\Games\X\x.exe
+kde 600000000 1200000 1000000000 500000

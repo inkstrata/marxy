@@ -1,0 +1,3 @@
+file chars 538912 mounting true
+early copy-as 4121 mounting true ends "mn fills and wraps across several lines."
+late copy-as 538911 ends "wraps across several lines.\n\nEnd zephyr."

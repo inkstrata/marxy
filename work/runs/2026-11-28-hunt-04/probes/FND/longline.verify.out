@@ -1,0 +1,7 @@
+omitted before 0
+count 1 of 3 {"t":"zephyr","coll":false,"blk":"Intro zephyr."}
+step 0 2 of 3 {"t":"","coll":true,"blk":"const data = \"abcdefghija"} omitted 1
+step 1 1 of 2 {"t":"zephyr","coll":false,"blk":"Intro zephyr."} omitted 1
+step 2 2 of 2 {"t":"zephyr","coll":false,"blk":"End zephyr."} omitted 1
+step 3 1 of 2 {"t":"zephyr","coll":false,"blk":"Intro zephyr."} omitted 1
+fresh 1 of 2

@@ -1,0 +1,14 @@
+✔ at 1 MB, first text holds the first screens and the rest arrives later, on the grid, the same text (20028.9905ms)
+✔ while chunks arrive, each grid pass from the appended blocks leaves every mounted block on the grid (16207.518ms)
+✔ opening a second document while chunks are pending leaves one typesetter, one observer and no stray nodes (20375.5005ms)
+✔ a corpus document goes in whole: first_screen names all of its blocks and contentComplete resolves at once (2116.1706ms)
+✔ idle chunks are cut by the elements they bring, read no layout, and leave the page whole and in order (4614.7222ms)
+✔ a dense Markdown file under a megabyte opened alone is read in slices: first text with the first screens, then the whole page (15538.8876ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 79455.2419

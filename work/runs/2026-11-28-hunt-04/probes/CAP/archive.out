@@ -1,0 +1,24 @@
+zip entries 9 entries 9 skipped 0 trunc null declared 9 treefiles 9
+zip entries 10 entries 10 skipped 0 trunc null declared 10 treefiles 10
+zip entries 11 entries 10 skipped 0 trunc "Listed the first 10 entries; the archive declares 11." declared 11 treefiles 10
+zip nameBytes 19 entries 2 skipped 0 trunc null declared 2 treefiles 2
+zip nameBytes 20 entries 2 skipped 0 trunc null declared 2 treefiles 2
+zip nameBytes 21 entries 1 skipped 1 trunc null declared 2 treefiles 1
+zip depth 3 entries 2 skipped 0 trunc null declared 2 treefiles 2
+zip depth 4 entries 1 skipped 1 trunc null declared 2 treefiles 1
+zip depth 5 entries 1 skipped 1 trunc null declared 2 treefiles 1
+zip listed w9 entries 11 skipped 0 trunc "Listed the first 11 entries: their names reach the 16 MB a listing may hold." declared 12 treefiles 11
+zip listed w10 entries 10 skipped 0 trunc "Listed the first 10 entries: their names reach the 16 MB a listing may hold." declared 12 treefiles 10
+zip listed w11 entries 9 skipped 0 trunc "Listed the first 9 entries: their names reach the 16 MB a listing may hold." declared 12 treefiles 9
+tar entries 9 entries 9 skipped 0 trunc null declared null treefiles 9
+tar entries 10 entries 10 skipped 0 trunc null declared null treefiles 10
+tar entries 11 entries 10 skipped 0 trunc "Listed the first 10 entries; more follow." declared null treefiles 10
+tar nameBytes 19 entries 2 skipped 0 trunc null declared null treefiles 2
+tar nameBytes 20 entries 2 skipped 0 trunc null declared null treefiles 2
+tar nameBytes 21 entries 1 skipped 1 trunc null declared null treefiles 1
+tar depth 3 entries 2 skipped 0 trunc null declared null treefiles 2
+tar depth 4 entries 1 skipped 1 trunc null declared null treefiles 1
+tar depth 5 entries 1 skipped 1 trunc null declared null treefiles 1
+tar listed w9 entries 11 skipped 0 trunc "Listed the first 11 entries: their names reach the 16 MB a listing may hold." declared null treefiles 11
+tar listed w10 entries 10 skipped 0 trunc "Listed the first 10 entries: their names reach the 16 MB a listing may hold." declared null treefiles 10
+tar listed w11 entries 9 skipped 0 trunc "Listed the first 9 entries: their names reach the 16 MB a listing may hold." declared null treefiles 9

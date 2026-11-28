@@ -1,0 +1,16 @@
+03a no run/model {"merge":true,"reasons":[]}
+03b run only {"merge":true,"reasons":[]}
+03c control same model {"merge":false,"reasons":["approval is not independent of the author (same run or model)"]}
+04a changes same second {"merge":true,"reasons":[]}
+04b changes 1s later (control) {"merge":false,"reasons":["changes requested on the current head"]}
+04c review-foo kind [{"kind":"review","verdict":"approve","head":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","run":"r2","model":"opus"}]
+02a plain veto {"merge":false,"reasons":["owner commented after the intake"]}
+02b veto mentioning marker {"merge":true,"reasons":[]}
+02c quote-reply of bot comment {"merge":true,"reasons":[]}
+05 win32 all fail {"busy":false,"why":[]}
+05 darwin all fail {"busy":false,"why":[]}
+05 linux all fail {"busy":false,"why":[]}
+05 kde 5000 -> ms 5000000
+05 kde 5000000 -> ms 5000000
+05 linux qdbus says 5000 {"busy":false,"why":[]}
+05 linux qdbus says 5 (sec) {"busy":true,"why":["input 0 min ago"]}

@@ -1,0 +1,5 @@
+[["the quick brown\nfox jumps over\nthe lazy dog","normal"],["single line fox jumps over here","normal"]]
+"brown fox" 0 of 0
+"fox jumps" 1 of 2
+"over the" 0 of 0
+"single line fox jumps" 1 of 1

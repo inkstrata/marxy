@@ -1,0 +1,6 @@
+console debug [vite] connecting...
+console debug [vite] connected.
+console warning marxy: large Markdown is parsed on the page: the parse worker could not start (ReferenceError: Can't find variable: document)
+console info marxy: sanitiser removed 0
+{"hasWorker":"function","marks":[["bundled_theme","name=ink"],["script_start",null],["weight_offset","offset=0"],["args","n=1"],["file_read","bytes=1059760"],["parsed","slices=370"],["rendered",null],["first_screen","blocks=32 bytes=5793"],["fonts_ready",null],["render","blocks=28 chars=4850 heading=Stack evaluation"],["painted","frames=2 since_render_ms=60 signal=first-contentful-paint source=paint"],["first_text",null],["typeset_viewport","ms=196.0 hyphenation_load_ms=50.0 set=4"],["position_restored",null],["index_loaded","entries=1 root=/docs source=walk calls=1"]]} 
+later [["parsed","slices=370"]]

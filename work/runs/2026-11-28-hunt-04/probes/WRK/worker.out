@@ -1,0 +1,3 @@
+{"keys":["__marxyPalette"],"worker":"function"}
+warning: marxy: large Markdown is parsed on the page: the parse worker could not start (Uncaught ReferenceError: document is not defined)
+info: marxy: sanitiser removed 0

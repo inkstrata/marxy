@@ -1,0 +1,8 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-04/work/runs/2026-11-28-hunt-04/probes/CAP/find.verify.mjs" "--browser" "chromium"
+100 expected matches 70000 new errors 1 []
+  find-100: page errors: RangeError: Maximum call stack size exceeded
+shot find-100
+200 expected matches 140000 new errors 3 ["counting…","counting…","counting…"]
+  find-200: page errors: RangeError: Maximum call stack size exceeded | RangeError: Maximum call stack size exceeded | RangeError: Maximum call stack size exceeded
+shot find-200
+2 pictures in D:\Dev\marxy-wt\hunt-04\work\shots\hunt-04-20261128-0638
