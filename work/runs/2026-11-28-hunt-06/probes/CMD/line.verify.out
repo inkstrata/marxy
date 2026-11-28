@@ -1,0 +1,4 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/CMD/line.verify.mjs" "--browser" "chromium"
+":30" {"lines":["Zrow 1"],"focused":"cm-content cm-lineWrapping"}
+"/row 20" {"lines":["Zrow 1","row 29Z"],"focused":"cm-content cm-lineWrapping"}
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1047

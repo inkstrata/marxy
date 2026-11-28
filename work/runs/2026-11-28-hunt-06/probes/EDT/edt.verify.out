@@ -1,0 +1,22 @@
+== EDT-01/03 A type X after End orig "one\r\ntwo\r\nthree\nfour\n"
+ head 4
+ disk "one\rX\ntwo\r\nthree\nfour\n"
+== EDT-01/03 B Backspace after End orig "one\r\ntwo\r\nthree\nfour\n"
+ head 4
+ disk "one\ntwo\r\nthree\nfour\n"
+== EDT-01/03 C Enter before CR orig "one\r\ntwo\r\nthree\nfour\n"
+ head 4
+ disk "one\n\ntwo\r\nthree\nfour\n"
+== EDT-02 block End type orig "# T\n\nhello\r\nworld\n\ntail\n"
+ buf "# T\n\nhello\rQ\r\nworld\n\ntail\n"
+== EDT-01/03 A type X after End orig "one\r\ntwo\r\nthree\nfour\n"
+ head 4
+ disk "one\rX\ntwo\r\nthree\nfour\n"
+== EDT-01/03 B Backspace after End orig "one\r\ntwo\r\nthree\nfour\n"
+ head 4
+ disk "one\ntwo\r\nthree\nfour\n"
+== EDT-01/03 C Enter before CR orig "one\r\ntwo\r\nthree\nfour\n"
+ head 4
+ disk "one\n\ntwo\r\nthree\nfour\n"
+== EDT-02 block End type orig "# T\n\nhello\r\nworld\n\ntail\n"
+ buf "# T\n\nhello\rQ\r\nworld\n\ntail\n"

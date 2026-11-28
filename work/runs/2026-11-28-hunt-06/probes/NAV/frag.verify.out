@@ -1,0 +1,13 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/frag.verify.mjs"
+id="" 1. Intro
+id="" Café
+id="ok-head" Ok Head
+id="" Word Word Word Word 
+id="a-b" a-b
+#1-intro 4711 -> 4711
+#café 4711 -> 4711
+#ok-head 4711 -> 135
+long 4711 -> 4711
+#a%2Db 4711 -> 4711
+#ok%2Dhead 4711 -> 4711
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1051

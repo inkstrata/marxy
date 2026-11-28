@@ -29,3 +29,8 @@ top of). Source is `planner` or `proposed:<run-id>`, so the table shows whether 
 | 2026-11-28 | 04 | AUTO | spec: the merge gate, governor and weekly clean against the written policy | `scripts/auto/`, `scripts/lib/stale*.mjs` | 93977776 | 5 | planner |
 | 2026-11-28 | 04 | FND | spec: find, select all and copy on a long page still mounting | `src/find/`, `src/selection/copy-text.ts`, `src/render/progressive.ts` | 93977776 | 4 | planner |
 | 2026-11-28 | 04 | CAP | invariant: a size cap drops content silently or fails at its limit | `packages/core/src/office/`, `packages/core/src/reading/`, `packages/core/src/mail/`, `src/source/paste.ts` | 93977776 | 4 | planner |
+| 2026-11-28 | 06 | EDT | domain: editing at ordinary sizes (line endings, BOM, undo, save, close guard) | `src/source/`, `src/paste/`, `src/save.ts`, `src/close.ts`, `packages/core/src/buffer/` | dc90c90f | 3 | planner |
+| 2026-11-28 | 06 | VWR | domain: viewers for small files (archives, office, mail, notebooks) | `src/viewers/`, `src/kinds/`, `packages/core/src/kind/`, `packages/core/src/office/`, `packages/core/src/mail/` | dc90c90f | 10 | planner |
+| 2026-11-28 | 06 | NAV | domain: tabs, panes, place, history, links | `src/pane/`, `src/left/`, `src/position/`, `src/layout/`, `src/selection/` | dc90c90f | 6 | planner |
+| 2026-11-28 | 06 | CMD | domain: commands, keys, the Line, the palette | `src/commands/`, `src/line/`, `src/menu/`, `src/palette/` | dc90c90f | 5 | planner |
+| 2026-11-28 | 06 | LOK | domain: look, Studio, settings, config.toml | `src/studio/`, `src/settings/`, `src/look/`, `packages/theme/` | dc90c90f | 3 | planner |

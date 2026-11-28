@@ -1,0 +1,8 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/LOK/studio2.mjs" "--browser" "chromium"
+before {"look":null,"size":"","v":"dark","lt":"none"}
+ranges 1
+after dial {"look":"ink","size":"20px","v":"dark","lt":"# Marxy's look: written by the app as you change it; the colours are worked out, so they are not here.|on = true|look = \"ink\"|mode = \"system\"|lean = false|"}
+after close {"look":"ink","size":"20px","v":"dark","lt":"# Marxy's look: written by the app as you change it; the colours are worked out, so they are not here.|on = true|look = \"ink\"|mode = \"system\"|lean = false|"}
+Settings variant light after Studio use {"look":"ink","size":"20px","v":"dark","lt":"# Marxy's look: written by the app as you change it; the colours are worked out, so they are not here.|on = true|look = \"ink\"|mode = \"system\"|lean = false|"}
+errors []
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1056

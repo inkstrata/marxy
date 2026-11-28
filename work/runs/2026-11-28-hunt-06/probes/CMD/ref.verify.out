@@ -1,0 +1,6 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/CMD/ref.verify.mjs" "--browser" "chromium"
+"a.ts:12" []
+"a.ts:12:5" []
+":9-5" []
+":5-9" []
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1049

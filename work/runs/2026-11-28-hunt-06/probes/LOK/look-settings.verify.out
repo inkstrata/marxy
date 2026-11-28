@@ -1,0 +1,9 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/LOK/look-settings.verify.mjs" "--browser" "chromium"
+before {"variantRoot":"dark","look":"paper","scheme":"night","inlineSize":"20.5px","bg":"rgb(17, 15, 12)","artFont":"20.5px"}
+size 32 via Settings, looks on {"variantRoot":"dark","look":"paper","scheme":"night","inlineSize":"20.5px","bg":"rgb(17, 15, 12)","artFont":"20.5px"}
+variant light via Settings, looks on {"variantRoot":"dark","look":"paper","scheme":"night","inlineSize":"20.5px","bg":"rgb(17, 15, 12)","artFont":"20.5px"}
+notices [""]
+config size = 32
+variant = "light"
+
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1055

@@ -1,0 +1,24 @@
+=== control: comment in body paragraph
+"body text\n\nnote here\n" comments=1
+=== comment in cell, then paragraph after table
+"| cell text |\n| --- |\n\nafter\n" comments=1
+=== comment in second paragraph of a cell
+"| a<br>b |\n| --- |\n" comments=1
+=== continue-numbering (3 items, then 1 more)
+"1) item 1\n2) item 2\n3) item 3\n\nmid\n\n1. after\n" comments=0
+=== continue-list by id
+"1) item 1\n2) item 2\n\nmid\n\n1. after\n" comments=0
+=== empty middle item (Word-like expectation 3)
+"1) one\n2) three\n" comments=0
+=== control: comment in body paragraph
+"body text\n\nnote here\n" comments=1
+=== comment in cell, then paragraph after table
+"| cell text |\n| --- |\n\nafter\n" comments=1
+=== comment in second paragraph of a cell
+"| a<br>b |\n| --- |\n" comments=1
+=== continue-numbering (3 items, then 1 more)
+"1) item 1\n2) item 2\n3) item 3\n\nmid\n\n1. after\n" comments=0
+=== continue-list by id
+"1) item 1\n2) item 2\n\nmid\n\n1. after\n" comments=0
+=== empty middle item (Word-like expectation 3)
+"1) one\n2) three\n" comments=0

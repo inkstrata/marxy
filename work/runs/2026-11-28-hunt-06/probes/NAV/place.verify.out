@@ -1,0 +1,14 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/place.verify.mjs"
+A top A.md scrollTop=0 byte=0
+A scrolled A.md scrollTop=1500 byte=1623
+Y first open Y.md scrollTop=1500 byte=1623
+A at link A.md scrollTop=12976 byte=13035
+Z via link (never opened) Z.md scrollTop=12931 byte=12990
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1047
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/NAV/place.verify.mjs"
+A top A.md scrollTop=0 byte=0
+A scrolled A.md scrollTop=1500 byte=1623
+Y first open Y.md scrollTop=1500 byte=1623
+A at link A.md scrollTop=12976 byte=13035
+Z via link (never opened) Z.md scrollTop=12931 byte=12990
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1047

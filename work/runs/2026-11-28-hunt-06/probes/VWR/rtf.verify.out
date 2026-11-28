@@ -1,0 +1,12 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-06/work/runs/2026-11-28-hunt-06/probes/VWR/rtf.verify.mjs" "--browser" "chromium"
+### /demo/v4.doc
+PANE: demo › v4.doc Read Source UTF-8 40 bytes 1 line 10 20 30 40 50 60 70 80 90 100 110 1 {\rtf1\ansi\deff0 Hello \b world\b0\par} Ln 1, Col 1 · byte 0 U+007B {
+### /demo/v4.docx
+PANE: demo › v4.docx Read Source UTF-8 40 bytes 1 line 10 20 30 40 50 60 70 80 90 100 110 1 {\rtf1\ansi\deff0 Hello \b world\b0\par} Ln 1, Col 1 · byte 0 U+007B {
+### /demo/v4.txt
+PANE: demo › v4.txt Read Source Plain text, set as paragraphs {\rtf1\ansi\deff0 Hello \b world\b0\par}
+### /demo/v4.rtf
+VIEWER office: Rich Text document · 2 words · the text, not the layout Hello world
+### /demo/v4.odt
+PANE: demo › v4.odt Read Source UTF-8 40 bytes 1 line 10 20 30 40 50 60 70 80 90 100 110 1 {\rtf1\ansi\deff0 Hello \b world\b0\par} Ln 1, Col 1 · byte 0 U+007B {
+0 pictures in D:\Dev\marxy-wt\hunt-06\work\shots\hunt-06-20261128-1047
