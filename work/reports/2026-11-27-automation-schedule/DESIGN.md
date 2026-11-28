@@ -271,3 +271,10 @@ them from being locked out). In that window the governor drops the owner window 
 flat 2% weekly reserve, stops at 19:55 and refuses without a usage reading. A busy owner no longer stops it: the
 gate answers `lightOnly`, so only light work (reading and writing, quick-tier verify, CI for the rest) runs while
 they are at the machine. A `friday` job at 14:05 runs the night skill in final mode.
+
+Changed 2026-11-27: a run no longer stops on an empty queue. The queue ran dry in two or three nights and an
+empty-queue night did nothing until Thursday's sweep. `auto.mjs status` now says what to do next, in order:
+carry-over, the queue, a top-up from ready tracker rows, a small hunt, Tuesday's hunt, else stop with a reason.
+Every run also updates the dashboard when it ends, and the dashboard shows each job's newest summary. Reviews of
+large or risky changes start with a probe that tries to break the change, and a hunt may run a second round only
+when the first confirmed two findings.

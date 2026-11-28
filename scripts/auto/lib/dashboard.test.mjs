@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { render, tableRows, age } from './dashboard.mjs';
+import { render, tableRows, age, lastRuns } from './dashboard.mjs';
 
 const now = '2026-11-28T18:00:00Z';
 const todo = [
@@ -36,7 +36,7 @@ const fixture = {
 
 test('render lays out the sections in order with live queue state', () => {
   const md = render(fixture);
-  const order = ['# Marxy dashboard', '## Next up', '## Changelog', '## Waiting for you', '## Health', '## Budget'].map((h) => md.indexOf(h));
+  const order = ['# Marxy dashboard', '## Last runs', '## Next up', '## Changelog', '## Waiting for you', '## Health', '## Budget'].map((h) => md.indexOf(h));
   assert.ok(order.every((n, i) => n >= 0 && (i === 0 || n > order[i - 1])), 'sections in order');
   assert.match(md, /Week of 2026-11-27/);
   assert.match(md, /Alpha \(S\): merged #40/);
@@ -71,4 +71,22 @@ test('age words', () => {
   assert.equal(age('2026-11-28T12:00:00Z', now), '6h');
   assert.equal(age('2026-11-20T12:00:00Z', now), '8d');
   assert.equal(age(null, now), 'no data');
+});
+
+test('Last runs gives one line per job with a link, or says no run yet', () => {
+  const files = ['2026-11-27-night.md', '2026-11-28-night.md', '2026-11-28-day.md'];
+  const text = {
+    '2026-11-28-night.md': ['night-20261128-0020: queue 2 unstarted, ready rows 4, hunt yield 0 confirmed, stopped: queue empty', '- more'].join('\n'),
+    '2026-11-28-day.md': '# day-20261128-0845: stopped: not allowed',
+  };
+  const runs = lastRuns(files, (f) => text[f]);
+  assert.equal(runs.length, 4);
+  assert.equal(runs[0].file, '2026-11-28-night.md');
+  assert.equal(runs[1].line, 'day-20261128-0845: stopped: not allowed');
+  const md = render({ ...fixture, lastRuns: runs });
+  const section = md.slice(md.indexOf('## Last runs'), md.indexOf('## Next up'));
+  assert.ok(section.includes('- night: night-20261128-0020: queue 2 unstarted'));
+  assert.ok(section.includes('(today, [summary](https://github.com/inkstrata/marxy/blob/auto-state/nights/2026-11-28-night.md))'));
+  assert.ok(section.includes('- friday: no run yet') && section.includes('- plan: no run yet'));
+  assert.ok(md.indexOf('# Marxy dashboard') < md.indexOf('## Last runs'));
 });

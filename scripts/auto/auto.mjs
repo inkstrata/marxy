@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Entry point for the standing automation: budget gate, merge gate, dashboard, results.
 import fs from 'node:fs';
-import { readJsonl, appendJsonl, publish, attribution } from './lib/state.mjs';
+import path from 'node:path';
+import { readJsonl, appendJsonl, publish, attribution, stateDir } from './lib/state.mjs';
 
 const out = (o) => console.log(JSON.stringify(o, null, 2));
 const flag = (args, name) => { const i = args.indexOf(name); return i < 0 ? undefined : args[i + 1]; };
@@ -35,14 +36,29 @@ async function gate(args = []) {
 }
 
 function run([event, ...args]) {
-  if (event !== 'start' && event !== 'end') throw new Error('run start|end --job <id> --run <run-id>');
-  appendJsonl('runs', { at: new Date().toISOString(), event, job: flag(args, '--job'), run: flag(args, '--run'), usage: newestUsage()?.usage ?? null });
+  const job = flag(args, '--job'), runId = flag(args, '--run');
+  if (event === 'note') return note(job, runId, args);
+  if (event !== 'start' && event !== 'end') throw new Error('run start|end|note --job <id> --run <run-id>');
+  appendJsonl('runs', { at: new Date().toISOString(), event, job, run: runId, usage: newestUsage()?.usage ?? null });
 }
 
-async function status() {
-  const { collect, newestWeek } = await import('./lib/dashboard.mjs');
+// Notes are how a run counts its own top-ups and small hunts; the state note also leaves a file so a restarted
+// or compacted session can see which agents, worktrees and pull requests are in flight.
+function note(job, runId, args) {
+  const kind = flag(args, '--kind');
+  if (!['top-up', 'small-hunt', 'state'].includes(kind)) throw new Error('run note --kind top-up|small-hunt|state --data <json>');
+  const data = JSON.parse(flag(args, '--data') ?? 'null');
+  const at = new Date().toISOString();
+  appendJsonl('runs', { at, event: 'note', job, run: runId, kind, data });
+  if (kind === 'state') fs.writeFileSync(path.join(stateDir(), 'run-state.json'), JSON.stringify({ at, job, run: runId, data }, null, 2));
+}
+
+async function status(args = []) {
+  const { collect, newestWeek, ROOT } = await import('./lib/dashboard.mjs');
   const d = await collect();
-  out({ prs: d.prs, devices: d.devices, plan: newestWeek() });
+  const { gatherFacts, nextSteps } = await import('./lib/next.mjs');
+  const facts = gatherFacts(d, { root: ROOT, runId: flag(args, '--run') });
+  out({ prs: d.prs, devices: d.devices, plan: newestWeek(), next: { facts, steps: nextSteps(facts) } });
 }
 
 async function merge(args) {

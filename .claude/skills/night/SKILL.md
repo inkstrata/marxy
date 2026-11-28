@@ -21,7 +21,10 @@ export GH_TOKEN=$(gh auth token -u inkstrata)          # PowerShell: $env:GH_TOK
 
 1. `git fetch --prune`; fast-forward `main` if the checkout is clean. If it is dirty or on another branch, leave
    it, work from `origin/main` and say so in the summary.
-2. `node scripts/auto/auto.mjs run start --job <night|day> --run <run-id>`.
+2. `node scripts/auto/auto.mjs run start --job <night|day> --run <run-id>`. **Resume:** read `run-state.json` in
+   the state folder (`~/.local/state/fleet/marxy/`); if it is under 6 hours old, pick up from it (its agents,
+   worktrees and pull requests) instead of starting those pieces again. At each step, write what is in flight with
+   `auto.mjs run note --job <job> --run <run-id> --kind state --data <json>`.
 3. Usage: load the tool with ToolSearch `select:mcp__ccd_session_mgmt__get_usage`, call it, write the returned
    `plan` object to a temp file and run `node scripts/auto/auto.mjs usage --json <file>`. If the tool is not
    there, run `node scripts/auto/auto.mjs gate`: blind mode, at most 2 builders and 3 hours.
@@ -65,6 +68,8 @@ in this run; anything else becomes a tracker row in a small `work/`-only pull re
 
 Reasons a builder cannot fix (CODEOWNERS paths, `hold`, a draft) wait for the owner.
 
+**Data loss first.** Rows a fresh hunt rated as data loss or corruption go first, right after carry-over.
+
 **Saturday night: plan intake.** The plan pull request (label `plan`) is answered before any building. Read
 every owner comment on it (any comment by `inkstrata` that is not a review or intake comment; the gate ignores
 everyone else's). Change the plan to answer each, or reply why not. If the plan changed, push, and have a reviewer on a model other than the one that edited it re-review
@@ -83,6 +88,13 @@ reviewed and gated like any other. Building takes the other half.
 
 ## 4. Pick from the queue
 
+Follow `status.next.steps` in order (`auto.mjs status --run <run-id>`); `next.facts` says why. The steps are
+`carry-over`, `queue`, `top-up`, `small-hunt`, `hunt` and `stop` (the reason goes in the summary).
+
+**Top-up:** take the step's rows into this run and build them like queue pieces. Record them with
+`auto.mjs run note --job <job> --run <run-id> --kind top-up --data <rows>`, and list them in the summary as
+"topped up". **Small hunt:** the small shape in `bug-catch`; record it with `--kind small-hunt`.
+
 The week's `## Queue` table is in order. Take the first pieces not yet started (no open pull request, no
 branch on origin):
 
@@ -90,7 +102,7 @@ branch on origin):
 - one writer per set of files: two pieces that touch the same files never run at once;
 - at most 3 builders at once (2 when blind), fewer when `allowancePct` is small: an M piece costs more than
   an S, and a piece that cannot finish before `stopAt` is not started;
-- an empty queue on a night that is not a sweep: carry-over and triage only, then stop.
+- a step list that ends in `stop` means nothing is needed: write the summary and stop.
 
 Start each piece from the main checkout: `pnpm work start <branch> --from origin/main`, `<branch>` from the
 queue's Branch column (written without `agent/`, as in the tracker).
@@ -119,9 +131,9 @@ A pull request the gate holds is listed in the summary with the gate's reason.
 
 ## 6. Sweep nights
 
-From Thursday 00:00 to Friday 14:00 `sweep` is true and the reserve is lower. After the queue is done, take
-further rows in order from `work/todo.md`: Next, then Structure, then Big files. A row whose text says it
-waits for something still open is skipped. The same pipeline and the same limits apply.
+From Thursday 00:00 to Friday 14:00 `sweep` is true and the reserve is lower. After the queue is done, the
+`top-up` step supplies further rows from `work/todo.md` (Next, Structure, Big files; rows that wait on something
+are skipped). The same pipeline and the same limits apply.
 
 ## 6a. Final mode
 
@@ -144,7 +156,8 @@ Structure, Big files) as in section 6. Never pull from next week's plan before t
 2. Gate once more for usage at the end. Write the summary to a temp file, as Markdown:
 
    ```markdown
-   # night-20261128-0020
+   night-20261128-0020: queue <n> unstarted, ready rows <m>, hunt yield <k> confirmed, stopped: <reason>
+   - Topped up: <rows, or none>
    - Pieces: <branch>: <PR link>, verdict <approve|changes|none>, builder <model>, reviewer <model>
    - Carry-over: <what was fixed or re-run>
    - Triage (day): <reds, causes, rows or fix pieces>
@@ -154,10 +167,11 @@ Structure, Big files) as in section 6. Never pull from next week's plan before t
    - Waits for the owner: <PRs and why>
    ```
 
-3. `node scripts/auto/auto.mjs record <night|day> <file>` publishes it to the `auto-state` branch as
-   `nights/<date>-<night|day>.md`, where the dashboard reads it.
+3. `node scripts/auto/auto.mjs record <night|day|friday> <file>` (the job id; final mode is `friday`) publishes it
+   to the `auto-state` branch as `nights/<date>-<job>.md`. Then `node scripts/auto/auto.mjs dashboard`, so the
+   dashboard shows this run now and not at the next tick (night, day and final modes alike).
 4. `pnpm work clean --apply` from the main checkout.
-5. `node scripts/auto/auto.mjs run end --job <night|day> --run <run-id>`.
+5. `node scripts/auto/auto.mjs run end --job <night|day|friday> --run <run-id>`.
 
 ## Rules
 
