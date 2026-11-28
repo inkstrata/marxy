@@ -17,6 +17,7 @@ Pacific time. `schedule.json` holds the same list as data.
 | daily 05:15 | `nightly` | script, Osiris | full verify of `main` with the browser suite and `check:tauri`, red browser files rerun alone, the Windows install check |
 | Sunday 04:30 | `clean` | script, Osiris | `work clean --stale --apply` (old worktrees, folders and branches, archived first), then old logs and temporary folders pruned |
 | daily 08:45, until 13:30 | `day` | agent, Osiris | triage of the nightly and device results, then more building (the `night` skill, day mode) |
+| Friday 14:05, until 19:55 | `friday` | agent, Osiris | the final sweep (the `night` skill, final mode) |
 | Friday 08:15 | `plan` | agent, Osiris | the week's outcome, `work/STATE.md`, the ledger row and next week's plan as a pull request (the `plan-week` skill) |
 | every 30 minutes | `tick` | script, Osiris | the merge gate (any hour) and the dashboard issue |
 | hourly, on power | `device` | script, Eris | macOS build and install check, the macOS browser suite weekly, runs spoiled by sleep retried, the weekly cleanup |
@@ -84,6 +85,17 @@ required `ci` check. `.claude/settings.json` denies `gh pr merge` to agents.
   comment is for the current head and newer than every owner comment (one with no `<!-- marxy-` marker).
 
 `auto.mjs merge --dry-run` prints what it would do and why each one is held.
+
+## Friday final sweep
+
+The weekly limits reset Friday 20:00 and what is left is lost, so from Friday 14:00 to 20:00 the governor stops
+protecting the owner's window and spends it (`POLICY.finalSweep`). In that window `decide()` skips the
+owner-window and 14:00-block rules for every profile, `research-now` included; the 5-hour line is 75% soft (no
+new agents) and 90% hard (stop); the weekly reserve is a flat 2%, so the allowance is the whole headroom; `stopAt`
+is 19:55. It answers `finalSweep: true`. With no usage reading it refuses (no blind mode). If the owner is at the
+machine the gate does not refuse but answers `lightOnly: true`: reading and writing work, local verify at
+`--tier quick`, CI runs the rest; for `research-now` presence is ignored. The `friday` job runs the `night`
+skill in final mode.
 
 ## When you are using the machine
 

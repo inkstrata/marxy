@@ -63,3 +63,14 @@ export function presence({ platform = process.platform, run = defaultRun } = {})
   if (game) why.push(`a game is running: ${game}`);
   return { busy: why.length > 0, why };
 }
+
+/**
+ * Fold the owner's presence into a governor decision. Busy normally means start nothing. In the final sweep the
+ * leftover budget is about to be lost, so work goes on in a light form (reading and writing, no local builds or
+ * browser tests); research is light already, so presence does not matter for it.
+ */
+export function withPresence(d, p, job) {
+  if (!p.busy) return d;
+  if (d.finalSweep) return job === 'research-now' ? d : { ...d, lightOnly: true, presence: p };
+  return { ...d, allowed: false, reason: `owner is using this machine: ${p.why.join('; ')}`, presence: p };
+}

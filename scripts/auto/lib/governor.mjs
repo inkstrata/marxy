@@ -8,6 +8,9 @@ export const POLICY = {
   fiveHour: { soft: 75, hard: 85 },
   weekly: { ownerShare: 60, floor: 15, sweepReserve: { thursday: 30, friday: 15 } },
   reset: { weekday: 5, hour: 20 },
+  // Friday 14:00 to 20:00: whatever is left of the week's usage is lost at the reset, so it is spent. The owner's
+  // window and the 14:00 block rule are off; the 5-hour cap (their lockout protection) is stricter in its place.
+  finalSweep: { weekday: 5, from: 14, until: 20, fiveHour: { soft: 75, hard: 90 }, weeklyReserve: 2 },
   slots: [{ id: 'night', hour: 0, minute: 20 }, { id: 'day', hour: 8, minute: 45 }],
   blind: { maxBuilders: 2, maxHours: 3 },
   // Job profiles other than the default night/day/research-night rules. research-now serves requests the owner
@@ -88,6 +91,23 @@ export function fromGetUsage(plan) {
 
 const round1 = (n) => Math.round(n * 10) / 10;
 
+// The final sweep ignores profiles: research-now gets the same caps, because the window it would have used is gone.
+function decideFinal({ now, l, usage, policy, out, refuse }) {
+  const f = policy.finalSweep;
+  // Stop five minutes before the reset so builders have time to push their drafts.
+  const stopAt = zonedTime(l.year, l.month, l.day, f.until - 1, 55, policy.tz);
+  out = { ...out, stopAt: stopAt.toISOString(), finalSweep: true };
+  if (!usage) return refuse('final sweep needs a usage reading', out);
+  if (usage.fiveHour.pct >= f.fiveHour.hard) return refuse('5-hour hard stop', out);
+  out.noNewAgents = usage.fiveHour.pct >= f.fiveHour.soft;
+  const headroom = 100 - f.weeklyReserve - usage.weekly.pct;
+  out.reservePct = f.weeklyReserve;
+  out.headroomPct = round1(headroom);
+  if (headroom <= 0) return refuse('weekly reserve', out);
+  out.allowancePct = round1(headroom);
+  return { ...out, allowed: true, reason: out.noNewAgents ? '5-hour soft limit: no new agents' : 'final sweep: spend what is left before the 20:00 reset' };
+}
+
 export function decide({ now, usage, ownerUsedPct = null, policy = POLICY, profile = 'night' }) {
   const prof = policy.profiles?.[profile];
   const line = prof?.fiveHour ?? policy.fiveHour;
@@ -95,8 +115,10 @@ export function decide({ now, usage, ownerUsedPct = null, policy = POLICY, profi
     allowed: false, reason: '', noNewAgents: false, stopAt: null, allowancePct: null,
     sweep: false, blind: usage == null, reservePct: null, headroomPct: null,
   };
-  const refuse = (reason) => ({ ...out, allowed: false, reason });
+  const refuse = (reason, base = out) => ({ ...base, allowed: false, reason });
   const l = localParts(now, policy.tz);
+  const fsw = policy.finalSweep;
+  if (fsw && l.weekday === fsw.weekday && l.hour >= fsw.from && l.hour < fsw.until) return decideFinal({ now, l, usage, policy, out, refuse });
   if (!prof?.ignoreWindow && l.hour >= policy.ownerWindow.start && l.hour < policy.ownerWindow.end) return refuse('owner window');
 
   // The owner's day starts at 14:00, and a 5-hour block running into it would eat their budget.

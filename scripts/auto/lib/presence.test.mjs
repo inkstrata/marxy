@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { presence, parseWindows, parseHidIdle, parseKdeIdle, findGame } from './presence.mjs';
+import { withPresence, presence, parseWindows, parseHidIdle, parseKdeIdle, findGame } from './presence.mjs';
 
 const WIN_IDLE = (ms, state = 1, paths = ['C:\\Windows\\explorer.exe']) => `idle ${ms}\r\nstate ${state}\r\n${paths.join('\r\n')}\r\n`;
 
@@ -59,4 +59,19 @@ test('macOS and Linux read idle time and the process list', () => {
 test('a failing probe is no signal', () => {
   assert.deepEqual(presence({ platform: 'linux', run: () => { throw new Error('missing'); } }), { busy: false, why: [] });
   assert.deepEqual(presence({ platform: 'win32', run: () => { throw new Error('timeout'); } }), { busy: false, why: [] });
+});
+
+test('withPresence: busy stops work, except in the final sweep where it goes light', () => {
+  const busy = { busy: true, why: ['input 1 min ago'] };
+  const idle = { busy: false, why: [] };
+  const normal = { allowed: true, reason: 'ok' };
+  const final = { allowed: true, reason: 'final sweep', finalSweep: true };
+  assert.equal(withPresence(normal, idle, 'night'), normal);
+  const stopped = withPresence(normal, busy, 'night');
+  assert.deepEqual([stopped.allowed, stopped.reason], [false, 'owner is using this machine: input 1 min ago']);
+  const light = withPresence(final, busy, 'night');
+  assert.deepEqual([light.allowed, light.lightOnly, light.presence], [true, true, busy]);
+  assert.equal(withPresence(final, busy, 'research-now'), final, 'research is light, presence is ignored');
+  assert.equal(withPresence({ ...final, allowed: false }, busy, 'night').allowed, false, 'a refusal stays a refusal');
+  assert.equal(withPresence(final, idle, 'night').lightOnly, undefined);
 });

@@ -264,3 +264,10 @@ nightly run and the device runs now check whether the owner is using the machine
 game running) and stand down if so; Osiris's nightly task waits for ten idle minutes and runs at below-normal priority;
 and the night skill starts no new agents while the owner has a Claude session working. See "When you are using the
 machine" in `scripts/auto/README.md`.
+
+Changed 2026-11-27: Friday 14:00 to 20:00 is a final sweep. The weekly limits reset at 20:00 and what is left is
+lost, so the owner asked for the end of the week to use it, up to 90% of the 5-hour limit (that cap is what keeps
+them from being locked out). In that window the governor drops the owner window and the 14:00 block rule, keeps a
+flat 2% weekly reserve, stops at 19:55 and refuses without a usage reading. A busy owner no longer stops it: the
+gate answers `lightOnly`, so only light work (reading and writing, quick-tier verify, CI for the rest) runs while
+they are at the machine. A `friday` job at 14:05 runs the night skill in final mode.

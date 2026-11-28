@@ -109,3 +109,43 @@ test('fromGetUsage reads the plan windows', () => {
   assert.equal(fromGetUsage(null), null);
   assert.equal(fromGetUsage({ windows: [{ label: '5-hour limit', percentUsed: 1 }] }), null);
 });
+
+// Friday 27 Nov 14:00 to 20:00 is the final sweep: no owner window, a 75/90 five-hour line, a flat 2% weekly reserve.
+const fri = (t, u, profile) => decide({ now: la(`2026-11-27T${t}`), usage: u, profile });
+test('final sweep: the five-hour line is 75 soft and 90 hard', () => {
+  const ok = fri('15:00:00', usage({ five: 80, resets: iso('2026-11-27T18:00:00') }));
+  assert.deepEqual([ok.allowed, ok.noNewAgents, ok.finalSweep], [true, true, true]);
+  assert.equal(fri('15:00:00', usage({ five: 74, resets: iso('2026-11-27T18:00:00') })).noNewAgents, false);
+  const hard = fri('15:00:00', usage({ five: 90, resets: iso('2026-11-27T18:00:00') }));
+  assert.deepEqual([hard.allowed, hard.reason], [false, '5-hour hard stop']);
+});
+test('final sweep: a flat 2% reserve, and nothing at 98% weekly', () => {
+  const d = fri('15:00:00', usage({ weekly: 50 }));
+  assert.deepEqual([d.allowed, d.allowancePct, d.reservePct, d.stopAt, d.reason],
+    [true, 48, 2, iso('2026-11-27T19:55:00'), 'final sweep: spend what is left before the 20:00 reset']);
+  assert.equal(fri('15:00:00', usage({ weekly: 98 })).allowed, false);
+  assert.equal(fri('15:00:00', usage({ weekly: 99 })).reason, 'weekly reserve');
+});
+test('final sweep starts at 14:00 sharp and the new week starts at 20:00', () => {
+  // Before 14:00 the old rules still hold: here a fresh block would run into the owner's window.
+  const before = fri('13:59:00', usage({ weekly: 40 }));
+  assert.deepEqual([before.finalSweep, before.reason], [undefined, 'a new block would reach the owner window']);
+  const sweep = fri('13:00:00', usage({ five: 20, resets: iso('2026-11-27T13:30:00'), weekly: 40 }));
+  assert.deepEqual([sweep.sweep, sweep.finalSweep, sweep.allowed], [true, undefined, true]);
+  assert.equal(fri('14:00:00', usage({ weekly: 40 })).finalSweep, true);
+  const after = fri('20:00:00', usage({ weekly: 5 }));
+  assert.deepEqual([after.finalSweep, after.reason], [undefined, 'owner window']);
+});
+test('final sweep without a usage reading is refused', () => {
+  const d = fri('15:00:00', null);
+  assert.deepEqual([d.allowed, d.reason, d.blind], [false, 'final sweep needs a usage reading', true]);
+});
+test('final sweep: research-now follows the same caps', () => {
+  const d = fri('15:00:00', usage({ five: 80, resets: iso('2026-11-27T18:00:00') }), 'research-now');
+  assert.deepEqual([d.allowed, d.noNewAgents, d.stopAt], [true, true, iso('2026-11-27T19:55:00')]);
+  assert.equal(fri('15:00:00', usage({ five: 65 }), 'research-now').noNewAgents, false);
+  assert.equal(fri('15:00:00', usage({ five: 90 }), 'research-now').allowed, false);
+});
+test('slotsUntilReset stays at one through the final sweep', () => {
+  for (const t of ['14:00:00', '19:59:00']) assert.equal(slotsUntilReset(la(`2026-11-27T${t}`)), 1);
+});
