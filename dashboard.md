@@ -1,17 +1,27 @@
 # Marxy dashboard
-Updated Nov 27, 20:38 PT. Week of 2026-11-27.
+Updated Nov 28, 00:58 PT. Week of 2026-11-27.
+
+## Last runs
+- night: night-20261128-0029: queue 5 unstarted, ready rows 9, hunt yield 0 confirmed, stopped: night's allowance spent (today, [summary](https://github.com/inkstrata/marxy/blob/auto-state/nights/2026-11-28-night.md))
+- day: no run yet
+- friday: no run yet
+- plan: no run yet
 
 ## Next up
-- 1 The geometry table's core as a pure byte model: one record per top-le... (M): not started
+- 1 The geometry table's core as a pure byte model: one record per top-le... (M): PR #845 open (ci has not passed; merge state is BLOCKED, not CLEAN)
 - 2 The scale record's store half: the store builds the record at open an... (M): not started
 - 3 The node budget constant and the parse's node prediction wired into t... (S): not started
-- 4 The rest of slice 4: `carriesMarkdown` linear per line, and lines cou... (S): not started
+- 4 The rest of slice 4: `carriesMarkdown` linear per line, and lines cou... (S): PR #846 open (ci has not passed; merge state is BLOCKED, not CLEAN)
 - 5 Find, select all and copy over the model's per-block text cache; afte... (M): not started
 - 6 First slice: the three capability files on macOS WebKit (`frame-fonts... (S): not started
 - 7 The remaining `setTimeout(0)` yield loops onto `yieldToMain`, those n... (M): not started
 
 ## Changelog
 **2026-11-27**
+- #844 feat(auto): hold merges on a red main, plan decisions, nightly browser CI
+- #843 feat(auto): never run dry, triage to root causes, targeted hunts that learn, and run summaries on the dashboard
+- #841 fix(auto): gate, cleanup and presence safety; a Friday final sweep up to 90% of the 5-hour limit
+- #840 feat(work): stand down while the owner uses the machine, merge at any hour, weekly cleanup, a research-now profile
 - #838 feat(work): the standing automation: scheduled runs, merge gate, budget governor, device installs, dashboard
 - #828 feat(core): scale record (core half)
 - #829 feat(parse): large Markdown parsed in a worker and handed back in pieces
@@ -83,14 +93,15 @@ Updated Nov 27, 20:38 PT. Week of 2026-11-27.
 ## Waiting for you
 - R14 Decide the release: v0.2.0, a pre-release, round 16 before the tag, wave 5 after it, the file-assoc...
 - B13 Pasting HTML into Source of a file that is not Markdown converts it to Markdown, as docs/using-marx...
+- R20 Name a core tier of formats held to the full standard (Markdown and the text family: code, logs, da...
 
 ## Health
-- main CI: in_progress, 0m ago
+- main CI: in_progress, 1h ago
 - windows: no data yet
 - macos: no data yet
 - linux: no data yet
 
 ## Budget
-- last usage reading: none yet (runs are blind until one exists)
+- last usage reading: 0m ago
 - automation this week: 0% of the weekly limit
-- next agent runs: night 20 0 * * *, day 45 8 * * *, plan 15 8 * * 5 (PT)
+- next agent runs: night 20 0 * * *, day 45 8 * * *, friday 5 14 * * 5, plan 15 8 * * 5 (PT)
