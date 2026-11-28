@@ -54,7 +54,7 @@ H=.claude/skills/bug-catch/finding.mjs
 F=work/runs/2026-11-28-hunt-05/findings.md
 node $H next $F SCH
 node $H add $F <<'EOF'
-### SCH-05 · <what the reader meets>
+### SCH-<nn> · <what the reader meets>
 - Severity: ...
 ...
 EOF
