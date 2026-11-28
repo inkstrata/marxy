@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
-import { archiveName, archiveTag, keepable, normPath, staleBranches, staleFolders, staleTrees } from './stale.mjs';
+import { archiveName, archiveTag, normPath, staleBranches, staleFolders, staleTrees, toArchive } from './stale.mjs';
 import { git, parseWorktrees } from './workspace.mjs';
 
 const attempt = f => { try { return f(); } catch { return null; } };
@@ -71,7 +71,8 @@ function saveChanges(path, dir) {
   const patch = git(path, 'diff', 'HEAD', '--binary');
   const others = git(path, 'ls-files', '--others', '--exclude-standard', '-z');
   const ignored = git(path, 'ls-files', '--others', '--ignored', '--exclude-standard', '-z');
-  const files = keepable([...others.split('\0'), ...ignored.split('\0')].filter(Boolean));
+  // The tar is checked against this list below, so a file meant to be kept that did not go in stops the removal.
+  const files = toArchive(others.split('\0').filter(Boolean), ignored.split('\0').filter(Boolean));
   if (!status.trim() && !files.length) return;
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'changes.patch'), patch);

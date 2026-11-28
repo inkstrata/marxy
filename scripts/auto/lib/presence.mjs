@@ -30,8 +30,20 @@ export const parseWindows = (text) => ({
 });
 /** Idle milliseconds from `ioreg -c IOHIDSystem` (HIDIdleTime is nanoseconds). */
 export const parseHidIdle = (text) => Number(/"HIDIdleTime"\s*=\s*(\d+)/.exec(text)?.[1] ?? NaN) / 1e6;
-/** Idle milliseconds from KDE's GetSessionIdleTime. The unit is unverified on Set: a value over 1,000,000 is taken as milliseconds (that is 11 days as seconds), anything lower as seconds. */
-export const parseKdeIdle = (text) => (/^\d+$/.test(text.trim()) ? Number(text.trim()) * (Number(text.trim()) > 1e6 ? 1 : 1e3) : NaN);
+/**
+ * Idle milliseconds from KDE's GetSessionIdleTime, or NaN when the answer cannot be classified. Its unit is unverified
+ * on Set (the freedesktop interface says seconds; KDE may answer milliseconds), so a reading counts only when both
+ * units agree on which side of 10 minutes it falls: under 600 is recent input either way, 600,000 or more is idle
+ * either way. Anything between could be input a second ago or an hour of idleness, so it is unknown, and unknown
+ * reads as busy: guessing "away" would start heavy work under the owner's hands.
+ */
+export const parseKdeIdle = (text) => {
+  const t = String(text ?? '').trim();
+  if (!/^\d+$/.test(t)) return NaN;
+  const n = Number(t);
+  if (n < IDLE_MS / 1e3) return n * 1e3;
+  return n >= IDLE_MS ? n : NaN;
+};
 /** The first line that names a running game, or null. */
 export function findGame(text, platform) {
   const hit = (l) => STEAM.test(l) || (platform === 'win32' ? WIN_GAME.test(l) && !LAUNCHER.test(l) : platform === 'linux' && /SteamLaunch/.test(l));
@@ -40,24 +52,43 @@ export function findGame(text, platform) {
 
 const defaultRun = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8', timeout: 10_000, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 1 << 24 });
 
+/**
+ * Fails closed. A probe whose command is not on this system (qdbus on a machine without KDE) is no signal. A probe
+ * that runs but errors, times out or answers something unreadable makes the owner busy: a loaded gaming machine is
+ * exactly where a probe times out, and reading that as "away" would start builds under the owner's game.
+ */
 export function presence({ platform = process.platform, run = defaultRun } = {}) {
-  const ask = (cmd, args) => { try { return String(run(cmd, args) ?? ''); } catch { return ''; } };
+  const MISSING = Symbol('missing');
+  const ask = (cmd, args) => {
+    try { return String(run(cmd, args) ?? ''); } catch (e) { return e?.code === 'ENOENT' ? MISSING : null; }
+  };
   const why = [];
+  const unknown = (probe) => why.push(`presence unknown: ${probe}`);
   const input = (ms) => { if (ms < IDLE_MS) why.push(`input ${Math.round(ms / 60e3)} min ago`); };
+  const processes = (args) => { const out = ask('ps', args); if (out === null) unknown('ps'); return typeof out === 'string' ? out : ''; };
   let games = '';
   if (platform === 'win32') {
-    const w = parseWindows(ask('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(WIN_SCRIPT, 'utf16le').toString('base64')]));
-    input(w.idleMs);
-    if (FULL_SCREEN[w.state]) why.push(`${FULL_SCREEN[w.state]} is on screen`);
-    games = w.paths.join('\n');
+    const out = ask('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(WIN_SCRIPT, 'utf16le').toString('base64')]);
+    const w = typeof out === 'string' ? parseWindows(out) : null;
+    if (out === MISSING) { /* no PowerShell: no signal */ } else if (!w || Number.isNaN(w.idleMs) || Number.isNaN(w.state)) unknown('powershell');
+    else {
+      input(w.idleMs);
+      if (FULL_SCREEN[w.state]) why.push(`${FULL_SCREEN[w.state]} is on screen`);
+      games = w.paths.join('\n');
+    }
   } else if (platform === 'darwin') {
-    input(parseHidIdle(ask('ioreg', ['-c', 'IOHIDSystem'])));
-    games = ask('ps', ['-axo', 'args']);
+    const out = ask('ioreg', ['-c', 'IOHIDSystem']);
+    const idle = typeof out === 'string' ? parseHidIdle(out) : NaN;
+    if (out !== MISSING) { if (Number.isNaN(idle)) unknown('ioreg'); else input(idle); }
+    games = processes(['-axo', 'args']);
   } else if (platform === 'linux') {
-    // Plasma 6 ships qdbus6; try both and take the first that answers.
-    const idle = ['qdbus', 'qdbus6'].map((c) => parseKdeIdle(ask(c, ['org.freedesktop.ScreenSaver', '/ScreenSaver', 'GetSessionIdleTime']))).find((n) => !Number.isNaN(n));
-    input(idle ?? NaN);
-    games = ask('ps', ['-eo', 'args']);
+    // Plasma 6 ships qdbus6; try both and take the first that answers. Unknown only when one ran and none answered.
+    const args = ['org.freedesktop.ScreenSaver', '/ScreenSaver', 'GetSessionIdleTime'];
+    const answers = ['qdbus', 'qdbus6'].map((c) => ({ c, out: ask(c, args) })).filter((a) => a.out !== MISSING);
+    const idle = answers.map((a) => (a.out === null ? NaN : parseKdeIdle(a.out))).find((n) => !Number.isNaN(n));
+    if (idle !== undefined) input(idle);
+    else if (answers.length) unknown(`${answers[0].c} idle time`);
+    games = processes(['-eo', 'args']);
   }
   const game = findGame(games, platform);
   if (game) why.push(`a game is running: ${game}`);

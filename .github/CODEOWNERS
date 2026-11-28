@@ -2,6 +2,11 @@
 /.github/ @inkstrata
 /.claude/ @inkstrata
 /scripts/auto/ @inkstrata
+# The weekly cleanup deletes worktrees: what decides that work is safe elsewhere, and what it archives first.
+/scripts/work.mjs @inkstrata
+/scripts/lib/stale.mjs @inkstrata
+/scripts/lib/stale-run.mjs @inkstrata
+/scripts/lib/workspace.mjs @inkstrata
 /AGENTS.md @inkstrata
 /CLAUDE.md @inkstrata
 /docs/working.md @inkstrata
