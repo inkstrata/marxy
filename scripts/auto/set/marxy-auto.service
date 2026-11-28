@@ -1,0 +1,8 @@
+[Unit]
+Description=Marxy install check (downloads CI's AppImage and launches it)
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -lc 'cd ~/Dev/marxy && node scripts/auto/auto.mjs device'
+RuntimeMaxSec=4h
+TimeoutStopSec=1min

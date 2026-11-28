@@ -55,6 +55,7 @@ A README sits beside the code it describes and lists that level's layout, comman
 | README | Level |
 | --- | --- |
 | [scripts](../scripts/README.md) | every tool run from the root, and the rule for where a tool goes |
+| [scripts/auto](../scripts/auto/README.md) | the standing automation: what runs when, the budget and merge rules, setup on each device |
 | [apps/desktop](../apps/desktop/README.md) | the app, its package scripts and its tools |
 | [packages/core](../packages/core/README.md) | parsing, kinds, readings, operations |
 | [packages/theme](../packages/theme/README.md) | tokens, themes, looks, settings |

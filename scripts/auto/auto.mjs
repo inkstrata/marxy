@@ -1,0 +1,97 @@
+#!/usr/bin/env node
+// Entry point for the standing automation: budget gate, merge gate, dashboard, results.
+import fs from 'node:fs';
+import { readJsonl, appendJsonl, publish, attribution } from './lib/state.mjs';
+
+const out = (o) => console.log(JSON.stringify(o, null, 2));
+const flag = (args, name) => args[args.indexOf(name) + 1];
+const first = (e) => String(e.stderr || e.message).split('\n')[0];
+const newestUsage = () => readJsonl('usage', { limit: 20 }).filter((r) => r.usage).pop() || null;
+
+async function decideNow(usage, now = new Date()) {
+  const { decide } = await import('./lib/governor.mjs');
+  const { lastReset } = await import('./lib/merge-policy.mjs');
+  const ownerUsedPct = usage ? attribution(readJsonl('runs'), usage.weekly.pct, lastReset(now)).ownerPct : null;
+  out(decide({ now, usage, ownerUsedPct }));
+}
+
+async function usage(args) {
+  const { fromGetUsage } = await import('./lib/governor.mjs');
+  const src = flag(args, '--json') ?? '-';
+  const raw = JSON.parse(fs.readFileSync(src === '-' ? 0 : src, 'utf8'));
+  const u = fromGetUsage(raw.plan ?? raw);
+  if (u) appendJsonl('usage', { at: new Date().toISOString(), usage: u });
+  await decideNow(u);
+}
+
+// A reading older than 15 minutes is not trusted, so the governor runs blind.
+async function gate() {
+  const row = newestUsage();
+  await decideNow(row && Date.now() - new Date(row.at) <= 15 * 60000 ? row.usage : null);
+}
+
+function run([event, ...args]) {
+  if (event !== 'start' && event !== 'end') throw new Error('run start|end --job <id> --run <run-id>');
+  appendJsonl('runs', { at: new Date().toISOString(), event, job: flag(args, '--job'), run: flag(args, '--run'), usage: newestUsage()?.usage ?? null });
+}
+
+async function status() {
+  const { collect, newestWeek } = await import('./lib/dashboard.mjs');
+  const d = await collect();
+  out({ prs: d.prs, devices: d.devices, plan: newestWeek() });
+}
+
+async function merge(args) {
+  const dry = args.includes('--dry-run');
+  const { evaluatedPRs } = await import('./lib/dashboard.mjs');
+  const { mergePR } = await import('./lib/github.mjs');
+  // One merge per tick: the next pull request is judged again against the new main half an hour later.
+  let merged = false;
+  for (const pr of await evaluatedPRs()) {
+    const row = { at: new Date().toISOString(), number: pr.number, merge: pr.merge && !merged, reasons: pr.merge && merged ? ['one merge per tick'] : pr.reasons, dryRun: dry };
+    if (row.merge && !dry) {
+      try { mergePR(pr.number, pr.headRefOid); merged = true; } catch (e) { Object.assign(row, { merge: false, reasons: [`merge failed: ${first(e)}`] }); }
+    } else if (row.merge) merged = true;
+    if (!dry) appendJsonl('merge', row);
+    console.log(`#${row.number} ${row.merge ? (dry ? 'would merge' : 'merged') : 'held'}${row.reasons.length ? `: ${row.reasons.join('; ')}` : ''}`);
+  }
+}
+
+async function dashboard(args) {
+  const { collect, render } = await import('./lib/dashboard.mjs');
+  const md = render(await collect());
+  if (args.includes('--dry-run')) return console.log(md);
+  (await import('./lib/github.mjs')).upsertDashboardIssue(md);
+  publish({ 'dashboard.md': md }, 'dashboard');
+}
+
+async function tick() {
+  let failed = 0;
+  for (const [name, step] of [['merge', merge], ['dashboard', dashboard]]) {
+    try { await step([]); } catch (e) {
+      failed++;
+      console.error(`tick ${name}: ${first(e)}`);
+      appendJsonl('logs/tick-errors', { at: new Date().toISOString(), step: name, error: first(e) });
+    }
+  }
+  if (failed === 2) process.exitCode = 1;
+}
+
+function record([kind, file]) {
+  if (!kind || !file) throw new Error('record <kind> <file>');
+  const rel = `nights/${new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date())}-${kind}.md`;
+  publish({ [rel]: fs.readFileSync(file, 'utf8') }, `record ${kind}`);
+  console.log(rel);
+}
+
+const [cmd, ...rest] = process.argv.slice(2);
+const commands = {
+  usage, gate, run, status, merge, dashboard, tick, record,
+  nightly: async (a) => (await import('./device.mjs')).nightly(a),
+  device: async (a) => (await import('./device.mjs')).device(a),
+};
+if (!commands[cmd]) {
+  console.error(`usage: auto.mjs <${Object.keys(commands).join('|')}> [options]`);
+  process.exit(2);
+}
+try { await commands[cmd](rest); } catch (e) { console.error(`${cmd}: ${first(e)}`); process.exit(1); }
