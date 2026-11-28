@@ -15,7 +15,7 @@ test('every shipped look stands on a shelf, the shelves are in order, and Ink co
   const shelves = LOOK_GROUPS.map((g) => g.id);
   for (const l of LOOKS) assert.ok(l.group && shelves.includes(l.group), l.id);
   assert.equal(new Set(LOOKS.map((l) => l.id)).size, LOOKS.length, 'ids are unique');
-  for (const id of ['polar', 'midnight', 'black', 'ember', 'solarized', 'gruvbox', 'rose-pine', 'catppuccin', 'dim', 'mint', 'newsprint', 'moss']) assert.ok(look(id), id);
+  for (const id of ['polar', 'indigo', 'midnight', 'black', 'ember', 'solarized', 'gruvbox', 'rose-pine', 'catppuccin', 'dim', 'mint', 'newsprint', 'moss']) assert.ok(look(id), id);
   // Dark first, as the app opens dark; the dark ones named for their dark page.
   assert.deepEqual(LOOKS.slice(0, 5).map((l) => l.name), ['Ink', 'Night', 'Midnight', 'Black', 'Ember']);
   const firstLight = LOOKS.findIndex((l) => l.group === 'light');
@@ -42,6 +42,23 @@ test('Ink 2 by night: a quiet ladder, a code well, and no two code colours that 
   assert.ok(on('--marxy-color-text-faint') < on('--marxy-color-text-secondary') - 1, 'faint sits a step below secondary');
   assert.ok(hexRatio(t['--marxy-color-code-bg']!, t['--marxy-color-bg']!) >= 1.1, 'the code well is apart from the page');
   assert.notEqual(t['--marxy-tok-number'], t['--marxy-tok-function']);
+});
+
+test('Indigo: serif headings over sans text in bundled faces, a body a step below its headings, a calm accent, warm text on a cool page', () => {
+  const s = setLook(defaultLookState(), 'indigo');
+  for (const kind of ['book', 'article', 'readme']) {
+    const t = resolve(s, { kind, width: 900, scheme: 'night' }).tokens;
+    assert.match(t['--marxy-font-text']!, /^"Inter"/, kind);
+    assert.match(t['--marxy-font-heading']!, /Source Serif 4/, kind);
+  }
+  const night = palette(look('indigo'), 'night').tokens;
+  const on = (k: string): number => hexRatio(night[k]!, night['--marxy-color-bg']!);
+  assert.ok(on('--marxy-color-text') > 13 && on('--marxy-color-text') < 14, `text ${on('--marxy-color-text')}`);
+  assert.ok(on('--marxy-color-text-strong') > on('--marxy-color-text') + 1, 'headings stand above the body');
+  assert.ok(rgbToOklch(hexToRgb(night['--marxy-color-accent']!)!)[1] <= 0.12, 'the accent is no more saturated than Night’s');
+  assert.ok(Math.abs(hue(night['--marxy-color-bg']!) - 274) < 8, 'an indigo page');
+  assert.ok(hue(night['--marxy-color-text']!) > 60 && hue(night['--marxy-color-text']!) < 110, 'warm text');
+  assert.ok(on('--marxy-color-edge') >= 3, 'borders get an edge of their own, apart from the rule');
 });
 
 test('a pin drawn under its floor is walked to it, keeps its hue, and is said to have moved', () => {

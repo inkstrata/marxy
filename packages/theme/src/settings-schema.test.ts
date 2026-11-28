@@ -110,7 +110,7 @@ test('what writeFor writes parses back to the value chosen, for every choice of 
 });
 
 test('the theme choices are the bundled themes the app lists, Ink the unset default', () => {
-  assert.deepEqual(THEME_OPTIONS.map((o) => o.value), ['', 'night-paper', 'midnight', 'black', 'ember', 'fjord', 'polar', 'warm', 'solarized', 'gruvbox', 'rose-pine', 'catppuccin', 'high-contrast']);
+  assert.deepEqual(THEME_OPTIONS.map((o) => o.value), ['', 'night-paper', 'midnight', 'black', 'ember', 'fjord', 'polar', 'indigo', 'warm', 'solarized', 'gruvbox', 'rose-pine', 'catppuccin', 'high-contrast']);
   assert.equal(THEME_OPTIONS.find((o) => o.value === 'night-paper')?.label, 'Night and Paper', 'a pair is named for both its pages in Settings');
   const row = SETTINGS.find((r) => r.key === 'theme')!;
   assert.equal(row.defaultLabel, 'Ink');

@@ -12,6 +12,7 @@ import { ember } from './ember.ts';
 import { fjord } from './fjord.ts';
 import { gruvbox } from './gruvbox.ts';
 import { highContrast } from './high-contrast.ts';
+import { indigo } from './indigo.ts';
 import { ink } from './ink.ts';
 import { large } from './large.ts';
 import { midnight } from './midnight.ts';
@@ -42,7 +43,7 @@ export const LOOK_GROUPS: readonly { readonly id: LookGroup; readonly name: stri
 
 /** Ink first: a look not found falls back to the first. */
 export const LOOKS: readonly Look[] = [
-  ink, nightPaper, midnight, black, ember, fjord, polar, warm, moss, consoleLook,
+  ink, nightPaper, midnight, black, ember, fjord, polar, indigo, warm, moss, consoleLook,
   solarized, gruvbox, rosePine, catppuccin, highContrast,
   paper, book, newsprint, vellum, mint, dim, plain, slate, draft, large,
 ];

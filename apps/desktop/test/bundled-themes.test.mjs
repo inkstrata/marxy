@@ -14,7 +14,7 @@ const CONFIG = '/Users/ian/.config/marxy/config.toml';
 const themesDir = fileURLToPath(new URL('../../../packages/theme/', import.meta.url));
 
 test('a bare name that matches a bundled directory is the bundled theme; anything with a slash is not', () => {
-  assert.deepEqual([...BUNDLED_THEME_NAMES], ['ink', 'night-paper', 'midnight', 'black', 'ember', 'fjord', 'polar', 'warm', 'solarized', 'gruvbox', 'rose-pine', 'catppuccin', 'high-contrast']);
+  assert.deepEqual([...BUNDLED_THEME_NAMES], ['ink', 'night-paper', 'midnight', 'black', 'ember', 'fjord', 'polar', 'indigo', 'warm', 'solarized', 'gruvbox', 'rose-pine', 'catppuccin', 'high-contrast']);
   for (const name of BUNDLED_THEME_NAMES) {
     assert.equal(bundledThemeName(name), name);
     // Night and Paper is the base every theme is laid over: packages/theme/default.

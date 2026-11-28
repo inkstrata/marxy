@@ -26,17 +26,20 @@ The shelf is `LOOKS` in `packages/theme/src/looks/index.ts`; the default is `DEF
 
 | Appearance | Looks, in shelf order |
 | --- | --- |
-| Dark | Ink, Night (`night-paper`), Midnight, Black, Ember, Fjord, Polar, Dusk (`warm`), Moss, Console, Solarized, Gruvbox, Rosé Pine, Catppuccin, High contrast |
+| Dark | Ink, Night (`night-paper`), Midnight, Black, Ember, Fjord, Polar, Indigo, Dusk (`warm`), Moss, Console, Solarized, Gruvbox, Rosé Pine, Catppuccin, High contrast |
 | Light | Paper, Book, Newsprint, Vellum, Mint, Dim, Hyperlegible (`plain`), Slate, Draft, Large print |
 
 - A pinned look carries its colours as `pins`, one set per scheme; most also name a `partner` page for
   the other scheme (Ink's is Paper). Fjord is drawn for night only (`only: 'night'`).
+- Most pinned looks take the classic type set (`CLASSIC` in `looks/define.ts`). Polar and Newsprint set
+  headings in Inter over a serif; Indigo does the reverse, Source Serif 4 headings over Inter for all
+  prose, sized to Literata's x-height.
 - Moss, Console and the ten light looks are dials only: their colours are solved from tone, ink and
   accent.
 - Solarized, Gruvbox, Rosé Pine and Catppuccin carry a `credit` naming the palette's authors and
   licence.
 - Theme folders exist for the pinned looks: `ink`, `midnight`, `black`, `ember`, `fjord`, `polar`,
-  `warm`, `solarized`, `gruvbox`, `rose-pine`, `catppuccin`, `high-contrast`, plus `default` (the
+  `indigo`, `warm`, `solarized`, `gruvbox`, `rose-pine`, `catppuccin`, `high-contrast`, plus `default` (the
   hand-written Night and Paper sheet that every page inlines as its base).
 
 ### Faces and tones
