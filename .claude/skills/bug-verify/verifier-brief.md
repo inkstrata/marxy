@@ -17,7 +17,10 @@ probes it cites under `probes/<PREFIX>/`.
 
 **For each finding:**
 1. Read the code at every `Where`. Is the cause the catcher names really there, on this commit?
-2. Is it already known? Search `work/todo.md` and the other findings. If so: `DUPLICATE of <id>`.
+2. Is it already known? Search `work/todo.md` and the other findings, every axis's, not only this
+   prefix's. If so: `DUPLICATE of <id>`, with the id first after "of". When two axes found one bug, the
+   later finding is the duplicate of the earlier: that is how the hunt counts which axes overlap, so name
+   the finding's id, not only the todo row both may add to.
 3. Does a doc in `docs/` say the behaviour is meant? If so: `BY-DESIGN`, citing the doc and line.
 4. Reproduce it with a probe of your own, not by re-running the catcher's probe alone: a `shots` scenario
    (`pnpm --filter @marxy/desktop shots <absolute path> --browser chromium` from the worktree; Edge, the

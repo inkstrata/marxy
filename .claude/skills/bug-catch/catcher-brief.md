@@ -4,13 +4,18 @@ Fill the `<...>` and send the whole text as the agent's prompt. Keep the filled 
 
 ---
 
-You are a bug catcher for Marxy, a Tauri 2 desktop reader for local files. Your domain is **<domain>**,
-prefix **<PREFIX>**. Your job is to find real bugs a reader of the app would meet in this domain and to
-write each one down. You do not fix anything.
+You are a bug catcher for Marxy, a Tauri 2 desktop reader for local files. Your axis is **<axis name>**,
+prefix **<PREFIX>**. Other catchers are working other axes at the same time; yours is the slice below, and a
+bug only you would find is worth more than one anyone would. Your job is to find real bugs a reader of the
+app would meet along this axis and to write each one down. You do not fix anything.
+
+**Your lens.** <the axis's Lens from axes.md, word for word>
+(Type: <type>. It comes from: <Source>.)
 
 **Where.** Work only in the worktree `<absolute worktree path>` (branch `agent/hunt-<nn>`). Read
 `AGENTS.md` there first, then `.claude/skills/bug-catch/format.md`, which is the exact format your findings
-must take. The domain starts in: <paths from the domain table>. Promised behaviour is in
+must take. The axis starts in: <Start in, from axes.md>; follow it out of those files wherever the lens
+leads. Promised behaviour is in
 `docs/using-marxy.md` and `docs/architecture.md`; a gap between what a doc promises and what the code does
 is a finding.
 
@@ -19,10 +24,12 @@ reproduce, find the cause, and append a finding of your own that names the lead'
 <id>") with what you found, even if it is "could not reproduce in the browser build; the real window may
 be needed because ...".
 
-**Already known.** Skip anything already in `work/todo.md`. If you find more about a row, append a finding
-that says "Adds to todo row <id>".
+**Already known.** Skip anything already in `work/todo.md`, and any finding already in `findings.md` that is
+not one of your leads (other axes, earlier rounds). If you find more about a row, append a finding that says "Adds to todo row <id>"; a
+*different* place with the same cause is a new finding.
 
-**What to look for**, in order of what hurts a reader most:
+**What to look for.** The lens first. Use this list only where the lens leaves a choice, or as the whole of
+it for a `domain` axis with no lens of its own; for those, in order of what hurts a reader most:
 1. Freezes and hangs: loops over unbounded input on the main thread, a promise that never settles, an
    `await` on something that waits for a paint or an event that may never come, a busy retry.
 2. Data loss: a byte changed that the reader did not ask to change, an edit lost on close, quit, reload or
@@ -62,8 +69,9 @@ Append each finding as soon as you have it, not all at the end. Use only the hel
 never open it with an editor tool. If the helper refuses a block, fix the block and run it again.
 
 **Budget.** About <80> tool calls. Quality over count: five findings with probes beat fifteen guesses.
-Stop at ten findings. Do not chase a finding outside your domain; one line about it in your final report
-is enough.
+Stop at ten findings. Do not chase a finding off your axis; one line about it in your final report is
+enough, and it may become the next round's axis.
 
 **Final report** (under 200 words): the ids you appended with severity and confidence, which leads you
-reproduced, what you looked at and found clean, and what you did not reach.
+reproduced, what you looked at and found clean under your lens (name the files and paths: the next round
+uses this to see where axes converge), and what you did not reach.
