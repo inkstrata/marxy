@@ -1118,10 +1118,13 @@ const MARK_HEADING = /^ {0,3}#{1,6}[ \t]+\S/;
 /** A line plain text does not write: a fence, a table's rule, a link's definition, a task. */
 const MARK_LINE = /^(?: {0,3}(?:```|~~~)|\s*(?:\|\s*)?:?-{3,}:?\s*\|[\s|:-]*$| {0,3}\[[^\]\n]+\]:[ \t]+\S|\s*[-*+][ \t]+\[[ xX]\][ \t])/;
 /** A mark inside a line: a link, code in backticks, emphasis opened and closed. A lone `*` or a snake_case name is none. */
-// A link's text holds no `[`: a line of many unclosed `[` would otherwise be scanned to its end from each one.
-const MARK_INLINE = /!?\[[^[\]\n]+\]\([^)\s]+\)|`[^`\n]+`|\*\*\S[^*\n]*\*\*|__\S[^_\n]*__|(?<![\w*])\*[^*\s][^*\n]*?(?<=\S)\*(?![\w*])|(?<![\w_])_[^_\s][^_\n]*?(?<=\S)_(?![\w_])/;
+// A link is `hasLink`'s: as a pattern, a line of `[a](b[a](b` would scan to its end from each `[`.
+const MARK_INLINE = /`[^`\n]+`|\*\*\S[^*\n]*\*\*|__\S[^_\n]*__|(?<![\w*])\*[^*\s][^*\n]*?(?<=\S)\*(?![\w*])|(?<![\w_])_[^_\s][^_\n]*?(?<=\S)_(?![\w_])/;
 /** How much of a line the marks are looked for in: enough for any heading, rule or link, and no long line costs more. */
 const MARK_CHARS = 1000;
+/** How many lines `carriesMarkdown` looks at: a 5 MB text of one-character lines is not read to its end for a mark. */
+const MARK_LINES = 50_000;
+const LINE_END = /\r\n|\r|\n/g;
 
 /**
  * Whether plain text carries Markdown marks: a heading counts as two, and any other line holding a mark (`MARK_LINE`,
@@ -1131,13 +1134,43 @@ const MARK_CHARS = 1000;
  */
 export function carriesMarkdown(text: string): boolean {
   let marked = 0;
-  for (const whole of text.split(LINE_BREAK)) {
-    const line = whole.length > MARK_CHARS ? whole.slice(0, MARK_CHARS) : whole;
+  let start = 0;
+  // Lines are walked in place, not split into an array, and no more than MARK_LINES are looked at.
+  for (let n = 0; n < MARK_LINES && start <= text.length; n++) {
+    LINE_END.lastIndex = start;
+    const hit = LINE_END.exec(text);
+    const end = hit ? hit.index : text.length;
+    const line = text.slice(start, Math.min(end, start + MARK_CHARS));
     if (MARK_HEADING.test(line)) marked += 2;
-    else if (MARK_LINE.test(line) || MARK_INLINE.test(line)) marked++;
+    else if (MARK_LINE.test(line) || MARK_INLINE.test(line) || hasLink(line)) marked++;
     if (marked >= 2) return true;
+    if (!hit) break;
+    start = end + hit[0].length;
   }
   return false;
+}
+
+/**
+ * Whether `line` holds a link, `[text](target)`: text of no brackets, a target of no space or `)`. Found from each `](`
+ * in one pass: a target that fails ends where every later `](` inside it would end too, so none is scanned twice.
+ */
+function hasLink(line: string): boolean {
+  let at = line.indexOf('](');
+  while (at >= 0) {
+    let open = at - 1;
+    while (open >= 0 && line[open] !== '[' && line[open] !== ']') open--;
+    const end = scanTarget(line, at + 2);
+    if (open >= 0 && line[open] === '[' && open < at - 1 && end > at + 2 && line[end] === ')') return true;
+    at = line.indexOf('](', Math.max(end, at + 1));
+  }
+  return false;
+}
+
+/** Where a link's target, from `from`, stops: at a `)`, a space or the line's end. */
+function scanTarget(line: string, from: number): number {
+  let i = from;
+  while (i < line.length && line[i] !== ')' && !/\s/.test(line[i]!)) i++;
+  return i;
 }
 
 /**

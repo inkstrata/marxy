@@ -196,7 +196,7 @@ or code page:
 | Conversation | JSON Lines agent sessions | turns of text, thinking and tool calls with results; a result that names no id answers the turn's first call that named none, whether it is a block in a prompt, a `tool_result` line of its own or a `role: tool` line |
 
 Plain text keeps its lines. It is read as Markdown only when it carries Markdown marks
-(`carriesMarkdown`, looked for in the first 1,000 characters of each line): a `# ` heading, or two lines
+(`carriesMarkdown`, looked for in the first 1,000 characters of each of the first 50,000 lines): a `# ` heading, or two lines
 holding a fence, a table's rule, a link definition, a task, a link, code in backticks or emphasis opened
 and closed. Lists, numbered lines, quoted lines and an underlined title are not counted, since plain
 text writes them too; a lone `*` and a `#hashtag` are no marks. Otherwise it is verse (short lines in
