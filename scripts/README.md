@@ -99,6 +99,8 @@ in [docs/testing.md](../docs/testing.md#measurement-tools).
 | `browser-windows.json` | the browser test files proved on a hosted Windows runner (workflow `browser-windows`, run by hand); `browser-smoke.test.mjs` keeps them sleep-free |
 | `lib/repo.mjs` | the repository root, a file walk, staged and changed files, the checks' failure format |
 | `lib/imports.mjs` | import specifiers and `invoke(` calls read from the TypeScript syntax tree |
+| `lib/stale.mjs` | what `pnpm work clean --stale` may remove: the rules for old worktrees, leftover folders and branches |
+| `lib/stale-run.mjs` | the git and file work of `clean --stale`: archive what is worth keeping, then remove |
 | `lib/machine-lock.mjs` | lock files in the OS temp folder for what one machine can run once (`check:tauri`'s port) or a few at a time (`verify`'s turn) |
 | `lib/perf-record.mjs` | the read-merge-write of `results/perf.json` shared by two test suites |
 | `lib/interactions-record.mjs` | the record of `measure-interactions.mjs`: its shape, medians, the comparison of two records and their tables |

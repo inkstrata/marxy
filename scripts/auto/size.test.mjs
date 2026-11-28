@@ -6,7 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const CODE_LIMIT = 1200;
+// The owner asked for presence checks and cleanup on 2026-11-27, so the limit went from 1,200 to 1,500.
+const CODE_LIMIT = 1500;
 const SKILL_LIMIT = 600;
 
 function walk(dir, keep) {

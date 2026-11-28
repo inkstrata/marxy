@@ -5,6 +5,8 @@
 .DESCRIPTION
   "Marxy - tick"     every 30 minutes, all day: node scripts/auto/auto.mjs tick (at most 25 minutes per run).
   "Marxy - nightly"  daily 05:15, after the night's agents: node scripts/auto/auto.mjs nightly (at most 4 hours).
+  "Marxy - clean"    Sunday 04:30: node scripts/auto/auto.mjs clean (at most 2 hours): old worktrees, branches and logs.
+  The nightly and clean tasks wait until the owner has been idle for 10 minutes (up to 8 hours); all run at below-normal priority.
 
   Both run hidden through conhost --headless, from the main checkout (two folders above this script), with
   stdout and stderr appended to ~\.local\state\fleet\marxy\logs\<tick|nightly>.log. Same pattern as
@@ -23,9 +25,10 @@ $logs = Join-Path $HOME '.local\state\fleet\marxy\logs'
 
 $tick    = 'Marxy - tick'
 $nightly = 'Marxy - nightly'
+$clean   = 'Marxy - clean'
 
 function Show-Status {
-    foreach ($n in $tick, $nightly) {
+    foreach ($n in $tick, $nightly, $clean) {
         $t = Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue
         if (-not $t) { Write-Host ("{0,-16} not registered" -f $n); continue }
         $i = $t | Get-ScheduledTaskInfo
@@ -36,7 +39,7 @@ function Show-Status {
 if ($Status) { Show-Status; return }
 
 if ($Remove) {
-    foreach ($n in $tick, $nightly) {
+    foreach ($n in $tick, $nightly, $clean) {
         if (Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue) {
             Stop-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue
             Unregister-ScheduledTask -TaskName $n -Confirm:$false
@@ -79,3 +82,9 @@ Register-ScheduledTask -TaskName $nightly -Action (New-MarxyAction 'nightly') -T
     -Settings (New-MarxySettings (New-TimeSpan -Hours 4) -WhenIdle) -Force `
     -Description 'Marxy nightly full verify and installer check on origin/main. marxy/scripts/auto/osiris.ps1' | Out-Null
 Write-Host "registered $nightly"
+
+$cleanTrigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At '04:30'
+Register-ScheduledTask -TaskName $clean -Action (New-MarxyAction 'clean') -Trigger $cleanTrigger -Principal $principal `
+    -Settings (New-MarxySettings (New-TimeSpan -Hours 2) -WhenIdle) -Force `
+    -Description 'Marxy weekly cleanup of old worktrees, branches and logs. marxy/scripts/auto/osiris.ps1' | Out-Null
+Write-Host "registered $clean"

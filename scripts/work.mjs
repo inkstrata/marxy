@@ -3,7 +3,7 @@
 //   init        make the worktrees and builds folders, and work/todo.md if the tree has none
 //   start       a new piece of work: a branch and a worktree for it, with dependencies installed
 //   list        every worktree with its branch, state and uncommitted changes
-//   clean       remove the worktrees and branches whose work is in the base (lists them; --apply does it)
+//   clean       remove the worktrees and branches whose work is in the base (lists them; --apply does it); --stale also the old ones
 //   todo        the tracker's open rows; --check compares them with the branches
 //   installer   build, keep and install the app from a ref (scripts/installer-macos.mjs, scripts/installer-windows.ps1)
 //   ask         questions for the owner, answered on a page (scripts/ask.mjs)
@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { basename, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { askMain } from './ask.mjs';
+import { runStale } from './lib/stale-run.mjs';
 import { crossCheck, parseTodo, TEMPLATE } from './lib/todo.mjs';
 import { BRANCH_PREFIX, branchFacts, branchState, git, unstarted, workspace } from './lib/workspace.mjs';
 
@@ -25,7 +26,10 @@ const USAGE = `usage: pnpm work [command] [options]
   start <name> [--from <ref>] [--no-install]
                                  branch ${BRANCH_PREFIX}<name> and worktree <checkout>-wt/<name>, cut from --from (default: the base)
   list [--dirty]                 every worktree: branch, state, and with --dirty its uncommitted changes
-  clean [--apply] [--keep a,b]   worktrees and branches whose commits are all in the base; nothing is removed without --apply
+  clean [--apply] [--keep a,b] [--stale]
+                                 worktrees and branches whose commits are all in the base; nothing is removed without --apply.
+                                 --stale adds worktrees with no commit for 30 days, leftover folders beside them and branches
+                                 safe on origin/main or under an archive tag, after saving what they hold under ~/.local/state/fleet/marxy/archive/
   todo [--check] [--file <path>] the tracker's rows; --check fails on a repeated id or a row whose branch has landed
   installer [<arguments>]        scripts/installer-macos.mjs (macOS) or installer-windows.ps1 (Windows) with the workspace's paths; what follows goes to it as is
   ask [<command>] [<set>]        questions for the owner on a page, and their answers (pnpm work ask --help); what follows goes to it as is
@@ -33,7 +37,7 @@ options for every command (before installer or ask, not after): --base <ref> (de
 
 /** Parsed command line; throws an Error with a message for a bad one. */
 export function parseArgs(argv) {
-  const o = { command: 'status', name: null, base: 'main', root: null, from: null, install: true, dirty: false, apply: false, keep: [], check: false, file: null, rest: [], help: false };
+  const o = { command: 'status', name: null, base: 'main', root: null, from: null, install: true, dirty: false, apply: false, stale: false, keep: [], check: false, file: null, rest: [], help: false };
   const dashes = argv.indexOf('--');
   if (dashes >= 0) {
     o.rest = argv.slice(dashes + 1);
@@ -70,6 +74,7 @@ export function parseArgs(argv) {
       case '--no-install': o.install = false; break;
       case '--dirty': o.dirty = true; break;
       case '--apply': o.apply = true; break;
+      case '--stale': o.stale = true; break;
       case '--check': o.check = true; break;
       case '--help': case '-h': o.help = true; break;
       default:
@@ -295,6 +300,12 @@ async function clean(ctx, o) {
   for (const [t, why] of skipped) console.log(`kept     ${pad(relative(ws.dir, t.path), 30)} ${t.branch}: ${why}`);
   const total = removable.length + plan.branches.length;
   console.log(`\n${removable.length} worktrees and ${plan.branches.length} bare branches ${o.apply ? 'removed' : `are in ${facts.base}`}; ${skipped.length} kept${failed ? `; ${failed} failed` : ''}${!o.apply && total ? '\nnothing was removed: pnpm work clean --apply' : ''}`);
+  if (o.stale) {
+    const s = runStale(ctx, { apply: o.apply });
+    for (const l of s.lines) console.log(l);
+    console.log(`
+stale: removed=${s.removed} archived=${s.archived}${o.apply ? '' : ' (nothing was removed: pnpm work clean --stale --apply)'}`);
+  }
   return failed ? 1 : 0;
 }
 

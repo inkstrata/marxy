@@ -91,6 +91,7 @@ function record([kind, file]) {
 const [cmd, ...rest] = process.argv.slice(2);
 const commands = {
   usage, gate, run, status, merge, dashboard, tick, record,
+  clean: async () => { (await import('./lib/clean.mjs')).cleanNow(); },
   nightly: async (a) => (await import('./device.mjs')).nightly(a),
   device: async (a) => (await import('./device.mjs')).device(a),
 };

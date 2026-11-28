@@ -455,7 +455,13 @@ export async function device(args = [], deps = {}) {
   const onPower = os === 'macos' ? macOnAc(spawnSync('pmset', ['-g', 'batt'], { encoding: 'utf8' }).stdout ?? '') : linuxOnExternalPower();
   const lowPower = os === 'macos' && macLowPower(spawnSync('pmset', ['-g'], { encoding: 'utf8' }).stdout ?? '');
   const d = shouldRun({ force: args.includes('--force'), onPower, lowPower, prev });
-  if (!d.run) { console.log(`device: skip, ${d.why}`); return 0; }
+  // The weekly cleanup rides on this hourly run, on power only; cleanNow itself stands down when the owner is there.
+  const sweep = async () => {
+    if (!onPower || lowPower) return;
+    const { cleanDue, cleanNow } = await import('./lib/clean.mjs');
+    if (cleanDue(JSON.parse(state.readPublished(`clean/${os}.json`) ?? 'null'))) (deps.clean ?? cleanNow)();
+  };
+  if (!d.run) { console.log(`device: skip, ${d.why}`); await sweep(); return 0; }
   const stop = ownerBusy(deps);
   if (stop) { console.log(`device: stopped, ${stop}`); return 0; }
   const date = pacificDate();
@@ -464,6 +470,7 @@ export async function device(args = [], deps = {}) {
   const result = os === 'macos' ? await macCheck(prev, logs, () => ownerBusy(deps)) : await linuxCheck();
   await publishResult(state, result, date);
   console.log(`device: ${os} ${result.sha.slice(0, 7)} install ${result.install.ok === null ? 'inconclusive (slept)' : result.install.ok ? 'ok' : 'failed'}`);
+  await sweep();
   return 0;
 }
 
