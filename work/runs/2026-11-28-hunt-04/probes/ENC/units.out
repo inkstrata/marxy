@@ -1,0 +1,8 @@
+le bom u 4097 want 5430 got 5430 back 4096
+le bom u 4098 want 5432 got 5432 back 4097
+le bom u 4100 want 5434 got 5434 back 4098
+le bom u 4103 want 5436 got 5436 back 4100
+le bom u 4104 want 5438 got 5438 back 4103
+le bom utf-16le ok-so-far bad= 627
+be bom utf-16be ok-so-far bad= 1254
+exact step utf-16le ok-so-far bad= 1254

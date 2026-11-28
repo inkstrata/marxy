@@ -1,0 +1,11 @@
+removed  a                              agent/a
+removed  b                              agent/b
+removed  (branch only)                  agent/a
+removed  (branch only)                  agent/b 4 2
+a exists false b exists false
+a-2027-01-27
+newfile.md
+
+b-2027-01-27
+.env
+

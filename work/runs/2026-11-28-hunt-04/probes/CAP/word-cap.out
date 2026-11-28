@@ -1,0 +1,8 @@
+$ node scripts/shots.mjs "D:/Dev/marxy-wt/hunt-04/work/runs/2026-11-28-hunt-04/probes/CAP/word-cap.mjs"
+19999 {"cut":[],"hasLast":true,"head":"Word document · 99,992 words"}
+19999 find {"bar":null,"errs":null} ["RangeError: Maximum call stack size exceeded"]
+20000 {"cut":[],"hasLast":true,"head":"Word document · 99,997 words"}
+20000 find {"bar":null,"errs":null} ["RangeError: Maximum call stack size exceeded","RangeError: Maximum call stack size exceeded","RangeError: Maximum call stack size exceeded"]
+20001 {"cut":["Only the first 20,000 paragraphs, headings, tables and lists are shown; 1 more are left out."],"hasLast":false,"head":"Word document · 100,002 words"}
+20001 find {"bar":null,"errs":null} ["RangeError: Maximum call stack size exceeded","RangeError: Maximum call stack size exceeded","RangeError: Maximum call stack size exceeded"]
+0 pictures in D:\Dev\marxy-wt\hunt-04\work\shots\hunt-04-20261128-0626
