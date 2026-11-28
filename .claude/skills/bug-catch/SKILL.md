@@ -74,6 +74,19 @@ The domain table is one source of axes and the map of where things live:
 
 Paths under `src/` are `apps/desktop/src/`. Add a row here when a hunt finds an area the table lacks.
 
+**Coverage ledger.** `work/hunt-coverage.md` says where hunts have looked, with what lens, at which commit and
+with what yield. An axis whose area and lens last confirmed nothing is not run again there until
+`git log <commit>..origin/main -- <paths>` shows the area changed; otherwise it waits four weeks and returns with
+a different lens. Rank candidate axes by whether the area changed since its last sweep, then by the lens's past
+confirmed yield, then by severity. The Tuesday hunt and the triggered small hunt both follow this.
+
+**Target.** A hunt may be aimed at a pull request number, a branch, a tracker row id or a set of paths. The scope
+is the changed files (`git diff --name-only` against `origin/main`) plus their direct callers (grep for
+importers); axes are planned only inside it. Lenses: hostile input past the budgets, boundaries and encodings,
+and listener and lifecycle cleanup. Shape: two Sonnet catchers, one round, no Opus planner, verification on the
+other model. Findings on an open pull request become a CHANGES review on it (`review` skill), not tracker rows;
+on merged code they become rows, or the next run's carry-over.
+
 **Standard axis: changes since the last hunt.** Every Tuesday hunt includes it: `git log --stat` of `origin/main`
 since the newest hunt's date, one catcher, a domain axis over whatever changed most.
 

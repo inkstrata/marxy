@@ -75,7 +75,7 @@ Structure and Big files when fewer than two pieces are unstarted; once per run);
 when fewer than three rows are ready, fewer than two hunts ran this week and none in the last two days; once
 per run); Tuesday's regular hunt; otherwise `stop` with a reason. A run records its top-ups and small hunts, and
 its in-flight agents, worktrees and pull requests, with `auto.mjs run note --job <id> --run <run-id> --kind
-top-up|small-hunt|state --data <json>`; the `state` note also writes `run-state.json` in the state folder, which a
+top-up|small-hunt|targeted-hunt|state --data <json>`; the `state` note also writes `run-state.json` in the state folder, which a
 restarted session reads if it is under six hours old. Every run ends with `auto.mjs dashboard`, so the dashboard's
 "Last runs" section (the newest summary per job on `auto-state`) is current when the run is over.
 

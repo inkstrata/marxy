@@ -123,6 +123,11 @@ same agent with `SendMessage`; a fresh agent only when the old one is gone.
 is always on a different model from the builder: a `work/`- or docs-only pull request built by Haiku or Opus
 gets a Sonnet reviewer, passed as the Agent tool's `model`.
 
+**Targeted hunt.** For an L-size piece, or a diff touching `packages/core/src/buffer`, `packages/core/src/encoding`,
+`packages/core/src/sanitize`, `apps/desktop/src-tauri` or a save path, run a targeted hunt (`bug-catch`, "Target") on
+the pull request before the reviewer's verdict, and give the reviewer its findings. At most one per run; record it
+with `run note --kind targeted-hunt`. M pieces keep the reviewer's single break-it probe.
+
 **Changes.** A `CHANGES` verdict goes back to the same builder with the review's findings. When it has pushed,
 the same reviewer re-reviews only what changed since its last review and posts a new comment and marker for
 the new head.

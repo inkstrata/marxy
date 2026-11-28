@@ -46,7 +46,7 @@ function run([event, ...args]) {
 // or compacted session can see which agents, worktrees and pull requests are in flight.
 function note(job, runId, args) {
   const kind = flag(args, '--kind');
-  if (!['top-up', 'small-hunt', 'state'].includes(kind)) throw new Error('run note --kind top-up|small-hunt|state --data <json>');
+  if (!['top-up', 'small-hunt', 'targeted-hunt', 'state'].includes(kind)) throw new Error('run note --kind top-up|small-hunt|targeted-hunt|state --data <json>');
   const data = JSON.parse(flag(args, '--data') ?? 'null');
   const at = new Date().toISOString();
   appendJsonl('runs', { at, event: 'note', job, run: runId, kind, data });

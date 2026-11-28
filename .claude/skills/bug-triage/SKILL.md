@@ -54,7 +54,8 @@ Placement: S1 rows at the top of **Next**; S2 under **Next** after them; S3 unde
 one change would fix share one row (name every id in `Why`). If **Next** has more than about fifteen rows,
 put S2 rows that touch no promised behaviour under **Later** and say so in `triage.md`.
 
-`pnpm work todo --check` must pass after the edit.
+`pnpm work todo --check` must pass after the edit. Append one row per axis run to `work/hunt-coverage.md` (date,
+hunt, axis, lens, area paths, the commit it ran on, confirmed count).
 
 ## 3. Write triage.md and the account
 
