@@ -48,7 +48,8 @@ test('render lays out the sections in order with live queue state', () => {
   assert.ok(md.includes('- macos: inconclusive (slept)'));
   assert.ok(md.includes('- windows: ok, verify failed (1 real reds)'));
   assert.match(md, /- linux: no data yet/);
-  assert.match(md, /5h 12%, weekly 41.3%|5h 12%, weekly 41.25%/);
+  assert.match(md, /automation this week: 6%/);
+  assert.doesNotMatch(md, /41\.\d*%/, 'the owner\'s weekly meter stays off the public issue');
   assert.match(md, /automation 6%, owner 35.3%|automation 6%, owner 35.25%/);
   assert.match(md, /night 20 0 \* \* \*/);
   assert.doesNotMatch(md, /tick/);
@@ -61,7 +62,7 @@ test('render tolerates missing data', () => {
   assert.match(md, /## Changelog\nnone/);
   assert.match(md, /## Waiting for you\nnone/);
   assert.match(md, /- windows: no data yet/);
-  assert.match(md, /usage: no data yet/);
+  assert.match(md, /last usage reading: none yet/);
 });
 
 test('age words', () => {

@@ -66,7 +66,7 @@ function waiting(d) {
 // One line per device: the install check, the Windows verify and its reruns, and whether a sleep spoiled it.
 function deviceLine(os, r, now) {
   if (!r) return `- ${os}: no data yet`;
-  const state = r.slept ? 'inconclusive (slept)' : r.install?.ok ? 'ok' : 'failed';
+  const state = r.slept ? 'inconclusive (slept)' : r.install?.skipped ? `skipped (${r.install.skipped})` : r.install?.ok ? 'ok' : 'failed';
   const real = (r.reruns || []).filter((x) => x.verdict === 'real').length;
   const verify = r.verify ? `, verify ${r.verify.ok ? 'ok' : 'failed'}${real ? ` (${real} real reds)` : ''}` : '';
   const note = r.install?.notes ? `, ${short(String(r.install.notes), 70)}` : '';
@@ -80,13 +80,14 @@ function health(d) {
   ];
 }
 
+// The issue is public, so it shows only the automation's own spending and state; the owner's usage meters
+// stay in the local state folder.
 function budget(d) {
-  const x = d.usage?.usage;
   const b = d.budget;
   const jobs = (d.jobs || []).filter((j) => j.kind === 'agent');
   return [
-    x ? `- 5h ${pct(x.fiveHour?.pct)}, weekly ${pct(x.weekly?.pct)}, Fable ${pct(x.fable?.pct)}; snapshot ${age(d.usage.at, d.now)} old` : '- usage: no data yet',
-    b?.totalPct != null ? `- weekly share: automation ${pct(b.autoPct)}, owner ${pct(b.ownerPct)}` : '- weekly share: no data yet',
+    d.usage?.at ? `- last usage reading: ${age(d.usage.at, d.now)} ago` : '- last usage reading: none yet (runs are blind until one exists)',
+    b?.autoPct != null ? `- automation this week: ${pct(b.autoPct)} of the weekly limit` : '- automation this week: no data yet',
     jobs.length ? `- next agent runs: ${jobs.map((j) => `${j.id} ${j.when}`).join(', ')} (PT)` : '- next agent runs: none',
   ];
 }
@@ -118,11 +119,16 @@ export async function evaluatedPRs({ root = ROOT, now = new Date() } = {}) {
   try {
     execFileSync('git', ['-C', root, 'fetch', '-q', 'origin', 'main'], { stdio: 'ignore' });
     rules = co.parseCodeowners(execFileSync('git', ['-C', root, 'show', 'origin/main:.github/CODEOWNERS'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
+    if (!rules.length) rules = null;
   } catch { /* held below */ }
   const lastResetAt = policy.lastReset(now);
   return gh.listOpenPRs().map((p) => {
     const v = policy.evaluate(p, { now, ownerRules: rules || [], lastResetAt });
-    return rules ? { ...p, ...v } : { ...p, merge: false, reasons: [...v.reasons, 'CODEOWNERS on main could not be read'] };
+    const extra = [];
+    if (!rules) extra.push('CODEOWNERS on main could not be read');
+    // GitHub's files API stops at 3,000 files, so a list that long may be missing an owner path.
+    if (p.files.length >= 3000) extra.push('too many files to check every path');
+    return extra.length ? { ...p, merge: false, reasons: [...v.reasons, ...extra] } : { ...p, ...v };
   });
 }
 
