@@ -11,6 +11,7 @@ const ROOT = fileURLToPath(new URL('../', import.meta.url));
 /** A README and the tool folders it answers for. */
 const LEVELS = [
   { readme: 'scripts/README.md', tools: 'scripts', deep: ['lib', 'allowlists'] },
+  { readme: 'scripts/auto/README.md', tools: 'scripts/auto', deep: ['lib', 'eris', 'set'] },
   { readme: 'apps/desktop/README.md', tools: 'apps/desktop/scripts', deep: ['shots'] },
   { readme: 'packages/core/README.md', tools: 'packages/core/scripts', deep: [] },
   { readme: 'packages/theme/README.md', tools: 'packages/theme/scripts', deep: [] },

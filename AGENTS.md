@@ -121,11 +121,16 @@ changing structure, adding a mechanism, or fixing a bug that crosses modules.
 4. Verify (below), commit on the branch, push it and open a pull request against `main`. The pull request
    says what changed for the reader, the tests run with counts, and anything not done or not checked. It
    removes the rows it finishes from `work/todo.md`.
-5. Someone who did not write it reviews the pull request's diff. CI runs `pnpm verify` on macOS.
-6. The orchestrator or agent that owns the pull request merges it once confidence is high (the reviewer
-   approved the diff, the tests prove the change, nothing is left unchecked) and CI is green. A pull
-   request that needs the owner's approval (CODEOWNERS paths, or a review the owner requested) waits for
-   it. Do not merge or remove a branch another session is working on.
+5. Someone who did not write it, on a different model when agents build, reviews the pull request's diff
+   and posts one comment with its verdict and marker (the `review` skill). CI runs `pnpm verify` on macOS.
+6. In scheduled runs the merge gate (`node scripts/auto/auto.mjs tick`) merges a pull request once an
+   independent review approved its current head, CI is green and it touches no CODEOWNERS path; no agent
+   merges. In a session the owner drives, merging is left to the owner. A pull request that needs the
+   owner's approval (CODEOWNERS paths, a `hold` label) waits for it. Do not merge or remove a branch
+   another session is working on.
+
+The schedule that runs this cycle every night, and its budget and merge rules, are in
+[scripts/auto/README.md](scripts/auto/README.md).
 
 A run of several branches built together (a wave or a round) keeps its account, rules, briefs, reports,
 reviews and logs in `work/runs/<date>-<kind>-<nn>/`; when it lands, its pull request adds a row to

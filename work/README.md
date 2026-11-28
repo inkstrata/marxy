@@ -9,8 +9,9 @@ outside this folder. Nothing in `apps/`, `packages/`, `scripts/` or `docs/` refe
 | Path | What it holds | Who changes it |
 | --- | --- | --- |
 | `todo.md` | the tracker: open work in sections (Next, To try in a real window, Waiting on the owner, Later, Housekeeping) | every branch that takes, finishes or adds a row |
-| `STATE.md` | where `main` stands now: what the app does, platforms, latest verify, performance, open work, risks | rewritten by the branch that lands a run |
-| `ledger.md` | one row per landing, oldest first: date, run, pull request or commit, what changed for the reader, verify | appended by the branch that lands a run |
+| `STATE.md` | where `main` stands now: what the app does, platforms, latest verify, performance, open work, risks | rewritten each week by the plan pull request, and by the branch that lands a run |
+| `ledger.md` | one row per landing, oldest first: date, run or week, pull request or commit, what changed for the reader, verify | one row a week from the plan pull request; a row from each run or hunt that lands |
+| `weeks/<date>.md` | one week of the schedule, named for the Friday it starts at 20:00: the plan (goals, `## Queue`, hunt axis, hardening, what waits for the owner, the Fable box), then the `## Outcome` the next plan appends | the `plan-week` skill; the owner, on the plan's pull request |
 | `runs/<date>-<kind>-<nn>/` | one orchestration run (a `wave` or a `round`): the branches cut together, built, reviewed and landed as one; or a `hunt`: a bug-catch cycle whose output is tracker rows | the run's orchestrator |
 | `reports/<date>-<slug>/` or `reports/<date>-<slug>.md` | evaluations, plans, handoffs, spikes and reviews that are not one run | whoever wrote it |
 | `questions/<date>-<slug>/` | a set of questions for the owner (`pnpm work ask`) and the answers | `pnpm work ask` and the owner |
@@ -25,6 +26,15 @@ outside this folder. Nothing in `apps/`, `packages/`, `scripts/` or `docs/` refe
 | `logs/` | verify and measurement logs, as text; a step-per-file verify run keeps its `verify-full-logs*/` folder |
 | `records/` | measurement output (`interactions-*.json`, startup and perf records) and saved patches |
 | `tools/` | small scripts the run used to drive itself (a verify queue, a measurement patch) |
+
+### Night builds
+
+The scheduled night and day runs (`scripts/auto/README.md`) build single pieces, not runs, so they get no
+run folder. Each piece's record is its pull request: the builder's account in the body, with an author
+marker, and the reviewer's one comment, with a review marker. A night's summary (pieces, pull requests,
+verdicts, usage, why it stopped) goes to the `auto-state` data branch (`auto.mjs record night`), not into
+`work/`. The week's file collects what landed in its Outcome, and the ledger gets one row a week. A Tuesday
+hunt keeps its own hunt folder and ledger row.
 
 ### Inside a hunt folder
 

@@ -238,6 +238,8 @@ export function catalog(ctx) {
   const scriptTests = [
     ...listTests(scriptsDir, f => f.endsWith('.test.mjs') && (full || !SLOW_SCRIPT_TESTS.includes(f))).map(f => `scripts/${f}`),
     ...listTests(join(scriptsDir, 'lib'), f => f.endsWith('.test.mjs')).map(f => `scripts/lib/${f}`),
+    ...listTests(join(scriptsDir, 'auto'), f => f.endsWith('.test.mjs')).map(f => `scripts/auto/${f}`),
+    ...listTests(join(scriptsDir, 'auto', 'lib'), f => f.endsWith('.test.mjs')).map(f => `scripts/auto/lib/${f}`),
   ];
   const desktopUnit = desktopUnitFiles(root);
   const browserFiles = [...change.browser].sort().map(f => `test/${f}`);

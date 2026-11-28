@@ -10,6 +10,7 @@ tools themselves. This file lists the ones here and says where the rest live.
 | `scripts/` | what judges, measures or works on the repository as a whole, and is run from its root: checks, gates, runners, measurements, the work cycle | this file |
 | `scripts/lib/` | modules those scripts share; nothing here is run by itself | below |
 | `scripts/allowlists/` | data the checks read: allow-lists and licence records. No scripts | below |
+| `scripts/auto/` | the standing automation's scripts: the merge gate, the budget governor, the dashboard, the nightly and device runs | [scripts/auto/README.md](auto/README.md) |
 | `apps/desktop/scripts/` | what the desktop package's own scripts and tests call: building, signing, launching and driving the app, and makers of its fixtures | [apps/desktop/README.md](../apps/desktop/README.md) |
 | `packages/<name>/scripts/` | what that package's scripts and tests call, and its generators | the package's `README.md` |
 | `fixtures/<set>/make-*` | the maker of a fixture set, beside the files it writes | [docs/testing.md](../docs/testing.md#fixtures) |

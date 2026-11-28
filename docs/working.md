@@ -17,7 +17,8 @@ reads the same tracker through git. Worktrees and kept installers stay outside g
 | `<checkout>-wt/exe/` | the Windows installer tool's own worktree, on no branch |
 | `<checkout>/builds/<date>-<time>-<commit>/` | installers kept by `pnpm work installer`, each with a `BUILD.txt` (git ignores `builds/`) |
 | `work/todo.md` | the tracker, committed |
-| `work/STATE.md`, `work/ledger.md` | where `main` stands, and one row per landing |
+| `work/STATE.md`, `work/ledger.md` | where `main` stands, and one row per landing or week |
+| `work/weeks/<date>.md` | one week's plan (its queue) and, once it ends, its outcome |
 | `work/runs/<date>-<kind>-<nn>/` | one orchestration run: its account, rules, per-branch briefs, reports and reviews, logs and measurements |
 | `work/reports/`, `work/questions/` | evaluations, plans and handoffs; question sets for the owner (`pnpm work ask`) |
 | `work/shots/` | pictures taken by the `shots` tool (git ignores it; copy the ones a report needs into its folder) |
@@ -71,7 +72,7 @@ deletes a merged pull request's branch, so after `git fetch --prune` a squash-me
 | Review | someone who did not write it reads the pull request's diff; CI runs `pnpm verify` on macOS | the pull request |
 | Integrate | pieces built side by side are merged on one branch and checked whole | `pnpm verify --tier full` |
 | Try | what only the real window or a person shows | `check:tauri`, `pnpm work installer` |
-| Land | the orchestrator or agent merges the pull request once confidence is high and CI is green (the owner approves CODEOWNERS paths); its rows leave the tracker in the same pull request, and a run's landing adds a row to `work/ledger.md` and rewrites `work/STATE.md` | GitHub, `pnpm work todo --check` |
+| Land | the merge gate merges the pull request once an independent review approved it and CI is green, or the owner merges it in a session they drive (the owner approves CODEOWNERS paths); its rows leave the tracker in the same pull request, and a run's landing adds a row to `work/ledger.md` and rewrites `work/STATE.md` | GitHub, `pnpm work todo --check` |
 | Clear | worktrees and branches that have landed are removed | `git fetch --prune`, `pnpm work clean --apply` |
 
 ### Start
@@ -128,8 +129,12 @@ the window.
 ### Review
 
 The reviewer reads the pull request's diff (`git diff main...agent/<name>`), not the builder's account
-of it, and after fixes reads only what changed since. A review that an agent writes goes in the run's
-`branches/<name>/review.md`; a person's review goes on the pull request. Things a diff of Marxy is read for:
+of it, and after fixes reads only what changed since. A review that an agent writes is one comment on the
+pull request, from the `review` skill (`.claude/skills/review/`): its first line is
+`Independent review: APPROVE` or `Independent review: CHANGES`, then numbered findings, and its last line a
+marker the merge gate reads, `<!-- marxy-review verdict=<approve|changes> head=<sha> run=<id> model=<model> -->`.
+The builder's pull request body ends with `<!-- marxy-author run=<id> model=<model> -->`. A person's review
+goes on the pull request too. Things a diff of Marxy is read for:
 
 - input the reader did not write (a file's bytes, an archive's directory, a pasted page): is the work it
   can cause bounded, and is every string it supplies escaped or sanitised where it is drawn;
@@ -138,7 +143,8 @@ of it, and after fixes reads only what changed since. A review that an agent wri
 - tests that would pass without the change;
 - documents that still describe the old behaviour.
 
-When agents build, the reviewer runs on a different model from the builder.
+When agents build, the reviewer runs on a different model from the builder, and the merge gate counts an
+approval only from another run on another model than the author's marker names.
 
 ### Integrate
 
@@ -164,7 +170,11 @@ programs) stays in the tracker under its own heading until someone has tried it.
 
 ### Land and clear
 
-`main` moves only through a pull request, merged by the orchestrator or agent once CI is green, the review is done and confidence is high (the owner approves CODEOWNERS paths). A
+`main` moves only through a pull request. In scheduled runs the merge gate, `node scripts/auto/auto.mjs tick`,
+merges it, and no agent does: the pull request is not a draft, its head is `agent/*`, an approve marker for
+its current head comes from a run and model other than its author's, the `ci` check is green, it touches no
+path in `.github/CODEOWNERS`, it has no `hold` label, GitHub calls it clean, and the time is between 00:00 and
+14:00 Pacific. Anything else waits for the owner. In a session the owner drives, the owner merges. A
 run lands with `pnpm verify --tier full` behind it. The pull request carries the tracker change (its rows
 removed), and for a run the new `work/ledger.md` row and the rewritten `work/STATE.md`. Then:
 
@@ -180,6 +190,26 @@ pnpm work clean --apply                 # removes them
 keeps a worktree with uncommitted or untracked files and says which files, keeps a branch that sits on
 `main`'s own commit or that nothing has been committed on since it was made (work about to begin, wherever
 it was cut), and never touches a worktree on no branch. `--keep a,b` holds back the named ones.
+
+## The schedule
+
+The cycle above also runs by itself, on Osiris (Windows) with device checks on Eris (macOS) and Set (Linux).
+The agent jobs are Claude desktop app scheduled tasks that follow skills in `.claude/skills/`; the mechanical
+jobs are `node scripts/auto/auto.mjs <command>` run by the machine's scheduler. Times are Pacific.
+
+| When | Job | Does |
+| --- | --- | --- |
+| daily 00:20 to 05:00 | `night` (agent) | carry-over, then the week's queue: builders, reviewers; Saturday the plan intake, Tuesday a bug hunt, Thursday and Friday the sweep |
+| daily 05:15 | `nightly` (script) | full verify of `main` with the browser suite and `check:tauri`, alone reruns, the Windows install check |
+| daily 08:45 to 13:30 | `day` (agent) | triage of the nightly and device results, then more building |
+| Friday 08:15 | `plan` (agent) | the week's outcome, `STATE.md`, the ledger row, and next week's plan as a pull request |
+| every 30 minutes | `tick` (script) | the merge gate (00:00 to 14:00) and the dashboard issue |
+| hourly, on power | device scripts | install checks on Eris and Set |
+
+The owner's window, 14:00 to midnight, has no agent work. The week starts at the usage reset, Friday 20:00:
+its plan is `work/weeks/<that Friday>.md`, and the owner can change it on its pull request until Saturday's
+night run takes it in. The budget rules, the devices and how to stop any of it are in
+[scripts/auto/README.md](../scripts/auto/README.md).
 
 ## Questions for the owner
 

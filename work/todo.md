@@ -22,7 +22,7 @@ Rows B1 to B16 came from the first bug hunt (2026-11-27). Their ids such as `EXP
 | M1 | The Windows checkout's unlanded branches are lost: never pushed, and the import (#773) carried master over without history, so no machine has them. Round 16 (`budgets-4`, `budgets-5`, `teardown-2`, integration `1f141eb1`: P11, P12, F24), wave 5 (`geometry-table`, `near-typeset`, integration `0a9eeb68`: E22, E23), `web-shell` (`33e6bc09`: S17) and `open-with` (F26). Their briefs, reviews and measurements survive in `runs/2026-11-24-round-16/` and `runs/2026-11-26-wave-05/`; S17's report in `reports/2026-11-23-reach-beyond-desktop/`. Rebuilt on `main` under new names; S17 and F26 kept as notes under Later | Reviewed, finished work has to be built a second time; this row leaves with the last rebuilt branch | L | `budgets-text`, `budgets-containers`, `teardown-rest`, `geometry-table` |
 | M3 | Run Marxy on a Linux desktop | The build, unit tests and `cargo test` pass on CI Linux, and the smoke launch paints under Xvfb; nobody has used the window, file dialogs, tray or a real save on Linux | M | |
 | M4 | 14 browser test files fail on macOS WebKit, alone as well as in the suite (2026-11-26): capability (`frame-fonts`, `frame-media`, `frame-viewers`: macOS WebKit draws or plays what Windows WebKit could not), layout and metrics (`page-states`, `splice-all`, `source-structure`, `leave-split`, `demo-tour`), timing (`large-open-panel`, `markdown-lines`, `tail-follow`, `frame-pdf`), and `operations-copy` (two lazy highlight chunks, javascript and css, load when none are expected; fails alone on main too), and `reading-lines` (find, the level filter and a jump to a byte: a 30 s wait times out; fails alone on main too, 2026-11-27). Logs in `runs/2026-11-26-import/` | The suite has only ever been green on Windows; CI runs it there until these pass, then adds `browser` to the macOS job | M | |
-| M5 | Hosted `windows-latest` browser files: the 14 listed here were made to pass on a hosted runner (one full green run, 123 tests; a later run failed one archive-page line, since loosened, and its re-run was not seen). Still to do: repeat green runs of `browser-windows`, and `pnpm verify --tier changed` (127 browser files, as `withFrame` now shares the file's browser) was not finished here | The workflow is on this branch only; it needs merging before it can be dispatched | S | hosted-windows |
+| M5 | Hosted `windows-latest` browser files: the 14 listed here were made to pass on a hosted runner (one full green run, 123 tests; a later run failed one archive-page line, since loosened). The `browser-windows` workflow is on `main` and runs weekly (Wednesday). Still to do: repeat green runs, and a full `pnpm verify --tier changed` on a hosted Windows runner | One green run is not a stable suite; the browser files join the pull-request checks only after repeat green runs | S | |
 
 ## Release
 
@@ -101,7 +101,6 @@ L31; L4 and L6 by #806; L12 by #797; L13 by #805; L14 by #798. Since `docs/resea
 
 | # | What | Where |
 | --- | --- | --- |
-| R2 | Disable the `nightly` workflow: deleted from `main` by the import, it is still scheduled from an old commit and fails every day (`gh workflow disable nightly -R inkstrata/marxy`) | GitHub, Actions |
 | R14 | Decide the release: v0.2.0, a pre-release, round 16 before the tag, wave 5 after it, the file-association set, ad-hoc signing for now | `reports/2026-11-26-release-readiness/README.md`, "Decisions for the owner" |
 | B13 | Pasting HTML into Source of a file that is not Markdown converts it to Markdown, as `docs/using-marxy.md` promises: fences in a `.py` file, escaped and invalid JSON, a pipe table in a `.csv`, `**bold**` in a `.txt`. Should such a paste go in as plain text? (hunt-01 EDT-03, judged by design) | `docs/using-marxy.md:263-266` |
 
@@ -134,14 +133,13 @@ Whole-page fixes the windowed-pages research parks (D-05): above the node budget
 | R17 | Browser files on macOS overran their waits by minutes (`frame-media`, `frame-viewers`, `frame-pdf`); the runs coincided with the laptop sleeping, so re-run them held awake (`caffeinate -i`) before calling any of it a hang | Settles whether the browser suite can join the macOS CI job (M4) | S |
 | R18 | Round 16's review residue: the held-open queue is unbounded while no boot listens; a cap would drop opens silently, so it needs a rule for what to do past one (`runs/2026-11-24-round-16/README.md`) | After round 16 lands | S |
 | R19 | Waves 1 to 4 residue: the warm store is lost after a same-tab link and Back and after a cross-file replace; `typeset-view`'s block-list patch applies in about half the cases (`STATE.md`, "Risks") | Speed, not correctness | S |
+| L35 | Transforms that rescan from every `[^` (`transforms/clean.ts`) or `](` (`transforms/case.ts`) on one long line may be quadratic | Found reviewing the link-scan fix (2026-11-27). Measure on a long line before fixing | S |
 | B22 | In an archive or embed preview, a broken (unparseable) data file of 256 KB or more that is not UTF-8 is drawn as every line (the pane is fine) | `render/embed-page.ts` reads the reading's lines as UTF-8 only, and `unreadable` (`reading/index.ts`) windows UTF-8 files only: decode the entry for the reading as the pane does (`textForStore`), then window it | S |
 
 ## Housekeeping
 
-About the machines' workspaces, not this repository: H4 and H5 the Windows machine, H6 the Mac.
+About the machines' workspaces, not this repository.
 
 | # | What | State |
 | --- | --- | --- |
-| H4 | `worktrees\furniture` and `worktrees\shortcuts` could not be deleted (a file in each held open) | Retry after a restart |
-| H5 | `worktrees\exe` holds another session's uncommitted `hex.ts` and `frame.css` edits on `a6032b26`, so the installer script refuses it | That session's to clear |
-| H6 | About 570 worktrees beside the Mac checkout are from the earlier architecture, 93 with uncommitted edits, and its main checkout holds 345 untracked files under `orchestration/` | After the tag: a patch per dirty worktree, then remove; every branch is tagged `archive/branch/<name>`; never `git clean` the checkout |
+| H6 | About 570 worktrees beside the Mac checkout are from the earlier architecture, 93 with uncommitted edits, and its main checkout holds 345 untracked files under `orchestration/` | After the tag: a patch per dirty worktree, then remove; every branch is tagged `archive/branch/<name>`; never `git clean` the checkout. The Windows machine's old-pipeline leftovers were archived and removed on 2026-11-27; only the Mac's remain |

@@ -3,6 +3,8 @@ name: browser-windows
 # relative to apps/desktop/test), or, left empty, scripts/browser-windows.json. ci.yml runs no browser suite on Windows
 # (docs/testing.md, "Browser tests on a hosted runner"); this is how a file is proved there. Timings are uploaded.
 on:
+  schedule:
+    - cron: "0 10 * * 3" # Wednesday 02:00 Pacific
   workflow_dispatch:
     inputs:
       files:
@@ -32,7 +34,7 @@ jobs:
       - name: Browser tests
         env:
           MARXY_BROWSER_TESTS_REQUIRED: "1"
-          MARXY_BUDGET_SCALE: ${{ inputs.scale }}
+          MARXY_BUDGET_SCALE: ${{ inputs.scale || '1' }} # a scheduled run has no inputs
           MARXY_TIMINGS: ${{ runner.temp }}/browser-timings.jsonl
           FILES: ${{ inputs.files }}
         run: |
