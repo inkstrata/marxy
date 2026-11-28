@@ -47,9 +47,9 @@ Fable is used only when the week's plan pull request has its Fable box ticked by
 
 ## The budget
 
-- **The owner's window**, 14:00 to 24:00, has no agent work. A 5-hour usage block starts at the first
-  message after the last one expired; a new block must end by 14:00.
-- **5-hour meter:** at 75% no new agents; at 85% stop, finishing only the current step.
+- **The owner's window**, 14:00 to 24:00, has no agent work, except Friday 14:00 to 20:00 (the final sweep,
+  below). A 5-hour usage block starts at the first message after the last one expired; a new block must end by 14:00.
+- **5-hour meter:** at 75% no new agents; at 85% stop, finishing only the current step (90% in the final sweep).
 - **Weekly meter:** the owner keeps a reserve of max(15, 60 − the owner's use this week) percent; the sweep
   lowers it to at most 30 on Thursday and 15 on Friday. Each slot may use the headroom divided by the slots
   left before Friday 14:00.
@@ -81,7 +81,7 @@ and a marker inside it, quoted or mentioned, counts for nothing.
 
 - it is open, not a draft, its head is `agent/*`, and the head branch is in this repository (a fork's pull
   request is refused, whatever its branch is called);
-- its body ends with `<!-- marxy-author run=<id> model=<model> -->`;
+- its body ends with `<!-- marxy-author run=<id> model=<model> -->` on a line of its own;
 - a review comment carries `<!-- marxy-review verdict=approve head=<40-hex sha> run=<id> model=<model> -->` for
   its current head, from a run and a model different from the author's, with no `changes` verdict for that head
   in the same second or later;
@@ -89,7 +89,10 @@ and a marker inside it, quoted or mentioned, counts for nothing.
 - it touches no path in `.github/CODEOWNERS` (those wait for the owner);
 - it has no `hold` label, and GitHub calls it `CLEAN` (merges happen at any hour);
 - for a `plan` pull request: the weekly reset has passed, and the newest `<!-- marxy-intake head=<sha> -->`
-  comment is for the current head and newer than every owner comment.
+  comment is for the current head and newer than every owner comment (an edited one counts from its last edit).
+
+A time that cannot be read holds: a `changes` verdict, an owner comment or an intake with no readable time is
+never taken as older than what it competes with.
 
 `auto.mjs merge --dry-run` prints what it would do and why each one is held.
 
