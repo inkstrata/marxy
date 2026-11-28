@@ -97,6 +97,8 @@ function decideFinal({ now, l, usage, policy, out, refuse }) {
   // Stop five minutes before the reset so builders have time to push their drafts.
   const stopAt = zonedTime(l.year, l.month, l.day, f.until - 1, 55, policy.tz);
   out = { ...out, stopAt: stopAt.toISOString(), finalSweep: true };
+  // Past the stop nothing new starts: a job asking at 19:57 would get a stop time already gone.
+  if (now >= stopAt) return refuse('final sweep has ended', out);
   if (!usage) return refuse('final sweep needs a usage reading', out);
   if (usage.fiveHour.pct >= f.fiveHour.hard) return refuse('5-hour hard stop', out);
   out.noNewAgents = usage.fiveHour.pct >= f.fiveHour.soft;

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { decide, slotsUntilReset, fromGetUsage, localParts, zonedTime } from './governor.mjs';
+import { withPresence } from './presence.mjs';
 
 // Late November 2026 is standard time in Los Angeles, UTC-8. 24 Nov is a Tuesday, 26 a Thursday,
 // 27 a Friday, 28 a Saturday.
@@ -118,6 +119,19 @@ test('final sweep: the five-hour line is 75 soft and 90 hard', () => {
   assert.equal(fri('15:00:00', usage({ five: 74, resets: iso('2026-11-27T18:00:00') })).noNewAgents, false);
   const hard = fri('15:00:00', usage({ five: 90, resets: iso('2026-11-27T18:00:00') }));
   assert.deepEqual([hard.allowed, hard.reason], [false, '5-hour hard stop']);
+  // 85 is the hard line on other days; in the final sweep it only stops new agents.
+  const at85 = fri('15:00:00', usage({ five: 85, resets: iso('2026-11-27T18:00:00') }));
+  assert.deepEqual([at85.allowed, at85.noNewAgents], [true, true]);
+  assert.equal(fri('15:00:00', usage({ five: 89.9, resets: iso('2026-11-27T18:00:00') })).allowed, true);
+});
+test('final sweep: nothing starts from the 19:55 stop until the reset', () => {
+  assert.equal(fri('19:54:00', usage({ weekly: 40 })).allowed, true);
+  for (const t of ['19:55:00', '19:59:00']) {
+    const d = fri(t, usage({ weekly: 40 }));
+    assert.deepEqual([d.allowed, d.reason, d.finalSweep], [false, 'final sweep has ended', true], t);
+  }
+  const next = fri('20:00:00', usage({ weekly: 5 }));
+  assert.deepEqual([next.finalSweep, next.reason], [undefined, 'owner window']);
 });
 test('final sweep: a flat 2% reserve, and nothing at 98% weekly', () => {
   const d = fri('15:00:00', usage({ weekly: 50 }));
@@ -145,6 +159,16 @@ test('final sweep: research-now follows the same caps', () => {
   assert.deepEqual([d.allowed, d.noNewAgents, d.stopAt], [true, true, iso('2026-11-27T19:55:00')]);
   assert.equal(fri('15:00:00', usage({ five: 65 }), 'research-now').noNewAgents, false);
   assert.equal(fri('15:00:00', usage({ five: 90 }), 'research-now').allowed, false);
+});
+test('final sweep: a research-now decision with the owner at the machine', () => {
+  const busy = { busy: true, why: ['input 1 min ago'] };
+  const d = withPresence(fri('15:00:00', usage({ five: 50, weekly: 40 }), 'research-now'), busy, 'research-now');
+  assert.deepEqual([d.allowed, d.finalSweep, d.lightOnly, d.noNewAgents, d.allowancePct, d.stopAt],
+    [true, true, undefined, false, 58, iso('2026-11-27T19:55:00')]);
+  const night = withPresence(fri('15:00:00', usage({ five: 50, weekly: 40 }), 'night'), busy, 'night');
+  assert.deepEqual([night.allowed, night.lightOnly], [true, true]);
+  const late = withPresence(fri('19:56:00', usage({ five: 50, weekly: 40 }), 'research-now'), busy, 'research-now');
+  assert.deepEqual([late.allowed, late.reason], [false, 'final sweep has ended']);
 });
 test('slotsUntilReset stays at one through the final sweep', () => {
   for (const t of ['14:00:00', '19:59:00']) assert.equal(slotsUntilReset(la(`2026-11-27T${t}`)), 1);
