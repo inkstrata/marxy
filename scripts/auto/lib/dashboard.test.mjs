@@ -50,7 +50,7 @@ test('render lays out the sections in order with live queue state', () => {
   assert.match(md, /- linux: no data yet/);
   assert.match(md, /automation this week: 6%/);
   assert.doesNotMatch(md, /41\.\d*%/, 'the owner\'s weekly meter stays off the public issue');
-  assert.match(md, /automation 6%, owner 35.3%|automation 6%, owner 35.25%/);
+  assert.doesNotMatch(md, /owner 35/, 'the owner\'s share stays off the public issue');
   assert.match(md, /night 20 0 \* \* \*/);
   assert.doesNotMatch(md, /tick/);
 });
