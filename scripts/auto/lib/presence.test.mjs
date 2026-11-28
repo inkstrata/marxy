@@ -111,3 +111,12 @@ test('withPresence: busy stops work, except in the final sweep where it goes lig
   assert.equal(withPresence({ ...final, allowed: false }, busy, 'night').allowed, false, 'a refusal stays a refusal');
   assert.equal(withPresence(final, idle, 'night').lightOnly, undefined);
 });
+
+test('withPresence: an unknown presence counts as busy, light in the final sweep', () => {
+  const unknown = presence({ platform: 'win32', run: () => { throw timedOut(); } });
+  const stopped = withPresence({ allowed: true, reason: 'ok' }, unknown, 'night');
+  assert.deepEqual([stopped.allowed, stopped.reason], [false, 'owner is using this machine: presence unknown: powershell']);
+  const final = { allowed: true, reason: 'final sweep', finalSweep: true };
+  assert.equal(withPresence(final, unknown, 'night').lightOnly, true);
+  assert.equal(withPresence(final, unknown, 'research-now'), final);
+});

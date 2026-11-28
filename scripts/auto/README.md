@@ -100,7 +100,7 @@ protecting the owner's window and spends it (`POLICY.finalSweep`). In that windo
 owner-window and 14:00-block rules for every profile, `research-now` included; the 5-hour line is 75% soft (no
 new agents) and 90% hard (stop); the weekly reserve is a flat 2%, so the allowance is the whole headroom; `stopAt`
 is 19:55. It answers `finalSweep: true`. With no usage reading it refuses (no blind mode). If the owner is at the
-machine the gate does not refuse but answers `lightOnly: true`: reading and writing work, local verify at
+machine, or presence is unknown, the gate does not refuse but answers `lightOnly: true`: reading and writing work, local verify at
 `--tier quick`, CI runs the rest; for `research-now` presence is ignored. The `friday` job runs the `night`
 skill in final mode.
 
