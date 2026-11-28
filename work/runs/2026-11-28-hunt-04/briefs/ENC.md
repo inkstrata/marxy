@@ -44,7 +44,7 @@ it for a `domain` axis with no lens of its own; for those, in order of what hurt
   worktree root (browser), or `node --test --experimental-strip-types <file>` (unit). One browser run at
   a time.
 - Your own dev server if you need one: `pnpm --filter @marxy/desktop exec vite --port 1422` (your port
-  is **<port>**; never 1420).
+  is **1422**; never 1420).
 Never edit files under `apps/`, `packages/`, `scripts/` or `docs/`. If a probe test must sit in the tree to
 run, copy it into `probes/ENC/` and delete it from the tree as soon as it has run.
 
