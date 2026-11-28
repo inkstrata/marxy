@@ -4,7 +4,7 @@ A file of 1 to 5 MB is an ordinary file for Marxy: a long transcript, a book, a 
 reference. This document says what happens to such a file today, the rules every feature follows so that it stays
 usable, and the checks that hold features to them. The size limits themselves are listed in
 [file-kinds.md](file-kinds.md#size-limits); the research behind the rules (how comparable apps handle big files, with
-sources) is [research/large-files](research/large-files/SYNTHESIS.md).
+sources) is [research/large-files](research/large-files/SYNTHESIS.md); how Markdown pages are windowed, and the node budget, is [research/windowed-pages](research/windowed-pages/SYNTHESIS.md).
 
 ## What a big file goes through
 

@@ -1,0 +1,200 @@
+WebKit Bugzilla
+
+New
+
+Browse
+
+Search+
+
+Log In
+
+&times;
+
+Sign in with GitHub
+
+or
+
+Remember my login
+
+Create Account
+
+·
+
+Forgot Password
+
+Forgotten password account recovery
+
+RESOLVED
+DUPLICATE
+of bug 157323277573
+
+REGRESSION (Safari 18): details/summary with content-visibility:auto doesn't expand
+https://bugs.webkit.org/show_bug.cgi?id=277573
+
+Summary
+
+REGRESSION (Safari 18): details/summary with content-visibility:auto doesn't ...
+
+Bogdan Brinza
+
+Reported
+2024-08-02 16:39:19 PDT
+
+Created attachment 472049 [details]
+Minimal repro
+
+Noticed that in Safari 18 beta 1-3 on macOS 14.6 (23G80).
+
+See the attached repro - when details element has content-visibility: auto - you cannot expand summary to see details. Works in Firefox, Chrome and worked in Safari 17. You can make details visible with Dev Tools if you force style invalidation (e.g. toggle some property).
+
+By the way, Safari 18 is missing from Feedback Assistant, only 16 and 17 are present.
+
+Attachments
+
+Minimal repro
+
+(91 bytes,
+text/html)
+
+2024-08-02 16:39 PDT,
+
+Bogdan Brinza
+
+no flags
+
+Details
+
+View All
+
+Add attachment
+proposed patch, testcase, etc.
+
+Radar WebKit Bug Importer
+
+Comment 1
+2024-08-05 16:31:24 PDT
+
+<rdar://problem/133251469>
+
+Tim Nguyen (:ntim)
+
+Comment 2
+2024-11-23 11:32:32 PST
+
+Fixed by bug 157323 which started using content-visibility to implement showing/hiding of details contents.
+
+*** This bug has been marked as a duplicate of bug 157323 ***
+
+Note
+You need to
+log in
+before you can comment on or make changes to this bug.
+
+Status
+
+RESOLVED
+
+Resolution
+
+DUPLICATE
+
+of bug 157323
+
+Priority
+
+P2
+
+Severity
+
+Major
+
+Classification
+
+Unclassified
+
+Version
+
+Safari 18
+
+Hardware
+
+Mac (Apple Silicon)
+
+OS
+
+Unspecified
+
+Product
+
+WebKit
+
+Component
+
+CSS
+
+Assignee
+
+Nobody
+
+Reported
+
+2024-08-02 16:39 PDT
+
+Modified
+
+2024-11-23 11:32 PST
+History
+
+CC List
+
+6
+users
+
+Show
+
+karlcow
+koivisto
+mike
+ntim
+rniwa
+webkit-bug-importer
+
+URL
+
+Keywords
+
+BrowserCompat, InRadar
+
+Depends on
+
+Blocks
+
+252223
+
+Dependencies
+
+treegraph
+
+See Also
+
+Alias
+
+None
+
+Top of Page
+
+Format For Printing
+
+XML
+
+Clone This Bug
+
+New
+
+Browse
+
+Search+
+
+Reports
+
+Requests

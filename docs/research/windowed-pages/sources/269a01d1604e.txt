@@ -1,0 +1,877 @@
+WebKit
+
+Downloads
+
+Feature Status
+
+CSS Features
+
+Standards Positions
+
+Documentation
+
+Web Inspector
+
+Tracking Prevention
+
+Policies
+
+Project Goals
+
+Bug Prioritization
+
+Bug Report Guidelines
+
+Code Style Guidelines
+
+Commit and Review Policy
+
+Feature Policy
+
+Security Policy
+
+Tracking Prevention Policy
+
+WebKit AI Tool Use Policy
+
+Contribute
+
+Getting Started
+
+Contributing Code
+
+Testing Contributions
+
+How to Report Bugs
+
+GitHub Repository
+
+Blog
+
+News Posts
+
+CSS Posts
+
+Contributing Posts
+
+Privacy Posts
+
+Performance Posts
+
+JavaScript Posts
+
+Standards Posts
+
+Web Inspector Posts
+
+Safari Technology Preview Posts
+
+WebKit Features in Safari 17.4
+
+Mar 5, 2024
+
+by Jen Simmons and Jon Davis
+
+Contents
+
+Architectural improvements
+
+Web Apps
+
+Form elements
+
+CSS
+
+Web API
+
+JavaScript
+
+Media
+
+SVG
+
+WebGL
+
+Web Assembly
+
+Web Inspector
+
+Changes to Safari
+
+Safari Extensions
+
+Web Authentication
+
+Bug Fixes and more
+
+Updating to Safari 17.4
+
+Feedback
+
+Just like Safari 15.4 and Safari 16.4, this March’s release of Safari 17.4 is a significant one for web developers. We’re proud to announce another 46 features and 146 bug fixes.
+
+You can experience Safari 17.4 on iOS 17.4, iPadOS 17.4, macOS Sonoma 14.4, macOS Ventura, macOS Monterey, and in visionOS 1.1.
+
+Architectural improvements
+
+It’s always exciting to ship new features that you can use while building websites and web apps for your users. WebKit engineers also work on many important projects beyond implementing new web platform features. Recently, much effort has gone into multiple infrastructure projects that strengthen WebKit for the long-term.
+
+We completed the final installment of our multi-year long rewrite of our inline layout engine (more on that later). We built two new iOS frameworks with hundreds of new APIs to support functionality used by web browsers, including multiprocess, JIT, and advanced keyboard & touch event access — and we are pivoting WebKit to use these new frameworks. We’re working on several other large projects that deepen security and privacy. And we’ve been hard at work to make Safari even faster. For many years, Safari has held the crown of the world’s fastest browser. It’s important to us to keep pushing the boundaries of speed, as the websites you build continue to get more complex. Hundreds of recent changes result in Safari 17.4 showing a significant performance bump.
+
+Web Apps
+
+Safari 17.4 brings two improvements to web apps on Mac.
+
+First, Safari adds support for the shortcuts manifest member on macOS Sonoma. This gives you a mechanism in the manifest file for defining custom menu commands that will appear in the File menu and the Dock context menu.
+
+On Mac, our Web Kittens web app includes four shortcuts. You can see them listed in the File menu: New Kitten, Discover, Messages, and Notifications. They each open a menu item by going to the appropriate URL.
+
+A web app shortcut consists of a name, (the words you’d like to appear in the menu), and a url. When a user activates the command, it opens the specified URL inside the web app.
+
+"shortcuts": [
+{
+"name": "New Kitten",
+"url": "/new-kitten"
+},
+{
+"name": "Discover",
+"url": "/discover"
+}
+]
+
+Users can set up custom keyboard shortcuts for app menu commands in System Settings > Keyboard > Keyboard Shortcuts > App Shortcuts. By default, macOS does not assign web app shortcuts any keyboard commands.
+
+Second, Safari 17.4 now supports the categories manifest member on macOS Sonoma. This member provides you with a mechanism for telling the browser which categories your web app belongs in. On Mac, when a user creates a Launchpad folder that contains web apps, the folder is automatically named accordingly.
+
+Form elements
+
+Switch control
+
+The switch is a popular interface for many use cases, but until now, there was no easy way to put a switch on the web. Instead developers might use a checkbox input field, remove the visual look of the checkbox with appearance: none, and write custom styles to create something that looks like a switch.
+
+Now, with WebKit for Safari 17.4, HTML supports a native switch. If you code <input type="checkbox" switch>, the browser will simply create a switch for you, and map it to role=switch and related ARIA features.
+
+Try this demo in Safari 17.4. Currently, in other browsers you will see three checkboxes.
+
+Extending the current HTML checkbox provides several benefits and honors the W3C’s HTML Design Principles. First, this design degrades gracefully — which means you can use <input type="checkbox" switch> today. Browser that have support will show a switch, while browsers that do not have support will show a checkbox. No user will get a broken experience, and you don’t have to wait until all of your users have a browser with support in order to utilize this on your website or web app. This design also does not reinvent the wheel. It matches the way form controls have always worked on the web, and feels just like the code you’re used to. It’s an incremental evolution of the web. And as a simple solution, it avoids needless complexity.
+
+The accent-color property can be used to change the background color of the switch in the “on” state. And, exactly like other form controls, you can use appearance: none to remove the system default styling and apply your own, perhaps while leveraging :before and :after.
+
+In the future, there will likely be multiple pseudo-elements to make it even easier to style the switch with your custom styles. You can try out ::track and ::thumb in Safari Technology Preview today and let us know what you think of this approach. See how they work in this demo, after enabling the “::thumb and ::track pseudo-elements” feature flag. (These pseudos are waiting to ship until there is a more comprehensive plan for styling form controls proposed, discussed and resolved on at the CSS Working Group.)
+
+Vertical writing modes
+
+From the beginning, the web has always been interactive. Even before any method of custom styling was available, form controls and input fields provided the means for users to communicate back to the website and to each other. The web was also originally designed in an era when the Latin alphabet (used by many languages, including English) was the presumed default, with its horizontal top-to-bottom writing mode.
+
+For thirty years, form controls have presumed a horizontal writing mode. Typesetting in a vertical writing mode for languages like Chinese, Japanese, Korean, and Mongolian did not include vertical form controls. Now that’s changed. Starting in Safari 17.4, vertical form controls are supported. This includes meter, range, progress and other form controls that could make for great UI in any language when laid out in a vertical format.
+
+Try this demo of vertical form controls in a browser that has support.
+
+Horizontal Rules inside Select
+
+You can use an <hr> element (a horizontal rule) inside a <select> element to draw a separator line. WebKit shipped support in Safari 17.0 on macOS. Now, Safari 17.4 on iOS 17.4, iPadOS 17.4, and in visionOS 1.1 also has support.
+
+Try a demo and read the story of how hr in select was supported years ago, went away, and is now restored.
+
+And more
+
+WebKit for Safari 17.4 also adds support for the showPicker() method for <input type="date"> on macOS.
+
+CSS
+
+Inline Layout
+
+One of the infrastructure projects that’s been underway in WebKit during the last several years is the complete rewrite of our inline layout engine. Safari 17.4 marks the completion of this project and the retirement of the twenty-one year-old legacy line layout engine.
+
+Inline layout is integral to displaying content on the web. It determines the size and layout — wrapping, justification, spacing, and baseline alignment — of all text and other inline-level content. As developers, we often focus on the invisible block boxes on a web page and write CSS to layout those boxes using Flow, Tables, Flexbox or Grid. The content inside those boxes is placed using complex inline layout algorithms that developers often don’t need to think much about.
+
+We’ve been shipping our new inline layout engine incrementally for many years. As more and more of the new engine was complete, more and more of the content on web pages was positioned by the new engine. This means users have been benefiting from WebKit’s new inline layout engine for a while. The legacy system was only triggered if there were something that hadn’t been yet implemented in the new engine. The last major step needed was the reimplementation of Ruby — and now it’s also a proper inline layout feature, fixing past inconsistencies.
+
+Projects like these can be disruptive. Often browser teams will choose to not ship any new features while a multi-year rewrite project is in progress. WebKit instead chose to keep shipping new features, often implementing them twice — once in the legacy line layout engine, and again in the new inline layout engine. Now that this work is done, we no longer have to implement anything twice. This work also let us go through a large number of bugs reported on bugs.webkit.org, confirm they are no longer a problem, and close them as fixed.
+
+We’re excited for WebKit’s future with this new engine. This investment results in increased interoperability by aligning to the latest web standards, fewer inline layout bugs, better performance, improvements to stability, and the ability to implement new features far more easily. The completion of inline layout also marks the beginning of rewriting the layout engine for other formatting contexts, starting with Flexbox.
+
+Align content everywhere
+
+When Flexbox shipped, it brought a powerful new tool to the web — box alignment. The align-content property made it possible to easily vertically center content inside a box! Or you could use it to align content to the bottom to the box, to align baselines of text, and more. When CSS Grid shipped, box alignment became possible in a second layout mode. Since 2017, you’ve been able to align the direct children of both Flexbox and Grid containers.
+
+Now, we are proud to be the first browser shipping support for align-content inside two more formatting contexts — block layout and table layout. This means if all you want to do is align a box’s content in the block direction, you don’t need to involve Flexbox or Grid. Plus, you can now mix alignment with floats, and you can use it inside table cells.
+
+div { align-content: center; } /* one-line vertical centering */
+
+In addition, we updated the handling of align-content and justify-content on scroll containers in WebKit for Safari 17.4. Now, for example, you can use CSS to set the initial scroll position to the end rather than the start of the content.
+
+div { overflow: auto; align-content: unsafe end; } /* end-aligned scroller */
+
+Be sure to test alignment on scroll containers across browsers, as many are still in the process of updating to the specified behavior. Those that have not yet updated may clip content.
+
+CSS Scoping
+
+Websites today can be complex, with large teams working across multiple projects, relying on pattern libraries or frameworks to keep everything organized and consistent. It can become tough for large teams to handle how their CSS cascades. Tools like Cascade Layers and :has() have changed the game, allowing developers to apply styles more masterfully. Yet, developers often want a way to scope styles to the individual component they’re working on, without worrying about the big picture or preventing unintended consequences.
+
+CSS Scoping was created to provide several more powerful options for organizing and structuring CSS. (Note, there have been many debates over many years on how style scoping might work. Search results for “CSS scoping” often yield old, unimplemented or completely different ideas.)
+
+WebKit for Safari 17.4 adds supports the @scope rule and expands the capabilities of the :scope pseudo-class. Scoping changes how the cascade works in some surprising ways, so do be sure to read about its impact before deploying widely.
+
+If your project is making heavy use of components, constructed independently and loaded in random order, scoping can help you by ensuring certain styles only apply to the contents of a specific element, and never to anything else on the page.
+
+By default, all CSS on a project applies universally. It has a “scoping root” of <html>. And the :root pseudo-element refers to the root element in the DOM — the html element. CSS Scoping lets you use <style> @scope to reset the scoping root to a certain element, to the parent of the <style> element.
+
+<article id="my-component">
+<style>
+@scope {
+h1 { font-size: 4rem; }
+}
+</style>
+<h1>This is 4rem text.</h1>
+</article>
+
+<h1>This will not be styled by the CSS above.</h1>
+
+In this case, because <article> is the direct parent of <style> @scope, all of the styles defined inside @scope will only impact article and the content inside article. Nothing outside article is affected.
+
+But that’s not all CSS Scoping can do. Let’s imagine we want to apply styles to a sidebar, but we don’t want those styles to apply to everything in the sidebar. We can use @scope to create a donut of sorts — with a hole in the middle where the styles don’t apply.
+
+@scope (aside) to (section) {
+h2 {
+font-size: 3rem;
+}
+}
+
+<aside id="my-sidebar">
+<h2>This is 3rem text.</h2>
+<section>
+<h2>This is not styled by the CSS above.</h2>
+</section>
+</aside>
+
+You can try this demo in a browser with support.
+
+By defining a scoping root with a scope-start selector (aside) and a scoping limit with a scope-end selector (section), we can effectively stop the cascading of the styles.
+
+Also, anytime you use CSS Scoping, it radically changes what happens when there’s a tie in specificity.
+
+Since the creation of CSS, when multiple selectors have equal specificity, the one that appears last in the CSS cascade is the one that gets applied. For example, if this is your CSS:
+
+.blue h1 { color: blue; }
+.yellow h1 { color: yellow; }
+
+Then this is your result.
+
+<section class="blue">
+<section class="yellow">
+<h1>This headline is yellow.</h1>
+</section>
+</section>
+
+<section class="yellow">
+<section class="blue">
+<h1>This headline is yellow.</h1>
+</section>
+</section>
+
+The headline is always yellow, because .yellow comes later in the CSS file. The order in the HTML does not matter.
+
+But with scoping, the selector that applies to an element that’s closer in the DOM to the scoping root is the one that will apply when their specificities are tied.
+
+Let’s use @scope instead of descendant selectors:
+
+@scope (.blue) {
+h1 { color: blue; }
+}
+@scope (.yellow) {
+h1 { color: yellow; }
+}
+
+Now, the headline color is determined by the DOM order in HTML, not the cascade order in CSS:
+
+<section class="blue">
+<section class="yellow">
+<h1>This headline is yellow.</h1>
+</section>
+</section>
+
+<section class="yellow">
+<section class="blue">
+<h1>This headline is blue!</h1>
+</section>
+</section>
+
+The headline is yellow when .yellow is the closer ancestor, and it’s blue when .blue is the closer ancestor.
+
+This is a fundamental change to how CSS works, so don’t get caught off guard. Use CSS Scoping with a lot of thought and care.
+
+Note that a selector like .blue h1 { } has higher specificity than a selector like @scope (.yellow){ h1 { }}. The specificity of the scoping root’s selector is not added to the specificity of the selectors inside the @scope rule, unlike Nesting. And .blue h1 is higher specificity than h1.
+
+WebKit for Safari 17.4 also expands the purpose of the :scope pseudo-class. When used inside a @scope block, :scope matches the block’s defined scope root. This provides a way to apply styles to the root of the scope from inside the @scope block itself. In the following example, :scope applies a border to the article element.
+
+<article id="my-component">
+<style>
+@scope {
+:scope { border: 1px solid black; }
+h1 { font-size: 4rem; }
+}
+</style>
+<h1>This is 4rem text.</h1>
+</article>
+
+You can try this demo in a browser with support.
+
+White space and text wrap
+
+For years, the white-space property in CSS has provided a mechanism for doing two things at once: 1) defining whether and how white space is collapsed, and 2) defining whether and how lines wrap. The CSS Working Group has since noted that this was likely a mistake, to handle two different qualities in one property. With the introduction of text-wrap, the CSSWG has rethought how the long and shorthand versions of these properties combine into an architecture that makes more sense and gives us needed flexibility.
+
+Now the white-space property is a shorthand for two new longhand properties: white-space-collapse and text-wrap-mode, both added in WebKit for Safari 17.4. These longhands let you change the collapsing and wrapping modes independently, each without affecting the other.
+
+The white-space-collapse property controls how white space is collapsed. By default, it’s set to collapse, causing strings of multiple spaces to become a single space. You can change the value instead to preserve in order to keep all the spaces, or use other the values: preserve-breaks, preserve-spaces, or break-spaces. These values all behave as they have for years with the white-space property.
+
+The new text-wrap-mode property provides a mechanism for setting whether or not text should wrap. The wrap value turns it on, and the nowrap value turns it off.
+
+This work sets the stage for the text-wrap shorthand and it’s longhands text-wrap-style and text-wrap-mode, some of which you can currently test in Safari Technology Preview.
+
+Percentages in spacing
+
+WebKit for Safari 17.4 adds support for percentages in letter-spacing and word-spacing. This lets you define spacing as a percentage of the element’s font-size — and keeps tracking the font-size even when it grows or shrinks on descendant elements.
+
+Styling grammar and spelling errors
+
+WebKit for Safari 17.4 adds support for the ::spelling-error and ::grammar-error pseudo-elements. These make it possible to create your own custom styling for text that is marked by the browser as misspelled or grammatically incorrect.
+
+Alt text for generated content
+
+The vast majority of content on the web is communicated through HTML, but CSS does have the ability to insert content into the page. Until now, sometimes this kind of content could not be made accessible. Now in WebKit for Safari 17.4, you can provide alternative text with accessible content fallback — content: "foo" / "alt-text";
+
+For example, perhaps we want to prefix certain links with the little ⓘ icon to let users know this item leads to more detailed information. That symbol might be read by screenreader as “Circled Latin Small Letter I” or “Information source combining enclosing circle”, neither of which do a good job communicating the intended purpose. Perhaps a better experience would be to simply hear “Info:”.
+
+.info::before {
+content: "ⓘ" / "Info:";
+}
+
+Previously, the -webkit-alt property served this function. It has been deprecated in favor of the new content alt text syntax. The new syntax is also more expressive as it allows for cascading, and allows you to chain multiple strings and attr() as alternative text.
+
+Transitions
+
+When CSS Transitions were created, they allowed authors to create a gradual timed transition between old and new values by interpolation. Sometimes, however, interpolation is not possible. For example, there’s no meaningful intermediary value between float: left and float: right, so, transitions ignored these properties. They simply jumped from the first state to the second immediately, without any ability to define when the jump should happen.
+
+Yet, web developers have wanted a way to at least be able to define when the transition should happen for discrete properties. So the CSS Working Group figured out a way to make that possible. Now, you can tell the browser that you want an element to be capable of transitioning discrete property values, which lets you control their transition timing using the easing functions.
+
+WebKit for Safari 17.4 adds support for the transition-behavior property. The transition-behavior: allow-discrete rule lets you enable transitions between discrete property values, so that you can control their timing via transition.
+
+li {
+list-style: disc;
+color: blue;
+transition: all 2s, list-style 0.5s step-end;
+transition-behavior: allow-discrete;
+}
+li:hover {
+list-style: square;
+color: red;
+}
+
+Try this demo code in a browser with support. Toggle transition-behavior off to see the difference.
+
+:has()
+
+The :has() pseudo-class provides tremendous value. We keep making it more and more powerful by adding support for additional pseudo-classes within :has(). WebKit for Safari 17.4 adds support for :has(:any-link), :has(:link), and :has(:-webkit-any-link), making it possible to select an element depending on whether or not it contains a link.
+
+And more
+
+WebKit for Safari 17.4 adds support for CSS custom properties to the ::backdrop pseudo-element, allowing variables to be applied to the backdrop behind dialog elements and other top layer items.
+
+WebKit for Safari 17.4 also adds offset-position support for circle() and ellipse().
+
+And WebKit for Safari 17.4 makes -apple- prefixed pseudo-elements no longer valid.
+
+Web API
+
+This release of Safari adds support for an assortment of small Web API additions that give you extra tools in your developer toolkit.
+
+With support for the element.checkVisibility() method, you can determine the visibility of an element across a variety of conditions including how CSS properties such as display, visibility, and opacity are applied.
+
+WebKit for Safari 17.4 also extends its Declarative Shadow Root support. The Element.prototype.setHTMLUnsafe(), ShadowRoot.prototype.setHTMLUnsafe(), and Document.parseHTMLUnsafe() methods, as well as the ShadowRoot clonable property are now available. The setHTMLUnsafe() methods work similar to setting an element’s innerHTML property, enabling unsanitized DOM tree mutation but with additional support for declarative shadow roots. The parseHTMLUnsafe() method similarly parses unsanitized HTML with declarative shadow root support and returns a document. And the clonable read-only boolean property allows you to detect if a ShadowRoot is clonable.
+
+WebKit for Safari 17.4 adds support for the CustomStateSet interface for custom element state management. This interface includes methods to add(), delete(), or detect if the element has() a given state, and more. Importantly, these states added to a custom element can be styled using the :state() pseudo-class by users of the custom element.
+
+The DOMMatrixReadOnly interface now supports the scaleNonUniform() method that creates a new DOMMatrix scaling on X, Y, and Z axes. The X axis scaling factor must be specified, but the Y and Z axes default to 1. The scaling is centered at the given origin that defaults to (0, 0, 0).
+
+Lastly, WebKit for Safari 17.4 adds support for AbortSignal.any() giving you a convenient way to combine abort signals such as user input (e.g. a user clicks a cancel button) and a timeout to send an abort signal to an async operation.
+
+JavaScript
+
+New JavaScript features in Safari 17.4 add new expressiveness and convenience with promise resolvers, improved internationalization formatting, ArrayBuffer ownership management, and Array grouping features.
+
+WebKit for Safari 17.4 adds support for the Promise.withResolvers static method. It allows developers the convenience of creating a promise and configure the resolution and rejection handlers after it has been created. The method returns the promise along with the resolution and rejection functions.
+
+const { promise, resolve, reject } = Promise.withResolvers();
+
+The TimeZoneOffset format is now available for Intl.DateTimeFormat. It allows you to specify the difference of the local time to UTC time in positive or negative hours and minutes depending on whether the local time is ahead or behind.
+
+new Intl.DateTimeFormat("en-US", {
+dateStyle: 'long',
+timeStyle: 'long',
+timeZone: '-0800'
+}).format(new Date())
+
+Additionally, Number.prototype.toLocaleString and Intl.NumberFormat have been updated so the string representation correctly aligns with recent specification changes.
+
+There’s also new expressive API for managing the concept of ownership for ArrayBuffers. ArrayBuffer.prototype.transfer creates a new ArrayBuffer with the same contents and properties as the target ArrayBuffer (such as being resizable) and detaches it from the original ArrayBuffer. You can use ArrayBuffer.prototype.transferToFixedLength() to guarantee a non-resizable ArrayBuffer with the same content as the buffer. ArrayBuffer.prototype.detached will tell you if the buffer has been transferred and is detached.
+
+WebKit for Safari 17.4 also adds the Array grouping feature that includes Object.groupBy and Map.groupBy methods. These methods give you powerfully simple tools for grouping datasets.
+
+const todos = [
+{ task: "Water the flowers", context: "home", estimate: "5 minutes" },
+{ task: "Get the TPS report done", context: "work", estimate: "45 minutes" },
+{ task: "Find new insurance", context: "home", estimate: "180 minutes" },
+{ task: "Fix a website bug", context: "work", estimate: "25 minutes" },
+{ task: "Answer emails", context: "anywhere", estimate: "10 minutes" }
+];
+
+let contextual_tasks = Object.groupBy(todos, ({ context }) => context);
+console.log(contextual_tasks);
+
+let tasks_by_time = Map.groupBy(todos, ({ estimate }) => {
+return parseInt(estimate.split(' ')[0]) < 15 ? "short" : "long";
+});
+console.log(tasks_by_time);
+
+Media
+
+Additional codecs
+
+WebKit for Safari 17.4 adds support for several audio and video codecs.
+
+First, WebKit for Safari 17.4 on iOS, iPadOS and in visionOS adds support for WebM. While the WebM container (with both the VP8 and VP9 video codecs) has been fully supported on macOS since Safari 14.1, support on iOS and iPadOS was limited to VP8 in WebRTC. Now, WebM is fully supported everywhere.
+
+The Vorbis audio codec is also now supported in WebKit on iOS 17.4, iPadOS 17.4 and in visionOS 1.1.
+
+And WebKit for Safari 17.4 expands what WebCodecs can do with the addition of support for the HEVC codec.
+
+Source prioritization
+
+When support for video embedding arrived in HTML5 with the <video> and <source> elements, the web standard specified that the first file that’s recognized by the browser should be chosen and played. This put the burden on the developer to make sure the best files were listed before lesser-quality files.
+
+<video>
+<source src="movie.webm">
+<source src="movie.av1">
+<source src="movie.mov">
+</video>
+
+Are you sure the first format listed is always a better choice than the rest?
+
+This made sense in a simpler time, when there were just a few codecs available. Now, there are many codecs with different qualities. It’s not always possible for developers to know which file is the best one for a user to stream. And it can be impossible to put them in one specific order that’s best for all users.
+
+A browser might easily be capable of playing several of the files offered, but one of those files could be compressed with a codec that the user’s device can decode using hardware, while the rest might only be decoded by software alone.
+
+It’s definitely a better user experience to use hardware decoding. Doing so significantly impacts power usage and makes a battery last longer. So now, in WebKit for Safari 17.4, the best file for the user is chosen, instead of defaulting to the first file that has support. Video codecs with hardware decoding support on various Apple devices include VP9, h.264, HEVC and AV1.
+
+WebVTT
+
+WebKit for Safari 17.4 adds support for HTML character entities to WebVTT (Web Video Text Tracks Format), the technology used to add subtitles and captions to video files on the web. HTML entities are a way to write special characters without having the browser mistakenly think they are part of the HTML code. For example, &middot; represents the “·” character.
+
+MediaStream
+
+WebKit for Safari 17.4 adds support whiteBalanceMode to MediaStream. In photography, adjusting white balance is a technique for compensating for the fact that “white” is a different color under different lighting conditions. Sunlight is very blue, while indoor lights tend to be quite orange. Our brains automatically adjust, so as humans, we rarely notice. But cameras need technology to help them adjust color temperature so that the resulting photo or video has the kind of coloring people expect. Now modes for white balance are available for the MediaStream Image Capture API on the web.
+
+SVG
+
+WebKit for Safari 17.4 adds support for kernelUnitLengthX and kernelUnitLengthY to SVGFESpecularLightingElement.
+
+WebGL
+
+WebKit for Safari 17.4 adds support for four new WebGL extensions: EXT_clip_control, EXT_depth_clamp, EXT_polygon_offset_clamp, and WEBGL_polygon_mode.
+
+Web Assembly
+
+WebKit for Safari 17.4 enables extended constant expressions to support more advanced WebAssembly linking.
+
+Web Inspector
+
+Web Inspector for Safari 17.4 has two new features. First, when a page attempts to load a font URL blocked by Lockdown Mode, a message is logged to the Console.
+
+Second, Web Inspector now groups load errors for source maps. Source map files are used for converting a combined or minified file back into its original state. Grouping load errors helps reduce noise while debugging. You can disable this behavior in Web Inspector Settings under Experimental settings.
+
+Changes to Safari
+
+Safari 17.4 itself includes three changes to the UI and user experience. First, you can now configure the Favorites Bar to show your bookmarks with only their icons. Edit the name of the bookmark in the favorites bar, and remove the name. The icon will remain.
+
+Second, Safari 17.4 now supports webpage translation inside <iframe> elements.
+
+And third, Safari 17.4 adds support for Apple Cash virtual card numbers and showing the user their Apple Cash balance when using AutoFill.
+
+Safari Extensions
+
+Safari 17.4 includes a change to web extensions that allows extensions to open Private Browsing windows even when they don’t have access to Private Browsing.
+
+Web Authentication
+
+WebKit for Safari 17.4 adds support for WebAuthn’s PublicKeyCredentials.getClientCapabilities() function. Use it to find out which WebAuthn features are supported. It returns a Promise of a record<DOMString, boolean> containing capabilities and their values.
+
+Bug Fixes and more
+
+In addition to all the new features, WebKit for Safari 17.4 includes work polishing existing features.
+
+Accessibility
+
+Fixed exposing the correct <summary> element role. (13661104)
+
+Fixed non-accessible content within iframes with ARIA roles. (104611075)
+
+Fixed VoiceOver word echo on text inputs with a combobox role. (112488137)
+
+Fixed an issue where innerHTML and innerText changes to labels did not update their corresponding input element’s accessibility title. (113872525)
+
+Fixed <details> and <summary> elements not included in VoiceOver form controls menu or list. (117308226)
+
+Fixed comboboxes not notifying assistive technologies when aria-activedescendant changes. (117747058)
+
+Fixed toggling accessibility preferences to correctly update form control appearance. (117914468)
+
+Fixed: Removed the default ARIA-level heading for a heading role, matching removal from ARIA specifications. (119059172)
+
+Fixed text missing from accessibility labels for many common shadow DOM scenarios. (120223342)
+
+Browser Changes
+
+Fixed loading a ⌘Click fragment link in a background tab. (119079650)
+
+CSS
+
+Fixed the default link color contrast for the dark color scheme. (61149466)
+
+Fixed getComputedStyle() for invalid pseudo-elements. (98504661)
+
+Fixed querySelector() to not throw an exception for -webkit- prefixed pseudo-elements. (99299129)
+
+Fixed :user-invalid triggering while typing a date. (110687369)
+
+Fixed: Updated text-transform: full-size-kana to align with Unicode 15. (111508663)
+
+Fixed contain: inline-size breaking grid-template-rows: auto. (113915953)
+
+Fixed svh and dvh units being unexpectedly equal when the Safari tab bar is not visible. (115085360)
+
+Fixed mixed-blend-mode to blend correctly against the root background. (115688282)
+
+Fixed backdrop-filter with many interoperability improvements. (115703346)
+
+Fixed oklab and oklch lightness value clamping. (116195533)
+
+Fixed flex layout invalidation in cases where the content of a flex item changes or style changes impact the preferred widths computation of its items. (117181858)
+
+Fixed selection gaps to get painted with the expected ::selection pseudo-element color. (117796745)
+
+Fixed parsing and serialization of -webkit- prefixed pseudo-elements. (118081134)
+
+Fixed ::backdrop to be allowed after ::slotted(). (119015204)
+
+Fixed to allow :checked and :indeterminate to match at the same time. (119075969)
+
+Fixed grid with size containment and min-height not sizing row correctly. (119736473)
+
+Fixed computing values of basic shape rect() and xywh() as the equivalent inset(). (119739406)
+
+Fixed poor performance with :has(+ :not(.class)) pseudo-class selector. (119819247)
+
+Fixed CSS content computed value serialization. (120061551)
+
+Fixed pseudo-element parsing in getComputedStyle() and KeyframeEffect.prototype.pseudoElement so they require them starting with :: (or : for 4 legacy pseudo-elements). (120170550)
+
+Fixed CSS linear() easing. (120290721)
+
+Fixed named at-rule container getting skipped when the container is named in a :host selector. (120428386)
+
+Fixed :not(:has(:not(foo))) getting misclassified as scope breaking. (120492012)
+
+Fixed the name for a ::slotted pseudo-element in a container query getting resolved against the wrong scope. (122224135)
+
+Made -apple- prefixed pseudo-elements no longer valid. (120268884)
+
+Forms
+
+Fixed <select> not refreshing the dropdown after an <option> is removed on iPad. (88292987)
+
+Fixed text-indent to affect the selected file(s) label for file inputs. (105223868)
+
+Fixed dir=auto to work for hidden, password, submit, reset, and button input types, made dirname work for password and submit input types, and removed dirname support from number input types. (113127508)
+
+Fixed serialization of autocomplete with a webauthn token. (116107937)
+
+Fixed <option> elements outside of an <optgroup> getting added to the preceding group. (117930480)
+
+Fullscreen
+
+Fixed viewport units to be correct after entering and exiting fullscreen mode on iOS, iPadOS, and in visionOS. (120496571)
+
+HTML
+
+Fixed the system-ui font family within <canvas>. (117231545)
+
+Fixed <progress> to use the page’s preferred rendering update interval. (118976548)
+
+Fixed missing support for the direction attribute in the list of attributes whose values are matched case-insensitively with attribute selectors. ( (119432066)
+
+JavaScript
+
+Fixed stringification algorithm of the Function constructor to match specifications. (102065151)
+
+Fixed block-level function declarations to have correct scope in global code and aligned the detection of hoistable block-level legacy function declarations with the spec. (113880075)
+
+Fixed an edge case with detecting a semantic error in generators. (117497786)
+
+Fixed Temporal API to throw TypeErrors for unexpected primitives. (117992134)
+
+Fixed Temporal options handling to align with the specification. (118088676)
+
+Fixed Temporal.Now.timeZone() to be updated to timeZoneId(). (118674314)
+
+Loading
+
+Fixed Link-stylesheet elements to not fire load events for non-text/css and non-2XX responses. (116112223)
+
+Fixed link-stylesheet elements to not fire load events for non-2XX responses such as 3XX responses that do not redirect. (116331826)
+
+Lockdown Mode
+
+Fixed Lockdown Mode disabling on sites with COOP and COEP HTTP headers. (119503109)
+
+Media
+
+Fixed WebVTT regions to position according to specifications. (23091897)
+
+Fixed pausing MediaRecorder continuing to call ondataavailable at every timeslice event. (115979604)
+
+Fixed an HEVC decoder issue when translating annexb data. (116768196)
+
+Fixed WebVTT to treat negative percentages as invalid values. (117615681)
+
+Fixed object-fit: fill on <video> elements. (118020922)
+
+Fixed WebRTC calls not unmuting automatically after using Siri sometimes losing incoming audio. (118461093)
+
+Fixed white bars across the top and bottom of fullscreen video playback while using Light Mode. (118530255)
+
+Fixed the always empty video.buffered attribute. (118550061)
+
+Fixed WebVTT to correctly parse region id settings. (118551267)
+
+Fixed VideoEncoder produces no frames with latencyMode “realtime” when framerate/bitrate are not given. (118725549)
+
+Fixed AV1-in-MP4 codec string not shown in Show Media Stats. (118850797)
+
+Fixed getDisplayMedia frameRate always at 30 regardless of constraints. (118874132)
+
+Fixed returning to fullscreen from picture-in-picture breaking subsequent touch input. (119832557)
+
+Fixed HLS video captions where there are multiple text tracks available. ( (119839950)
+
+Fixed fullscreen video not scaling to display size when the Safari window is in Full Screen App Mode. (119893556)
+
+Fixed handling key renewal requests that cause playback errors for some DRM content. (120230860)
+
+Fixed camera and mic activation failure due to media capability granting and activation order. (120510826)
+
+Fixed paint-on captions shifting during playback. (120847946)
+
+Fixed videos shifting up and down when fullscreen overlay controls appear or disappear. (120848395)
+
+Fixed volume slider flickering when adjusting volume in Safari in visionOS. (120855936)
+
+Fixed blocked encrypted sampled not getting enqueued after a CDM is attached to a SourceBuffer. (120879185)
+
+Fixed video playback on Twitter.com in Safari in visionOS. (121391975)
+
+Fixed[Netflix.com content that can become zoomed-in and cropped when in fullscreen mode. (121822831)
+
+Fixed pseudo-element font size calculation to fix subtitle size in fullscreen mode. (122584350)
+
+Rendering
+
+Fixed incorrectly oriented Traditional Mongolian script characters.(93426525)
+
+Fixed resizing behavior with writing-mode: vertical-rl or direction: rtl. (102620110)
+
+Fixed opacity and rendering the root element background image. (115396444)
+
+Fixed the color of the drop shadow to preserve its alpha channel. (115812347)
+
+Fixed filters with outsets to repaint the entire filterRegion if GraphicsStyles are used. (115817290)
+
+Fixed compositing the filter style transparency layers to not clip the destination context. (115901634)
+
+Fixed a bug where the returned transform from getComputedStyle was incorrect. (117523629)
+
+Fixed handling images with color spaces not supported by the backend to fallback to render in sRGB. (118238178)
+
+Fixed check boxes and radio buttons to avoid floats. (118660695)
+
+Fixed rendering for a <div> within a transformed parent <div> with overflow: hidden. (118901069)
+
+Fixed rendering issues when editing text. (119833765)
+
+Fixed offsetHeight and offsetWidth are 0 for an inline box wrapping a block. (119955792)
+
+Fixed a floating element causing a list item bullet to be orphaned on constrained lines. (120022893)
+
+Fixed incorrect inline box (hugging) outline painting in vertical writing modes. (120217559)
+
+Fixed incorrect ch unit value in vertical-rl and vertical-lr when text-orientation is not upright. (120293590)
+
+Fixed graphics artifacts when scrolling a Heroku app. (120373474)
+
+Fixed overflow: hidden to not prevent CSS Subgrid from applying. (120848131)
+
+Fixed the repaint area for underline text decorations. (121082290)
+
+Fixed align-content and justify-content on scroll containers causing overflowing content to become inaccessible. (121366949)
+
+Fixed rendering floats and an out-of-flow <br> element with clear. (121444267)
+
+Fixed a line break at gaps between two inline elements in a container with white-space: nowrap. (121859917)
+
+Fixed cropped first letter for custom fonts that report negative advance width. (121891210)
+
+Removed margin-trim behavior for floats to match specification changes. (115794102)
+
+Safari Extensions
+
+Fixed sending an error back to the caller if an error occurs for scripting.executeScript(). (107996753)
+
+Fixed an issue where scripts may not be removed after calling scripting.unregisterContentScripts(). (113171510)
+
+Scrolling
+
+Fixed unusable horizontal scrollbars for right-to-left, vertical-rl, or flexbox reverse mode elements. (104944522)
+
+Fixed a scrollTo() followed by an animated scroll ending at the wrong scroll position. (117608836)
+
+Fixed wheel overflow behavior with Shadow DOM elements. (118496293)
+
+Fixed keyboard scrolling beyond the page getting stuck at a bad scroll offset. (120053910)
+
+Storage
+
+Fixed cases where website data is unexpectedly evicted. (119818267)
+
+SVG
+
+Fixed applying rx or ry exclusively via CSS having no effect. (113500023)
+
+Fixed negative SVGTransform scale values to be correctly stringified. (118656892)
+
+Fixed the layout of an SVG when it is inside an <iframe> without affecting the size of the <iframe>. (120178866)
+
+Removed support for SVGRenderingIntent. (102516681)
+
+URLs
+
+Fixed CSS invoked URL parsing to always use UTF-8 as agreed by the W3C CSS WG. (114889625)
+
+Web Animations
+
+Fixed style invalidation for animations. (118500247)
+
+Fixed a paused animation where currentTime is changed to 0 not restarting when unpaused. (118826588)
+
+Web API
+
+Fixed invalid coordinates on wheel and gesturechange events inside an iframe. (105243167)
+
+Fixed HTMLAreaElement to align with the HTML Standard. (110028213)
+
+Fixed the result of Range.getClientRects() and Range.getBoundingRect() for certain ranges. (112543805)
+
+Fixed Scroll To Text Fragment to not scroll after dynamic stylesheet loads and the user has scrolled. (112608578)
+
+Fixed SharedWorker referrer policy to default to its context referrer policy if none is provided in its script http response. (114625126)
+
+Fixed URL encoding for Request‘s referrer feature and Response.redirect(). They now always use UTF-8. (115219660)
+
+Fixed reprocessing <meta name="color-scheme"> when their name or content attribute changes. (115958450)
+
+Fixed FetchResponse.formData() to parse headers names as case insensitive. (116742000)
+
+Fixed declarative shadow trees to match the latest specifications. (117655691)
+
+Fixed jiggling caused by repeated calls to scrollIntoView({ block: 'center' }). (117755250)
+
+Fixed fullscreen warning banner to prevent cutting off long domain names. (118078137)
+
+Fixed updating resizeBy and resizeTo to use int rather than float to align with specifications. (118872048)
+
+Fixed the CookieChangeEvent to not be exposed when the Cookie Store API is disabled. (118902989)
+
+Fixed Element.prototype.setAttributeNode() to not treat attribute names case insensitively. (119013600)
+
+Fixed toggling the spellcheck attribute not toggling spelling markers on input elements. (119269616)
+
+Fixed removing highlights in the Custom Highlights API. (119531671)
+
+Fixed getElementsByName() to only return HTML elements, not SVG, MathML, or other types of elements. (120275680)
+
+Fixed the button value for a pointerup event not matching the pointerdown event. (120429508)
+
+Fixed a wheel event to fire on an element that has been re-inserted after document.open. (120893136)
+
+Fixed Scroll To Text Fragment Text Directives to find text with additional unrendered white space in their node data. (120913588)
+
+Fixed changing HTMLCanvasElement width or height causing intermediate buffer allocations. (122309325)
+
+Fixed canvas captureStream stuttering with WebGL. ((122471664)
+
+Web Inspector
+
+Fixed Home Screen Web Apps in Simulator to be listed under a “Home Screen Web Apps” section in the device submenu of the Develop menu. (117742935)
+
+Fixed the tan() function to not trigger the color picker. (118724061)
+
+WebGL
+
+Fixed Canvas WebGL context capture to WebCodecsVideoFrame not capturing all frames. (108459224)
+
+Fixed: Improved performance of MSAA rendering, including antialiased default framebuffer and fixed PBO uploads of PVRTC1 textures. (117461678)
+
+Fixed WebGL OffscreenCanvas returning the previously created WebGL1 context when asking for WebGL2. (119028794)
+
+Fixed WebGL to be available in nested workers. (120279728)
+
+WebKit
+
+Fixed HTML content not displaying in a Simulator, affecting projects using the web extension project template. (121338366)
+
+WebRTC
+
+Fixed media tracks obtained with {"width":1920,"height":1080,"frameRate":24}. (61747755)
+
+Fixed triggering resolution scaling in the case of WebRTC maintain-framerate degradationPreference. (121041723)
+
+Fixed a bug that prevented HTML canvas elements from always being marked dirty on initialization. This could cause some video effects to have choppy animations. (121257960)
+
+Updating to Safari 17.4
+
+Safari 17.4 is available on iOS 17.4, iPadOS 17.4, macOS Sonoma 14.4, macOS Ventura, macOS Monterey and in visionOS 1.1.
+
+If you are running macOS Ventura or macOS Monterey, you can update Safari by itself, without updating macOS. On macOS Ventura, go to  > System Settings > General > Software Update and click “More info…” under Updates Available.
+
+To get the latest version of Safari on iPhone, iPad, or Apple Vision Pro, go to Settings > General > Software Update, and tap to update.
+
+Feedback
+
+We love hearing from you. To share your thoughts on Safari 17.4, find us on Mastodon at @jensimmons@front-end.social and @jondavis@mastodon.social. Or send a reply on X to @webkit. You can also follow WebKit on LinkedIn. If you run into any issues, we welcome your feedback on Safari UI, or your WebKit bug report about web technologies or Web Inspector. Filing issues really does make a difference.
+
+Download the latest Safari Technology Preview on macOS to stay at the forefront of the web platform and to use the latest Web Inspector features.
+
+You can also find this information in the Safari 17.4 release notes.
+
+NextRelease Notes for Safari Technology Preview 190Learn more
+
+PreviouslyAn HTML Switch ControlLearn more
+
+@webkit@front-end.social
+
+Site Map
+
+Privacy Policy
+
+Licensing WebKit
+
+WebKit and the WebKit logo are trademarks of Apple Inc.

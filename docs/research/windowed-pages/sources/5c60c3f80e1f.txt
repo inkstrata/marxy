@@ -1,0 +1,69 @@
+discuss.ProseMirror
+
+Efficient Viewport rendering? (like CodeMirror)
+
+Uncategorized
+
+callodacity
+
+January 16, 2017, 5:46am
+
+1
+
+Just a quick question!
+
+The excellent CodeMirror editor supports extremely large amounts of lines since it only renders visible lines when necessary.
+
+A quick test on the ProseMirror Demo shows that ProseMirror doesn’t seem to do this.
+
+Testing ~50,000 lines in ProseMirror: typing is very laggy, and entering new lines is much, much worse.
+Enter the same text in the CodeMirror Demo and it renders and edits with no conceivable delay.
+
+Does ProseMirror have the same / or a similar viewport rendering system like CodeMirror?
+Or is it planned for future versions?
+
+marijn
+
+January 16, 2017, 8:48pm
+
+2
+
+No, it doesn’t, and this is intentionally out of scope, because it was already hugely complicated to get right in a plain text editor like CodeMirror, and I don’t want to bloat and complicate this library with this functionality.
+
+I know this can be useful to have, but I’m not tackling it.
+
+1 Like
+
+kofifus
+
+January 22, 2017, 5:05am
+
+3
+
+seems to be a big difference between my old and new boxes … my new one (Core i7 7th gen 8gb mem yey) seems to handle lots of lines gracefully while the old one chokes …
+
+bZichett
+
+January 23, 2017, 12:07am
+
+4
+
+@marijn I’d like to learn more about how this would be done. Would it be possible for you to outline a brief overview of how you’d go about attacking this?
+
+marijn
+
+January 23, 2017, 11:05am
+
+5
+
+I have no idea how to cleanly do that. And that’s why I didn’t do it.
+
+Home
+
+Categories
+
+Guidelines
+
+Terms of Service
+
+Powered by Discourse, best viewed with JavaScript enabled

@@ -1,0 +1,4001 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+mozilla
+
+pdf.js
+
+Repository navigation
+
+Code
+
+Issues383 ( 383 )
+
+Pull requests81 ( 81 )
+
+Discussions
+
+Actions
+
+Projects
+
+Wiki
+
+Security and quality2 ( 2 )
+
+Insights
+
+More items
+
+Files Expand file tree
+
+master
+
+Breadcrumbs
+
+pdf.js
+
+/web
+
+/
+pdf_viewer.js
+
+Copy path
+
+Blame
+
+More file actions
+
+Blame
+
+More file actions
+
+Latest commit
+
+History
+History
+
+History
+
+2830 lines (2527 loc) · 85.7 KB
+
+master
+
+Breadcrumbs
+
+pdf.js
+
+/web
+
+/
+pdf_viewer.js
+
+Copy path
+
+Top
+
+File metadata and controls
+
+Code
+
+Blame
+
+2830 lines (2527 loc) · 85.7 KB
+
+Raw
+
+Copy raw file
+
+Download raw file
+
+Open symbols panel
+Edit and raw actions
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7
+
+8
+
+9
+
+10
+
+11
+
+12
+
+13
+
+14
+
+15
+
+16
+
+17
+
+18
+
+19
+
+20
+
+21
+
+22
+
+23
+
+24
+
+25
+
+26
+
+27
+
+28
+
+29
+
+30
+
+31
+
+32
+
+33
+
+34
+
+35
+
+36
+
+37
+
+38
+
+39
+
+40
+
+41
+
+42
+
+43
+
+44
+
+45
+
+46
+
+47
+
+48
+
+49
+
+50
+
+51
+
+52
+
+53
+
+54
+
+55
+
+56
+
+57
+
+58
+
+59
+
+60
+
+61
+
+62
+
+63
+
+64
+
+65
+
+66
+
+67
+
+68
+
+69
+
+70
+
+71
+
+72
+
+73
+
+74
+
+75
+
+76
+
+77
+
+78
+
+79
+
+80
+
+81
+
+82
+
+83
+
+84
+
+85
+
+86
+
+87
+
+88
+
+89
+
+90
+
+91
+
+92
+
+93
+
+94
+
+95
+
+96
+
+97
+
+98
+
+99
+
+100
+
+101
+
+102
+
+103
+
+104
+
+105
+
+106
+
+107
+
+108
+
+109
+
+110
+
+111
+
+112
+
+113
+
+114
+
+115
+
+116
+
+117
+
+118
+
+119
+
+120
+
+121
+
+122
+
+123
+
+124
+
+125
+
+126
+
+127
+
+128
+
+129
+
+130
+
+131
+
+132
+
+133
+
+134
+
+135
+
+136
+
+137
+
+138
+
+139
+
+140
+
+141
+
+142
+
+143
+
+144
+
+145
+
+146
+
+147
+
+148
+
+149
+
+150
+
+151
+
+152
+
+153
+
+154
+
+155
+
+156
+
+157
+
+158
+
+159
+
+160
+
+161
+
+162
+
+163
+
+164
+
+165
+
+166
+
+167
+
+168
+
+169
+
+170
+
+171
+
+172
+
+173
+
+174
+
+175
+
+176
+
+177
+
+178
+
+179
+
+180
+
+181
+
+182
+
+183
+
+184
+
+185
+
+186
+
+187
+
+188
+
+189
+
+190
+
+191
+
+192
+
+193
+
+194
+
+195
+
+196
+
+197
+
+198
+
+199
+
+200
+
+201
+
+202
+
+203
+
+204
+
+205
+
+206
+
+207
+
+208
+
+209
+
+210
+
+211
+
+212
+
+213
+
+214
+
+215
+
+216
+
+217
+
+218
+
+219
+
+220
+
+221
+
+222
+
+223
+
+224
+
+225
+
+226
+
+227
+
+228
+
+229
+
+230
+
+231
+
+232
+
+233
+
+234
+
+235
+
+236
+
+237
+
+238
+
+239
+
+240
+
+241
+
+242
+
+243
+
+244
+
+245
+
+246
+
+247
+
+248
+
+249
+
+250
+
+251
+
+252
+
+253
+
+254
+
+255
+
+256
+
+257
+
+258
+
+259
+
+260
+
+261
+
+262
+
+263
+
+264
+
+265
+
+266
+
+267
+
+268
+
+269
+
+270
+
+271
+
+272
+
+273
+
+274
+
+275
+
+276
+
+277
+
+278
+
+279
+
+280
+
+281
+
+282
+
+283
+
+284
+
+285
+
+286
+
+287
+
+288
+
+289
+
+290
+
+291
+
+292
+
+293
+
+294
+
+295
+
+296
+
+297
+
+298
+
+299
+
+300
+
+301
+
+302
+
+303
+
+304
+
+305
+
+306
+
+307
+
+308
+
+309
+
+310
+
+311
+
+312
+
+313
+
+314
+
+315
+
+316
+
+317
+
+318
+
+319
+
+320
+
+321
+
+322
+
+323
+
+324
+
+325
+
+326
+
+327
+
+328
+
+329
+
+330
+
+331
+
+332
+
+333
+
+334
+
+335
+
+336
+
+337
+
+338
+
+339
+
+340
+
+341
+
+342
+
+343
+
+344
+
+345
+
+346
+
+347
+
+348
+
+349
+
+350
+
+351
+
+352
+
+353
+
+354
+
+355
+
+356
+
+357
+
+358
+
+359
+
+360
+
+361
+
+362
+
+363
+
+364
+
+365
+
+366
+
+367
+
+368
+
+369
+
+370
+
+371
+
+372
+
+373
+
+374
+
+375
+
+376
+
+377
+
+378
+
+379
+
+380
+
+381
+
+382
+
+383
+
+384
+
+385
+
+386
+
+387
+
+388
+
+389
+
+390
+
+391
+
+392
+
+393
+
+394
+
+395
+
+396
+
+397
+
+398
+
+399
+
+400
+
+401
+
+402
+
+403
+
+404
+
+405
+
+406
+
+407
+
+408
+
+409
+
+410
+
+411
+
+412
+
+413
+
+414
+
+415
+
+416
+
+417
+
+418
+
+419
+
+420
+
+421
+
+422
+
+423
+
+424
+
+425
+
+426
+
+427
+
+428
+
+429
+
+430
+
+431
+
+432
+
+433
+
+434
+
+435
+
+436
+
+437
+
+438
+
+439
+
+440
+
+441
+
+442
+
+443
+
+444
+
+445
+
+446
+
+447
+
+448
+
+449
+
+450
+
+451
+
+452
+
+453
+
+454
+
+455
+
+456
+
+457
+
+458
+
+459
+
+460
+
+461
+
+462
+
+463
+
+464
+
+465
+
+466
+
+467
+
+468
+
+469
+
+470
+
+471
+
+472
+
+473
+
+474
+
+475
+
+476
+
+477
+
+478
+
+479
+
+480
+
+481
+
+482
+
+483
+
+484
+
+485
+
+486
+
+487
+
+488
+
+489
+
+490
+
+491
+
+492
+
+493
+
+494
+
+495
+
+496
+
+497
+
+498
+
+499
+
+500
+
+501
+
+502
+
+503
+
+504
+
+505
+
+506
+
+507
+
+508
+
+509
+
+510
+
+511
+
+512
+
+513
+
+514
+
+515
+
+516
+
+517
+
+518
+
+519
+
+520
+
+521
+
+522
+
+523
+
+524
+
+525
+
+526
+
+527
+
+528
+
+529
+
+530
+
+531
+
+532
+
+533
+
+534
+
+535
+
+536
+
+537
+
+538
+
+539
+
+540
+
+541
+
+542
+
+543
+
+544
+
+545
+
+546
+
+547
+
+548
+
+549
+
+550
+
+551
+
+552
+
+553
+
+554
+
+555
+
+556
+
+557
+
+558
+
+559
+
+560
+
+561
+
+562
+
+563
+
+564
+
+565
+
+566
+
+567
+
+568
+
+569
+
+570
+
+571
+
+572
+
+573
+
+574
+
+575
+
+576
+
+577
+
+578
+
+579
+
+580
+
+581
+
+582
+
+583
+
+584
+
+585
+
+586
+
+587
+
+588
+
+589
+
+590
+
+591
+
+592
+
+593
+
+594
+
+595
+
+596
+
+597
+
+598
+
+599
+
+600
+
+601
+
+602
+
+603
+
+604
+
+605
+
+606
+
+607
+
+608
+
+609
+
+610
+
+611
+
+612
+
+613
+
+614
+
+615
+
+616
+
+617
+
+618
+
+619
+
+620
+
+621
+
+622
+
+623
+
+624
+
+625
+
+626
+
+627
+
+628
+
+629
+
+630
+
+631
+
+632
+
+633
+
+634
+
+635
+
+636
+
+637
+
+638
+
+639
+
+640
+
+641
+
+642
+
+643
+
+644
+
+645
+
+646
+
+647
+
+648
+
+649
+
+650
+
+651
+
+652
+
+653
+
+654
+
+655
+
+656
+
+657
+
+658
+
+659
+
+660
+
+661
+
+662
+
+663
+
+664
+
+665
+
+666
+
+667
+
+668
+
+669
+
+670
+
+671
+
+672
+
+673
+
+674
+
+675
+
+676
+
+677
+
+678
+
+679
+
+680
+
+681
+
+682
+
+683
+
+684
+
+685
+
+686
+
+687
+
+688
+
+689
+
+690
+
+691
+
+692
+
+693
+
+694
+
+695
+
+696
+
+697
+
+698
+
+699
+
+700
+
+701
+
+702
+
+703
+
+704
+
+705
+
+706
+
+707
+
+708
+
+709
+
+710
+
+711
+
+712
+
+713
+
+714
+
+715
+
+716
+
+717
+
+718
+
+719
+
+720
+
+721
+
+722
+
+723
+
+724
+
+725
+
+726
+
+727
+
+728
+
+729
+
+730
+
+731
+
+732
+
+733
+
+734
+
+735
+
+736
+
+737
+
+738
+
+739
+
+740
+
+741
+
+742
+
+743
+
+744
+
+745
+
+746
+
+747
+
+748
+
+749
+
+750
+
+751
+
+752
+
+753
+
+754
+
+755
+
+756
+
+757
+
+758
+
+759
+
+760
+
+761
+
+762
+
+763
+
+764
+
+765
+
+766
+
+767
+
+768
+
+769
+
+770
+
+771
+
+772
+
+773
+
+774
+
+775
+
+776
+
+777
+
+778
+
+779
+
+780
+
+781
+
+782
+
+783
+
+784
+
+785
+
+786
+
+787
+
+788
+
+789
+
+790
+
+791
+
+792
+
+793
+
+794
+
+795
+
+796
+
+797
+
+798
+
+799
+
+800
+
+801
+
+802
+
+803
+
+804
+
+805
+
+806
+
+807
+
+808
+
+809
+
+810
+
+811
+
+812
+
+813
+
+814
+
+815
+
+816
+
+817
+
+818
+
+819
+
+820
+
+821
+
+822
+
+823
+
+824
+
+825
+
+826
+
+827
+
+828
+
+829
+
+830
+
+831
+
+832
+
+833
+
+834
+
+835
+
+836
+
+837
+
+838
+
+839
+
+840
+
+841
+
+842
+
+843
+
+844
+
+845
+
+846
+
+847
+
+848
+
+849
+
+850
+
+851
+
+852
+
+853
+
+854
+
+855
+
+856
+
+857
+
+858
+
+859
+
+860
+
+861
+
+862
+
+863
+
+864
+
+865
+
+866
+
+867
+
+868
+
+869
+
+870
+
+871
+
+872
+
+873
+
+874
+
+875
+
+876
+
+877
+
+878
+
+879
+
+880
+
+881
+
+882
+
+883
+
+884
+
+885
+
+886
+
+887
+
+888
+
+889
+
+890
+
+891
+
+892
+
+893
+
+894
+
+895
+
+896
+
+897
+
+898
+
+899
+
+900
+
+901
+
+902
+
+903
+
+904
+
+905
+
+906
+
+907
+
+908
+
+909
+
+910
+
+911
+
+912
+
+913
+
+914
+
+915
+
+916
+
+917
+
+918
+
+919
+
+920
+
+921
+
+922
+
+923
+
+924
+
+925
+
+926
+
+927
+
+928
+
+929
+
+930
+
+931
+
+932
+
+933
+
+934
+
+935
+
+936
+
+937
+
+938
+
+939
+
+940
+
+941
+
+942
+
+943
+
+944
+
+945
+
+946
+
+947
+
+948
+
+949
+
+950
+
+951
+
+952
+
+953
+
+954
+
+955
+
+956
+
+957
+
+958
+
+959
+
+960
+
+961
+
+962
+
+963
+
+964
+
+965
+
+966
+
+967
+
+968
+
+969
+
+970
+
+971
+
+972
+
+973
+
+974
+
+975
+
+976
+
+977
+
+978
+
+979
+
+980
+
+981
+
+982
+
+983
+
+984
+
+985
+
+986
+
+987
+
+988
+
+989
+
+990
+
+991
+
+992
+
+993
+
+994
+
+995
+
+996
+
+997
+
+998
+
+999
+
+1000
+
+/* Copyright 2014 Mozilla Foundation
+
+*
+
+* Licensed under the Apache License, Version 2.0 (the "License");
+
+* you may not use this file except in compliance with the License.
+
+* You may obtain a copy of the License at
+
+*
+
+* http://www.apache.org/licenses/LICENSE-2.0
+
+*
+
+* Unless required by applicable law or agreed to in writing, software
+
+* distributed under the License is distributed on an "AS IS" BASIS,
+
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+
+* See the License for the specific language governing permissions and
+
+* limitations under the License.
+
+*/
+
+/** @typedef {import("../src/display/api").PDFDocumentProxy} PDFDocumentProxy */
+
+/** @typedef {import("../src/display/api").PDFPageProxy} PDFPageProxy */
+
+// eslint-disable-next-line max-len
+
+/** @typedef {import("../src/display/page_viewport").PageViewport} PageViewport */
+
+// eslint-disable-next-line max-len
+
+/** @typedef {import("../src/display/optional_content_config").OptionalContentConfig} OptionalContentConfig */
+
+/** @typedef {import("./event_utils").EventBus} EventBus */
+
+// eslint-disable-next-line max-len
+
+/** @typedef {import("./pdf_find_controller").PDFFindController} PDFFindController */
+
+// eslint-disable-next-line max-len
+
+/** @typedef {import("./pdf_scripting_manager").PDFScriptingManager} PDFScriptingManager */
+
+/** @typedef {import("./pdf_link_service.js").PDFLinkService} PDFLinkService */
+
+// eslint-disable-next-line max-len
+
+/** @typedef {import("./base_download_manager.js").BaseDownloadManager} BaseDownloadManager */
+
+/** @typedef {import("./l10n.js").L10n} L10n */
+
+import {
+
+AbortException,
+
+AnnotationEditorType,
+
+AnnotationEditorUIManager,
+
+AnnotationMode,
+
+createPromiseCapability,
+
+makeArr,
+
+MathClamp,
+
+noopFn,
+
+PermissionFlag,
+
+PixelsPerInch,
+
+shadow,
+
+stopEvent,
+
+version,
+
+} from "pdfjs-lib";
+
+import {
+
+DEFAULT_SCALE,
+
+DEFAULT_SCALE_DELTA,
+
+DEFAULT_SCALE_VALUE,
+
+docStyle,
+
+getVisibleElements,
+
+isPortraitOrientation,
+
+isValidRotation,
+
+isValidScrollMode,
+
+isValidSpreadMode,
+
+MAX_AUTO_SCALE,
+
+MAX_SCALE,
+
+MIN_SCALE,
+
+PresentationModeState,
+
+removeNullCharacters,
+
+SCROLLBAR_PADDING,
+
+scrollIntoView,
+
+ScrollMode,
+
+SpreadMode,
+
+TextLayerMode,
+
+UNKNOWN_SCALE,
+
+VERTICAL_PADDING,
+
+watchScroll,
+
+} from "./ui_utils.js";
+
+import { GenericL10n } from "web-null_l10n";
+
+import { internalOpt } from "./internal_evt.js";
+
+import { PDFPageView } from "./pdf_page_view.js";
+
+import { PDFRenderingQueue } from "./pdf_rendering_queue.js";
+
+import { RenderingStates } from "./renderable_view.js";
+
+import { SimpleLinkService } from "./pdf_link_service.js";
+
+const DEFAULT_CACHE_SIZE = 10;
+
+const PagesCountLimit = {
+
+FORCE_SCROLL_MODE_PAGE: 10000,
+
+FORCE_LAZY_PAGE_INIT: 5000,
+
+PAUSE_EAGER_PAGE_INIT: 250,
+
+};
+
+function isValidAnnotationEditorMode(mode) {
+
+return (
+
+Object.values(AnnotationEditorType).includes(mode) &&
+
+mode !== AnnotationEditorType.DISABLE
+
+);
+
+}
+
+/**
+
+* @typedef {object} PDFViewerOptions
+
+* @property {HTMLDivElement} container - The container for the viewer element.
+
+* @property {HTMLDivElement} [viewer] - The viewer element.
+
+* @property {EventBus} eventBus - The application event bus.
+
+* @property {PDFLinkService} [linkService] - The navigation/linking service.
+
+* @property {BaseDownloadManager} [downloadManager] - The download manager
+
+* component.
+
+* @property {PDFFindController} [findController] - The find controller
+
+* component.
+
+* @property {PDFScriptingManager} [scriptingManager] - The scripting manager
+
+* component.
+
+* @property {PDFRenderingQueue} [renderingQueue] - The rendering queue object.
+
+* @property {number} [textLayerMode] - Controls if the text layer used for
+
+* selection and searching is created. The constants from {TextLayerMode}
+
+* should be used. The default value is `TextLayerMode.ENABLE`.
+
+* @property {number} [annotationMode] - Controls if the annotation layer is
+
+* created, and if interactive form elements or `AnnotationStorage`-data are
+
+* being rendered. The constants from {@link AnnotationMode} should be used;
+
+* see also {@link RenderParameters} and {@link GetOperatorListParameters}.
+
+* The default value is `AnnotationMode.ENABLE_FORMS`.
+
+* @property {number} [annotationEditorMode] - Enables the creation and editing
+
+* of new Annotations. The constants from {@link AnnotationEditorType} should
+
+* be used. The default value is `AnnotationEditorType.NONE`.
+
+* @property {string} [annotationEditorHighlightColors] - A comma separated list
+
+* of colors to propose to highlight some text in the pdf.
+
+* @property {string} [imageResourcesPath] - Path for image resources, mainly
+
+* mainly for annotation icons. Include trailing slash.
+
+* @property {boolean} [enablePrintAutoRotate] - Enables automatic rotation of
+
+* landscape pages upon printing. The default is `false`.
+
+* @property {number} [maxCanvasPixels] - The maximum supported canvas size in
+
+* total pixels, i.e. width * height. Use `-1` for no limit.
+
+* The default value is 4096 * 8192 (32 mega-pixels).
+
+* @property {number} [maxCanvasDim] - The maximum supported canvas dimension,
+
+* in either width or height. Use `-1` for no limit.
+
+* The default value is 32767.
+
+* @property {number} [capCanvasAreaFactor] - Cap the canvas area to the
+
+* viewport increased by the value in percent. Use `-1` for no limit.
+
+* The default value is 200%.
+
+* @property {boolean} [enableDetailCanvas] - When enabled, if the rendered
+
+* pages would need a canvas that is larger than `maxCanvasPixels` or
+
+* `maxCanvasDim`, it will draw a second canvas on top of the CSS-zoomed one,
+
+* that only renders the part of the page that is close to the viewport.
+
+* The default value is `true`.
+
+* @property {boolean} [enableSelectionRendering] - Enables rendering of text
+
+* selections in the draw layer.
+
+* The default value is `true`.
+
+* @property {number} [imagesRightClickMinSize] - All images whose width and
+
+* height are at least this value (in pixels) will be lazily inserted in the
+
+* dom to allow right-clicking and saving them. Use `-1` to disable this.
+
+* @property {boolean} [enableOptimizedPartialRendering] - When enabled, PDF
+
+* rendering will keep track of which areas of the page each PDF operation
+
+* affects. Then, when rendering a partial page (if `enableDetailCanvas` is
+
+* enabled), it will only run through the operations that affect that portion.
+
+* @property {L10n} [l10n] - Localization service.
+
+* @property {boolean} [enablePermissions] - Enables PDF document permissions,
+
+* when they exist. The default value is `false`.
+
+* @property {object} [pageColors] - Overwrites background and foreground colors
+
+* with user defined ones in order to improve readability in high contrast
+
+* mode.
+
+* @property {boolean} [supportsPinchToZoom] - Enable zooming on pinch gesture.
+
+* The default value is `true`.
+
+* @property {boolean} [enableAutoLinking] - Enable creation of hyperlinks from
+
+* text that look like URLs. The default value is `true`.
+
+*/
+
+class PDFPageViewBuffer {
+
+// Here we rely on the fact that `Set`s preserve the insertion order.
+
+#buf = new Set();
+
+#size = 0;
+
+constructor(size) {
+
+this.#size = size;
+
+}
+
+push(view) {
+
+const buf = this.#buf;
+
+if (buf.has(view)) {
+
+buf.delete(view); // Move the view to the "end" of the buffer.
+
+}
+
+buf.add(view);
+
+if (buf.size > this.#size) {
+
+this.#destroyFirstView();
+
+}
+
+}
+
+/**
+
+* After calling resize, the size of the buffer will be `newSize`.
+
+* The optional parameter `idsToKeep` is, if present, a Set of page-ids to
+
+* push to the back of the buffer, delaying their destruction. The size of
+
+* `idsToKeep` has no impact on the final size of the buffer; if `idsToKeep`
+
+* is larger than `newSize`, some of those pages will be destroyed anyway.
+
+*/
+
+resize(newSize, idsToKeep = null) {
+
+this.#size = newSize;
+
+const buf = this.#buf;
+
+if (idsToKeep) {
+
+const ii = buf.size;
+
+let i = 1;
+
+for (const view of buf) {
+
+if (idsToKeep.has(view.id)) {
+
+buf.delete(view); // Move the view to the "end" of the buffer.
+
+buf.add(view);
+
+}
+
+if (++i > ii) {
+
+break;
+
+}
+
+}
+
+}
+
+while (buf.size > this.#size) {
+
+this.#destroyFirstView();
+
+}
+
+}
+
+has(view) {
+
+return this.#buf.has(view);
+
+}
+
+[Symbol.iterator]() {
+
+return this.#buf.keys();
+
+}
+
+#destroyFirstView() {
+
+const firstView = this.#buf.keys().next().value;
+
+firstView?.destroy();
+
+this.#buf.delete(firstView);
+
+}
+
+}
+
+/**
+
+* Simple viewer control to display PDF content/pages.
+
+*/
+
+class PDFViewer {
+
+#buffer = null;
+
+#altTextManager = null;
+
+#annotationEditorHighlightColors = null;
+
+#annotationEditorMode = AnnotationEditorType.NONE;
+
+#annotationEditorUIManager = null;
+
+#annotationMode = AnnotationMode.ENABLE_FORMS;
+
+#commentManager = null;
+
+#containerTopLeft = null;
+
+#editorUndoBar = null;
+
+#enableHighlightFloatingButton = false;
+
+#enablePermissions = false;
+
+#enableUpdatedAddImage = false;
+
+#enableNewAltTextWhenAddingImage = false;
+
+#enableAutoLinking = true;
+
+#abortSignal = null;
+
+#eventAC = null;
+
+#mlManager = null;
+
+// The scroll position wanted by `panBy`, with its fractions.
+
+#panPosition = [NaN, NaN];
+
+#printingAllowed = true;
+
+#scrollTimeoutId = null;
+
+#staleLocation = false;
+
+#switchAnnotationEditorModeAC = null;
+
+#switchAnnotationEditorModeTimeoutId = null;
+
+#copyAllInProgress = false;
+
+#hiddenCopyElement = null;
+
+#previousContainerHeight = 0;
+
+#resizeObserver = new ResizeObserver(this.#resizeObserverCallback.bind(this));
+
+#scrollModePageState = null;
+
+#scaleTimeoutId = null;
+
+#signatureManager = null;
+
+#supportsPinchToZoom = true;
+
+#textLayerMode = TextLayerMode.ENABLE;
+
+#viewerAlert = null;
+
+#copiedPageViews = null;
+
+#savedPageViews = null;
+
+#deletedPageNumbers = null;
+
+/**
+
+* @param {PDFViewerOptions} options
+
+*/
+
+constructor(options) {
+
+const viewerVersion =
+
+typeof PDFJSDev !== "undefined" ? PDFJSDev.eval("BUNDLE_VERSION") : null;
+
+if (version !== viewerVersion) {
+
+throw new Error(
+
+`The API version "${version}" does not match the Viewer version "${viewerVersion}".`
+
+);
+
+}
+
+this.container = options.container;
+
+this.viewer = options.viewer || options.container.firstElementChild;
+
+this.#viewerAlert = options.viewerAlert || null;
+
+if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
+
+if (this.container?.tagName !== "DIV" || this.viewer?.tagName !== "DIV") {
+
+throw new Error("Invalid `container` and/or `viewer` option.");
+
+}
+
+if (
+
+this.container.offsetParent &&
+
+getComputedStyle(this.container).position !== "absolute"
+
+) {
+
+throw new Error("The `container` must be absolutely positioned.");
+
+}
+
+}
+
+this.#resizeObserver.observe(this.container);
+
+this.eventBus = options.eventBus;
+
+this.linkService = options.linkService || new SimpleLinkService();
+
+this.downloadManager = options.downloadManager || null;
+
+this.findController = options.findController || null;
+
+this.#altTextManager = options.altTextManager || null;
+
+this.#commentManager = options.commentManager || null;
+
+this.#signatureManager = options.signatureManager || null;
+
+this.#editorUndoBar = options.editorUndoBar || null;
+
+if (this.findController) {
+
+this.findController.onIsPageVisible = pageNumber =>
+
+this._getVisiblePages().ids.has(pageNumber);
+
+}
+
+this._scriptingManager = options.scriptingManager || null;
+
+this.#textLayerMode = options.textLayerMode ?? TextLayerMode.ENABLE;
+
+this.#annotationMode =
+
+options.annotationMode ?? AnnotationMode.ENABLE_FORMS;
+
+this.#annotationEditorMode =
+
+options.annotationEditorMode ?? AnnotationEditorType.NONE;
+
+this.#annotationEditorHighlightColors =
+
+options.annotationEditorHighlightColors || null;
+
+this.#enableHighlightFloatingButton =
+
+options.enableHighlightFloatingButton === true;
+
+this.#enableUpdatedAddImage = options.enableUpdatedAddImage === true;
+
+this.#enableNewAltTextWhenAddingImage =
+
+options.enableNewAltTextWhenAddingImage === true;
+
+this.imageResourcesPath = options.imageResourcesPath || "";
+
+this.enablePrintAutoRotate = options.enablePrintAutoRotate || false;
+
+this.maxCanvasPixels = options.maxCanvasPixels;
+
+this.maxCanvasDim = options.maxCanvasDim;
+
+this.capCanvasAreaFactor = options.capCanvasAreaFactor;
+
+this.enableDetailCanvas = options.enableDetailCanvas ?? true;
+
+this.enableOptimizedPartialRendering =
+
+options.enableOptimizedPartialRendering ?? false;
+
+this.enableSelectionRendering = options.enableSelectionRendering !== false;
+
+this.imagesRightClickMinSize = options.imagesRightClickMinSize ?? -1;
+
+this.l10n = options.l10n;
+
+if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
+
+this.l10n ||= new GenericL10n();
+
+}
+
+this.#enablePermissions = options.enablePermissions || false;
+
+this.pageColors = options.pageColors || null;
+
+this.#mlManager = options.mlManager || null;
+
+this.#supportsPinchToZoom = options.supportsPinchToZoom !== false;
+
+this.#enableAutoLinking = options.enableAutoLinking !== false;
+
+this.renderingQueue = options.renderingQueue;
+
+if (typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) {
+
+this.defaultRenderingQueue = !this.renderingQueue;
+
+if (this.defaultRenderingQueue) {
+
+// Custom rendering queue is not specified, using default one
+
+this.renderingQueue = new PDFRenderingQueue();
+
+this.renderingQueue.setViewer(this);
+
+}
+
+}
+
+const { abortSignal } = options;
+
+this.#abortSignal = abortSignal || null;
+
+abortSignal?.addEventListener(
+
+"abort",
+
+() => {
+
+this.#resizeObserver.disconnect();
+
+this.#resizeObserver = null;
+
+},
+
+{ once: true }
+
+);
+
+this.scroll = watchScroll(
+
+this.container,
+
+this._scrollUpdate.bind(this),
+
+abortSignal
+
+);
+
+this.presentationModeState = PresentationModeState.UNKNOWN;
+
+this._resetView();
+
+this.#updateContainerHeightCss();
+
+// Trigger API-cleanup, once thumbnail rendering has finished,
+
+// if the relevant pageView is *not* cached in the buffer.
+
+this.eventBus.on(
+
+"thumbnailrendered",
+
+({ pageNumber, pdfPage }) => {
+
+const pageView = this._pages[pageNumber - 1];
+
+if (!this.#buffer.has(pageView)) {
+
+pdfPage?.cleanup();
+
+}
+
+},
+
+internalOpt
+
+);
+
+if (
+
+(typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) &&
+
+!options.l10n
+
+) {
+
+// Ensure that Fluent is connected in e.g. the COMPONENTS build.
+
+this.l10n.translate(this.container);
+
+}
+
+}
+
+get printingAllowed() {
+
+return this.#printingAllowed;
+
+}
+
+get pagesCount() {
+
+return this._pages.length;
+
+}
+
+getPageView(index) {
+
+return this._pages[index];
+
+}
+
+getCachedPageViews() {
+
+return new Set(this.#buffer);
+
+}
+
+/**
+
+* @type {boolean} - True if all {PDFPageView} objects are initialized.
+
+*/
+
+get pageViewsReady() {
+
+// Prevent printing errors when 'disableAutoFetch' is set, by ensuring
+
+// that *all* pages have in fact been completely loaded.
+
+return this._pages.every(pageView => pageView?.pdfPage);
+
+}
+
+/**
+
+* Clear text selections within the viewer.
+
+*/
+
+clearSelection() {
+
+const selection = document.getSelection();
+
+if (!selection || selection.isCollapsed) {
+
+return;
+
+}
+
+for (let i = 0, ii = selection.rangeCount; i < ii; i++) {
+
+if (selection.getRangeAt(i).intersectsNode(this.viewer)) {
+
+// `empty()` is non-standard; `removeAllRanges()` is the standard API.
+
+selection.removeAllRanges?.();
+
+selection.empty?.();
+
+return;
+
+}
+
+}
+
+}
+
+/**
+
+* @type {boolean}
+
+*/
+
+get renderForms() {
+
+return this.#annotationMode === AnnotationMode.ENABLE_FORMS;
+
+}
+
+/**
+
+* @type {boolean}
+
+*/
+
+get enableScripting() {
+
+return !!this._scriptingManager;
+
+}
+
+/**
+
+* @type {number}
+
+*/
+
+get currentPageNumber() {
+
+return this._currentPageNumber;
+
+}
+
+/**
+
+* @param {number} val - The page number.
+
+*/
+
+set currentPageNumber(val) {
+
+if (!Number.isInteger(val)) {
+
+throw new Error("Invalid page number.");
+
+}
+
+if (!this.pdfDocument) {
+
+return;
+
+}
+
+if (this._currentPageNumber !== val) {
+
+this.clearSelection();
+
+}
+
+// The intent can be to just reset a scroll position and/or scale.
+
+if (!this._setCurrentPageNumber(val, /* resetCurrentPageView = */ true)) {
+
+console.error(`currentPageNumber: "${val}" is not a valid page.`);
+
+}
+
+}
+
+/**
+
+* @returns {boolean} Whether the pageNumber is valid (within bounds).
+
+* @private
+
+*/
+
+_setCurrentPageNumber(val, resetCurrentPageView = false) {
+
+if (this._currentPageNumber === val) {
+
+if (resetCurrentPageView) {
+
+this.#resetCurrentPageView();
+
+}
+
+return true;
+
+}
+
+if (!(0 < val && val <= this.pagesCount)) {
+
+return false;
+
+}
+
+const previous = this._currentPageNumber;
+
+this._currentPageNumber = val;
+
+this.eventBus.dispatch("pagechanging", {
+
+source: this,
+
+pageNumber: val,
+
+pageLabel: this._pageLabels?.[val - 1] ?? null,
+
+previous,
+
+});
+
+if (resetCurrentPageView) {
+
+this.#resetCurrentPageView();
+
+}
+
+return true;
+
+}
+
+/**
+
+* @type {string|null} Returns the current page label, or `null` if no page
+
+* labels exist.
+
+*/
+
+get currentPageLabel() {
+
+return this._pageLabels?.[this._currentPageNumber - 1] ?? null;
+
+}
+
+/**
+
+* @param {string} val - The page label.
+
+*/
+
+set currentPageLabel(val) {
+
+if (!this.pdfDocument) {
+
+return;
+
+}
+
+let page = val | 0; // Fallback page number.
+
+if (this._pageLabels) {
+
+const i = this._pageLabels.indexOf(val);
+
+if (i >= 0) {
+
+page = i + 1;
+
+}
+
+}
+
+if (this._currentPageNumber !== page) {
+
+this.clearSelection();
+
+}
+
+// The intent can be to just reset a scroll position and/or scale.
+
+if (!this._setCurrentPageNumber(page, /* resetCurrentPageView = */ true)) {
+
+console.error(`currentPageLabel: "${val}" is not a valid page.`);
+
+}
+
+}
+
+/**
+
+* @type {number}
+
+*/
+
+get currentScale() {
+
+return this._currentScale !== UNKNOWN_SCALE
+
+? this._currentScale
+
+: DEFAULT_SCALE;
+
+}
+
+/**
+
+* @param {number} val - Scale of the pages in percents.
+
+*/
+
+set currentScale(val) {
+
+if (isNaN(val)) {
+
+throw new Error("Invalid numeric scale.");
+
+}
+
+if (!this.pdfDocument) {
+
+return;
+
+}
+
+this.#setScale(val, { noScroll: false });
+
+}
+
+/**
+
+* @type {string}
+
+*/
+
+get currentScaleValue() {
+
+return this._currentScaleValue;
+
+}
+
+/**
+
+* @param {string} val - The scale of the pages (in percent or predefined
+
+* value).
+
+*/
+
+set currentScaleValue(val) {
+
+if (!this.pdfDocument) {
+
+return;
+
+}
+
+this.#setScale(val, { noScroll: false });
+
+}
+
+/**
+
+* @type {number}
+
+*/
+
+get pagesRotation() {
+
+return this._pagesRotation;
+
+}
+
+/**
+
+* @param {number} rotation - The rotation of the pages (0, 90, 180, 270).
+
+*/
+
+set pagesRotation(rotation) {
+
+if (!isValidRotation(rotation)) {
+
+throw new Error("Invalid pages rotation angle.");
+
+}
+
+if (!this.pdfDocument) {
+
+return;
+
+}
+
+// Normalize the rotation, by clamping it to the [0, 360) range.
+
+rotation %= 360;
+
+if (rotation < 0) {
+
+rotation += 360;
+
+}
+
+if (this._pagesRotation === rotation) {
+
+return; // The rotation didn't change.
+
+}
+
+this.clearSelection();
+
+this._pagesRotation = rotation;
+
+const pageNumber = this._currentPageNumber;
+
+this.refresh(true, { rotation });
+
+// Prevent errors in case the rotation changes *before* the scale has been
+
+// set to a non-default value.
+
+if (this._currentScaleValue) {
+
+this.#setScale(this._currentScaleValue, { noScroll: true });
+
+}
+
+this.eventBus.dispatch("rotationchanging", {
+
+source: this,
+
+pagesRotation: rotation,
+
+pageNumber,
+
+});
+
+if (
+
+(typeof PDFJSDev === "undefined" || PDFJSDev.test("GENERIC")) &&
+
+this.defaultRenderingQueue
+
+) {
+
+this.update();
+
+}
+
+}
+
+get firstPagePromise() {
+
+return this.pdfDocument ? this._firstPageCapability.promise : null;
+
+}
+
+get onePageRendered() {
+
+return this.pdfDocument ? this._onePageRenderedCapability.promise : null;
+
+}
+
+get pagesPromise() {
+
+return this.pdfDocument ? this._pagesCapability.promise : null;
+
+}
+
+get _layerProperties() {
+
+const self = this;
+
+return shadow(this, "_layerProperties", {
+
+get annotationEditorUIManager() {
+
+return self.#annotationEditorUIManager;
+
+},
+
+get annotationStorage() {
+
+return self.pdfDocument?.annotationStorage;
+
+},
+
+get downloadManager() {
+
+return self.downloadManager;
+
+},
+
+get enableComment() {
+
+return !!self.#commentManager;
+
+},
+
+get enableScripting() {
+
+return !!self._scriptingManager;
+
+},
+
+get fieldObjectsPromise() {
+
+return self.pdfDocument?.getFieldObjects();
+
+},
+
+get findController() {
+
+return self.findController;
+
+},
+
+get hasJSActionsPromise() {
+
+return self.pdfDocument?.hasJSActions();
+
+},
+
+get linkService() {
+
+return self.linkService;
+
+},
+
+});
+
+}
+
+#setPrintingAllowed(isAllowed) {
+
+this.#printingAllowed = isAllowed;
+
+this.eventBus.dispatch("printingallowed", { source: this, isAllowed });
+
+}
+
+/**
+
+* Currently only *some* permissions are supported.
+
+* @returns {object}
+
+*/
+
+#initializePermissions(permissions) {
+
+const params = {
+
+annotationEditorMode: this.#annotationEditorMode,
+
+annotationMode: this.#annotationMode,
+
+textLayerMode: this.#textLayerMode,
+
+};
+
+if (!permissions) {
+
+this.#setPrintingAllowed(true);
+
+return params;
+
+}
+
+this.#setPrintingAllowed(
+
+permissions.has(PermissionFlag.PRINT_HIGH_QUALITY) ||
+
+permissions.has(PermissionFlag.PRINT)
+
+);
+
+if (
+
+!permissions.has(PermissionFlag.COPY) &&
+
+this.#textLayerMode === TextLayerMode.ENABLE
+
+) {
+
+params.textLayerMode = TextLayerMode.ENABLE_PERMISSIONS;
+
+}
+
+if (!permissions.has(PermissionFlag.MODIFY_CONTENTS)) {
+
+params.annotationEditorMode = AnnotationEditorType.DISABLE;
+
+}
+
+if (
+
+!permissions.has(PermissionFlag.MODIFY_ANNOTATIONS) &&
+
+!permissions.has(PermissionFlag.FILL_INTERACTIVE_FORMS) &&
+
+this.#annotationMode === AnnotationMode.ENABLE_FORMS
+
+) {
+
+params.annotationMode = AnnotationMode.ENABLE;
+
+}
+
+return params;
+
+}
+
+async #onePageRenderedOrForceFetch(signal) {
+
+// Unless the viewer *and* its pages are visible, rendering won't start and
+
+// `this._onePageRenderedCapability` thus won't be resolved.
+
+// To ensure that automatic printing, on document load, still works even in
+
+// those cases we force-allow fetching of all pages when:
+
+// - The current window/tab is inactive, which will prevent rendering since
+
+// `requestAnimationFrame` is being used; fixes bug 1746213.
+
+// - The viewer is hidden in the DOM, e.g. in a `display: none` <iframe>
+
+// element; fixes bug 1618621.
+
+// - The viewer is visible, but none of the pages are (e.g. if the
+
+// viewer is very small); fixes bug 1618955.
+
+if (
+
+document.visibilityState === "hidden" ||
+
+!this.container.offsetParent ||
+
+this._getVisiblePages().views.length === 0
+
+) {
+
+return;
+
+}
+
+// Handle the window/tab becoming inactive *after* rendering has started;
+
+// fixes (another part of) bug 1746213.
+
+const hiddenCapability = createPromiseCapability(),
+
+ac = new AbortController();
+
+document.addEventListener(
+
+"visibilitychange",
+
+() => {
+
+if (document.visibilityState === "hidden") {
+
+hiddenCapability.resolve();
+
+}
+
+},
+
+{ signal: AbortSignal.any([signal, ac.signal]) }
+
+);
+
+await Promise.race([
+
+this._onePageRenderedCapability.promise,
+
+hiddenCapability.promise,
+
+]);
+
+ac.abort(); // Remove the "visibilitychange" listener immediately.
+
+}
+
+async getAllText(interruptSignal = null) {
+
+const texts = [];
+
+const buffer = [];
+
+for (
+
+let pageNum = 1, pagesCount = this.pdfDocument.numPages;
+
+pageNum <= pagesCount;
+
+++pageNum
+
+) {
+
+if (interruptSignal?.aborted) {
+
+return null;
+
+}
+
+buffer.length = 0;
+
+const page = await this.pdfDocument.getPage(pageNum);
+
+// By default the text is normalized, which is fine because we want a
+
+// normalized string.
+
+const { items } = await page.getTextContent();
+
+for (const item of items) {
+
+if (item.str) {
+
+buffer.push(item.str);
+
+}
+
+if (item.hasEOL) {
+
+buffer.push("\n");
+
+}
+
+}
+
+texts.push(removeNullCharacters(buffer.join("")));
+
+}
+
+return texts.join("\n");
+
+}
+
+#copyCallback(textLayerMode, event) {
+
+const selection = document.getSelection();
+
+const { focusNode, anchorNode } = selection;
+
+if (
+
+anchorNode &&
+
+focusNode &&
+
+selection.containsNode(this.#hiddenCopyElement)
+
+) {
+
+// About the condition above:
+
+// - having non-null anchorNode and focusNode are here to guaranty that
+
+// we have at least a kind of selection.
+
+// - this.#hiddenCopyElement is an invisible element which is impossible
+
+// to select manually (its display is none) but ctrl+A will select all
+
+// including this element so having it in the selection means that all
+
+// has been selected.
+
+if (
+
+this.#copyAllInProgress ||
+
+textLayerMode === TextLayerMode.ENABLE_PERMISSIONS
+
+) {
+
+stopEvent(event);
+
+return;
+
+}
+
+this.#copyAllInProgress = true;
+
+// TODO: if all the pages are rendered we don't need to wait for
+
+// getAllText and we could just get text from the Selection object.
+
+// Select all the document.
+
+const { classList } = this.viewer;
+
+classList.add("copyAll");
+
+const keydownAC = new AbortController(),
+
+interruptAC = new AbortController();
+
+window.addEventListener(
+
+"keydown",
+
+ev => {
+
+if (ev.key === "Escape") {
+
+interruptAC.abort();
+
+}
+
+},
+
+{ signal: keydownAC.signal }
+
+);
+
+this.getAllText(interruptAC.signal)
+
+.then(async text => {
+
+if (text !== null) {
+
+await navigator.clipboard.writeText(text);
+
+}
+
+})
+
+.catch(reason => {
+
+console.warn(
+
+`Something goes wrong when extracting the text: ${reason.message}`
+
+);
+
+})
+
+.finally(() => {
+
+this.#copyAllInProgress = false;
+
+keydownAC.abort();
+
+classList.remove("copyAll");
+
+});
+
+stopEvent(event);
+
+}
+
+}
+
+/**
+
+* @param {PDFDocumentProxy|null} pdfDocument
+
+*/
+
+setDocument(pdfDocument) {
+
+if (this.pdfDocument) {
+
+this.eventBus.dispatch("pagesdestroy", { source: this });
+
+// Ensure that `pagesPromise` doesn't remain pending forever, if the
+
+// document was closed before all pages were loaded.
+
+this._pagesCapability.reject(new AbortException("Document was closed."));
+
+this._cancelRendering();
+
+this._resetView();
+
+this.findController?.setDocument(null);
+
+this._scriptingManager?.setDocument(null);
+
+this.#annotationEditorUIManager?.destroy();
+
+this.#annotationEditorUIManager = null;
+
+if (this.#annotationEditorMode !== AnnotationEditorType.DISABLE) {
+
+this.#annotationEditorMode = AnnotationEditorType.NONE;
+
+}
+
+this.#printingAllowed = true;
+
+}
+
+this.pdfDocument = pdfDocument;
+
+if (!pdfDocument) {
+
+return;
+
+}
+
+const pagesCount = pdfDocument.numPages;
+
+const firstPagePromise = pdfDocument.getPage(1);
+
+// Rendering (potentially) depends on this, hence fetching it immediately.
+
+const optionalContentConfigPromise = pdfDocument.getOptionalContentConfig({
+
+intent: "display",
+
+});
+
+const permissionsPromise = this.#enablePermissions
+
+? pdfDocument.getPermissions().catch(reason => {
+
+console.error("getPermissions", reason);
+
+})
+
+: Promise.resolve();
+
+const { eventBus, pageColors, viewer } = this;
+
+this.#eventAC = new AbortController();
+
+const { signal } = this.#eventAC;
+
+const evtOpts = { signal, ...internalOpt };
+
+// Given that browsers don't handle huge amounts of DOM-elements very well,
+
+// enforce usage of PAGE-scrolling when loading *very* long/large documents.
+
+if (pagesCount > PagesCountLimit.FORCE_SCROLL_MODE_PAGE) {
+
+console.warn(
+
+"Forcing PAGE-scrolling for performance reasons, given the length of the document."
+
+);
+
+const mode = (this._scrollMode = ScrollMode.PAGE);
+
+eventBus.dispatch("scrollmodechanged", { source: this, mode });
+
+}
+
+this._pagesCapability.promise.then(() => {
+
+eventBus.dispatch("pagesloaded", { source: this, pagesCount });
+
+}, noopFn);
+
+const onBeforeDraw = evt => {
+
+const pageView = this._pages[evt.pageNumber - 1];
+
+if (!pageView) {
+
+return;
+
+}
+
+// Add the page to the buffer at the start of drawing. That way it can be
+
+// evicted from the buffer and destroyed even if we pause its rendering.
+
+this.#buffer.push(pageView);
+
+};
+
+eventBus.on("pagerender", onBeforeDraw, evtOpts);
+
+const onAfterDraw = evt => {
+
+if (evt.cssTransform || evt.isDetailView) {
+
+return;
+
+}
+
+this._onePageRenderedCapability.resolve({ timestamp: evt.timestamp });
+
+eventBus.off("pagerendered", onAfterDraw); // Remove immediately.
+
+};
+
+eventBus.on("pagerendered", onAfterDraw, evtOpts);
+
+// Fetch a single page so we can get a viewport that will be the default
+
+// viewport for all pages
+
+Promise.all([firstPagePromise, permissionsPromise])
+
+.then(([firstPdfPage, permissions]) => {
+
+if (pdfDocument !== this.pdfDocument) {
+
+return; // The document was closed while the first page resolved.
+
+}
+
+this._firstPageCapability.resolve(firstPdfPage);
+
+this._optionalContentConfigPromise = optionalContentConfigPromise;
+
+const { annotationEditorMode, annotationMode, textLayerMode } =
+
+this.#initializePermissions(permissions);
+
+if (textLayerMode !== TextLayerMode.DISABLE) {
+
+const element = (this.#hiddenCopyElement =
+
+document.createElement("div"));
+
+element.id = "hiddenCopyElement";
+
+element.style.cssText =
+
+"position:absolute;top:0;left:0;width:0;height:0;display:none";
+
+View remainder of file in raw view
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

@@ -1,0 +1,383 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+This repository was archived by the owner on Apr 15, 2026. It is now read-only.
+
+codemirror
+
+dev
+
+Repository navigation
+
+Code
+
+Issues12 ( 12 )
+
+Pull requests
+
+Actions
+
+Security and quality
+
+Insights
+
+More items
+
+This repository was archived by the owner on Apr 15, 2026. It is now read-only.
+
+Gigantic expression in Java makes Lezer run out of stack #1030
+
+Copy link
+
+Copy link
+
+Closed
+
+Closed
+
+Gigantic expression in Java makes Lezer run out of stack#1030
+
+Copy link
+
+Description
+
+Monkatraz
+
+opened on Dec 9, 2022
+
+Issue body actions
+
+Describe the issue
+
+One of our users on Replit has a pretty unsettling file that includes an enormous expression concatenating thousands of strings. If you're on Firefox this will be fine, but on Chrome it makes Lezer hit the stack limit. If you bog down the browser enough to where Lezer avoids parsing the entire file for a little bit, it won't crash immediately on Chrome. I'm not sure what happens if you stall Lezer repeatedly and cause the entire file to be incrementally parsed in small chunks.
+
+There is also a line near the bottom of this expression with what's clearly a mistake:
+
++ "unhealthy,-0.47\n"oh boy yeah let me
+
+I'm not sure if this mistake is part of the bug here, but just letting you know it's there.
+
+I've linked a reproduction, but you'll have to copy the document from the linked gist yourself. Including the doc in the repro generates a hilariously huge URL, lol
+
+Browser and platform
+
+Chrome - Linux
+
+Reproduction link
+
+https://codemirror.net/try/?c=aW1wb3J0IHtiYXNpY1NldHVwLCBFZGl0b3JWaWV3fSBmcm9tICJjb2RlbWlycm9yIgppbXBvcnQge2phdmF9IGZyb20gIkBjb2RlbWlycm9yL2xhbmctamF2YSIKCi8vIGdldCB0aGUgZG9jIGZyb20gaGVyZToKLy8gaHR0cHM6Ly9naXN0LmdpdGh1Yi5jb20vTW9ua2F0cmF6LzkyZmIwZTI2MWQ5YzA1NWUyZTIxMmYzNTRiZjUzMGE0Ci8vIGl0J3MgbmVhcmx5IDcwMDAgbGluZXMgbG9uZywgc28gaXQncyBoYXJkIHRvIHNoYXJlIGhlcmUgbG9sCmNvbnN0IGRvYyA9ICcnCgpuZXcgRWRpdG9yVmlldyh7CiAgZG9jLAogIGV4dGVuc2lvbnM6IFtiYXNpY1NldHVwLCBqYXZhKCldLAogIHBhcmVudDogZG9jdW1lbnQuYm9keQp9KQo=
+
+Activity
+
+marijnh commented on Dec 13, 2022
+
+marijnh
+
+on Dec 13, 2022
+
+Member
+
+More actions
+
+See also #630, which puts a limit on parse stack depth. Unfortunately, in a bottom-up parser like this, left-associative rules will not actually grow the parse stack (it'll keep reducing the left hand side before continuing), so that that limit fails to fire here. It turns out to be really annoyingly difficult to detect a situation like this during parsing, and similarly difficult to address it during tree-construction. Still looking for a reasonable way to solve this.
+
+marijnh
+closed this as completedin 84bb8aaon Dec 14, 2022
+
+marijnh commented on Dec 14, 2022
+
+marijnh
+
+on Dec 14, 2022
+
+Member
+
+More actions
+
+Attached patch should help with this. It's a very dodgy kludge, but I think it should cover situations like this reliably.
+
+❤️React with ❤️1Reacted by Giuseppe Burtini
+
+Monkatraz commented on Dec 14, 2022
+
+Monkatraz
+
+on Dec 14, 2022
+
+Author
+
+More actions
+
+Awesome, thank you! Honestly a dodgy kludge is fine considering how rare making an absurd expression like this probably is.
+
+sfc-gh-klin commented on Jan 27, 2023
+
+sfc-gh-klin
+
+on Jan 27, 2023
+
+More actions
+
+if (this.bigReductionCount > Rec.MaxLeftAssociativeReductionCount && stacks.length == 1) {
+let [s] = stacks
+while (s.forceReduce() && s.stack.length && s.stack[s.stack.length - 2] >= this.lastBigReductionStart) {}
+this.bigReductionCount = this.lastBigReductionSize = 0
+}
+
+Somewhat interestingly, this addition causes some unwanted behavior change in a specific case for a project I work on. I am able to patch this if-statement out to revert to the previous behavior, but I thought I'd mention it because it caused some surprise. Perhaps the way I wrote my grammar is suboptimal.
+
+marijnh commented on Jan 27, 2023
+
+marijnh
+
+on Jan 27, 2023
+
+Member
+
+More actions
+
+Can you say a bit more what is happening in your project? It may somehow end up unnecessarily triggering this condition, but I'd need more information to figure out why.
+
+sfc-gh-klin commented on Jan 27, 2023
+
+sfc-gh-klin
+
+on Jan 27, 2023
+
+More actions
+
+Sure, thank you for asking.
+
+I have written a grammar used for finding the start and end of SQL statements in a particular dialect of SQL. It lumps almost everything into a general token and accepts a semicolon to indicate the end of a statement, except for certain types of statements that go into a scripting format that can be nested, declare variables, have loops. That format can have semicolons that don't indicate the end of a statement. I suppose it's an "island grammar".
+
+Prior to that code addition, there was a 120,000 character MERGE INTO ... FROM VALUES statement, likely programmatically generated, that had very many entries which was correctly parsed as one statement.
+
+Imagine like
+
+MERGE INTO BLAH
+USING ( SELECT $1 AS FOO, $2 as BAR ... $10 as BAZ )
+FROM VALUES ( 'foo1', 123123, ...'foo2' ), ( 'foo3', 789789, ...'foo4' ), ...
+// onwards to 120,000 characters of this
+
+After that code change in lezer/lr 1.3.0, this single statement was parsed as multiple, with about 1080 "words" in each chunk, where I'm using word here to mean a series of characters delimited by whitespace.
+
+The area at which "no parse" occurred was valid so I put breakpoints in the lezer code suspecting that change, and saw that I do end up with a "this.bigReductionCount" of 1001 with a stacks.length of 1 which enters that if condition.
+
+It seems that the way I've written my grammar in conjunction with that sql statement that repeats finding a general token, makes it get into that state and it stops parsing there, then starts over with a new statement.
+
+Sign up for free to join this conversation on GitHub. Already have an account? Sign in to comment
+
+Metadata
+
+Metadata
+
+Assignees
+
+No one assigned
+
+Labels
+
+No labels
+
+No labels
+
+Type
+
+No type
+
+Projects
+
+No projects
+
+Milestone
+
+No milestone
+
+Relationships
+
+None yet
+
+Development
+
+No branches or pull requests
+
+Issue actions
+
+Open in GitHub Copilot app
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

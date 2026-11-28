@@ -1,0 +1,61 @@
+{
+ "chapter": "02-tier1-measure.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "TIR-01": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "50b77a8446eb"
+  },
+  "TIR-02": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "36a9cc61a5c8"
+  },
+  "TIR-03": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "35548acf8994"
+  },
+  "TIR-04": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "82c09a826947"
+  },
+  "TIR-05": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "5d731c2ee604"
+  },
+  "TIR-06": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "3b92a19aca4d"
+  },
+  "TIR-07": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "e8e5ed872408"
+  },
+  "TIR-08": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "6984dbe68688"
+  },
+  "TIR-09": {
+   "tags": [
+    "measured"
+   ],
+   "hash": "c09429baee92"
+  }
+ }
+}

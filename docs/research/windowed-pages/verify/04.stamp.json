@@ -1,0 +1,91 @@
+{
+ "chapter": "04-height-maps.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "HMP-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "44517bfd70a4"
+  },
+  "HMP-02": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "1be03ad957c0"
+  },
+  "HMP-03": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "77bc165a95ea"
+  },
+  "HMP-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "f1386d15e165"
+  },
+  "HMP-05": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "541d5ea52422"
+  },
+  "HMP-06": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "0124777800ff"
+  },
+  "HMP-07": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "7bc1d2a44d8c"
+  },
+  "HMP-08": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "c240e0738da9"
+  },
+  "HMP-09": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "5f4e9deeb4c2"
+  },
+  "HMP-10": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "8c5264f91d9e"
+  },
+  "HMP-11": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "eff22e69a088"
+  },
+  "HMP-12": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "d382b1347138"
+  },
+  "HMP-13": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "5b7fe2c759b4"
+  },
+  "HMP-14": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "a624adeebdf6"
+  }
+ }
+}
