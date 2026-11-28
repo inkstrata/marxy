@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseMarkers, automationMarker, evaluate, lastReset, CONTRIBUTOR } from './merge-policy.mjs';
+import { parseMarkers, automationMarker, authorMarker, evaluate, lastReset, CONTRIBUTOR } from './merge-policy.mjs';
 import { parseCodeowners } from './codeowners.mjs';
 
 const la = (s) => new Date(`${s}-08:00`);
@@ -58,6 +58,19 @@ test('parseMarkers counts only whole kinds with every field well formed', () => 
   ];
   for (const text of none) assert.deepEqual(parseMarkers(text), [], text);
   assert.deepEqual(parseMarkers(`<!--marxy-intake head=${HEAD}-->`), [{ kind: 'intake', head: HEAD }]);
+  assert.deepEqual(parseMarkers(`<!-- marxy-intake kind=review verdict=approve head=${HEAD} run=r2 model=sonnet -->`),
+    [{ kind: 'intake', verdict: 'approve', head: HEAD, run: 'r2', model: 'sonnet' }], 'a kind= attribute changes nothing');
+});
+
+test('the author marker counts only as the last line of the body', () => {
+  assert.equal(authorMarker('Does a thing.\n\n<!-- marxy-author run=r1 model=opus -->\n').run, 'r1');
+  for (const body of [
+    '<!-- marxy-author run=r1 model=opus -->\nand then more words',
+    'Does a thing.\n> <!-- marxy-author run=r1 model=opus -->',
+    'See `<!-- marxy-author run=r1 model=opus -->`',
+    'Does a thing. <!-- marxy-author run=r1 model=opus -->',
+  ]) assert.equal(authorMarker(body), null, body);
+  assert.ok(run(validPr({ body: '<!-- marxy-author run=r1 model=opus -->\nmore' })).reasons.includes('no author marker'));
 });
 
 test('an automation comment is known by its opening line and its marker on the last line', () => {
@@ -147,6 +160,13 @@ test('a changes verdict a second before the approval does not hold', () => {
   assert.deepEqual(run(pr), { merge: true, reasons: [] });
 });
 
+test('a review time that cannot be read holds rather than passes', () => {
+  const unknownChanges = { ...reviewComment('changes', '2026-11-24T03:00:00', HEAD, 'r3', 'haiku'), createdAt: undefined };
+  assert.ok(run(validPr({ comments: [reviewComment('approve', '2026-11-24T02:00:00'), unknownChanges] })).reasons.includes('changes requested on the current head'));
+  const unknownApproval = { ...reviewComment('approve', '2026-11-24T02:00:00'), createdAt: 'not a time' };
+  assert.ok(run(validPr({ comments: [reviewComment('changes', '2026-11-23T02:00:00', HEAD, 'r3', 'haiku'), unknownApproval] })).reasons.includes('changes requested on the current head'));
+});
+
 test('merges at any hour', () => {
   assert.equal(run(validPr(), { now: la('2026-11-24T14:05:00') }).merge, true);
   assert.equal(run(validPr(), { now: la('2026-11-24T22:00:00') }).merge, true);
@@ -185,6 +205,19 @@ test('plan PR: an owner comment that mentions or quotes a marker still blocks it
 test('plan PR: an outsider\'s comment after the intake does not block it, and an outsider\'s intake is none', () => {
   assert.deepEqual(run(plan([intake('2026-11-22T01:00:00'), ownerSays('2026-11-23T10:00:00', 'veto', 'someone')])), { merge: true, reasons: [] });
   assert.deepEqual(run(plan([intake('2026-11-22T01:00:00', HEAD, 'someone')])).reasons, ['plan has no intake']);
+});
+
+test('plan PR: an owner comment edited after the intake blocks it', () => {
+  const old = ownerSays('2026-11-21T10:00:00', 'Fine by me. Edit: do not merge.');
+  assert.deepEqual(run(plan([{ ...old, lastEditedAt: at('2026-11-23T10:00:00') }, intake('2026-11-22T01:00:00')])).reasons, ['owner commented after the intake']);
+  assert.deepEqual(run(plan([{ ...old, lastEditedAt: null, updatedAt: at('2026-11-23T10:00:00') }, intake('2026-11-22T01:00:00')])).reasons, ['owner commented after the intake']);
+  assert.deepEqual(run(plan([{ ...old, lastEditedAt: at('2026-11-21T11:00:00') }, intake('2026-11-22T01:00:00')])), { merge: true, reasons: [] });
+});
+
+test('plan PR: an owner comment or intake whose time cannot be read holds it', () => {
+  assert.deepEqual(run(plan([intake('2026-11-22T01:00:00'), { ...ownerSays('2026-11-21T10:00:00'), createdAt: undefined }])).reasons, ['owner commented after the intake']);
+  const r = run(plan([intake('2026-11-22T01:00:00'), { ...intake('2026-11-22T02:00:00'), createdAt: 'garbage' }]));
+  assert.ok(r.reasons.includes('plan intake is older than the weekly reset'), r.reasons.join(' | '));
 });
 
 test('plan PR: held until an intake made after the reset', () => {

@@ -23,7 +23,8 @@ function wellFormed(m) {
 
 function toMarker(m) {
   const marker = { kind: m[1] };
-  for (const a of m[2].matchAll(ATTR)) marker[a[1]] = a[2] ?? a[3] ?? a[4];
+  // The kind comes from the marker's name only; an attribute spelled kind= cannot turn one kind into another.
+  for (const a of m[2].matchAll(ATTR)) if (a[1] !== 'kind') marker[a[1]] = a[2] ?? a[3] ?? a[4];
   return wellFormed(marker) ? marker : null;
 }
 
@@ -34,17 +35,31 @@ export function parseMarkers(text) {
 // The first line of each kind of automation comment, as the review and night skills write them.
 const OPENING = { review: 'Independent review:', intake: 'Intake:' };
 
+/** Non-empty lines, trimmed, and the well-formed marker that is the whole of the last one (a `>` quote line never is). */
+function lastLineMarker(text) {
+  const lines = String(text ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const m = MARKER_LINE.exec(lines.at(-1) ?? '');
+  return { lines, marker: m && toMarker(m) };
+}
+
 /**
  * The marker of an automation comment, or null for any other comment. The automation's comments are known by their
  * shape: the opening line of their kind, and a last non-empty line that is exactly one well-formed marker. A comment
  * that quotes or mentions a marker anywhere else, a quote reply included, is a person's.
  */
 export function automationMarker(body) {
-  const lines = String(body ?? '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  const m = MARKER_LINE.exec(lines.at(-1) ?? '');
-  const marker = m && toMarker(m);
+  const { lines, marker } = lastLineMarker(body);
   return marker && OPENING[marker.kind] && lines[0].startsWith(OPENING[marker.kind]) ? marker : null;
 }
+
+/** The author marker that ends a pull request's body, on its own line, or null. One quoted or mentioned earlier is not it. */
+export function authorMarker(body) {
+  const { marker } = lastLineMarker(body);
+  return marker?.kind === 'author' ? marker : null;
+}
+
+// An edit can add a veto to an old comment, so an owner comment counts from its last edit.
+const editedTime = (c) => new Date(c.lastEditedAt ?? c.updatedAt ?? c.createdAt).getTime();
 
 /** The contributor's comments split into the automation's (each with its marker) and the owner's (their times). */
 function sortComments(comments = []) {
@@ -54,7 +69,7 @@ function sortComments(comments = []) {
     if (String(c.author ?? '').toLowerCase() !== CONTRIBUTOR) continue;
     const marker = automationMarker(c.body);
     if (marker) automation.push({ ...marker, at: time(c) });
-    else owner.push(time(c));
+    else owner.push(editedTime(c));
   }
   return { automation, owner };
 }
@@ -81,8 +96,9 @@ function reviewReasons(pr, author, automation) {
   const independent = approvals.filter((r) => r.run !== author.run && family(r.model) !== family(author.model));
   if (!independent.length) return ['approval is not independent of the author (same run or model)'];
   const newestApproval = Math.max(...independent.map((r) => r.at));
-  // GitHub's times are to the second, so a verdict in the same second as the approval is not provably older: it holds.
-  if (reviews.some((r) => r.verdict === 'changes' && r.at >= newestApproval)) {
+  // A changes verdict holds unless it is provably older than the approval. GitHub's times are to the second, so the
+  // same second is not provably older, and neither is a time that could not be read (NaN compares false).
+  if (reviews.some((r) => r.verdict === 'changes' && !(r.at < newestApproval))) {
     return ['changes requested on the current head'];
   }
   return [];
@@ -100,21 +116,24 @@ function checkReasons(checks = []) {
 function planReasons(pr, lastResetAt, { automation, owner }) {
   // A plan is merged only once an intake made after the weekly reset has answered everything the owner
   // said on it; the planner opens it before the reset, so the intake is what holds it until then.
-  const intake = automation.filter((m) => m.kind === 'intake').sort((a, b) => a.at - b.at).at(-1);
+  // An intake whose time could not be read is taken as the newest, so its unknown time holds the plan below.
+  const intakes = automation.filter((m) => m.kind === 'intake');
+  const intake = intakes.find((m) => Number.isNaN(m.at)) ?? intakes.sort((a, b) => a.at - b.at).at(-1);
   if (!intake) return ['plan has no intake'];
   const reasons = [];
-  if (intake.at < lastResetAt.getTime()) reasons.push('plan intake is older than the weekly reset');
+  // Written as "not provably after" so that an unknown time (NaN compares false) holds rather than passes.
+  if (!(intake.at >= lastResetAt.getTime())) reasons.push('plan intake is older than the weekly reset');
   if (String(intake.head ?? '').toLowerCase() !== String(pr.headRefOid ?? '').toLowerCase()) {
     reasons.push('plan intake is for an older head');
   }
-  if (owner.length && Math.max(...owner) >= intake.at) reasons.push('owner commented after the intake');
+  if (owner.some((t) => !(t < intake.at))) reasons.push('owner commented after the intake');
   return reasons;
 }
 
 export function evaluate(pr, { now = new Date(), ownerRules = [], lastResetAt } = {}) {
   const reasons = [];
   const labels = (pr.labels ?? []).map((l) => String(typeof l === 'string' ? l : l?.name).toLowerCase());
-  const author = parseMarkers(pr.body).find((m) => m.kind === 'author') ?? null;
+  const author = authorMarker(pr.body);
   const comments = sortComments(pr.comments);
 
   if (String(pr.state ?? '').toUpperCase() !== 'OPEN') reasons.push('not open');

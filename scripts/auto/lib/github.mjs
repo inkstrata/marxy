@@ -29,8 +29,23 @@ export function prFiles(n) {
   return out.split(/\r?\n/).filter(Boolean);
 }
 
-// Where the head lives and who wrote each comment: the gate trusts only the contributor's own branches and words.
-const PR_FIELDS = 'number,title,isDraft,state,headRefName,headRefOid,isCrossRepository,headRepositoryOwner,labels,body,comments,statusCheckRollup,mergeStateStatus';
+// Every comment with its author and when it was last edited: `gh pr list` has no edit time, and an owner can add a
+// veto to an old comment by editing it.
+const COMMENTS = `query($owner: String!, $name: String!, $n: Int!, $endCursor: String) {
+  repository(owner: $owner, name: $name) { pullRequest(number: $n) { comments(first: 100, after: $endCursor) {
+    nodes { author { login } body createdAt updatedAt lastEditedAt } pageInfo { hasNextPage endCursor } } } } }`;
+export function prComments(n) {
+  const [owner, name] = REPO.split('/');
+  const out = gh(['api', 'graphql', '--paginate', '-f', `query=${COMMENTS}`, '-F', `owner=${owner}`, '-F', `name=${name}`, '-F', `n=${n}`,
+    '--jq', '.data.repository.pullRequest.comments.nodes[]']);
+  return out.split(/\r?\n/).filter(Boolean).map((l) => {
+    const c = JSON.parse(l);
+    return { author: c.author?.login ?? null, body: c.body, createdAt: c.createdAt, updatedAt: c.updatedAt, lastEditedAt: c.lastEditedAt };
+  });
+}
+
+// Where the head lives: the gate trusts only the contributor's own branches.
+const PR_FIELDS = 'number,title,isDraft,state,headRefName,headRefOid,isCrossRepository,headRepositoryOwner,labels,body,statusCheckRollup,mergeStateStatus';
 export function listOpenPRs() {
   const rows = gh(['pr', 'list', '-R', REPO, '--state', 'open', '--limit', '100', '--json', PR_FIELDS], { json: true }) || [];
   return rows.map((p) => ({
@@ -38,7 +53,7 @@ export function listOpenPRs() {
     isCrossRepository: p.isCrossRepository, headRepositoryOwner: p.headRepositoryOwner?.login ?? null,
     labels: (p.labels || []).map((l) => l.name),
     body: p.body || '', files: prFiles(p.number),
-    comments: (p.comments || []).map((c) => ({ author: c.author?.login ?? null, body: c.body, createdAt: c.createdAt })),
+    comments: prComments(p.number),
     checks: (p.statusCheckRollup || []).map((c) => ({ name: c.name || c.context, conclusion: c.conclusion || c.state, status: c.status })),
     mergeStateStatus: p.mergeStateStatus,
   }));
