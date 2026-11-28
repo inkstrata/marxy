@@ -196,7 +196,8 @@ it was cut), and never touches a worktree on no branch. `--keep a,b` holds back 
 newest commit is over 30 days old; folders in `<checkout>-wt/` that git does not know and nothing has touched for 14
 days; and local branches with no worktree whose tip is on `origin/main` or under an `archive/*` tag. A worktree
 whose tip is on no origin branch and under no archive tag is first tagged `archive/branch/<name>` and pushed.
-Uncommitted changes are saved as `changes.patch` and `untracked.tar` (a folder as a tar without `node_modules` and
+Uncommitted changes are saved as `changes.patch` and `untracked.tar`, which holds every untracked file git does not
+ignore, whatever folder it is in, and leaves out only ignored files under build folders (a folder as a tar without `node_modules` and
 `target`) in `~/.local/state/fleet/marxy/archive/worktrees/<name>-<date>/`, and the tar is read back before anything
 is deleted. A worktree with a commit from the last 30 days is never touched by `--stale`. The automation runs this
 weekly (`auto.mjs clean`, see `scripts/auto/README.md`).
@@ -213,11 +214,13 @@ jobs are `node scripts/auto/auto.mjs <command>` run by the machine's scheduler. 
 | daily 05:15 | `nightly` (script) | full verify of `main` with the browser suite and `check:tauri`, alone reruns, the Windows install check |
 | daily 08:45 to 13:30 | `day` (agent) | triage of the nightly and device results, then more building |
 | Friday 08:15 | `plan` (agent) | the week's outcome, `STATE.md`, the ledger row, and next week's plan as a pull request |
+| Friday 14:05 to 19:55 | `friday` (agent) | the final sweep: spends what is left of the week before the 20:00 reset |
 | Sunday 04:30 | `clean` (script) | `pnpm work clean --stale --apply`, then old logs and temporary folders |
 | every 30 minutes | `tick` (script) | the merge gate (any hour) and the dashboard issue |
 | hourly, on power | device scripts | install checks on Eris and Set |
 
-The owner's window, 14:00 to midnight, has no agent work. The week starts at the usage reset, Friday 20:00:
+The owner's window, 14:00 to midnight, has no agent work, except on Friday from 14:00 to the 20:00 reset: the
+week's leftover usage is lost at the reset, so the final sweep spends it, up to 90% of the 5-hour limit. The week starts at the usage reset, Friday 20:00:
 its plan is `work/weeks/<that Friday>.md`, and the owner can change it on its pull request until Saturday's
 night run takes it in. The budget rules, the devices and how to stop any of it are in
 [scripts/auto/README.md](../scripts/auto/README.md).

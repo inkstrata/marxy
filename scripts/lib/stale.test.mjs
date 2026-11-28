@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { archiveTag, keepable, normPath, staleBranches, staleFolders, staleTrees } from './stale.mjs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { archiveTag, normPath, staleBranches, staleFolders, staleTrees, toArchive } from './stale.mjs';
+import { runStale } from './stale-run.mjs';
+import { workspace } from './workspace.mjs';
 
 const NOW = Date.parse('2026-11-27T12:00:00Z');
 const ago = d => NOW - d * 864e5;
@@ -38,8 +44,65 @@ test('unregistered folders untouched for 14 days are picked; nightly, registered
   assert.deepEqual(out.map(x => x.name), win ? ['old'] : ['old', 'tree']);
 });
 
-test('what a build can remake is not archived', () => {
-  assert.deepEqual(keepable(['.env', 'src/a.ts', 'node_modules/x/y.js', 'a/target/b', 'web/dist/c.js', '.venv/bin/p', '.pnpm-store/v3/f']), ['.env', 'src/a.ts']);
+test('only ignored files under a build folder are left out of the archive', () => {
+  const ignored = ['.env', 'node_modules/x/y.js', 'a/target/b', 'web/dist/c.js', '.venv/bin/p', '.pnpm-store/v3/f'];
+  const untracked = ['src/a.ts', 'docs/dist/notes.md', 'node_modules/mine.md', 'crates/target/plan.txt'];
+  assert.deepEqual(toArchive(untracked, ignored), ['src/a.ts', 'docs/dist/notes.md', 'node_modules/mine.md', 'crates/target/plan.txt', '.env']);
+});
+
+/**
+ * A repository with an origin and one month-old-looking worktree holding an untracked, not ignored `docs/dist/notes.md`,
+ * an untracked `newfile.md`, an ignored `.env` and an ignored build output; runs the stale pass with `apply` over it.
+ */
+function staleRun(t, tar) {
+  // `.native` expands a Windows short name (a hosted runner's temp folder is under RUNNER~1); git reports the long one.
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'marxy-stale-test-')));
+  const before = process.env.MARXY_STATE_DIR;
+  process.env.MARXY_STATE_DIR = join(dir, 'state');
+  t.after(() => {
+    if (before === undefined) delete process.env.MARXY_STATE_DIR; else process.env.MARXY_STATE_DIR = before;
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  });
+  const sh = (cwd, ...args) => execFileSync('git', ['-C', cwd, '-c', 'user.email=test@example.invalid', '-c', 'user.name=test', '-c', 'commit.gpgsign=false', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  sh(dir, 'init', '-q', '--bare', '-b', 'main', 'origin.git');
+  const main = join(dir, 'app');
+  sh(dir, 'clone', '-q', 'origin.git', 'app');
+  writeFileSync(join(main, '.gitignore'), '.env\nweb/dist/\n');
+  writeFileSync(join(main, 'a.txt'), 'a\n');
+  sh(main, 'add', '-A');
+  sh(main, 'commit', '-q', '-m', 'base');
+  sh(main, 'push', '-q', 'origin', 'HEAD:main');
+  const trees = join(dir, 'app-wt');
+  const tree = join(trees, 'a');
+  sh(main, 'worktree', 'add', '-q', '-b', 'agent/a', tree);
+  mkdirSync(join(tree, 'docs', 'dist'), { recursive: true });
+  writeFileSync(join(tree, 'docs', 'dist', 'notes.md'), 'the only copy\n');
+  writeFileSync(join(tree, 'newfile.md'), 'kept\n');
+  writeFileSync(join(tree, '.env'), 'LOCAL=1\n');
+  mkdirSync(join(tree, 'web', 'dist'), { recursive: true });
+  writeFileSync(join(tree, 'web', 'dist', 'bundle.js'), 'built\n');
+  const ws = workspace(main, { MARXY_WORKTREES: trees });
+  const r = runStale({ ws, root: main, tar }, { apply: true, now: Date.now() + 60 * 864e5, date: '2027-01-01' });
+  return { r, tree, archive: join(dir, 'state', 'archive', 'worktrees', 'a-2027-01-01') };
+}
+const tarList = archive => execFileSync('tar', ['-tf', 'untracked.tar'], { cwd: archive, encoding: 'utf8' }).split(/\r?\n/).filter(l => l && !l.endsWith('/')).sort();
+
+test('the stale pass archives an untracked file under a folder named dist before it removes the worktree', t => {
+  const { r, tree, archive } = staleRun(t);
+  assert.ok(!existsSync(tree), r.lines.join('\n'));
+  assert.deepEqual(tarList(archive), ['.env', 'docs/dist/notes.md', 'newfile.md']);
+});
+
+test('an archive that is missing a file keeps the worktree', t => {
+  // A tar that quietly leaves out the first file it is given, and still exits 0: only the count check can notice.
+  const shortTar = (dir, args, input) => {
+    const files = input.split('\0').filter(Boolean);
+    return spawnSync('tar', args, { cwd: dir, input: files.slice(1).join('\0') + '\0', encoding: 'utf8' });
+  };
+  const { r, tree, archive } = staleRun(t, shortTar);
+  assert.ok(existsSync(join(tree, 'docs', 'dist', 'notes.md')), r.lines.join('\n'));
+  assert.ok(r.lines.some(l => /^kept\s+a\s+the archive of untracked and ignored files is incomplete/.test(l)), r.lines.join('\n'));
+  assert.equal(tarList(archive).length, 2);
 });
 
 test('local branches with no worktree and safe tips go; the base and held ones stay', () => {

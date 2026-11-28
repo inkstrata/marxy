@@ -18,7 +18,9 @@ commands to GitHub take `GH_TOKEN=$(gh auth token -u inkstrata)` (PowerShell:
    `scripts/registry.json`.
 4. `MARXY_NICE=1 pnpm verify --tier changed` must pass (PowerShell: `$env:MARXY_NICE = '1'; pnpm verify --tier changed`);
    run browser test batches the same way, so the owner's machine stays responsive. Browser tests with `--jobs 2` at most. Don't edit source while
-   browser tests run. If a browser file fails, run it alone before calling it load.
+   browser tests run. If a browser file fails, run it alone before calling it load. Told `lightOnly` (the owner
+   is at the machine): run only `pnpm verify --tier quick`, no browser tests or builds, let CI run the rest, and
+   say in the pull request body that local verify was quick-tier.
 5. `check-scale` runs in `pnpm check`: read AGENTS.md "Big files are ordinary", `docs/big-files.md` and the
    `big-files` skill. A bounded shape gets `// scale: <why>`; `--write` records a drop. Never raise a
    recorded count.

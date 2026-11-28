@@ -17,6 +17,7 @@ Pacific time. `schedule.json` holds the same list as data.
 | daily 05:15 | `nightly` | script, Osiris | full verify of `main` with the browser suite and `check:tauri`, red browser files rerun alone, the Windows install check |
 | Sunday 04:30 | `clean` | script, Osiris | `work clean --stale --apply` (old worktrees, folders and branches, archived first), then old logs and temporary folders pruned |
 | daily 08:45, until 13:30 | `day` | agent, Osiris | triage of the nightly and device results, then more building (the `night` skill, day mode) |
+| Friday 14:05, until 19:55 | `friday` | agent, Osiris | the final sweep (the `night` skill, final mode) |
 | Friday 08:15 | `plan` | agent, Osiris | the week's outcome, `work/STATE.md`, the ledger row and next week's plan as a pull request (the `plan-week` skill) |
 | every 30 minutes | `tick` | script, Osiris | the merge gate (any hour) and the dashboard issue |
 | hourly, on power | `device` | script, Eris | macOS build and install check, the macOS browser suite weekly, runs spoiled by sleep retried, the weekly cleanup |
@@ -46,9 +47,9 @@ Fable is used only when the week's plan pull request has its Fable box ticked by
 
 ## The budget
 
-- **The owner's window**, 14:00 to 24:00, has no agent work. A 5-hour usage block starts at the first
-  message after the last one expired; a new block must end by 14:00.
-- **5-hour meter:** at 75% no new agents; at 85% stop, finishing only the current step.
+- **The owner's window**, 14:00 to 24:00, has no agent work, except Friday 14:00 to 20:00 (the final sweep,
+  below). A 5-hour usage block starts at the first message after the last one expired; a new block must end by 14:00.
+- **5-hour meter:** at 75% no new agents; at 85% stop, finishing only the current step (90% in the final sweep).
 - **Weekly meter:** the owner keeps a reserve of max(15, 60 − the owner's use this week) percent; the sweep
   lowers it to at most 30 on Thursday and 15 on Friday. Each slot may use the headroom divided by the slots
   left before Friday 14:00.
@@ -71,19 +72,40 @@ rule left merging in this repository to the owner. The owner's written policy (m
 its author approved, with CI green and no owner path touched) is enforced here, by a script, and by GitHub's
 required `ci` check. `.claude/settings.json` denies `gh pr merge` to agents.
 
+Only comments by the contributor `inkstrata` count; anyone else's are ignored, so they neither approve, hold nor
+veto. Of those, a comment is the automation's only when its first line is `Independent review:` (or `Intake:`) and
+its last non-empty line is one well-formed marker of that kind, every field present; any other is the owner's,
+and a marker inside it, quoted or mentioned, counts for nothing.
+
 `auto.mjs tick` merges a pull request when all of these hold:
 
-- it is open, not a draft, and its head is `agent/*`;
-- its body ends with `<!-- marxy-author run=<id> model=<model> -->`;
-- a comment carries `<!-- marxy-review verdict=approve head=<sha> run=<id> model=<model> -->` for its current
-  head, from a run and a model different from the author's, with no later `changes` verdict;
+- it is open, not a draft, its head is `agent/*`, and the head branch is in this repository (a fork's pull
+  request is refused, whatever its branch is called);
+- its body ends with `<!-- marxy-author run=<id> model=<model> -->` on a line of its own;
+- a review comment carries `<!-- marxy-review verdict=approve head=<40-hex sha> run=<id> model=<model> -->` for
+  its current head, from a run and a model different from the author's, with no `changes` verdict for that head
+  in the same second or later;
 - the `ci` check passed and no check failed;
 - it touches no path in `.github/CODEOWNERS` (those wait for the owner);
 - it has no `hold` label, and GitHub calls it `CLEAN` (merges happen at any hour);
 - for a `plan` pull request: the weekly reset has passed, and the newest `<!-- marxy-intake head=<sha> -->`
-  comment is for the current head and newer than every owner comment (one with no `<!-- marxy-` marker).
+  comment is for the current head and newer than every owner comment (an edited one counts from its last edit).
+
+A time that cannot be read holds: a `changes` verdict, an owner comment or an intake with no readable time is
+never taken as older than what it competes with.
 
 `auto.mjs merge --dry-run` prints what it would do and why each one is held.
+
+## Friday final sweep
+
+The weekly limits reset Friday 20:00 and what is left is lost, so from Friday 14:00 to 20:00 the governor stops
+protecting the owner's window and spends it (`POLICY.finalSweep`). In that window `decide()` skips the
+owner-window and 14:00-block rules for every profile, `research-now` included; the 5-hour line is 75% soft (no
+new agents) and 90% hard (stop); the weekly reserve is a flat 2%, so the allowance is the whole headroom; `stopAt`
+is 19:55. It answers `finalSweep: true`. With no usage reading it refuses (no blind mode). If the owner is at the
+machine, or presence is unknown, the gate does not refuse but answers `lightOnly: true`: reading and writing work, local verify at
+`--tier quick`, CI runs the rest; for `research-now` presence is ignored. The `friday` job runs the `night`
+skill in final mode.
 
 ## When you are using the machine
 
@@ -95,7 +117,10 @@ there when any of these holds:
 - on Windows, a full-screen app (`SHQueryUserNotificationState`: full screen, Direct3D, presentation, Store app);
 - a game process: a path or command line with `steamapps/common`; on Windows also a path under `Epic Games`,
   `XboxGames`, `GOG Galaxy\Games`, or `Riot Games` (controller play shows no input); on Linux
-  `SteamLaunch`. Wallpaper Engine, the Epic launcher and the Riot client are not counted.
+  `SteamLaunch`. Wallpaper Engine, the Epic launcher and the Riot client are not counted;
+- presence unknown: a probe that runs but fails, times out or answers something unreadable (including a KDE idle
+  time between 600 and 600,000, which reads either as recent input or as idleness, since its unit is unverified).
+  It fails closed: only a probe whose command is not on the system, such as `qdbus` without KDE, is no signal.
 
 What each job does: `usage` and `gate` answer `allowed: false` ("owner is using this machine"), so the night skill
 starts nothing new (it also starts no agent while a Claude session of the owner's is working). `nightly` and
@@ -110,8 +135,9 @@ does too when `MARXY_NICE=1`, which builders and the device scripts set. On Osir
 from `device` when the newest `clean/<os>.json` is over a week old. It runs `node scripts/work.mjs clean --apply --stale` from the checkout, which removes landed work, then
 worktrees with no commit for 30 days, unregistered folders beside them untouched for 14 days and branches already on
 `origin/main` or under an `archive/*` tag. A tip not safe elsewhere is tagged `archive/branch/<name>` and pushed first;
-uncommitted changes are saved as `changes.patch` and `untracked.tar`, and folders as a tar without `node_modules` and
-`target`, under `~/.local/state/fleet/marxy/archive/worktrees/<name>-<date>/`. Then logs older than 30 days, rows
+uncommitted changes are saved as `changes.patch` and `untracked.tar` (every untracked file git does not ignore, whatever
+folder it is in; of the ignored ones, all but those under `node_modules`, `target`, `dist`, `.pnpm-store` or `.venv`),
+checked complete before the worktree goes, and folders as a tar without `node_modules` and `target`, under `~/.local/state/fleet/marxy/archive/worktrees/<name>-<date>/`. Then logs older than 30 days, rows
 older than 90 days in the `.jsonl` files and `marxy-verify` temporary folders older than 14 days go. The result is
 published as `clean/<os>.json`; the dashboard's Health section shows its age.
 
@@ -138,7 +164,7 @@ and the machine awake.
 
 ## Size guard
 
-Code under `scripts/auto/` stays at 1,200 lines or less, and the `night`, `plan-week` and `review` skills at
+Code under `scripts/auto/` stays at 1,500 lines or less, and the `night`, `plan-week` and `review` skills at
 600 lines of Markdown or less; `size.test.mjs` fails past either. In September 2026 the orchestration code
 reached about 10,000 lines against about 12,000 of product and was torn out. Grow the product, not this.
 

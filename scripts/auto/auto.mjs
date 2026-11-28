@@ -13,10 +13,10 @@ async function decideNow(usage, job, now = new Date()) {
   const { lastReset } = await import('./lib/merge-policy.mjs');
   const ownerUsedPct = usage ? attribution(readJsonl('runs'), usage.weekly.pct, lastReset(now)).ownerPct : null;
   const d = decide({ now, usage, ownerUsedPct, profile: job });
-  // The owner at the machine (typing, a game, a full-screen app) outranks the budget: start nothing new.
-  const { presence } = await import('./lib/presence.mjs');
-  const p = presence();
-  out(p.busy ? { ...d, allowed: false, reason: `owner is using this machine: ${p.why.join('; ')}`, presence: p } : d);
+  // The owner at the machine (typing, a game, a full-screen app) outranks the budget: start nothing new,
+  // except in the Friday final sweep, where work continues in a light form.
+  const { presence, withPresence } = await import('./lib/presence.mjs');
+  out(withPresence(d, presence(), job));
 }
 
 async function usage(args) {

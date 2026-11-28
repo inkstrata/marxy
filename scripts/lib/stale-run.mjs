@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
-import { archiveName, archiveTag, keepable, normPath, staleBranches, staleFolders, staleTrees } from './stale.mjs';
+import { archiveName, archiveTag, normPath, staleBranches, staleFolders, staleTrees, toArchive } from './stale.mjs';
 import { git, parseWorktrees } from './workspace.mjs';
 
 const attempt = f => { try { return f(); } catch { return null; } };
@@ -65,18 +65,19 @@ function treeFacts(main, head, remoteTags) {
 }
 
 /** Saves a worktree's uncommitted, untracked and ignored files; throws when any step fails or the tar lacks a file. */
-function saveChanges(path, dir) {
+function saveChanges(path, dir, make = tar) {
   if (!existsSync(path)) return;
   const status = git(path, 'status', '--porcelain');
   const patch = git(path, 'diff', 'HEAD', '--binary');
   const others = git(path, 'ls-files', '--others', '--exclude-standard', '-z');
   const ignored = git(path, 'ls-files', '--others', '--ignored', '--exclude-standard', '-z');
-  const files = keepable([...others.split('\0'), ...ignored.split('\0')].filter(Boolean));
+  // The tar is checked against this list below, so a file meant to be kept that did not go in stops the removal.
+  const files = toArchive(others.split('\0').filter(Boolean), ignored.split('\0').filter(Boolean));
   if (!status.trim() && !files.length) return;
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'changes.patch'), patch);
   if (!files.length) return;
-  const made = tar(dir, ['-cf', 'untracked.tar', '-C', path, '--null', '-T', '-'], files.join('\0') + '\0');
+  const made = make(dir, ['-cf', 'untracked.tar', '-C', path, '--null', '-T', '-'], files.join('\0') + '\0');
   if (made.status !== 0 || tarCount(dir, 'untracked.tar') !== files.length) throw new Error('the archive of untracked and ignored files is incomplete');
 }
 
@@ -92,7 +93,10 @@ function removeWorktree(main, path) {
   throw new Error(first({ stderr: r.stderr, message: 'git worktree remove failed' }));
 }
 
-/** Runs the stale pass; returns { removed, archived, lines }. Without `apply` it only lists. */
+/**
+ * Runs the stale pass; returns { removed, archived, lines }. Without `apply` it only lists. `ctx.tar` stands in for the
+ * tar that writes a worktree's archive, so a test can prove that a short archive stops the removal.
+ */
 export function runStale(ctx, { apply = false, now = Date.now(), date = new Date(now).toISOString().slice(0, 10) } = {}) {
   const { ws, root } = ctx;
   const main = ws.main;
@@ -127,7 +131,7 @@ export function runStale(ctx, { apply = false, now = Date.now(), date = new Date
         git(main, 'push', 'origin', tag);
         tally.archived++;
       }
-      saveChanges(t.path, dir);
+      saveChanges(t.path, dir, ctx.tar);
       if (existsSync(dir)) tally.archived++;
     } catch (e) { say('kept    ', t.name, first(e)); continue; }
     try { removeWorktree(main, t.path); tally.removed++; say(verb, t.name, t.branch ?? ''); } catch (e) { say('kept    ', t.name, `git would not remove it: ${first(e)}`); }

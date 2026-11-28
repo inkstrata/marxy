@@ -46,7 +46,12 @@ export const archiveTag = r => `archive/branch/${r.branch ?? r.name}`;
 /** Folder name of an archive: <name>-<YYYY-MM-DD>. */
 export const archiveName = (name, date) => `${name}-${date}`;
 
-/** Names never archived or counted: what a build or an install can make again. */
+/** Folder names of what a build or an install can make again. */
 export const REMAKABLE = ['node_modules', 'target', 'dist', '.pnpm-store', '.venv'];
-/** Drops every path with a remakable folder in it. */
-export const keepable = paths => paths.filter(p => !p.split(/[\/]/).some(seg => REMAKABLE.includes(seg)));
+const remakable = p => p.split('/').some(seg => REMAKABLE.includes(seg));
+/**
+ * The files of a worktree to archive, from git's two lists (paths with forward slashes). A folder's name alone proves
+ * nothing: `docs/dist/notes.md` can be someone's only copy of their notes. So every untracked file git does not ignore
+ * is kept, and only a file git ignores may be left out, when it sits under a folder a build makes.
+ */
+export const toArchive = (untracked, ignored) => [...new Set([...untracked, ...ignored.filter(p => !remakable(p))])];

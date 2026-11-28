@@ -3,6 +3,7 @@
   "jobs": [
     { "id": "night", "kind": "agent", "host": "osiris", "when": "20 0 * * *", "skill": "night", "model": "sonnet", "what": "carry-over fixes, then the week's queue; Tuesday adds a bug hunt; Thursday and Friday sweep the week's leftover budget" },
     { "id": "day", "kind": "agent", "host": "osiris", "when": "45 8 * * *", "skill": "night", "mode": "day", "model": "sonnet", "what": "triage the nightly and device results, then keep building until 13:30 if the budget allows" },
+    { "id": "friday", "kind": "agent", "host": "osiris", "when": "5 14 * * 5", "skill": "night", "mode": "final", "model": "sonnet", "what": "the final sweep: spend what is left of the week before the 20:00 reset, up to 90% of the 5-hour limit" },
     { "id": "plan", "kind": "agent", "host": "osiris", "when": "15 8 * * 5", "skill": "plan-week", "model": "opus", "what": "the week's outcome, STATE and ledger, and next week's plan as a pull request before the 20:00 reset" },
     { "id": "tick", "kind": "script", "host": "osiris", "when": "*/30 * * * *", "command": "node scripts/auto/auto.mjs tick", "what": "merge gate (any hour) and dashboard" },
     { "id": "nightly", "kind": "script", "host": "osiris", "when": "15 5 * * *", "command": "node scripts/auto/auto.mjs nightly", "what": "full verify of main with the browser suite and check:tauri, alone reruns, Windows install check" },
