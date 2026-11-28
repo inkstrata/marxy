@@ -57,9 +57,15 @@ function New-MarxyAction([string]$command) {
     $line = '--headless cmd.exe /d /s /c ""{0}" "{1}" {2} >> "{3}" 2>&1"' -f $node, $script, $command, $log
     New-ScheduledTaskAction -Execute 'conhost.exe' -WorkingDirectory $repo -Argument $line
 }
-function New-MarxySettings([TimeSpan]$limit) {
-    New-ScheduledTaskSettingsSet -ExecutionTimeLimit $limit -MultipleInstances IgnoreNew `
-        -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+function New-MarxySettings([TimeSpan]$limit, [switch]$WhenIdle) {
+    # Priority 7 is below normal: a build never competes with a game.
+    $set = @{ ExecutionTimeLimit = $limit; MultipleInstances = 'IgnoreNew'; Priority = 7 }
+    if ($WhenIdle) {
+        # Windows itself holds the task until the owner has been away ten minutes, and waits up to eight hours for
+        # that. It is not stopped when the owner returns: device.mjs checks between its own steps.
+        $set += @{ RunOnlyIfIdle = $true; IdleDuration = (New-TimeSpan -Minutes 10); IdleWaitTimeout = (New-TimeSpan -Hours 8); DontStopOnIdleEnd = $true }
+    }
+    New-ScheduledTaskSettingsSet @set -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 }
 
 $tickTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 30)
@@ -70,6 +76,6 @@ Write-Host "registered $tick"
 
 $nightTrigger = New-ScheduledTaskTrigger -Daily -At '05:15'
 Register-ScheduledTask -TaskName $nightly -Action (New-MarxyAction 'nightly') -Trigger $nightTrigger -Principal $principal `
-    -Settings (New-MarxySettings (New-TimeSpan -Hours 4)) -Force `
+    -Settings (New-MarxySettings (New-TimeSpan -Hours 4) -WhenIdle) -Force `
     -Description 'Marxy nightly full verify and installer check on origin/main. marxy/scripts/auto/osiris.ps1' | Out-Null
 Write-Host "registered $nightly"

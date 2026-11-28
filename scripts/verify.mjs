@@ -6,7 +6,7 @@
 //   [--from <step>] [--only a,b] [--skip a,b] [--list] [--check-map] [--jobs <n>] [--unit-jobs <n>] [--lock-wait <sec>] [--no-lock] [--timeout-scale <x>]
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { availableParallelism, tmpdir } from 'node:os';
+import { availableParallelism, constants, setPriority, tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { exitOnSignals, takeSlot } from './lib/machine-lock.mjs';
@@ -485,4 +485,8 @@ export async function main(argv) {
   return failed.length ? 1 : 0;
 }
 
-if (import.meta.main) process.exit(await main(process.argv.slice(2)));
+if (import.meta.main) {
+  // MARXY_NICE=1: background runs keep out of the way of whoever is using the machine; every step inherits this.
+  if (process.env.MARXY_NICE === '1') { try { setPriority(constants.priority.PRIORITY_BELOW_NORMAL); } catch {} }
+  process.exit(await main(process.argv.slice(2)));
+}

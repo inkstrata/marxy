@@ -34,7 +34,7 @@ The answer to `PROMPT.md` beside this file. Written 2026-11-27 on Osiris. The op
 | daily 05:15 | `nightly` | script, Osiris Task Scheduler | none | full verify of `main` (browser suite and `check:tauri` included), each red re-run alone three times, then the Windows install check |
 | daily 08:45 to 13:30 | `day` | agent, Osiris desktop task | Sonnet; Haiku scouts | triage of the nightly and device results, then more of the queue if the budget allows |
 | Friday 08:15 | `plan` | agent, Osiris desktop task | Opus, medium | the week's outcome, `STATE.md`, a ledger row, next week's plan as a PR |
-| every 30 min | `tick` | script, Osiris Task Scheduler | none | the merge gate (00:00 to 14:00 only) and the dashboard |
+| every 30 min | `tick` | script, Osiris Task Scheduler | none | the merge gate (00:00 to 14:00 only; changed 2026-11-27, see the note at the end) and the dashboard |
 | hourly, on power | `device` | script, launchd on Eris | none | macOS install check daily, macOS browser suite weekly; a run that overlapped a sleep is retried |
 | hourly, on power | `device` | script, systemd timer on Set | none | the nightly AppImage installed and launched |
 | daily 01:30 | `installers` | GitHub Actions | none | Linux AppImage and deb from `main` |
@@ -255,3 +255,12 @@ work is plain Markdown, and the merge rules are about 100 lines.
   catch-up that lands in your window.
 - **First runs of the device scripts and the installers workflow are unproven.** They were written on Osiris without
   Eris or Set at hand, and the dashboard will show their first results.
+
+## Changes
+
+Changed 2026-11-27: the gate merges at any hour, not only 00:00 to 14:00. The owner's concern is not the hour but the
+automation draining CPU or memory while they game or work, or using up their Claude allowance. So the gate, the
+nightly run and the device runs now check whether the owner is using the machine (recent input, a full-screen app, a
+game running) and stand down if so; Osiris's nightly task waits for ten idle minutes and runs at below-normal priority;
+and the night skill starts no new agents while the owner has a Claude session working. See "When you are using the
+machine" in `scripts/auto/README.md`.

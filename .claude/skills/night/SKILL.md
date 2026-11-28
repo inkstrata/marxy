@@ -30,6 +30,16 @@ export GH_TOKEN=$(gh auth token -u inkstrata)          # PowerShell: $env:GH_TOK
 5. Gate again before every new agent and at least every 30 minutes. `noNewAgents` (the 5-hour soft stop at
    75%) means finish what is running and start nothing. A hard stop (85%) or `stopAt` reached: tell every
    builder to commit, push and open its work as a draft pull request now, then go to section 7.
+6. **The owner at the machine.** The gate also says `allowed: false` with "owner is using this machine" when
+   they are typing, in a game or in a full-screen app: start nothing new, finish what runs. Before each new
+   agent also list the desktop app's sessions (ToolSearch `select:mcp__ccd_session_mgmt__list_sessions`). A
+   session this run did not start, and that is not a scheduled task's run, that is working means the owner is
+   using Claude: start no new agents until it is idle; in-flight agents finish. No such tool: rely on the gate.
+6. **The owner at the machine.** The gate also says `allowed: false` with "owner is using this machine" when
+   they are typing, in a game or in a full-screen app: start nothing new, finish what runs. Before each new
+   agent also list the desktop app's sessions (ToolSearch `select:mcp__ccd_session_mgmt__list_sessions`). A
+   session this run did not start, and that is not a scheduled task's run, that is working means the owner is
+   using Claude: start no new agents until it is idle; in-flight agents finish. No such tool: rely on the gate.
 
 ## 2. Where things stand
 
@@ -109,8 +119,8 @@ gets a Sonnet reviewer, passed as the Agent tool's `model`.
 the same reviewer re-reviews only what changed since its last review and posts a new comment and marker for
 the new head.
 
-**Merge.** Nobody here merges. `auto.mjs tick` merges an approved, green pull request between 00:00 and
-14:00. A pull request the gate holds is listed in the summary with the gate's reason.
+**Merge.** Nobody here merges. `auto.mjs tick` merges an approved, green pull request at any hour.
+A pull request the gate holds is listed in the summary with the gate's reason.
 
 ## 6. Sweep nights
 

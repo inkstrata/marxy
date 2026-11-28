@@ -17,7 +17,7 @@ Pacific time. `schedule.json` holds the same list as data.
 | daily 05:15 | `nightly` | script, Osiris | full verify of `main` with the browser suite and `check:tauri`, red browser files rerun alone, the Windows install check |
 | daily 08:45, until 13:30 | `day` | agent, Osiris | triage of the nightly and device results, then more building (the `night` skill, day mode) |
 | Friday 08:15 | `plan` | agent, Osiris | the week's outcome, `work/STATE.md`, the ledger row and next week's plan as a pull request (the `plan-week` skill) |
-| every 30 minutes | `tick` | script, Osiris | the merge gate (00:00 to 14:00) and the dashboard issue (always) |
+| every 30 minutes | `tick` | script, Osiris | the merge gate (any hour) and the dashboard issue |
 | hourly, on power | `device` | script, Eris | macOS build and install check, the macOS browser suite weekly, runs spoiled by sleep retried |
 | hourly, on power | `device` | script, Set | Linux install check of CI's AppImage |
 | daily 01:30 | `installers` | GitHub Actions | Linux AppImage and deb from `main` |
@@ -74,11 +74,30 @@ required `ci` check. `.claude/settings.json` denies `gh pr merge` to agents.
   head, from a run and a model different from the author's, with no later `changes` verdict;
 - the `ci` check passed and no check failed;
 - it touches no path in `.github/CODEOWNERS` (those wait for the owner);
-- it has no `hold` label, GitHub calls it `CLEAN`, and the time is 00:00 to 14:00;
+- it has no `hold` label, and GitHub calls it `CLEAN` (merges happen at any hour);
 - for a `plan` pull request: the weekly reset has passed, and the newest `<!-- marxy-intake head=<sha> -->`
   comment is for the current head and newer than every owner comment (one with no `<!-- marxy-` marker).
 
 `auto.mjs merge --dry-run` prints what it would do and why each one is held.
+
+## When you are using the machine
+
+Osiris and Set are also gaming machines, and Eris is the owner's laptop. `lib/presence.mjs` says the owner is
+there when any of these holds:
+
+- keyboard or mouse input in the last 10 minutes (Windows `GetLastInputInfo`, macOS `HIDIdleTime`, KDE's
+  `GetSessionIdleTime` on Linux; no signal elsewhere);
+- on Windows, a full-screen app (`SHQueryUserNotificationState`: full screen, Direct3D, presentation, Store app);
+- a game process: a path or command line with `steamapps/common`; on Windows also a path under `Epic Games`,
+  `XboxGames`, `GOG Galaxy\Games`, `Riot Games` or `Battle.net` (controller play shows no input); on Linux
+  `SteamLaunch`. Wallpaper Engine and the Epic launcher are not counted.
+
+What each job does: `usage` and `gate` answer `allowed: false` ("owner is using this machine"), so the night skill
+starts nothing new (it also starts no agent while a Claude session of the owner's is working). `nightly` and
+`device` check at the start and again before each long step; when busy they stop, publish what ran with the rest
+marked skipped (not good for freshness, so retried), and exit 0. Both run at below-normal priority, and `verify`
+does too when `MARXY_NICE=1`, which builders and the device scripts set. On Osiris `Marxy - nightly` also waits for
+10 idle minutes (up to 8 hours) and both tasks run at priority 7. `tick` is light and runs regardless.
 
 ## Records
 
@@ -116,11 +135,12 @@ reached about 10,000 lines against about 12,000 of product and was torn out. Gro
 | `schedule.json` | every job, when and where it runs, as data |
 | `lib/governor.mjs` | the budget rules: may agent work start now, and until when |
 | `lib/merge-policy.mjs` | the merge gate's rules and the marker parser |
+| `lib/presence.mjs` | whether the owner is using this machine: input, a full-screen app, a game |
 | `lib/codeowners.mjs` | which changed files `.github/CODEOWNERS` gives to the owner |
 | `lib/state.mjs` | local run logs and the `auto-state` data branch |
 | `lib/github.mjs` | the `gh` calls, with the contributor's token |
 | `lib/dashboard.mjs` | collects the state and renders the dashboard issue |
-| `osiris.ps1` | registers `tick` and `nightly` in Task Scheduler on Osiris |
+| `osiris.ps1` | registers `tick` and `nightly` in Task Scheduler on Osiris (`nightly` only when idle) |
 | `eris/` | `eris/install.sh` and `eris/marxy-auto.plist`: the hourly launchd agent on Eris |
 | `set/` | `set/install.sh`, `set/marxy-auto.service` and `set/marxy-auto.timer`: the hourly systemd user timer on Set |
 | `size.test.mjs` | the size guard |

@@ -173,8 +173,7 @@ programs) stays in the tracker under its own heading until someone has tried it.
 `main` moves only through a pull request. In scheduled runs the merge gate, `node scripts/auto/auto.mjs tick`,
 merges it, and no agent does: the pull request is not a draft, its head is `agent/*`, an approve marker for
 its current head comes from a run and model other than its author's, the `ci` check is green, it touches no
-path in `.github/CODEOWNERS`, it has no `hold` label, GitHub calls it clean, and the time is between 00:00 and
-14:00 Pacific. Anything else waits for the owner. In a session the owner drives, the owner merges. A
+path in `.github/CODEOWNERS`, it has no `hold` label, GitHub calls it clean (merges happen at any hour). Anything else waits for the owner. In a session the owner drives, the owner merges. A
 run lands with `pnpm verify --tier full` behind it. The pull request carries the tracker change (its rows
 removed), and for a run the new `work/ledger.md` row and the rewritten `work/STATE.md`. Then:
 
@@ -203,7 +202,7 @@ jobs are `node scripts/auto/auto.mjs <command>` run by the machine's scheduler. 
 | daily 05:15 | `nightly` (script) | full verify of `main` with the browser suite and `check:tauri`, alone reruns, the Windows install check |
 | daily 08:45 to 13:30 | `day` (agent) | triage of the nightly and device results, then more building |
 | Friday 08:15 | `plan` (agent) | the week's outcome, `STATE.md`, the ledger row, and next week's plan as a pull request |
-| every 30 minutes | `tick` (script) | the merge gate (00:00 to 14:00) and the dashboard issue |
+| every 30 minutes | `tick` (script) | the merge gate (any hour) and the dashboard issue |
 | hourly, on power | device scripts | install checks on Eris and Set |
 
 The owner's window, 14:00 to midnight, has no agent work. The week starts at the usage reset, Friday 20:00:

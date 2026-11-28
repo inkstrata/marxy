@@ -66,7 +66,7 @@ function waiting(d) {
 // One line per device: the install check, the Windows verify and its reruns, and whether a sleep spoiled it.
 function deviceLine(os, r, now) {
   if (!r) return `- ${os}: no data yet`;
-  const state = r.slept ? 'inconclusive (slept)' : r.install?.skipped ? `skipped (${r.install.skipped})` : r.install?.ok ? 'ok' : 'failed';
+  const state = r.slept ? 'inconclusive (slept)' : r.skipped?.length ? `partial (skipped ${r.skipped.join(', ')}: owner using the machine)` : r.install?.skipped ? `skipped (${r.install.skipped})` : r.install?.ok ? 'ok' : 'failed';
   const real = (r.reruns || []).filter((x) => x.verdict === 'real').length;
   const verify = r.verify ? `, verify ${r.verify.ok ? 'ok' : 'failed'}${real ? ` (${real} real reds)` : ''}` : '';
   const note = r.install?.notes ? `, ${short(String(r.install.notes), 70)}` : '';

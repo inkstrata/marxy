@@ -97,7 +97,6 @@ export function evaluate(pr, { now = new Date(), ownerRules = [], lastResetAt } 
   }
   if (labels.includes('hold')) reasons.push('labelled hold');
   if (pr.mergeStateStatus !== 'CLEAN') reasons.push(`merge state is ${pr.mergeStateStatus ?? 'unknown'}, not CLEAN`);
-  if (localParts(now).hour >= POLICY.lastBlockEnd) reasons.push('outside merge hours');
   // A plan is known by its branch as well as its label, so a missing label cannot skip the intake rule.
   if (labels.includes('plan') || String(pr.headRefName ?? '').startsWith('agent/plan-')) {
     reasons.push(...planReasons(pr, now, lastResetAt ?? lastReset(now)));
