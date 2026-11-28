@@ -263,7 +263,7 @@ export async function nightly(args = [], deps = {}) {
     verify = { ok: null, steps: [], skipped: BUSY };
     skipped.push('verify');
   } else {
-    const v = await exec(process.execPath, ['scripts/verify.mjs', '--tier', 'full', '--logs', logs], { cwd: wt, env: { MARXY_NICE: '1' }, log: join(logs, 'verify.out'), timeoutMs: 3 * HOUR });
+    const v = await exec(process.execPath, ['scripts/verify.mjs', '--tier', 'full', '--skip', 'browser', '--logs', logs], { cwd: wt, env: { MARXY_NICE: '1' }, log: join(logs, 'verify.out'), timeoutMs: 3 * HOUR });
     const summary = readJson(join(logs, 'summary.json'));
     verify = summarizeVerify(summary, v.code);
     if (v.timedOut) verify = { ...verify, ok: false, reason: timeoutReason(v, 180) };

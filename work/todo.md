@@ -103,6 +103,7 @@ L31; L4 and L6 by #806; L12 by #797; L13 by #805; L14 by #798. Since `docs/resea
 | --- | --- | --- |
 | R14 | Decide the release: v0.2.0, a pre-release, round 16 before the tag, wave 5 after it, the file-association set, ad-hoc signing for now | `reports/2026-11-26-release-readiness/README.md`, "Decisions for the owner" |
 | B13 | Pasting HTML into Source of a file that is not Markdown converts it to Markdown, as `docs/using-marxy.md` promises: fences in a `.py` file, escaped and invalid JSON, a pipe table in a `.csv`, `**bold**` in a `.txt`. Should such a paste go in as plain text? (hunt-01 EDT-03, judged by design) | `docs/using-marxy.md:263-266` |
+| R20 | Name a core tier of formats held to the full standard (Markdown and the text family: code, logs, data), with the long tail of formats as basic previews? Options: name it; keep every format to one standard; decide per format as each is touched | Asked in the plan's Decisions; the default is to keep one standard until the release is decided |
 
 ## Parked
 
@@ -143,3 +144,4 @@ About the machines' workspaces, not this repository.
 | # | What | State |
 | --- | --- | --- |
 | H6 | About 570 worktrees beside the Mac checkout are from the earlier architecture, 93 with uncommitted edits, and its main checkout holds 345 untracked files under `orchestration/` | The weekly clean archives and removes them (a patch and tar per dirty worktree, an `archive/branch/<name>` tag for a tip not safe elsewhere); the 345 untracked files in the main checkout stay by hand, and never `git clean` it. The Windows machine's old-pipeline leftovers were archived and removed on 2026-11-27; only the Mac's remain |
+| A1 | The standing automation's small known issues, from its reviews: hunts are counted by calendar day, not from the Friday 20:00 reset; a targeted pre-merge hunt counts against the weekly hunt cap and can cancel Tuesday's hunt; a wait that names a branch instead of a row id is missed; a small hunt can still run three rounds; the stale-cleanup docs still say "no commit for 30 days"; `scripts/auto/README.md` names another repository's account; the KDE idle unit is unverified on Set; a test builds its path from `URL.pathname`, which breaks on paths with spaces | One pull request each, or together when they touch the same file |

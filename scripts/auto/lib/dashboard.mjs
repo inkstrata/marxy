@@ -58,7 +58,10 @@ function changelog(d) {
 
 function waiting(d) {
   const mine = (p) => (p.reasons || []).filter((r) => OWNER_REASON.test(r));
-  const out = d.prs.filter((p) => !p.merge && mine(p).length).map((p) => `- PR #${p.number} ${short(p.title, 60)}: ${brief(mine(p))}`);
+  // The plan pull request's Decisions section is where the owner ticks answers, so it comes first.
+  const plan = d.prs.find((p) => String(p.headRefName).startsWith('agent/plan-'));
+  const out = plan ? [`- Decisions to tick in the plan: #${plan.number}`] : [];
+  out.push(...d.prs.filter((p) => !p.merge && mine(p).length).map((p) => `- PR #${p.number} ${short(p.title, 60)}: ${brief(mine(p))}`));
   for (const r of d.waitingOnOwner || []) out.push(`- ${r[0]} ${short((r[1] || '').replace(/`/g, ''), 100)}`);
   return out.length ? out : ['none'];
 }
@@ -144,8 +147,11 @@ export async function evaluatedPRs({ root = ROOT, now = new Date() } = {}) {
     if (!rules.length) rules = null;
   } catch { /* held below */ }
   const lastResetAt = policy.lastReset(now);
+  // Read once for every pull request; a failure to read holds them all.
+  let mainHold;
+  try { mainHold = policy.mainRedReason(gh.mainCi({ completed: true })); } catch { mainHold = policy.mainRedReason(null, false); }
   return gh.listOpenPRs().map((p) => {
-    const v = policy.evaluate(p, { now, ownerRules: rules || [], lastResetAt });
+    const v = policy.evaluate(p, { now, ownerRules: rules || [], lastResetAt, mainHold });
     const extra = [];
     if (!rules) extra.push('CODEOWNERS on main could not be read');
     // GitHub's files API stops at 3,000 files, so a list that long may be missing an owner path.

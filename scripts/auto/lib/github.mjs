@@ -69,9 +69,11 @@ export function mergedSince(isoDate) {
   return gh(['pr', 'list', '-R', REPO, '--state', 'merged', '--search', `merged:>=${isoDate}`, '--json', 'number,title,mergedAt,headRefName', '--limit', '100'], { json: true }) || [];
 }
 
-export function mainCi() {
-  const runs = gh(['run', 'list', '-R', REPO, '--workflow', 'ci', '--branch', 'main', '--limit', '1', '--json', 'conclusion,status,url,createdAt'], { json: true }) || [];
-  return runs[0] || null;
+// The newest run, whatever its state (the dashboard shows it), or with `completed` the newest that finished and was not
+// cancelled: a run another push superseded says nothing about whether main is red.
+export function mainCi({ completed = false } = {}) {
+  const runs = gh(['run', 'list', '-R', REPO, '--workflow', 'ci', '--branch', 'main', '--limit', completed ? '5' : '1', ...(completed ? ['--status', 'completed'] : []), '--json', 'conclusion,status,url,createdAt'], { json: true }) || [];
+  return (completed ? runs.find((r) => !['cancelled', 'skipped'].includes(String(r.conclusion).toLowerCase())) : runs[0]) || null;
 }
 
 const TITLE = 'Marxy dashboard';

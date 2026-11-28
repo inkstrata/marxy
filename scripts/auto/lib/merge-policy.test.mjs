@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseMarkers, automationMarker, authorMarker, evaluate, lastReset, CONTRIBUTOR } from './merge-policy.mjs';
+import { parseMarkers, automationMarker, authorMarker, evaluate, mainRedReason, lastReset, CONTRIBUTOR } from './merge-policy.mjs';
 import { parseCodeowners } from './codeowners.mjs';
 
 const la = (s) => new Date(`${s}-08:00`);
@@ -249,4 +249,31 @@ test('plan PR: intake from before the reset refused', () => {
 test('plan PR: no intake, or an intake of an older head, refused', () => {
   assert.deepEqual(run(plan([])).reasons, ['plan has no intake']);
   assert.deepEqual(run(plan([intake('2026-11-22T01:00:00', OLD)])).reasons, ['plan intake is for an older head']);
+});
+
+test('a red main holds an otherwise mergeable pull request', () => {
+  assert.equal(run(validPr()).merge, true);
+  const held = run(validPr(), { mainHold: mainRedReason({ conclusion: 'failure' }) });
+  assert.equal(held.merge, false);
+  assert.ok(held.reasons.includes('main is red: fix it first'));
+});
+
+test('mainRedReason: failure holds, success and a running run do not, an unreadable one holds', () => {
+  assert.equal(mainRedReason({ conclusion: 'failure' }), 'main is red: fix it first');
+  assert.equal(mainRedReason({ conclusion: 'timed_out' }), 'main is red: fix it first');
+  assert.equal(mainRedReason({ conclusion: 'success' }), null);
+  assert.equal(mainRedReason({ conclusion: '', status: 'in_progress' }), null);
+  assert.match(mainRedReason(null, false), /could not be read/);
+  assert.match(mainRedReason({ conclusion: 'success' }, false), /could not be read/);
+});
+
+test('a fix-main label exempts only the red-main hold', () => {
+  const hold = mainRedReason({ conclusion: 'failure' });
+  const fix = validPr({ labels: [{ name: 'fix-main' }] });
+  assert.equal(run(fix, { mainHold: hold }).merge, true);
+  assert.equal(run(validPr(), { mainHold: hold }).merge, false);
+  const red = run(validPr({ labels: ['fix-main'], checks: [{ name: 'ci', conclusion: 'FAILURE' }] }), { mainHold: hold });
+  assert.equal(red.merge, false);
+  assert.ok(!red.reasons.includes(hold));
+  assert.match(mainRedReason(null), /no finished ci run/);
 });
