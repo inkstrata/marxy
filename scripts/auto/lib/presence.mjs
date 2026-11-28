@@ -6,9 +6,10 @@ const IDLE_MS = 10 * 60e3;
 const FULL_SCREEN = { 2: 'a full-screen app', 3: 'a Direct3D full-screen app', 4: 'presentation mode', 7: 'a full-screen Store app' };
 // Wallpaper Engine lives there too and runs all day; it is not play.
 const STEAM = /steamapps[\\/]common(?![\\/]wallpaper_engine)/i;
-// The Epic launcher lives under \Epic Games\ too and idles in the tray, so it is not a game.
-const WIN_GAME = /\\(Epic Games|XboxGames|GOG Galaxy\\Games|Riot Games|Battle\.net)\\/i;
-const EPIC_LAUNCHER = /\\Epic Games\\Launcher\\/i;
+// The Epic launcher and the Riot client live under those folders too and idle in the tray, so they are not games.
+// Battle.net is left out: its launcher idles all day and its games install elsewhere.
+const WIN_GAME = /\\(Epic Games|XboxGames|GOG Galaxy\\Games|Riot Games)\\/i;
+const LAUNCHER = /\\(Epic Games\\Launcher|Riot Games\\Riot Client)\\/i;
 
 // One PowerShell call prints "idle <ms>", "state <n>", then every process path. A game played on a controller
 // shows no keyboard or mouse input, so the process list and the full-screen state matter as much as idle time.
@@ -29,11 +30,11 @@ export const parseWindows = (text) => ({
 });
 /** Idle milliseconds from `ioreg -c IOHIDSystem` (HIDIdleTime is nanoseconds). */
 export const parseHidIdle = (text) => Number(/"HIDIdleTime"\s*=\s*(\d+)/.exec(text)?.[1] ?? NaN) / 1e6;
-/** Idle milliseconds from KDE's GetSessionIdleTime (seconds). */
-export const parseIdleSeconds = (text) => (/^\d+$/.test(text.trim()) ? Number(text.trim()) * 1e3 : NaN);
+/** Idle milliseconds from KDE's GetSessionIdleTime. The unit is unverified on Set: a value over 1,000,000 is taken as milliseconds (that is 11 days as seconds), anything lower as seconds. */
+export const parseKdeIdle = (text) => (/^\d+$/.test(text.trim()) ? Number(text.trim()) * (Number(text.trim()) > 1e6 ? 1 : 1e3) : NaN);
 /** The first line that names a running game, or null. */
 export function findGame(text, platform) {
-  const hit = (l) => STEAM.test(l) || (platform === 'win32' ? WIN_GAME.test(l) && !EPIC_LAUNCHER.test(l) : platform === 'linux' && /SteamLaunch/.test(l));
+  const hit = (l) => STEAM.test(l) || (platform === 'win32' ? WIN_GAME.test(l) && !LAUNCHER.test(l) : platform === 'linux' && /SteamLaunch/.test(l));
   return text.split(/\r?\n/).find(hit)?.trim().slice(0, 120) ?? null;
 }
 
@@ -53,7 +54,9 @@ export function presence({ platform = process.platform, run = defaultRun } = {})
     input(parseHidIdle(ask('ioreg', ['-c', 'IOHIDSystem'])));
     games = ask('ps', ['-axo', 'args']);
   } else if (platform === 'linux') {
-    input(parseIdleSeconds(ask('qdbus', ['org.freedesktop.ScreenSaver', '/ScreenSaver', 'GetSessionIdleTime'])));
+    // Plasma 6 ships qdbus6; try both and take the first that answers.
+    const idle = ['qdbus', 'qdbus6'].map((c) => parseKdeIdle(ask(c, ['org.freedesktop.ScreenSaver', '/ScreenSaver', 'GetSessionIdleTime']))).find((n) => !Number.isNaN(n));
+    input(idle ?? NaN);
     games = ask('ps', ['-eo', 'args']);
   }
   const game = findGame(games, platform);

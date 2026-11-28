@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { presence, parseWindows, parseHidIdle, parseIdleSeconds, findGame } from './presence.mjs';
+import { presence, parseWindows, parseHidIdle, parseKdeIdle, findGame } from './presence.mjs';
 
 const WIN_IDLE = (ms, state = 1, paths = ['C:\\Windows\\explorer.exe']) => `idle ${ms}\r\nstate ${state}\r\n${paths.join('\r\n')}\r\n`;
 
@@ -12,8 +12,9 @@ test('windows output parses into idle, state and paths', () => {
 test('macOS and KDE idle times', () => {
   assert.equal(parseHidIdle('    | |   "HIDIdleTime" = 120000000000\n'), 120000);
   assert.ok(Number.isNaN(parseHidIdle('nothing')));
-  assert.equal(parseIdleSeconds('42\n'), 42000);
-  assert.ok(Number.isNaN(parseIdleSeconds('')));
+  assert.equal(parseKdeIdle('42\n'), 42000);
+  assert.equal(parseKdeIdle('1800000\n'), 1800000, 'over a million is milliseconds');
+  assert.ok(Number.isNaN(parseKdeIdle('')));
 });
 
 test('games are found by path or launcher', () => {
@@ -23,6 +24,9 @@ test('games are found by path or launcher', () => {
   assert.ok(findGame('C:\\XboxGames\\Halo\\Content\\halo.exe', 'win32'));
   assert.ok(findGame('/usr/bin/reaper SteamLaunch AppId=1', 'linux'));
   assert.equal(findGame('/usr/bin/reaper SteamLaunch AppId=1', 'darwin'), null);
+  assert.equal(findGame('C:\\Riot Games\\Riot Client\\RiotClientServices.exe', 'win32'), null);
+  assert.ok(findGame('C:\\Riot Games\\VALORANT\\live\\VALORANT.exe', 'win32'));
+  assert.equal(findGame('C:\\Program Files (x86)\\Battle.net\\Battle.net.exe', 'win32'), null);
   assert.equal(findGame('C:\\Program Files\\Epic Games\\Launcher\\Portal\\Binaries\\Win64\\EpicGamesLauncher.exe', 'win32'), null);
   assert.equal(findGame('C:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine\\wallpaper64.exe', 'win32'), null);
   assert.equal(findGame('C:\\Windows\\explorer.exe', 'win32'), null);
@@ -44,7 +48,9 @@ test('macOS and Linux read idle time and the process list', () => {
   assert.equal(mac(11 * 60e9).busy, false);
   assert.equal(mac(30e9).busy, true);
   assert.equal(mac(11 * 60e9, '/Users/o/Library/Steam/steamapps/common/G/g').busy, true);
-  const linux = (idle, ps = '') => presence({ platform: 'linux', run: (c) => (c === 'qdbus' ? idle : ps) });
+  const linux = (idle, ps = '') => presence({ platform: 'linux', run: (c) => (c === 'qdbus' ? idle : c === 'qdbus6' ? '' : ps) });
+  const plasma6 = presence({ platform: 'linux', run: (c) => { if (c === 'qdbus6') return '3\n'; throw new Error('no qdbus'); } });
+  assert.equal(plasma6.busy, true, 'qdbus6 answers when qdbus is missing');
   assert.equal(linux('900\n').busy, false);
   assert.equal(linux('5\n').busy, true);
   assert.equal(linux('', 'reaper SteamLaunch AppId=2').busy, true);

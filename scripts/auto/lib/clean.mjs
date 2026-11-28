@@ -52,7 +52,7 @@ function pruneJsonl(dir, now) {
       const file = path.join(d, n);
       const before = fs.readFileSync(file, 'utf8');
       const after = pruneRows(before, now - ROW_DAYS * DAY);
-      if (after !== before) { rows += before.split('\n').filter(Boolean).length - after.split('\n').filter(Boolean).length; fs.writeFileSync(file, after); }
+      if (after !== before) { rows += before.split('\n').filter(Boolean).length - after.split('\n').filter(Boolean).length; fs.writeFileSync(`${file}.tmp`, after); fs.renameSync(`${file}.tmp`, file); }
     }
   }
   return rows;

@@ -59,7 +59,8 @@ Fable is used only when the week's plan pull request has its Fable box ticked by
   Jobs check again before each new agent and at least every 30 minutes.
 - `usage` and `gate` take `--job <id>`: `research-now` selects a profile for the research queue's "run now" requests (any hour,
   5-hour line 60% soft and 70% hard, at most 3 hours; the presence check still applies), and any other job, such as
-  `research-night`, gets the default rules. The research queue calls them with `--job research-night` and `--job research-now`.
+  `research-night`, gets the default rules. The research queue's calls with `--job research-night` and `--job research-now` land with
+  ijdio/command-center#41; nothing calls them yet. `research-now` with no usage reading is refused.
 - `auto.mjs run start|end --job <id> --run <run-id>` brackets each job, so the weekly meter's growth during
   runs is counted as the automation's and the rest as the owner's.
 
@@ -93,8 +94,8 @@ there when any of these holds:
   `GetSessionIdleTime` on Linux; no signal elsewhere);
 - on Windows, a full-screen app (`SHQueryUserNotificationState`: full screen, Direct3D, presentation, Store app);
 - a game process: a path or command line with `steamapps/common`; on Windows also a path under `Epic Games`,
-  `XboxGames`, `GOG Galaxy\Games`, `Riot Games` or `Battle.net` (controller play shows no input); on Linux
-  `SteamLaunch`. Wallpaper Engine and the Epic launcher are not counted.
+  `XboxGames`, `GOG Galaxy\Games`, or `Riot Games` (controller play shows no input); on Linux
+  `SteamLaunch`. Wallpaper Engine, the Epic launcher and the Riot client are not counted.
 
 What each job does: `usage` and `gate` answer `allowed: false` ("owner is using this machine"), so the night skill
 starts nothing new (it also starts no agent while a Claude session of the owner's is working). `nightly` and
@@ -105,8 +106,8 @@ does too when `MARXY_NICE=1`, which builders and the device scripts set. On Osir
 
 ## Cleanup
 
-`auto.mjs clean` runs weekly (Osiris Sunday 04:30; Eris and Set from `device` when the newest `clean/<os>.json` is over a
-week old). It runs `node scripts/work.mjs clean --apply --stale` from the checkout, which removes landed work, then
+`auto.mjs clean` is registered as the `Marxy - clean` task on Osiris, Sundays 04:30, held until the machine is idle; Eris and Set run it
+from `device` when the newest `clean/<os>.json` is over a week old. It runs `node scripts/work.mjs clean --apply --stale` from the checkout, which removes landed work, then
 worktrees with no commit for 30 days, unregistered folders beside them untouched for 14 days and branches already on
 `origin/main` or under an `archive/*` tag. A tip not safe elsewhere is tagged `archive/branch/<name>` and pushed first;
 uncommitted changes are saved as `changes.patch` and `untracked.tar`, and folders as a tar without `node_modules` and

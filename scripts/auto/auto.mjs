@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { readJsonl, appendJsonl, publish, attribution } from './lib/state.mjs';
 
 const out = (o) => console.log(JSON.stringify(o, null, 2));
-const flag = (args, name) => args[args.indexOf(name) + 1];
+const flag = (args, name) => { const i = args.indexOf(name); return i < 0 ? undefined : args[i + 1]; };
 const first = (e) => String(e.stderr || e.message).split('\n')[0];
 const newestUsage = () => readJsonl('usage', { limit: 20 }).filter((r) => r.usage).pop() || null;
 

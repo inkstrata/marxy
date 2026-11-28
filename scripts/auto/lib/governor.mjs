@@ -112,6 +112,8 @@ export function decide({ now, usage, ownerUsedPct = null, policy = POLICY, profi
   if (prof?.ignoreWindow) stopAt = new Date(now.getTime() + prof.maxHours * HOUR);
   out.stopAt = stopAt.toISOString();
 
+  // A run in the owner's own hours needs the meter to protect their allowance; blind is for the quiet night only.
+  if (!usage && prof?.ignoreWindow) return refuse(`${profile} needs a usage reading`);
   if (!usage) {
     const capEnd = new Date(Math.min(stopAt.getTime(), now.getTime() + policy.blind.maxHours * HOUR));
     return {

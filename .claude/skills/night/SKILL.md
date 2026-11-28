@@ -35,11 +35,6 @@ export GH_TOKEN=$(gh auth token -u inkstrata)          # PowerShell: $env:GH_TOK
    agent also list the desktop app's sessions (ToolSearch `select:mcp__ccd_session_mgmt__list_sessions`). A
    session this run did not start, and that is not a scheduled task's run, that is working means the owner is
    using Claude: start no new agents until it is idle; in-flight agents finish. No such tool: rely on the gate.
-6. **The owner at the machine.** The gate also says `allowed: false` with "owner is using this machine" when
-   they are typing, in a game or in a full-screen app: start nothing new, finish what runs. Before each new
-   agent also list the desktop app's sessions (ToolSearch `select:mcp__ccd_session_mgmt__list_sessions`). A
-   session this run did not start, and that is not a scheduled task's run, that is working means the owner is
-   using Claude: start no new agents until it is idle; in-flight agents finish. No such tool: rely on the gate.
 
 ## 2. Where things stand
 

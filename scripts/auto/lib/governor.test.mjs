@@ -64,6 +64,10 @@ test('research-now runs in the owner window while the five-hour meter is low', (
   assert.equal(d.stopAt, iso('2026-11-24T18:00:00'));
   assert.equal(decide({ now: la('2026-11-24T15:00:00'), usage: usage(), profile: 'night' }).reason, 'owner window');
 });
+test('research-now with no usage reading is refused', () => {
+  const d = decide({ now: la('2026-11-24T15:00:00'), usage: null, profile: 'research-now' });
+  assert.deepEqual([d.allowed, d.reason], [false, 'research-now needs a usage reading']);
+});
 test('research-now has a 60 and 70 line', () => {
   assert.equal(now(59).noNewAgents, false);
   assert.equal(now(61).noNewAgents, true);
