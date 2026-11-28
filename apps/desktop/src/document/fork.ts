@@ -6,6 +6,7 @@
 // if nothing is there (a file, a folder, a link, a dangling link), in the same step that makes the name appear. So there is no "look,
 // then write", no window for another program to win, and no symlink to write through: when anything is at a name the write fails
 // `exists` and the next name is tried, each name once, at the moment of writing, and nothing is replaced.
+import { utf8Length } from '@marxy/core';
 import { isWindowsPath } from '@marxy/core/src/index-model/paths.ts';
 
 /** The most names tried: `(fork)`, then `(fork 2)` to `(fork 999)`. */
@@ -32,13 +33,11 @@ export function taggedPath(path: string, tag: string): string {
   const dot = name.lastIndexOf('.');
   const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
   const bracketed = ` (${tag})`;
-  return `${dir}${fitStem(stem, bytesOf(bracketed) + bytesOf(ext))}${bracketed}${ext}`;
+  return `${dir}${fitStem(stem, utf8Length(bracketed) + utf8Length(ext))}${bracketed}${ext}`;
 }
 
 /** The longest name a file may have, in UTF-8 bytes (APFS, ext4). */
 export const MAX_NAME_BYTES = 255;
-
-const bytesOf = (text: string): number => new TextEncoder().encode(text).length;
 
 /**
  * `stem` cut, a whole grapheme at a time, so that the stem and the `rest` (the tag and the extension) fit in a file name: the tag
@@ -48,10 +47,10 @@ const bytesOf = (text: string): number => new TextEncoder().encode(text).length;
  */
 function fitStem(stem: string, rest: number): string {
   const room = MAX_NAME_BYTES - rest;
-  if (bytesOf(stem) <= room || room < 1) return stem;
+  if (utf8Length(stem) <= room || room < 1) return stem;
   let out = '';
   for (const { segment } of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(stem)) {
-    if (bytesOf(out + segment) > room) break;
+    if (utf8Length(out + segment) > room) break;
     out += segment;
   }
   return out;

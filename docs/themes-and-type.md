@@ -277,6 +277,11 @@ attaches it (`startTypeset`) to the rendered article.
   document is replaced or closed). The view answers a later pass that set paragraphs with the grid pass over the
   blocks holding them, and patches its block list from the first of them: those entries are read again and the
   ones below are moved by what they moved, so the cost follows what changed, not the length of the page.
+  Blocks that changed height apart from one another (a highlight batch over hundreds of code blocks) are one grid
+  pass, not one per block: every padding is undone, then every height and top read, then every padding written, so it
+  lays the page out a handful of times however many blocks changed (31 ms for 400 such blocks at 250 KB, where a pass
+  per block took 5.5 s). What is left at 1 MB (about 0.3 s for 1,600) is the engine laying out the whole article for
+  each of those reads.
   A paragraph is set once; only font loads, resizes, theme changes, reloads and a change written into it
   set it again, never a scroll or the page at rest. The
   reader's place is held by the character under the reading line, not while the wheel, a key or a

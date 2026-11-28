@@ -50,12 +50,109 @@ export interface EncodingFound {
 /**
  * From the page's UTF-8 to the file. `identity`: the text is the bytes. `units`: every character is `unit` bytes, counted by
  * scalar value (a single-byte encoding, UTF-32) or by UTF-16 unit (2 or 4 bytes a character). `table`: a multi-byte legacy
- * encoding, (UTF-8 offset, file offset) pairs where their difference changes, (0, bom) implied before the first.
+ * encoding, (UTF-8 offset, file offset) pairs where their difference changes, (0, bom) implied before the first; held as
+ * `ByteTable`, runs of equal steps, so a CJK file's map is not four bytes for each of its bytes.
  */
 export type ByteMap =
   | { readonly kind: 'identity' }
   | { readonly kind: 'units'; readonly unit: 1 | 2 | 4; readonly count: 'scalar' | 'utf16' }
-  | { readonly kind: 'table'; readonly pairs: Uint32Array };
+  | { readonly kind: 'table'; readonly table: ByteTable };
+
+/**
+ * The pairs of a `table` map, as steps from the pair before, equal steps as one record (Rust's `encoding/table.rs`).
+ * `runs`: records of three LEB128 varints, the step in UTF-8 offset, the step in file offset, how many such steps.
+ * `index`: (UTF-8 offset, file offset, byte offset in `runs`) before every `TABLE_GROUP`th record, the first (0, bom, 0).
+ */
+export interface ByteTable {
+  readonly index: Uint32Array;
+  readonly runs: Uint8Array;
+}
+
+export const TABLE_GROUP = 64;
+
+/** Makes a `ByteTable` from pairs pushed in order (both offsets rising). */
+export function createTableBuilder(bom: number): { push(u: number, f: number): void; finish(): ByteTable } {
+  const index: number[] = [];
+  const runs: number[] = [];
+  let records = 0;
+  let end: [number, number] = [0, bom];
+  let start: [number, number] = [0, bom];
+  let pending: [number, number, number] | null = null;
+  const put = (v: number): void => {
+    while (v >= 0x80) {
+      runs.push((v % 0x80) | 0x80);
+      v = Math.floor(v / 0x80);
+    }
+    runs.push(v);
+  };
+  const flush = (): void => {
+    if (!pending) return;
+    if (records % TABLE_GROUP === 0) index.push(start[0], start[1], runs.length);
+    put(pending[0]);
+    put(pending[1]);
+    put(pending[2]);
+    records++;
+    pending = null;
+  };
+  return {
+    push(u, f) {
+      const du = u - end[0];
+      const df = f - end[1];
+      if (pending && pending[0] === du && pending[1] === df) pending[2]++;
+      else {
+        flush();
+        start = end;
+        pending = [du, df, 1];
+      }
+      end = [u, f];
+    },
+    finish() {
+      flush();
+      if (index.length === 0) index.push(0, end[1], 0);
+      return { index: Uint32Array.from(index), runs: Uint8Array.from(runs) };
+    },
+  };
+}
+
+/** The last pair whose UTF-8 offset (`byFile` false) or file offset is at most `value`: (0, bom) when none. */
+export function seekTable(table: ByteTable, byFile: boolean, value: number): [number, number] {
+  const { index, runs } = table;
+  const key = (e: number): number => index[e * 3 + (byFile ? 1 : 0)]!;
+  let lo = 0;
+  let hi = index.length / 3;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (key(mid) <= value) lo = mid + 1;
+    else hi = mid;
+  }
+  const e = Math.max(0, lo - 1);
+  let u = index[e * 3]!;
+  let f = index[e * 3 + 1]!;
+  let at = index[e * 3 + 2]!;
+  const get = (): number => {
+    let v = 0;
+    let scale = 1;
+    while (at < runs.length) {
+      const b = runs[at++]!;
+      v += (b & 0x7f) * scale;
+      if ((b & 0x80) === 0) break;
+      scale *= 0x80;
+    }
+    return v;
+  };
+  while (at < runs.length) {
+    const du = get();
+    const df = get();
+    const n = get();
+    const now = byFile ? f : u;
+    if (value < now) break;
+    const k = Math.min(n, Math.floor((value - now) / Math.max(1, byFile ? df : du)));
+    u += k * du;
+    f += k * df;
+    if (k < n) break;
+  }
+  return [u, f];
+}
 
 export interface DecodedText {
   readonly found: EncodingFound;
@@ -83,20 +180,28 @@ export interface EncodingReadings {
 const utf8 = new TextDecoder('utf-8');
 const encoder = new TextEncoder();
 
-/** `decode_text`'s answer: the head's length (u32 LE), the head, the table's length in u32s and the table, then the text. */
+/** `decode_text`'s answer: the head's length (u32 LE), the head, the table's index (length in u32s, then the u32s LE), its runs (length in bytes, then the bytes), then the text. */
 export function parseDecodedFrame(body: Uint8Array): DecodedText {
   const view = new DataView(body.buffer, body.byteOffset, body.byteLength);
+  const bad = (what: string): Error => new Error(`decode_text: the frame is cut short or its ${what} is wrong`);
+  if (body.byteLength < 4) throw bad('head length');
   const n = view.getUint32(0, true);
+  if (n > body.byteLength - 12) throw bad('head length');
   const head = JSON.parse(utf8.decode(body.subarray(4, 4 + n))) as { found: EncodingFound; map: { kind: string; unit?: number; count?: string } };
   const t = view.getUint32(4 + n, true);
-  const pairs = new Uint32Array(t);
-  for (let i = 0; i < t; i++) pairs[i] = view.getUint32(8 + n + i * 4, true);
-  const text = body.slice(8 + n + t * 4);
+  if (t > (body.byteLength - 12 - n) / 4) throw bad('index length');
+  const index = new Uint32Array(t);
+  for (let i = 0; i < t; i++) index[i] = view.getUint32(8 + n + i * 4, true); // scale: the index is one entry per 64 records
+  const r = view.getUint32(8 + n + t * 4, true);
+  const runsAt = 12 + n + t * 4;
+  if (r > body.byteLength - runsAt) throw bad('runs length');
+  const runs = body.slice(runsAt, runsAt + r);
+  const text = body.slice(runsAt + r);
   const map: ByteMap =
     head.map.kind === 'units'
       ? { kind: 'units', unit: head.map.unit as 1 | 2 | 4, count: head.map.count === 'utf16' ? 'utf16' : 'scalar' }
       : head.map.kind === 'table'
-        ? { kind: 'table', pairs }
+        ? { kind: 'table', table: { index, runs } }
         : { kind: 'identity' };
   return { found: head.found, text, map };
 }
@@ -105,14 +210,18 @@ export function parseDecodedFrame(body: Uint8Array): DecodedText {
 export function decodedFrame(d: DecodedText): Uint8Array {
   const map = d.map.kind === 'units' ? { kind: 'units', unit: d.map.unit, count: d.map.count } : { kind: d.map.kind };
   const head = encoder.encode(JSON.stringify({ found: d.found, map }));
-  const pairs = d.map.kind === 'table' ? d.map.pairs : new Uint32Array(0);
-  const out = new Uint8Array(8 + head.length + pairs.length * 4 + d.text.length);
+  const index = d.map.kind === 'table' ? d.map.table.index : new Uint32Array(0);
+  const runs = d.map.kind === 'table' ? d.map.table.runs : new Uint8Array(0);
+  const runsAt = 12 + head.length + index.length * 4;
+  const out = new Uint8Array(runsAt + runs.length + d.text.length);
   const view = new DataView(out.buffer);
   view.setUint32(0, head.length, true);
   out.set(head, 4);
-  view.setUint32(4 + head.length, pairs.length, true);
-  pairs.forEach((v, i) => view.setUint32(8 + head.length + i * 4, v, true));
-  out.set(d.text, 8 + head.length + pairs.length * 4);
+  view.setUint32(4 + head.length, index.length, true);
+  index.forEach((v, i) => view.setUint32(8 + head.length + i * 4, v, true));
+  view.setUint32(8 + head.length + index.length * 4, runs.length, true);
+  out.set(runs, runsAt);
+  out.set(d.text, runsAt + runs.length);
   return out;
 }
 
@@ -209,19 +318,7 @@ export function fileOffsetOf(found: Pick<EncodingFound, 'bom' | 'fileBytes'>, ma
     case 'units':
       return Math.min(found.bom + unitsBefore(text, at, map.count === 'utf16') * map.unit, found.fileBytes);
     case 'table': {
-      const { pairs } = map;
-      let lo = 0;
-      let hi = pairs.length / 2 - 1;
-      let u0 = 0;
-      let f0 = found.bom;
-      while (lo <= hi) {
-        const mid = (lo + hi) >> 1;
-        if (pairs[mid * 2]! <= at) {
-          u0 = pairs[mid * 2]!;
-          f0 = pairs[mid * 2 + 1]!;
-          lo = mid + 1;
-        } else hi = mid - 1;
-      }
+      const [u0, f0] = seekTable(map.table, false, at);
       return Math.min(f0 + (at - u0), found.fileBytes);
     }
   }
@@ -235,19 +332,7 @@ export function bufferOffsetOf(found: Pick<EncodingFound, 'bom' | 'fileBytes'>, 
     case 'units':
       return byteAtUnits(text, Math.floor(Math.max(0, f - found.bom) / map.unit), map.count === 'utf16');
     case 'table': {
-      const { pairs } = map;
-      let lo = 0;
-      let hi = pairs.length / 2 - 1;
-      let u0 = 0;
-      let f0 = found.bom;
-      while (lo <= hi) {
-        const mid = (lo + hi) >> 1;
-        if (pairs[mid * 2 + 1]! <= f) {
-          u0 = pairs[mid * 2]!;
-          f0 = pairs[mid * 2 + 1]!;
-          lo = mid + 1;
-        } else hi = mid - 1;
-      }
+      const [u0, f0] = seekTable(map.table, true, f);
       return charStart(text, u0 + Math.max(0, f - f0));
     }
   }

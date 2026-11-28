@@ -190,3 +190,45 @@ test('Read with encoding... reads the same bytes each way, as the Rust shell doe
   for (const [label] of CANDIDATES) assert.ok(r.rows.some((x) => x.label === label), label);
   assert.equal(readingsOf(fixture('tide-notes-utf16.txt')).rows.find((x) => x.label === 'utf-16le')!.unreadable, 0);
 });
+
+test('the table of a big Shift_JIS file is runs of equal steps, and finds the pair one pair per change would', () => {
+  const unit = [0x93, 0xfa, 0x96, 0x7b, 0x8c, 0xea]; // 日本語
+  const bytes: number[] = [];
+  for (let i = 0; i < 4000; i++) bytes.push(0x61, 0x62, ...unit, ...unit, ...unit, ...unit, 0x0d, 0x0a);
+  const d = decodeBytes(Uint8Array.from(bytes), 'shift_jis');
+  assert.equal(d.map.kind, 'table');
+  if (d.map.kind !== 'table') return;
+  const size = d.map.table.index.length * 4 + d.map.table.runs.length;
+  assert.ok(size < bytes.length / 3, `${size} bytes of map for ${bytes.length}`);
+  const pure = Uint8Array.from({ length: 60000 }, (_, i) => (i % 2 ? 0xfa : 0x93));
+  const p = decodeBytes(pure, 'shift_jis').map;
+  assert.ok(p.kind === 'table' && p.table.index.length * 4 + p.table.runs.length < pure.length / 1000, 'a run of equal characters is one record');
+  // Every character start, both ways, against the arithmetic of the layout (2 + 24 bytes in 2 + 36 of text, + CRLF).
+  const row = 2 + 12 * 2 + 2;
+  const rowText = 2 + 12 * 3 + 2;
+  for (const r of [0, 1, 777, 3999]) {
+    for (let k = 0; k <= 12; k++) {
+      const f = r * row + 2 + k * 2;
+      const u = r * rowText + 2 + k * 3;
+      assert.equal(fileOffsetOf(d.found, d.map, d.text, u), f);
+      assert.equal(bufferOffsetOf(d.found, d.map, d.text, f), u);
+    }
+  }
+  assert.equal(fileOffsetOf(d.found, d.map, d.text, d.text.length), bytes.length);
+  const back = parseDecodedFrame(decodedFrame(d));
+  assert.deepEqual(back.map, d.map);
+});
+
+test('a frame that is cut short or claims more than it holds is refused, not read short', () => {
+  const frame = decodedFrame(decodeBytes(Uint8Array.from([0x61, 0x93, 0xfa, 0x62, 0x93, 0xfa, 0x93, 0xfa]), 'shift_jis'));
+  const head = new DataView(frame.buffer).getUint32(0, true);
+  assert.throws(() => parseDecodedFrame(frame.subarray(0, 4 + head + 6)), /cut short/);
+  assert.throws(() => parseDecodedFrame(frame.subarray(0, 12 + head + 3 * 4)), /cut short/);
+  const huge = frame.slice();
+  new DataView(huge.buffer).setUint32(4 + head, 0xffffffff, true);
+  assert.throws(() => parseDecodedFrame(huge), /index length/);
+  const runs = frame.slice();
+  new DataView(runs.buffer).setUint32(8 + head + 3 * 4, 0xffffff, true);
+  assert.throws(() => parseDecodedFrame(runs), /runs length/);
+  assert.throws(() => parseDecodedFrame(new Uint8Array(2)), /head length/);
+});

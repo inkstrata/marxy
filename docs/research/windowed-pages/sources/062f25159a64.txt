@@ -1,0 +1,263 @@
+Apple
+
+Store
+
+Mac
+
+iPad
+
+iPhone
+
+Watch
+
+Vision
+
+AirPods
+
+Home
+
+Entertainment
+
+Accessories
+
+Support
+
+0+
+
+About the security content of Safari 18.6
+
+This document describes the security content of Safari 18.6.
+
+About Apple security updates
+
+For our customers' protection, Apple doesn't disclose, discuss, or confirm security issues until an investigation has occurred and patches or releases are available. Recent releases are listed on the Apple security releases page.
+
+Apple security documents reference vulnerabilities by CVE-ID when possible.
+
+For more information about security, see the Apple Product Security page.
+
+Safari 18.6
+
+Released July 30, 2025
+
+libxml2
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: Processing a file may lead to memory corruption
+
+Description: This is a vulnerability in open source code and Apple Software is among the affected projects. The CVE-ID was assigned by a third party. Learn more about the issue and CVE-ID at cve.org.
+
+CVE-2025-7425: Sergei Glazunov of Google Project Zero
+
+libxslt
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: Processing maliciously crafted web content may lead to memory corruption
+
+Description: This is a vulnerability in open source code and Apple Software is among the affected projects. The CVE-ID was assigned by a third party. Learn more about the issue and CVE-ID at cve.org.
+
+CVE-2025-7424: Ivan Fratric of Google Project Zero
+
+Safari
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: Processing maliciously crafted web content may lead to an unexpected Safari crash
+
+Description: A logic issue was addressed with improved checks.
+
+CVE-2025-24188: Andreas Jaegersberger & Ro Achterberg of Nosebeard Labs
+
+WebKit
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: Processing maliciously crafted web content may lead to universal cross site scripting
+
+Description: This issue was addressed through improved state management.
+
+WebKit Bugzilla: 285927
+
+CVE-2025-43229: Martin Bajanik of Fingerprint, Ammar Askar
+
+WebKit
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: Visiting a malicious website may lead to address bar spoofing
+
+Description: The issue was addressed with improved UI.
+
+WebKit Bugzilla: 294374
+
+CVE-2025-43228: Jaydev Ahire
+
+WebKit
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: Processing maliciously crafted web content may disclose sensitive user information
+
+Description: This issue was addressed through improved state management.
+
+WebKit Bugzilla: 292888
+
+CVE-2025-43227: Gilad Moav, Yehuda Afek, Anat Bremler-Barr, and Amit Klein
+
+Entry updated October 15, 2025
+
+WebKit
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: Processing maliciously crafted web content may lead to memory corruption
+
+Description: The issue was addressed with improved memory handling.
+
+WebKit Bugzilla: 291742
+
+CVE-2025-31278: Yuhao Hu, Yan Kang, Chenggang Wu, and Xiaojie Wei
+
+WebKit Bugzilla: 291745
+
+CVE-2025-31277: Yuhao Hu, Yan Kang, Chenggang Wu, and Xiaojie Wei
+
+WebKit Bugzilla: 293579
+
+CVE-2025-31273: Yuhao Hu, Yan Kang, Chenggang Wu, and Xiaojie Wei
+
+WebKit
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: A download's origin may be incorrectly associated
+
+Description: A logic issue was addressed with improved checks.
+
+WebKit Bugzilla: 293994
+
+CVE-2025-43240: Syarif Muhammad Sajjad
+
+WebKit
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: Processing maliciously crafted web content may lead to an unexpected Safari crash
+
+Description: The issue was addressed with improved memory handling.
+
+WebKit Bugzilla: 292599
+
+CVE-2025-43214: shandikri working with Trend Micro Zero Day Initiative, Google V8 Security Team
+
+WebKit Bugzilla: 292621
+
+CVE-2025-43213: Google V8 Security Team
+
+WebKit Bugzilla: 293197
+
+CVE-2025-43212: Nan Wang (@eternalsakura13) and Ziling Chen
+
+WebKit
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: Processing web content may lead to a denial-of-service
+
+Description: The issue was addressed with improved memory handling.
+
+WebKit Bugzilla: 293730
+
+CVE-2025-43211: Yuhao Hu, Yan Kang, Chenggang Wu, and Xiaojie Wei
+
+WebKit
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: Processing maliciously crafted web content may disclose internal states of the app
+
+Description: An out-of-bounds read was addressed with improved input validation.
+
+WebKit Bugzilla: 294182
+
+CVE-2025-43265: HexRabbit (@h3xr4bb1t) from DEVCORE Research Team
+
+WebKit
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: Processing maliciously crafted web content may lead to an unexpected Safari crash
+
+Description: A use-after-free issue was addressed with improved memory management.
+
+WebKit Bugzilla: 295382
+
+CVE-2025-43216: Ignacio Sanmillan (@ulexec)
+
+WebKit
+
+Available for: macOS Ventura and macOS Sonoma
+
+Impact: Processing maliciously crafted web content may lead to an unexpected Safari crash
+
+Description: This is a vulnerability in open source code and Apple Software is among the affected projects. The CVE-ID was assigned by a third party. Learn more about the issue and CVE-ID at cve.org.
+
+WebKit Bugzilla: 296459
+
+CVE-2025-6558: Cl&eacute;ment Lecigne and Vlad Stolyarov of Google's Threat Analysis Group
+
+Additional recognition
+
+libxml2
+
+We would like to acknowledge Sergei Glazunov of Google Project Zero for their assistance.
+
+libxslt
+
+We would like to acknowledge Ivan Fratric of Google Project Zero for their assistance.
+
+Safari
+
+We would like to acknowledge Ameen Basha M K for their assistance.
+
+WebKit
+
+We would like to acknowledge Google V8 Security Team, Yuhao Hu, Yan Kang, Chenggang Wu, and Xiaojie Wei, rheza (@ginggilBesel) for their assistance.
+
+Information about products not manufactured by Apple, or independent websites not controlled or tested by Apple, is provided without recommendation or endorsement. Apple assumes no responsibility with regard to the selection, performance, or use of third-party websites or products. Apple makes no representations regarding third-party website accuracy or reliability. Contact the vendor for additional information.
+
+Published Date: October 15, 2025
+
+Helpful?
+
+Yes
+
+No
+
+Character limit:
+250
+
+Maximum character limit is 250.
+
+Please don’t include any personal information in your comment.
+
+Submit
+
+Thanks for your feedback.
+
+Apple Footer
+
+
+Apple
+
+Support
+
+About the security content of Safari 18.6
+
+United States
+
+Copyright © 2026 Apple Inc. All rights reserved.
+
+Privacy Policy Terms of Use Sales and Refunds Site Map

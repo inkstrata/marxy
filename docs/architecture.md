@@ -47,7 +47,7 @@ path ─ shell.detectFiles (head) ─ shell.readFile ─ decode if not UTF-8 ─
    and maths and converts the result to Marxy's tree, in which every node carries `src: {file, start,
    end}`, a byte range in the file (`packages/core/src/contracts/ast.ts`). Code and plain text become
    pieces of up to 200 lines (`parseCode`). Markdown from 256 KB (from 64 KB with another pane on screen) is parsed,
-   rendered and put in the page in slices, the event loop given back between them; an edit reparses only the
+   rendered and put in the page in slices, the event loop given back between them (`yieldToMain` in `scheduler/`, a message-channel task, never a timer); an edit reparses only the
    region it touched (`reparseMarkdown`), with the same result as a whole parse. Link reference and
    footnote definitions reach across the file, so each parse keeps an index of them (label, target,
    place) and the region is parsed with the file's labels and targets known; an edit that adds, removes
@@ -68,7 +68,8 @@ path ─ shell.detectFiles (head) ─ shell.readFile ─ decode if not UTF-8 ─
    only on the sanitised output, so a document cannot forge them.
 7. **Mount.** `apps/desktop/src/view/rendered-view.ts` puts the page into the pane: two screens from the
    landing place at once, the rest in idle slices (`render/progressive.ts`), one a frame, each cut by the elements it
-   brings (3,000) and put in with one insertion, with no layout read inside it; after any change to the bytes
+   brings (3,000) and put in with one insertion, with no layout read inside it; find and a copy of the whole page also read the blocks not yet appended
+   (`pendingBlocks`), so neither answers for only the part drawn; after any change to the bytes
    (an operation, undo, redo, a Source commit, a reload), only the changed blocks are replaced when that can be
    proved equal (`render/incremental.ts`), and the page is set whole when it cannot. With footnotes that holds while
    every label keeps its number: the changed blocks take the document's numbers, and only the items of the list of
@@ -165,7 +166,10 @@ read, and the card's `checked` row says the rest was not.
   (`packages/core/src/operations/`, `packages/core/src/transforms/`).
 - **Source** is a CodeMirror editor over the same bytes (`apps/desktop/src/source/`). Bytes that are not
   UTF-8 are held as single code units so they survive edits (`packages/core/src/buffer/source-text.ts`).
-  Leaving Source folds its text back into the store as one minimal splice (`foldText`).
+  Leaving Source folds its text back into the store as one minimal splice (`foldText`). While Source shows, the
+  Read page behind it is skipped (`content-visibility: hidden` on the hidden article, `packages/theme/src/base.css`),
+  not taken down: it keeps its style and layout, so leaving Source with nothing edited costs what changed, not a
+  layout of the whole page.
 - **Saving** (`apps/desktop/src/save.ts`, `document/store.ts`): the bytes are written through the shell's
   atomic write, handed the store's own `disk` (what it last loaded or wrote). The front end does not read the
   file again to save it: it sends the length and SHA-256 of those bytes with the write, and Rust
@@ -269,6 +273,7 @@ Folders under `apps/desktop/src/`:
 | `notices/` | notices and their wording |
 | `trust/` | per-document HTML and remote-image grants |
 | `position/`, `layout/` | reading places; layout saved and restored |
+| `scheduler/` | the one owner of giving the event loop back: `yieldToMain(lane)`, `runSliced`, the three lanes (input, viewport, background) |
 | `startup/`, `frontispiece/`, `commonplace/` | idle work after first text; the empty-state passage and its pieces |
 | `proposals/` | optional features behind Settings › Proposals |
 | `paste/` | paste handling |

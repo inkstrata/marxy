@@ -1,0 +1,353 @@
+WebKit Bugzilla
+
+New
+
+Browse
+
+Search+
+
+Log In
+
+&times;
+
+Sign in with GitHub
+
+or
+
+Remember my login
+
+Create Account
+
+·
+
+Forgot Password
+
+Forgotten password account recovery
+
+RESOLVED
+FIXED283846
+
+[css-contain-2] content skipped with `content-visibility: auto` should still be findable
+https://bugs.webkit.org/show_bug.cgi?id=283846
+
+Summary
+
+[css-contain-2] content skipped with `content-visibility: auto` should still ...
+
+Nathan Knowler
+
+Reported
+2024-11-29 23:19:05 PST
+
+Created attachment 473400 [details]
+Reduced test with some off-screen content skipped with `content-visibility: auto`.
+
+Content skipped with `content-visibility: auto` should still be findable with find-in-page features and in Safari it’s not. I did confirm that content is still accessible in VoiceOver (e.g. if the skipped content includes a link, it’ll surface in the Web Rotor).
+
+Latest draft spec (this is not a recent change): https://drafts.csswg.org/css-contain/#valdef-content-visibility-auto
+
+macOS Version: 15.1.1 (24B2091)
+Safari version 18.1.1 (20619.2.8.11.12)
+Safari Tech Preview Release 208 (Safari 18.2, WebKit 20621.1.5.1)
+
+Attachments
+
+Reduced test with some off-screen content skipped with `content-visibility: auto`.
+
+(888 bytes,
+text/html)
+
+2024-11-29 23:19 PST,
+
+Nathan Knowler
+
+no flags
+
+Details
+
+Reference video for matching content with a text fragment in Safari 18.3
+
+(126.14 KB,
+video/mp4)
+
+2025-02-13 11:05 PST,
+
+Nathan Knowler
+
+no flags
+
+Details
+
+WIP TextIterator changes
+
+(4.95 KB,
+patch)
+
+2025-02-19 08:04 PST,
+
+Tim Nguyen (:ntim)
+
+no flags
+
+DetailsFormatted DiffDiff
+
+Patch
+
+(16.28 KB,
+patch)
+
+2025-03-26 20:05 PDT,
+
+alan
+
+no flags
+
+DetailsFormatted DiffDiff
+
+Patch
+
+(17.63 KB,
+patch)
+
+2025-03-29 09:46 PDT,
+
+alan
+
+no flags
+
+DetailsFormatted DiffDiff
+
+[fast-cq]Patch
+
+(17.63 KB,
+patch)
+
+2025-03-29 14:38 PDT,
+
+alan
+
+no flags
+
+DetailsFormatted DiffDiff
+
+Show
+Obsolete (3)
+View All
+
+Add attachment
+proposed patch, testcase, etc.
+
+Radar WebKit Bug Importer
+
+Comment 1
+2024-12-06 23:20:14 PST
+
+<rdar://problem/141086607>
+
+Nathan Knowler
+
+Comment 2
+2025-02-13 11:05:05 PST
+
+Created attachment 474222 [details]
+Reference video for matching content with a text fragment in Safari 18.3
+
+I’m adding a video demonstration of how text fragment URLs relate to this bug in Safari 18.3. The behaviour is slightly different than find-in-page. The page scrolls to the location of the match. The matched text displays briefly, before disappearing. This means that content with `content-visibility: auto` that is within the viewport is still hidden.
+
+Tim Nguyen (:ntim)
+
+Comment 3
+2025-02-18 23:29:56 PST
+
+rdar://141237620
+
+Tim Nguyen (:ntim)
+
+Comment 4
+2025-02-19 08:04:39 PST
+
+Created attachment 474285 [details]
+WIP TextIterator changes
+
+My TextIterator changes should be correct, but I'm missing some other part of the puzzle that I can't seem to pinpoint atm.
+
+alan
+
+Comment 5
+2025-03-26 20:05:25 PDT
+
+Created attachment 474731 [details]
+Patch
+
+alan
+
+Comment 6
+2025-03-27 08:59:29 PDT
+
+fullyClipsContents change is not quite right. I think what we need here is to run the forced layout without applying implicit size containment on c-v auto content so that c-v auto block containers don't get collapsed.
+
+alan
+
+Comment 7
+2025-03-27 09:01:36 PDT
+
+(as it is difficult to differentiate actual collapsed containers from containers with zero height caused by applying (c-v a) size containment)
+
+alan
+
+Comment 8
+2025-03-29 09:46:40 PDT
+
+Created attachment 474757 [details]
+Patch
+
+alan
+
+Comment 9
+2025-03-29 14:38:22 PDT
+
+Created attachment 474759 [details]
+[fast-cq]Patch
+
+EWS
+
+Comment 10
+2025-03-30 19:21:35 PDT
+
+Committed 292919@main (d1074e32ca2f): <https://commits.webkit.org/292919@main>
+
+All reviewed patches have been landed. Closing bug and clearing flags on attachment 474759 [details].
+
+alan
+
+Comment 11
+2025-03-30 19:22:07 PDT
+
+oops, forgot to submit the test. will do it in a bit.
+
+alan
+
+Comment 12
+2025-03-31 12:24:49 PDT
+
+(In reply to zalan from comment #11)
+> oops, forgot to submit the test. will do it in a bit.
+
+https://commits.webkit.org/292949@main
+
+Note
+You need to
+log in
+before you can comment on or make changes to this bug.
+
+Status
+
+RESOLVED
+
+Resolution
+
+FIXED
+
+Priority
+
+P2
+
+Severity
+
+Normal
+
+Classification
+
+Unclassified
+
+Version
+
+Safari 18
+
+Hardware
+
+All
+
+OS
+
+All
+
+Product
+
+WebKit
+
+Component
+
+CSS
+
+Assignee
+
+alan
+
+Reported
+
+2024-11-29 23:19 PST
+
+Modified
+
+2025-03-31 12:24 PDT
+History
+
+CC List
+
+11
+users
+
+Show
+
+karlcow
+koivisto
+lwarlow
+m.goleb+bugzilla
+mike
+ntim
+thorton
+webkit-bug-importer
+wenson_hsieh
+woodlxf00
+zalan
+
+URL
+
+Keywords
+
+HasReduction, InRadar
+
+Depends on
+
+290490
+
+Blocks
+
+Dependencies
+
+treegraph
+
+See Also
+
+Alias
+
+None
+
+Top of Page
+
+Format For Printing
+
+XML
+
+Clone This Bug
+
+New
+
+Browse
+
+Search+
+
+Reports
+
+Requests

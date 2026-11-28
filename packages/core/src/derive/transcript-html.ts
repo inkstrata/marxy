@@ -18,6 +18,7 @@ import { invisibleHexLabel, invisibleSegments, markInvisibles } from '../render/
 import { renderDocumentSafeHtml } from '../render/pipeline.ts';
 import { innerDocument } from './invariants.ts';
 import { own } from '../util/text.ts';
+import { plural } from '../util/count.ts';
 
 export type TranscriptRow = DerivedTurn | TranscriptUnreadable | TranscriptPending;
 
@@ -32,7 +33,6 @@ export const OUTPUT_BOUND = { past: 30, head: 10, tail: 10 } as const;
 export const LINE_CHARS = 4000;
 
 const utf8 = new TextDecoder('utf-8', { ignoreBOM: true });
-const plural = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 const range = (node: { readonly src: { readonly start: number; readonly end: number } }): string =>
   `data-marxy-s="${node.src.start}" data-marxy-e="${node.src.end}"`;
 

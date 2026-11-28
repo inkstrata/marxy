@@ -6,6 +6,7 @@
 //
 // Sorting, the row filter and find go through every row, a slice at a time, the loop given back between slices; a
 // line over the table says how far a long pass has got. They change only the view: no byte of the file moves.
+import { yieldToMain } from '../scheduler/index.ts';
 import {
   findInRows,
   headHtml,
@@ -56,17 +57,8 @@ const WORDS: Readonly<Record<Nature, readonly [string, string]>> = {
   text: ['A to Z', 'Z to A'],
 };
 
-/** A slice of work gives the loop back through a message, not a timer: a timer's clamp would add 4 ms a slice. */
-function yieldNow(): Promise<void> {
-  return new Promise((resolve) => {
-    const channel = new MessageChannel();
-    channel.port1.onmessage = () => {
-      channel.port1.close();
-      resolve();
-    };
-    channel.port2.postMessage(null);
-  });
-}
+/** A slice of work gives the loop back: the reader asked for what is being done. */
+const yieldNow = (): Promise<void> => yieldToMain('input');
 
 /** The table's rows on the page: what the sort, the filter, find and the reading place ask of them. */
 export interface RowsView {

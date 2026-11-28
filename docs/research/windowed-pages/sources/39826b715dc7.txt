@@ -1,0 +1,273 @@
+Skip to content
+
+Navigation Menu
+
+Sign in
+
+Products
+
+Platform
+
+GitHubRepository hosting, code review, and collaboration
+
+CopilotAI coding agent for tasks, projects, and automated work
+
+Build & Ship
+
+ActionsCI/CD and automation
+
+Code QualityQuality analysis, fixes, and enforcement
+
+CodespacesCloud development environments
+
+Secure
+
+Code SecurityVulnerability detection and remediation
+
+Secret ProtectionSecret scanning and leak prevention
+
+All Features
+
+Developers
+
+Learn
+
+Documentation
+
+Training
+
+Certifications
+
+Build
+
+Build with Copilot
+
+Customize Copilot
+
+Integrations
+
+Explore
+
+Trending repos
+
+GitHub Sponsors
+
+Developer articles
+
+Changelog
+
+Changelog Your source for the latest features, improvements, and fixes across GitHub products, all in one place.
+
+Businesses
+
+By Stage
+
+Enterprises
+
+Team
+
+Startups
+
+Nonprofits
+
+By Industry
+
+Healthcare
+
+Financial services
+
+Manufacturing
+
+Government
+
+See all industries
+
+Evaluate GitHub
+
+Why GitHub
+
+Customer Stories
+
+Business insights
+
+Trust Center
+
+Add-ons
+
+GitHub Advanced SecurityEnterprise-grade code security
+
+Copilot for businessEnterprise-grade AI features
+
+Premium SupportEnterprise-grade 24/7 support
+
+Resources
+
+Learn & Connect
+
+Documentation
+
+Resource center
+
+Blog
+
+Events & webinars
+
+Community Forum
+
+Customer Stories
+
+Integrations
+
+Support
+
+Customer support
+
+Training
+
+GitHub Status
+
+Company
+
+About
+
+Partners
+
+Changelog
+
+GitHub Universe
+
+GitHub Universe The event for developers, by developers — talks, workshops, and what’s next for GitHub.
+
+Pricing
+
+Search/
+
+Sign in
+Sign up
+Appearance settings
+
+You signed in with another tab or window. Reload to refresh your session.
+You signed out in another tab or window. Reload to refresh your session.
+You switched accounts on another tab or window. Reload to refresh your session.
+
+Dismiss alert
+
+microsoft
+
+monaco-editor
+
+Repository navigation
+
+Code
+
+Issues796 ( 796 )
+
+Pull requests108 ( 108 )
+
+Discussions
+
+Actions
+
+Wiki
+
+Security and quality
+
+Insights
+
+More items
+
+Accessibility Guide for Integrators
+
+Jump to bottom
+
+Alexandru Dima edited this page Oct 24, 2017
+·
+3 revisions
+
+This page describes some best practices that Monaco Editor hosts can implement to make the editor accessible for all.
+
+1. Define keybindings for your contributed actions
+
+When adding actions to the editor (e.g. via addAction), please consider defining a keybinding for them. Even if you choose not to do so, the Command Palette (F1 or Alt+F1 in IE) will show your contributed action and thus make it accessible to keyboard-only users.
+
+2. Decide what you want to do w.r.t. High Contrast
+
+On Edge, when Windows is configured to run with a High Contrast Theme, and the editor is configured with a base theme of vs or vs-dark, the editor will react and respect the colors defined by the native High Contrast Theme. This works because Edge exposes -ms-high-contrast:active in a media query.
+
+Please consider other users that might be using other Operating Systems or browsers. For them, we ship an out-of-the-box high contrast theme, hc-black. You can expose switching to this theme in your UI or settings if you would like to be accessible to e.g. your Chrome users. Even if you choose not to do so, the editor ships an action "Toggle High Contrast Theme" that your users can trigger to switch the editor to our out-of-the-box high contrast theme.
+
+3. Use the ariaLabel editor/diff editor options
+
+Set the option ariaLabel to a short and friendly description (e.g. a filename) for the contents of the editor.
+
+4. Recommend your NVDA users to update to NVDA 2017.3 or higher
+
+NVDA 2017.3 increases NVDA's timeout for receiving a caret move event from 30ms to 100ms. This version is the first one where the built-in timeout is increased from 30ms to 100ms.
+
+5. Do you have a way to detect screen readers on your runtime / Do you have a user setting for it?
+
+Accessibility best practices dictate that applications should be accessible by default, and that no special behaviour should be implemented for accessibility purposes. I would invite the authors of the best practices to try to write a Screen Reader friendly code editor using w3c's ARIA :).
+
+Anyways, the state of the art is lacking. Here's an example: there is no way to communicate editor wrapping points to Screen Readers, and they will quickly get confused when pressing for example arrow down in a wrapped line; they will expect the system caret to move to the next line, and we will move the system caret to the same model line, at a different column (since the line is wrapped); so, when we know a Screen Reader is connected to an editor, we disable wrapping.
+
+If you have a user setting (like e.g. Google Docs) or run in an environment where it is possible to find out if a Screen Reader is attached (like e.g. Electron or a WebBrowser control), then please configure the editor with accessibilitySupport: "on". Even if you don't do this, your users will be let know in the editor's aria label that they can optimize the editor by themselves using Alt+F1 (or Ctrl+F1 in IE) and following the directions in there.
+
+6. Do you have documentation for your product?
+
+If yes, please consider including all the information at https://github.com/Microsoft/monaco-editor/wiki/Monaco-Editor-Accessibility-Guide and configuring the editor with accessibilityHelpUrl to point to your specific Accessibility documentation. You can test this by using Alt+F1 (or Ctrl+F1 in IE) and pressing Ctrl+H or Cmd+H.
+
+Wiki pages
+
+Pages 3
+
+Loading
+
+Home
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Accessibility Guide for Integrators
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Loading
+
+Monaco Editor Accessibility Guide
+
+Uh oh!
+
+There was an error while loading. Please reload this page.
+
+Clone this wiki locally
+
+Footer
+
+© 2026 GitHub, Inc.
+
+Footer navigation
+
+Terms
+
+Privacy
+
+Security
+
+Status
+
+Community
+
+Docs
+
+Contact
+
+Manage cookies
+
+Do not share my personal information
+
+You can’t perform that action at this time.

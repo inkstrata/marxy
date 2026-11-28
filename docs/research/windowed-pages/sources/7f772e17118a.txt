@@ -1,0 +1,174 @@
+WebKit Bugzilla
+
+New
+
+Browse
+
+Search+
+
+Log In
+
+&times;
+
+Sign in with GitHub
+
+or
+
+Remember my login
+
+Create Account
+
+·
+
+Forgot Password
+
+Forgotten password account recovery
+
+RESOLVED
+FIXED288312
+
+Support ContentVisibilityForceLayout in updateLayoutIfDimensionsOutOfDate
+https://bugs.webkit.org/show_bug.cgi?id=288312
+
+Summary
+
+Support ContentVisibilityForceLayout in updateLayoutIfDimensionsOutOfDate
+
+Matt Woodrow
+
+Reported
+2025-02-23 13:11:57 PST
+
+Splitting this reviewed subset out of bug 287880 to land separately.
+
+Attachments
+
+Add attachment
+proposed patch, testcase, etc.
+
+Radar WebKit Bug Importer
+
+Comment 1
+2025-02-23 13:14:51 PST
+
+<rdar://problem/145426937>
+
+Matt Woodrow
+
+Comment 2
+2025-02-23 13:16:23 PST
+
+Pull request: https://github.com/WebKit/WebKit/pull/41167
+
+EWS
+
+Comment 3
+2025-02-23 13:58:40 PST
+
+Committed 290919@main (4d590ffaba70): <https://commits.webkit.org/290919@main>
+
+Reviewed commits have been landed. Closing PR #41167 and removing active labels.
+
+Note
+You need to
+log in
+before you can comment on or make changes to this bug.
+
+Status
+
+RESOLVED
+
+Resolution
+
+FIXED
+
+Priority
+
+P2
+
+Severity
+
+Normal
+
+Classification
+
+Unclassified
+
+Version
+
+WebKit Nightly Build
+
+Hardware
+
+Unspecified
+
+OS
+
+Unspecified
+
+Product
+
+WebKit
+
+Component
+
+Layout and Rendering
+
+Assignee
+
+Matt Woodrow
+
+Reported
+
+2025-02-23 13:11 PST
+
+Modified
+
+2025-02-23 13:58 PST
+History
+
+CC List
+
+4
+users
+
+Show
+
+bfulgham
+simon.fraser
+webkit-bug-importer
+zalan
+
+URL
+
+Keywords
+
+InRadar
+
+Depends on
+
+Blocks
+
+See Also
+
+Alias
+
+None
+
+Top of Page
+
+Format For Printing
+
+XML
+
+Clone This Bug
+
+New
+
+Browse
+
+Search+
+
+Reports
+
+Requests

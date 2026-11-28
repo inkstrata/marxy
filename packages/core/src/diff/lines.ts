@@ -11,6 +11,8 @@
 // make the call run long. The result is always a valid edit script; `exact` says whether it is
 // also minimal-ish (false once any region was given up on).
 
+import { utf8Length } from '../util/count.ts';
+
 export interface DiffOp {
   readonly kind: 'equal' | 'delete' | 'insert';
   /** Line indices, half-open, in A and in B. A delete has an empty B range and an insert an empty A range. */
@@ -68,21 +70,6 @@ export function splitLines(text: string, split: LineSplit): string[] {
   }
   if (start < n) out.push(text.slice(start));
   return out;
-}
-
-/** UTF-8 length of a string without allocating (a lone surrogate counts as U+FFFD, three bytes, as TextEncoder does). */
-export function utf8Length(s: string): number {
-  let bytes = 0;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    if (c < 0x80) bytes += 1;
-    else if (c < 0x800) bytes += 2;
-    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < s.length && (s.charCodeAt(i + 1) & 0xfc00) === 0xdc00) {
-      bytes += 4;
-      i++;
-    } else bytes += 3;
-  }
-  return bytes;
 }
 
 function byteOffsets(lines: string[]): number[] {

@@ -1,0 +1,183 @@
+WebKit
+
+Downloads
+
+Feature Status
+
+CSS Features
+
+Standards Positions
+
+Documentation
+
+Web Inspector
+
+Tracking Prevention
+
+Policies
+
+Project Goals
+
+Bug Prioritization
+
+Bug Report Guidelines
+
+Code Style Guidelines
+
+Commit and Review Policy
+
+Feature Policy
+
+Security Policy
+
+Tracking Prevention Policy
+
+WebKit AI Tool Use Policy
+
+Contribute
+
+Getting Started
+
+Contributing Code
+
+Testing Contributions
+
+How to Report Bugs
+
+GitHub Repository
+
+Blog
+
+News Posts
+
+CSS Posts
+
+Contributing Posts
+
+Privacy Posts
+
+Performance Posts
+
+JavaScript Posts
+
+Standards Posts
+
+Web Inspector Posts
+
+Safari Technology Preview Posts
+
+WebKit Features in Safari 18.3
+
+Jan 27, 2025
+
+by Jen Simmons
+
+Today marks the arrival of Safari 18.3. This release is focused on improving the quality of features with 23 bug fixes and 1 depreciation, plus 1 new feature. Safari 18.3 is available on iOS 18.3, iPadOS 18.3, visionOS 2.3, macOS Sequoia 15.3, macOS Sonoma and macOS Ventura.
+
+Genmoji in WKWebView
+
+macOS Sequoia 15.3 now supports Genmoji in Messages, Mail, Notes, and more. With this, WKWebView on macOS now supports the NSAdaptiveImageGlyph API, via the supportsAdaptiveImageGlyph property on WKWebViewConfiguration, making it possible to support adaptive image glyphs in your Mac app. Learn more by watching Bring expression to your app with Genmoji from WWDC24.
+
+Bug Fixes and more
+
+Accessibility
+
+Fixed VoiceOver to not announce the content of <script> elements inside containers with display: contents.
+
+CSS
+
+Fixed the ::view-transition pseudo-element to create a stacking context.
+
+Fixed an issue where SVG text was not displayed in a content-visibility: auto subtree.
+
+Fixed :not(:has(...)) invalidation.
+
+Fixed the default background-origin to border-box for the border-area in shorthand.
+
+Fixed text-box not working correctly on buttons.
+
+Editing
+
+Fixed duplicated and offset highlights in iCloud Notes.
+
+Fixed getRangeAt(0) returning the same JavaScript object even after selection changes.
+
+Fixed the inability to tap to place the cursor at end of the line if last word was autocorrected.
+
+Fixed the drag preview remaining after dragging multiple items and then cancelling the drag.
+
+Media
+
+Fixed an incorrect aspect ratio for WebM files with non-1:1 source pixels and a sample-aspect-ratio setting.
+
+Rendering
+
+Fixed dynamically changing scrollbar-width causing horizontal scrollbars to be painted incorrectly.
+
+Fixed <img> element with height: min-content getting stretched vertically.
+
+Improved view-transitions performance by only rasterizing on-screen snapshots.
+
+Scrolling
+
+Fixed scrollbar appearance when changing to light or dark appearance.
+
+Security
+
+Removed support for Clear-Site-Data: "executionContexts".
+
+SVG
+
+Fixed SVG paths getting clipped at tile boundaries.
+
+Web API
+
+Fixed touching or clicking outside of the popover not closing it on iOS or iPadOS.
+
+Fixed coalesced and predicted events of a given pointer event to have the same pointer identifier as their parent.
+
+Web Extensions
+
+Fixed an issue where the permissions alert would still appear after clicking the extension icon, even though the user had granted the extension access to all sites.
+
+Fixed browser.tabs.create ignoring the pinned and openerTabId attributes, also occurring with browser.tabs.duplicate on iOS.
+
+Web Inspector
+
+Fixed the DOM tree view in the Elements tab reducing deeply-nested nodes to one character wide.
+
+Improved the reliability of safaridriver connecting to remote devices, especially immediately after toggling the “Remote Automation” setting.
+
+WebAssembly
+
+Fixed memory leaks in WebAssembly Table objects for JSWebAssemblyInstance to improve resource management in WebAssembly instances. This change enhances the stability and performance of WebAssembly in Safari by ensuring proper lifecycle management of internal Table references. No action is required by web developers, but you may notice reduced memory usage in applications that create and manage WebAssembly instances extensively.
+
+WKWebView
+
+Fixed an issue where entering full screen in WKWebView on iOS could fail, even with isElementFullscreenEnabled enabled.
+
+Updating to Safari 18.3
+
+Safari 18.3 is available on iOS 18.3, iPadOS 18.3, macOS Sequoia 15.3, macOS Sonoma, macOS Ventura, and in visionOS 2.3. If you are running macOS Sonoma or macOS Ventura, you can update Safari by itself, without updating macOS. Go to  > System Settings > General > Software Update and click “More info…” under Updates Available. To get the latest version of Safari on iPhone, iPad or Apple Vision Pro, go to Settings > General > Software Update, and tap to update.
+
+Feedback
+
+We love hearing from you. To share your thoughts, find Jen Simmons on Bluesky / Mastodon and Jon Davis on Bluesky / Mastodon. You can follow WebKit on LinkedIn. If you run into any issues, we welcome your feedback on Safari UI (learn more about filing Feedback), or your WebKit bug report about web technologies or Web Inspector. If you run into a website that isn’t working as expected, please file a report at webcompat.com. Filing issues really does make a difference.
+
+Download the latest Safari Technology Preview on macOS to stay at the forefront of the web platform and to use the latest Web Inspector features.
+
+You can also find this information in the Safari 18.3 release notes.
+
+NextAnnouncing Interop 2025Learn more
+
+PreviouslyRelease Notes for Safari Technology Preview 212Learn more
+
+@webkit@front-end.social
+
+Site Map
+
+Privacy Policy
+
+Licensing WebKit
+
+WebKit and the WebKit logo are trademarks of Apple Inc.

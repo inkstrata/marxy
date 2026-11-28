@@ -447,8 +447,7 @@
       "spread-call": 1
     },
     "packages/core/src/office/xml.ts": {
-      "dynamic-regexp": 1,
-      "queue-in-loop": 1
+      "dynamic-regexp": 1
     },
     "packages/core/src/operations/front-matter-value.ts": {
       "dynamic-regexp": 1

@@ -153,7 +153,7 @@ header. Errors serialise as `{code, message, path?}` with codes `not-found`, `in
 | `font_facts`, `font_glyph` | a font's faces, tables, axes and coverage; one glyph's outline | `commands/font.rs`, `font/` |
 | `media_facts`, `media_envelope` | container facts of audio and video; a PCM WAV's waveform | `commands/media.rs`, `facts/` |
 | `char_name` | a character's Unicode name | `commands/chars.rs` |
-| `decode_text`, `encode_text`, `encoding_readings` | bytes to UTF-8 with a byte map; UTF-8 to an encoding; each candidate encoding's reading of a sample | `encoding/` |
+| `decode_text`, `encode_text`, `encoding_readings` | bytes to UTF-8 with a byte map (for a multi-byte encoding, runs of equal steps with an index every 64 records, about the size of the changes, not of the file); UTF-8 to an encoding; each candidate encoding's reading of a sample, with unreadable bytes counted in the first 1 MB of the file | `encoding/` |
 | `mail_from_msg` | an Outlook message's bytes (a raw body the page already read) as the message it would be as it travels, framed after its facts; nothing read from disk | `outlook/` |
 | `office_from_ole` | a Word 97-2003 document's or deck's bytes (a raw body the page already read) as the office page's blocks, through the compound-file reader `.msg` uses; nothing read from disk | `legacy_office/` |
 | `open_external` | hand an http, https or mailto URL to the OS | `commands/os.rs` |
@@ -307,7 +307,7 @@ request (`decode_text`).
 
 - One OS watch per canonical root, shared and reference-counted.
 - A folder watch rescans the folder on each signal and every 2 s, diffing a snapshot of its regular
-  files. A scan lists each folder once; on Windows that one listing also gives each file's id, size and write time, and only a reparse point (a link, a junction, a cloud placeholder) is asked of the file itself. A tree watch gathers events for 50 ms, re-examines only the reported paths, rescans when the
+  files. After a scan the watch rests three times as long as the scan took (at most 5 s) and folds what signals in the rest into one scan (in a folder that scans slowly, a save by another program can show up to about 5 s plus one scan late), so a busy writer in a folder of 50,000 files does not hold a core; a small folder rests for milliseconds. A scan lists each folder once; on Windows that one listing also gives each file's id, size and write time, and only a reparse point (a link, a junction, a cloud placeholder) is asked of the file itself. A tree watch gathers events for 50 ms, re-examines only the reported paths, rescans when the
   OS reports lost events, reconciles quietly every 60 s, and stops with a refusal past 200,000 files.
 - A tree watch is also given the folders the index walk left out through a `.gitignore`, a `.ignore` or a deny glob
   (`ignore` on `watch_root`, replaced by `watch_ignore`): they are not listed, counted or reported, and only folders

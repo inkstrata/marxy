@@ -22,6 +22,7 @@ import { openScratch } from '../document/scratch.ts';
 import { keyLabel } from '../palette/commands.ts';
 import { fuzzyScore } from '../palette/search.ts';
 import { addStep, canApply, characterCount, createChain, output, runStep, type ApplyOutcome, type Chain, type Eol, withoutBom } from './chain.ts';
+import { isMac } from '../platform.ts';
 
 /** What the sheet works on: the input text and the ways back into the document. Built by `commands/transform.ts`. */
 export interface SheetTarget {
@@ -95,7 +96,6 @@ export function transformSheetIsOpen(): boolean {
   return live !== null;
 }
 
-const isMac = (): boolean => typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
 
 function injectStyles(doc: Document): void {
   adoptRuntimeSheet(doc, 'marxy-transform-style', `

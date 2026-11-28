@@ -4,6 +4,7 @@
 // (`font_facts`, src-tauri/src/font); nothing here reads a table but the collection's directory. Pure: no DOM, no I/O.
 
 import { shortSize } from './archive.ts';
+import { plural } from '../util/count.ts';
 
 export interface FontNames {
   readonly copyright: string | null;
@@ -95,7 +96,6 @@ export const SAMPLE = 'The tide turns at the harbour mouth.';
 export const GRID_MAX = 2_000;
 
 const n2 = (n: number): string => n.toLocaleString('en-GB');
-const plural = (n: number, one: string, many = `${one}s`): string => `${n2(n)} ${n === 1 ? one : many}`;
 
 const FORMAT_WORDS: Readonly<Record<string, string>> = {
   truetype: 'TrueType',

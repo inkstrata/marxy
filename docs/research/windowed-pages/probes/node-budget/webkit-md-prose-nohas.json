@@ -1,0 +1,365 @@
+[
+ {
+  "kind": "md-prose",
+  "size": "500k",
+  "bytes": 502027,
+  "has": "drop",
+  "browser": "webkit",
+  "version": "26.6",
+  "openWallS": 0.8,
+  "hasRulesDropped": 33,
+  "typesetQuiet": true,
+  "settleS": 0.8,
+  "nodes": {
+   "article": 7487,
+   "articleAll": 20082,
+   "doc": 20929,
+   "blocks": 1552
+  },
+  "sample": {
+   "html": "<p data-marxy-s=\"14\" data-marxy-e=\"190\" dir=\"auto\" class=\"marxy-set\"><span class=\"marxy-hang\" style=\"margin-inline-start: -0.66261px;\">A</span> reader opens a file and the first page is there before the rest <span class=\"marxy-lb\"></span>has finished arriving. Numbers such as 4.5 microseconds a byte <span class=\"marxy-lb\"></span>are a trend to watch, never a bound to fail&nbsp;on.</p>",
+   "nodesInP": 3,
+   "typesetAttrs": 0
+  },
+  "interactions": {
+   "key": {
+    "total": {
+     "med": 34,
+     "min": 25,
+     "max": 68
+    },
+    "sync": {
+     "med": 5,
+     "min": 4,
+     "max": 11
+    },
+    "frame": {
+     "med": 0,
+     "min": 0,
+     "max": 5
+    }
+   },
+   "scroll": {
+    "total": {
+     "med": 26,
+     "min": 25,
+     "max": 39
+    },
+    "sync": null,
+    "frame": {
+     "med": 0,
+     "min": 0,
+     "max": 1
+    }
+   },
+   "forcedLayoutOneBlock": {
+    "total": {
+     "med": 25,
+     "min": 24,
+     "max": 30
+    },
+    "sync": {
+     "med": 1,
+     "min": 1,
+     "max": 1
+    },
+    "frame": {
+     "med": 0,
+     "min": 0,
+     "max": 1
+    }
+   },
+   "forcedLayoutArticleWidth": {
+    "total": {
+     "med": 43,
+     "min": 42,
+     "max": 69
+    },
+    "sync": {
+     "med": 22,
+     "min": 21,
+     "max": 47
+    },
+    "frame": {
+     "med": 0,
+     "min": 0,
+     "max": 0
+    }
+   },
+   "appendOneBlock": {
+    "total": {
+     "med": 25,
+     "min": 24,
+     "max": 29
+    },
+    "sync": {
+     "med": 1,
+     "min": 0,
+     "max": 1
+    },
+    "frame": {
+     "med": 0,
+     "min": 0,
+     "max": 1
+    }
+   },
+   "widthChange": {
+    "total": {
+     "med": 67,
+     "min": 58,
+     "max": 93
+    },
+    "sync": null,
+    "frame": {
+     "med": 5,
+     "min": 0,
+     "max": 7
+    },
+    "note": "trigger to end of next frame; includes Playwright round trip, so an upper bound"
+   }
+  },
+  "__w": 1
+ },
+ {
+  "kind": "md-prose",
+  "size": "1m",
+  "bytes": 1004138,
+  "has": "drop",
+  "browser": "webkit",
+  "version": "26.6",
+  "openWallS": 1.3,
+  "hasRulesDropped": 33,
+  "typesetQuiet": true,
+  "settleS": 1.2,
+  "nodes": {
+   "article": 14261,
+   "articleAll": 38747,
+   "doc": 39713,
+   "blocks": 3103
+  },
+  "sample": {
+   "html": "<p data-marxy-s=\"14\" data-marxy-e=\"190\" dir=\"auto\" class=\"marxy-set\"><span class=\"marxy-hang\" style=\"margin-inline-start: -0.66261px;\">A</span> reader opens a file and the first page is there before the rest <span class=\"marxy-lb\"></span>has finished arriving. Numbers such as 4.5 microseconds a byte <span class=\"marxy-lb\"></span>are a trend to watch, never a bound to fail&nbsp;on.</p>",
+   "nodesInP": 3,
+   "typesetAttrs": 0
+  },
+  "interactions": {
+   "key": {
+    "total": {
+     "med": 82,
+     "min": 36,
+     "max": 110
+    },
+    "sync": {
+     "med": 9,
+     "min": 7,
+     "max": 16
+    },
+    "frame": {
+     "med": 10,
+     "min": 0,
+     "max": 16
+    }
+   },
+   "scroll": {
+    "total": {
+     "med": 25,
+     "min": 25,
+     "max": 28
+    },
+    "sync": null,
+    "frame": {
+     "med": 0,
+     "min": 0,
+     "max": 1
+    }
+   },
+   "forcedLayoutOneBlock": {
+    "total": {
+     "med": 25,
+     "min": 13,
+     "max": 40
+    },
+    "sync": {
+     "med": 2,
+     "min": 1,
+     "max": 2
+    },
+    "frame": {
+     "med": 1,
+     "min": 0,
+     "max": 9
+    }
+   },
+   "forcedLayoutArticleWidth": {
+    "total": {
+     "med": 77,
+     "min": 75,
+     "max": 116
+    },
+    "sync": {
+     "med": 44,
+     "min": 42,
+     "max": 83
+    },
+    "frame": {
+     "med": 0,
+     "min": 0,
+     "max": 0
+    }
+   },
+   "appendOneBlock": {
+    "total": {
+     "med": 39,
+     "min": 24,
+     "max": 65
+    },
+    "sync": {
+     "med": 2,
+     "min": 1,
+     "max": 3
+    },
+    "frame": {
+     "med": 1,
+     "min": 0,
+     "max": 1
+    }
+   },
+   "widthChange": {
+    "total": {
+     "med": 118,
+     "min": 104,
+     "max": 154
+    },
+    "sync": null,
+    "frame": {
+     "med": 9,
+     "min": 0,
+     "max": 10
+    },
+    "note": "trigger to end of next frame; includes Playwright round trip, so an upper bound"
+   }
+  },
+  "__w": 1
+ },
+ {
+  "kind": "md-prose",
+  "size": "2m",
+  "bytes": 2007597,
+  "has": "drop",
+  "browser": "webkit",
+  "version": "26.6",
+  "openWallS": 1.9,
+  "hasRulesDropped": 33,
+  "typesetQuiet": true,
+  "settleS": 12.9,
+  "nodes": {
+   "article": 37872,
+   "articleAll": 96045,
+   "doc": 97250,
+   "blocks": 6204
+  },
+  "sample": {
+   "html": "<p data-marxy-s=\"14\" data-marxy-e=\"190\" dir=\"auto\" class=\"marxy-set\"><span class=\"marxy-hang\" style=\"margin-inline-start: -0.66261px;\">A</span> reader opens a file and the first page is there before the rest <span class=\"marxy-lb\"></span>has finished arriving. Numbers such as 4.5 microseconds a byte <span class=\"marxy-lb\"></span>are a trend to watch, never a bound to fail&nbsp;on.</p>",
+   "nodesInP": 3,
+   "typesetAttrs": 0
+  },
+  "interactions": {
+   "key": {
+    "total": {
+     "med": 60,
+     "min": 25,
+     "max": 186
+    },
+    "sync": {
+     "med": 16,
+     "min": 4,
+     "max": 39
+    },
+    "frame": {
+     "med": 0,
+     "min": 0,
+     "max": 23
+    }
+   },
+   "scroll": {
+    "total": {
+     "med": 44,
+     "min": 42,
+     "max": 59
+    },
+    "sync": null,
+    "frame": {
+     "med": 0,
+     "min": 0,
+     "max": 0
+    }
+   },
+   "forcedLayoutOneBlock": {
+    "total": {
+     "med": 53,
+     "min": 36,
+     "max": 99
+    },
+    "sync": {
+     "med": 4,
+     "min": 3,
+     "max": 11
+    },
+    "frame": {
+     "med": 1,
+     "min": 1,
+     "max": 2
+    }
+   },
+   "forcedLayoutArticleWidth": {
+    "total": {
+     "med": 131,
+     "min": 118,
+     "max": 170
+    },
+    "sync": {
+     "med": 93,
+     "min": 85,
+     "max": 124
+    },
+    "frame": {
+     "med": 0,
+     "min": 0,
+     "max": 1
+    }
+   },
+   "appendOneBlock": {
+    "total": {
+     "med": 56,
+     "min": 43,
+     "max": 61
+    },
+    "sync": {
+     "med": 3,
+     "min": 2,
+     "max": 4
+    },
+    "frame": {
+     "med": 1,
+     "min": 1,
+     "max": 2
+    }
+   },
+   "widthChange": {
+    "total": {
+     "med": 219,
+     "min": 188,
+     "max": 348
+    },
+    "sync": null,
+    "frame": {
+     "med": 17,
+     "min": 0,
+     "max": 20
+    },
+    "note": "trigger to end of next frame; includes Playwright round trip, so an upper bound"
+   }
+  },
+  "__w": 1
+ }
+]

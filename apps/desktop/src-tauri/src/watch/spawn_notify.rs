@@ -26,24 +26,49 @@ fn notify_worth_handling(kind: &EventKind) -> bool {
 /// lists the whole folder, so five a second cost a big folder or a share steady IO for as long as a document is open.
 const FLAT_SAFETY_POLL: Duration = Duration::from_secs(2);
 
+/// After a scan, the loop leaves the folder alone for this many times as long as the scan took, so a writer that signals
+/// on every write holds the scan thread to a quarter of one core however big the folder is (0.46 s a scan at 50,000
+/// files); a folder that scans in a millisecond waits three. What arrives meanwhile is one scan afterwards.
+const COOLDOWN_FACTOR: u32 = 3;
+/// The longest rest, so a very slow folder (a share) is still looked at every few seconds.
+const MAX_REST: Duration = Duration::from_secs(5);
+
 /// Runs `poll` (a scan and its diff) after every signal, folding the ones queued behind it into the same scan, and
-/// once every `safety` without one, until `stop` or the senders are gone.
+/// once every `safety` without one, until `stop` or the senders are gone. A scan is followed by a rest of
+/// `COOLDOWN_FACTOR` times its own length (at most `MAX_REST`); a signal that comes in the rest scans when it is over.
 fn flat_loop(
     signal_rx: &mpsc::Receiver<()>,
     stop: &AtomicBool,
     safety: Duration,
     mut poll: impl FnMut(),
 ) {
+    let mut pending = false;
     while !stop.load(Ordering::SeqCst) {
-        match signal_rx.recv_timeout(safety) {
-            Ok(()) | Err(mpsc::RecvTimeoutError::Timeout) => {
-                if stop.load(Ordering::SeqCst) {
-                    break;
-                }
-                while signal_rx.try_recv().is_ok() {}
-                poll();
+        if !pending {
+            match signal_rx.recv_timeout(safety) {
+                Ok(()) | Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
-            Err(mpsc::RecvTimeoutError::Disconnected) => break,
+        }
+        if stop.load(Ordering::SeqCst) {
+            break;
+        }
+        while signal_rx.try_recv().is_ok() {}
+        pending = false;
+        let began = Instant::now();
+        poll();
+        let rest = (began.elapsed() * COOLDOWN_FACTOR).min(MAX_REST);
+        let until = Instant::now() + rest;
+        loop {
+            let left = until.saturating_duration_since(Instant::now());
+            if left.is_zero() || stop.load(Ordering::SeqCst) {
+                break;
+            }
+            match signal_rx.recv_timeout(left) {
+                Ok(()) => pending = true,
+                Err(mpsc::RecvTimeoutError::Timeout) => break,
+                Err(mpsc::RecvTimeoutError::Disconnected) => return,
+            }
         }
     }
 }
@@ -515,6 +540,85 @@ mod tests {
         stop.store(true, Ordering::SeqCst);
         drop(tx);
         join.join().expect("loop");
+    }
+
+    /// a writer that signals on every write does not make a slow scan run back to back: the scans rest in between, and
+    /// the last signal is still scanned once the rest is over.
+    #[test]
+    fn the_flat_loop_rests_after_a_slow_scan_and_still_scans_the_last_signal() {
+        use std::sync::atomic::AtomicUsize;
+        let scans = Arc::new(AtomicUsize::new(0));
+        let stop = Arc::new(AtomicBool::new(false));
+        let (tx, rx) = mpsc::channel();
+        let (counted, halt) = (scans.clone(), stop.clone());
+        let join = thread::spawn(move || {
+            flat_loop(&rx, &halt, FLAT_SAFETY_POLL, || {
+                thread::sleep(Duration::from_millis(40));
+                counted.fetch_add(1, Ordering::SeqCst);
+            })
+        });
+        // A signal every millisecond for 600 ms: back to back this is about fifteen scans.
+        let t0 = Instant::now();
+        while t0.elapsed() < Duration::from_millis(600) {
+            tx.send(()).expect("signal");
+            thread::sleep(Duration::from_millis(1));
+        }
+        let during = scans.load(Ordering::SeqCst);
+        assert!(during <= 6, "{during} scans in 600 ms of writes");
+        // The last signal arrived in a rest: it is scanned when the rest is over.
+        let t1 = Instant::now();
+        while scans.load(Ordering::SeqCst) == during && t1.elapsed() < Duration::from_secs(1) {
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert!(
+            scans.load(Ordering::SeqCst) > during,
+            "the last write was never scanned"
+        );
+        stop.store(true, Ordering::SeqCst);
+        drop(tx);
+        join.join().expect("loop");
+    }
+
+    /// Run with `cargo test --release watch_cost -- --ignored --nocapture`: scans a writer causes in a folder of 50,000 files.
+    #[test]
+    #[ignore]
+    fn watch_cost_measure() {
+        use std::sync::atomic::AtomicUsize;
+        let (dir, open) = scratch("cost");
+        for i in 0..50_000 {
+            fs::write(dir.join(format!("f{i:05}.txt")), b"x").expect("file");
+        }
+        let mut watch = RootWatch::open(&dir).expect("open");
+        let scans = Arc::new(AtomicUsize::new(0));
+        let busy = Arc::new(AtomicUsize::new(0));
+        let stop = Arc::new(AtomicBool::new(false));
+        let (tx, rx) = mpsc::channel();
+        let (c, b, halt) = (scans.clone(), busy.clone(), stop.clone());
+        let join = thread::spawn(move || {
+            flat_loop(&rx, &halt, FLAT_SAFETY_POLL, || {
+                let t = Instant::now();
+                let _ = watch.poll();
+                b.fetch_add(t.elapsed().as_millis() as usize, Ordering::SeqCst);
+                c.fetch_add(1, Ordering::SeqCst);
+            })
+        });
+        let t0 = Instant::now();
+        let mut n = 0;
+        while t0.elapsed() < Duration::from_secs(10) {
+            n += 1;
+            fs::write(&open, format!("write {n}")).expect("write");
+            tx.send(()).expect("signal");
+            thread::sleep(Duration::from_millis(5));
+        }
+        stop.store(true, Ordering::SeqCst);
+        drop(tx);
+        join.join().expect("loop");
+        println!(
+            "10 s of writes: {} scans, {} ms in scans",
+            scans.load(Ordering::SeqCst),
+            busy.load(Ordering::SeqCst)
+        );
+        cleanup(&dir);
     }
 
     #[test]

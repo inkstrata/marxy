@@ -1,0 +1,86 @@
+{
+ "chapter": "07-accessibility.md",
+ "pass": 2,
+ "stamped": "2026-11-27",
+ "findings": {
+  "ACC-01": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "178f9aee0223"
+  },
+  "ACC-02": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "1d96633691cd"
+  },
+  "ACC-03": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "740bdc12e53b"
+  },
+  "ACC-04": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "1b6f5a36d48f"
+  },
+  "ACC-05": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "2c372d7e4623"
+  },
+  "ACC-06": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "054f7862bb4d"
+  },
+  "ACC-07": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "ad1b67a1c512"
+  },
+  "ACC-08": {
+   "tags": [
+    "confirmed",
+    "likely"
+   ],
+   "hash": "11bdbc6a19ce"
+  },
+  "ACC-09": {
+   "tags": [
+    "confirmed"
+   ],
+   "hash": "418f001d02b9"
+  },
+  "ACC-10": {
+   "tags": [
+    "likely"
+   ],
+   "hash": "4c8b7014d9b9"
+  },
+  "ACC-11": {
+   "tags": [
+    "absence"
+   ],
+   "hash": "347ab5d068ce"
+  },
+  "ACC-12": {
+   "tags": [
+    "unverified"
+   ],
+   "hash": "b1f61df0820f"
+  },
+  "ACC-13": {
+   "tags": [
+    "unverified"
+   ],
+   "hash": "85870eff23f6"
+  }
+ }
+}

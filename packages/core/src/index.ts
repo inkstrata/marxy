@@ -23,7 +23,8 @@ export type { DetectInput, DetectResult, KindRule, Reason } from './kind/detect.
 export { FILE_TYPES, UNKNOWN_FILE_TYPE, BINARY_FILE_TYPE, PAGE_VIEWERS, fileTypeOf, fileTypeFor, guessedFromBytes, nameTypeOf, isMarkdownPath, langOf, fenceWord, langOfFence, pageLangOf, parserOf, readsAsPage, contentTypeFor, noteContent, noteSniffed, rowForWord, searchSkipReason, viewerOf, wantsContent } from './kind/registry.ts';
 export type { ContentSignals, FileType, FileTypeRow, FileKind, FileMode, FileParser, FileReading, FileViewer, FileMatch } from './kind/registry.ts';
 
-export { diffLines, splitLines, utf8Length, DEFAULT_MAX_LINES } from './diff/lines.ts';
+export { diffLines, splitLines, DEFAULT_MAX_LINES } from './diff/lines.ts';
+export { utf8Length } from './util/count.ts';
 export type { DiffOp, DiffLinesOptions } from './diff/lines.ts';
 export { unifiedDiff } from './diff/unified.ts';
 export type { UnifiedDiff, UnifiedOptions } from './diff/unified.ts';

@@ -9,7 +9,7 @@ import { utf16ToByte } from '@marxy/core/src/buffer/buffer.ts';
 import { fileTypeFor } from '@marxy/core/src/kind/registry.ts';
 import { zoneName } from '@marxy/core/src/log/summary.ts';
 import { logStamp } from '@marxy/core/src/log/head.ts';
-import { segmented } from '../../frame/dom.ts';
+import { plural, segmented } from '../../frame/dom.ts';
 import { logZoneOn, setLogZone } from '../../proposals/log-zone.ts';
 import { proposalOn } from '../../proposals/state.ts';
 import { setLogLevel } from '../../commands/log.ts';
@@ -65,7 +65,6 @@ export interface OutlineState {
 type Ctx = PanelContext<OutlineState>;
 
 const nf = (n: number): string => n.toLocaleString('en-GB');
-const plural = (n: number, one: string, many = `${one}s`): string => `${nf(n)} ${n === 1 ? one : many}`;
 /** A row's text takes its own direction, as the page's blocks do. */
 const own = (el: HTMLElement): HTMLElement => {
   el.dir = 'auto';

@@ -37,6 +37,8 @@ import { applyLinkDestinations } from '../render/link-dest.ts';
 import type { Block, BlockList } from '../render/post.ts';
 import { buildAppContext } from '../selection/bind.ts';
 import { closeVerbMenu, openVerbMenu, type MenuAnchor, type VerbMenuRow } from '../selection/verb-menu.ts';
+import { isMac } from '../platform.ts';
+import { plural } from '../frame/dom.ts';
 
 /** The root's attribute (scripts/registry.json): the deriver that made the view. */
 export const DERIVED_ATTRIBUTE = 'data-marxy-derived';
@@ -49,7 +51,6 @@ const SLICE_BYTES = 256 * 1024;
 /** A slice of deriving and drawing holds the main thread about this long. */
 const SLICE_MS = 8;
 
-const plural = (n: number, one: string, many = `${one}s`): string => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 
 /** Gives the loop back through a message, not a timer (a timer's clamp would add 4 ms a slice). */
 function yieldNow(): Promise<void> {
@@ -521,7 +522,7 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
   // In the capture phase on the document: ahead of the app's own copy listener, which reads a page's bytes.
   document.addEventListener('copy', onCopy, true);
 
-  const mac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+  const mac = isMac();
   const isMod = (e: KeyboardEvent): boolean => (mac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey);
 
   root.addEventListener('click', (event) => {
@@ -694,6 +695,6 @@ export function mountTranscript(opts: TranscriptMountOptions): TranscriptView {
 
 /** The key that shows Source, as the header line names it. */
 function sourceKey(): string {
-  const mac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
+  const mac = isMac();
   return mac ? '⌘E' : 'Ctrl+E';
 }

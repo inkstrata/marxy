@@ -1,0 +1,4429 @@
+CSS Containment Module Level 2
+
+CSS Containment Module Level 2
+
+Editor’s Draft,
+15 October 2026
+
+More details about this document
+
+This version:
+
+https://drafts.csswg.org/css-contain-2/
+
+Latest published version:
+
+https://www.w3.org/TR/css-contain-2/
+
+Previous Versions:
+
+https://www.w3.org/TR/2022/WD-css-contain-2-20220917/
+
+https://www.w3.org/TR/2020/WD-css-contain-2-20201216/
+
+https://www.w3.org/TR/2020/WD-css-contain-2-20200603/
+
+https://www.w3.org/TR/2019/WD-css-contain-2-20191111/
+
+https://www.w3.org/TR/2019/WD-css-contain-2-20191015/
+
+Test Suites:
+
+https://test.csswg.org/harness/results/css-contain-1_dev/
+
+https://wpt.fyi/results/css/css-contain/
+
+Feedback:
+
+CSSWG Issues Repository
+
+Inline In Spec
+
+Editors:
+
+Tab Atkins (Google)
+
+Florian Rivoal (On behalf of Bloomberg)
+
+Vladimir Levin (Google)
+
+Suggest an Edit for this Spec:
+
+GitHub Editor
+
+Copyright © 2026 World Wide Web Consortium. W3C® liability, trademark and permissive document license rules apply.
+
+Abstract
+
+This CSS module describes the contain property, which indicates that the element’s subtree is independent of the rest of the page. This enables heavy optimizations by user agents when used well.
+
+CSS is a language for describing the rendering of structured documents
+(such as HTML and XML)
+on screen, on paper, etc.
+
+Status of this document
+
+This is a public copy of the editors’ draft.
+It is provided for discussion only and may change at any moment.
+Its publication here does not imply endorsement of its contents by W3C.
+Don’t cite this document other than as work in progress.
+
+Please send feedback
+by filing issues in GitHub (preferred),
+including the spec code “css-contain” in the title, like this:
+“[css-contain] …summary of comment…”.
+All issues and comments are archived.
+Alternately, feedback can be sent to the (archived) public mailing list
+www-style@w3.org.
+
+This document is governed by the
+18 August 2025 W3C Process Document.
+
+Table of Contents
+
+1
+Introduction
+
+1.1
+Module Interactions
+
+1.2
+Value Definitions
+
+2
+Strong Containment: the contain property
+
+3
+Types of Containment
+
+3.1
+Size Containment
+
+3.2
+Inline-Size Containment
+
+3.3
+Layout Containment
+
+3.4
+Style Containment
+
+3.5
+Paint Containment
+
+4 Suppressing An Element’s Contents Entirely: the content-visibility property
+
+4.1
+Animating and Interpolating content-visibility
+
+4.2
+Using content-visibility: hidden
+
+4.3
+Using content-visibility: auto
+
+4.4 Detecting content-visibility: auto state changes: the contentvisibilityautostatechange event
+
+4.5 Restrictions and Clarifications
+
+4.6 Accessibility Implications
+
+4.7 Examples
+
+5
+Privacy Considerations
+
+6
+Security Considerations
+
+Appendix A. Changes
+
+Changes from 2022-09-17 Working Draft
+
+Changes from 2020-12-16 Working Draft
+
+Changes from 2020-06-03 Working Draft
+
+Changes from 2019-11-11 Working Draft
+
+Changes from CSS Containment Level 1
+
+Conformance
+
+Document conventions
+
+Conformance classes
+
+Partial implementations
+
+Implementations of Unstable and Proprietary Features
+
+Non-experimental implementations
+
+Index
+
+Terms defined by this specification
+
+Terms defined by reference
+
+References
+
+Normative References
+
+Non-Normative References
+
+Property Index
+
+IDL Index
+
+Issues Index
+
+1.
+Introduction
+
+Efficiently rendering a website relies on the user agent being able to detect what parts of the page are being displayed,
+which parts might affect the currently-displayed section,
+and what can be ignored.
+
+There are various heuristics that can be used to guess when a given sub-tree is independent of the rest of the page in some manner,
+but they’re fragile,
+so innocuous changes to a page may inadvertently make it fail such heuristic tests,
+causing rendering to fall into a slow code path.
+There are also many things that would be good to isolate which are difficult or impossible to detect in a heuristic manner.
+
+To alleviate these problems
+and allow strong, predictable isolation of a subtree from the rest of the page,
+this specification defines a contain property.
+
+To allow even further optimization of off-screen contents,
+this spec also defines a content-visibility property,
+enabling the user agent to skip an element’s layout and painting entirely when not needed.
+
+1.1.
+Module Interactions
+
+This document defines new features not present in earlier specifications.
+In addition, it aims to replace and supersede [CSS-CONTAIN-1]
+once stable.
+
+1.2.
+Value Definitions
+
+This specification follows the CSS property definition conventions from [CSS2]
+using the value definition syntax from [CSS-VALUES-3].
+Value types not defined in this specification are defined in CSS Values & Units [CSS-VALUES-3].
+Combination with other CSS modules may expand the definitions of these value types.
+
+In addition to the property-specific values listed in their definitions,
+all properties defined in this specification
+also accept the CSS-wide keywords as their property value.
+For readability they have not been repeated explicitly.
+
+2.
+Strong Containment: the contain property
+
+Tests
+
+The following tests are crash tests
+that relate to general usage
+of this feature
+but are not particularly tied to any particular normative statement.
+
+contain-chrome-thcrash-001.html (live test) (source)
+
+contain-crash.html (live test) (source)
+
+contain-flexbox-outline.html (live test) (source)
+
+contain-nested-crash-001.html (live test) (source)
+
+contain-nested-crash-002.html (live test) (source)
+
+contain-nested-crash-003.html (live test) (source)
+
+contain-nested-crash-004.html (live test) (source)
+
+contain-nested-relayout-boundary.html (live test) (source)
+
+quote-scoping-shadow-dom-crash.html (live test) (source)
+
+contain-style-remove-element-crash.html (live test) (source)
+
+Name:
+contain
+
+Value:
+none | strict | content | [ [size | inline-size] || layout || style || paint ]
+
+Initial:
+none
+
+Applies to:
+See below
+
+Inherited:
+no
+
+Percentages:
+n/a
+
+Computed value:
+the keyword none or one or more of size, layout, style, paint
+
+Canonical order:
+per grammar
+
+Animation type:
+not animatable
+
+Tests
+
+contain-animation-001.html (live test) (source)
+
+inheritance.html (live test) (source)
+
+contain-computed.html (live test) (source)
+
+contain-invalid.html (live test) (source)
+
+contain-valid.html (live test) (source)
+
+contain-computed-children.html (live test) (source)
+
+contain-layout-size-003.html (live test) (source)
+
+contain-paint-size-001.html (live test) (source)
+
+contain-paint-size-002.html (live test) (source)
+
+contain-paint-size-003.html (live test) (source)
+
+User agents are expected to support this property on all media, including non-visual ones.
+
+The contain property allows an author to indicate that an element and its contents are,
+as much as possible,
+independent of the rest of the document tree.
+This allows user agents to utilize much stronger optimizations when rendering a page using contain properly,
+and allows authors to be confident that their page won’t accidentally fall into a slow code path
+due to an innocuous change.
+
+none
+
+This value indicates that the property has no effect.
+The element renders as normal,
+with no containment effects applied.
+
+strict
+
+This value computes to size layout paint style,
+and thus turns on all forms of containment for the element.
+
+Tests
+
+contain-strict-001.html (live test) (source)
+
+contain-strict-002.html (live test) (source)
+
+contain-strict-003.html (live test) (source)
+
+contain-strict-011.html (live test) (source)
+
+contain-flexbox-outline.html (live test) (source)
+
+content
+
+This value computes to layout paint style,
+and thus turns on all forms of containment except size containment for the element.
+
+Tests
+
+contain-content-001.html (live test) (source)
+
+contain-content-002.html (live test) (source)
+
+contain-content-003.html (live test) (source)
+
+contain-content-004.html (live test) (source)
+
+contain-content-011.html (live test) (source)
+
+Note: contain: content is reasonably "safe" to apply widely;
+its effects are fairly minor in practice,
+and most content won’t run afoul of its restrictions.
+However, because it doesn’t apply size containment,
+the element can still respond to the size of its contents,
+which can cause layout-invalidation to percolate further up the tree than desired.
+Use contain: strict when possible,
+to gain as much containment as you can.
+
+size
+
+The value turns on size containment for the element.
+This ensures that the containment box can be laid out
+without needing to examine its descendants.
+
+Tests
+
+contain-size-001.html (live test) (source)
+
+contain-size-002.html (live test) (source)
+
+contain-size-003.html (live test) (source)
+
+contain-size-004.html (live test) (source)
+
+contain-size-005.html (live test) (source)
+
+contain-size-006.html (live test) (source)
+
+contain-size-007.html (live test) (source)
+
+contain-size-008.html (live test) (source)
+
+contain-size-009.html (live test) (source)
+
+contain-size-010.html (live test) (source)
+
+contain-size-011.html (live test) (source)
+
+contain-size-012.html (live test) (source)
+
+contain-size-012b.html (live test) (source)
+
+contain-size-013.html (live test) (source)
+
+contain-size-021.html (live test) (source)
+
+contain-size-023.html (live test) (source)
+
+contain-size-025.html (live test) (source)
+
+contain-size-027.html (live test) (source)
+
+contain-size-041.html (live test) (source)
+
+contain-size-042.html (live test) (source)
+
+contain-size-051.html (live test) (source)
+
+contain-size-052.html (live test) (source)
+
+contain-size-056.html (live test) (source)
+
+contain-size-061.html (live test) (source)
+
+contain-size-062.html (live test) (source)
+
+contain-size-063.html (live test) (source)
+
+contain-size-baseline-001.html (live test) (source)
+
+contain-size-borders.html (live test) (source)
+
+contain-size-breaks-001.html (live test) (source)
+
+contain-size-button-001.html (live test) (source)
+
+contain-size-fieldset-001.html (live test) (source)
+
+contain-size-fieldset-002.html (live test) (source)
+
+contain-size-flexbox-001.html (live test) (source)
+
+contain-size-flexbox-002.html (live test) (source)
+
+contain-size-grid-001.html (live test) (source)
+
+contain-size-grid-002.html (live test) (source)
+
+contain-size-grid-003.html (live test) (source)
+
+contain-size-grid-004.html (live test) (source)
+
+contain-size-grid-005.html (live test) (source)
+
+contain-size-grid-006.html (live test) (source)
+
+contain-size-monolithic-001.html (live test) (source)
+
+contain-size-monolithic-002.html (live test) (source)
+
+contain-size-multicol-001.html (live test) (source)
+
+contain-size-multicol-as-flex-item.html (live test) (source)
+
+contain-size-replaced-001.html (live test) (source)
+
+contain-size-replaced-002.html (live test) (source)
+
+contain-size-replaced-003a.html (live test) (source)
+
+contain-size-replaced-003b.html (live test) (source)
+
+contain-size-replaced-003c.html (live test) (source)
+
+contain-size-replaced-004.html (live test) (source)
+
+contain-size-replaced-005.html (live test) (source)
+
+contain-size-replaced-006.html (live test) (source)
+
+contain-size-replaced-007.html (live test) (source)
+
+contain-size-select-001.html (live test) (source)
+
+contain-size-select-002.html (live test) (source)
+
+contain-size-scrollbars-001.html (live test) (source)
+
+contain-size-scrollbars-002.html (live test) (source)
+
+contain-size-scrollbars-003.html (live test) (source)
+
+contain-size-scrollbars-004.html (live test) (source)
+
+contain-layout-size-003.html (live test) (source)
+
+contain-paint-size-001.html (live test) (source)
+
+contain-paint-size-002.html (live test) (source)
+
+contain-paint-size-003.html (live test) (source)
+
+contain-size-removed.html (live test) (source)
+
+contain-size-dynamic-001.html (live test) (source)
+
+contain-size-grid-indefinite-height-min-height-flex-row.html (live test) (source)
+
+contain-size-grid-stretches-auto-rows.html (live test) (source)
+
+inline-size
+
+This value turns on inline-size containment for the element.
+This prevents the inline-size of its principal box
+from directly depending on its contents.
+
+Tests
+
+contain-inline-size-bfc-floats-001.html (live test) (source)
+
+contain-inline-size-bfc-floats-002.html (live test) (source)
+
+contain-inline-size-fieldset.html (live test) (source)
+
+contain-inline-size-flex.html (live test) (source)
+
+contain-inline-size-flexitem.html (live test) (source)
+
+contain-inline-size-grid.html (live test) (source)
+
+contain-inline-size-intrinsic.html (live test) (source)
+
+contain-inline-size-legend.html (live test) (source)
+
+contain-inline-size-multicol.html (live test) (source)
+
+contain-inline-size-regular-container.html (live test) (source)
+
+contain-inline-size-removed.html (live test) (source)
+
+contain-inline-size-replaced.html (live test) (source)
+
+contain-inline-size-table.html (live test) (source)
+
+contain-inline-size-vertical-rl-.html (live test) (source)
+
+contain-inline-size-grid-indefinite-height-min-height-flex-row.html (live test) (source)
+
+contain-inline-size-grid-stretches-auto-rows.html (live test) (source)
+
+Note: There can still be indirect dependencies,
+see § 3.2 Inline-Size Containment.
+
+layout
+
+This value turns on layout containment for the element.
+This ensures that the containment box is totally opaque for layout purposes;
+nothing outside can affect its internal layout,
+and vice versa.
+
+Tests
+
+contain-layout-001.html (live test) (source)
+
+contain-layout-002.html (live test) (source)
+
+contain-layout-003.html (live test) (source)
+
+contain-layout-004.html (live test) (source)
+
+contain-layout-005.html (live test) (source)
+
+contain-layout-006.html (live test) (source)
+
+contain-layout-007.html (live test) (source)
+
+contain-layout-009.html (live test) (source)
+
+contain-layout-010.html (live test) (source)
+
+contain-layout-011.html (live test) (source)
+
+contain-layout-012.html (live test) (source)
+
+contain-layout-013.html (live test) (source)
+
+contain-layout-014.html (live test) (source)
+
+contain-layout-016.html (live test) (source)
+
+contain-layout-017.html (live test) (source)
+
+contain-layout-018.html (live test) (source)
+
+contain-layout-019.html (live test) (source)
+
+contain-layout-020.html (live test) (source)
+
+contain-layout-021.html (live test) (source)
+
+contain-layout-baseline-001.html (live test) (source)
+
+contain-layout-baseline-002.html (live test) (source)
+
+contain-layout-baseline-003.html (live test) (source)
+
+contain-layout-baseline-004.html (live test) (source)
+
+contain-layout-baseline-005.html (live test) (source)
+
+contain-layout-breaks-001.html (live test) (source)
+
+contain-layout-breaks-002.html (live test) (source)
+
+contain-layout-cell-001.html (live test) (source)
+
+contain-layout-cell-002.html (live test) (source)
+
+contain-layout-flexbox-001.html (live test) (source)
+
+contain-layout-grid-001.html (live test) (source)
+
+contain-layout-ifc-022.html (live test) (source)
+
+contain-layout-independent-formatting-context-001.html (live test) (source)
+
+contain-layout-independent-formatting-context-002.html (live test) (source)
+
+contain-layout-independent-formatting-context-003.html (live test) (source)
+
+contain-layout-ink-overflow-013.html (live test) (source)
+
+contain-layout-ink-overflow-014.html (live test) (source)
+
+contain-layout-ink-overflow-015.html (live test) (source)
+
+contain-layout-ink-overflow-016.html (live test) (source)
+
+contain-layout-ink-overflow-017.html (live test) (source)
+
+contain-layout-ink-overflow-018.html (live test) (source)
+
+contain-layout-ink-overflow-019.html (live test) (source)
+
+contain-layout-ink-overflow-020.html (live test) (source)
+
+contain-layout-size-003.html (live test) (source)
+
+contain-subgrid-001.html (live test) (source)
+
+contain-layout-dynamic-001.html (live test) (source)
+
+contain-layout-dynamic-004.html (live test) (source)
+
+contain-layout-dynamic-005.html (live test) (source)
+
+style
+
+This value turns on style containment for the element.
+This ensures that,
+for properties which can have effects on more than just an element and its descendants,
+those effects don’t escape the element.
+
+Tests
+
+contain-style-baseline-001.html (live test) (source)
+
+contain-style-breaks-001.html (live test) (source)
+
+contain-style-breaks-002.html (live test) (source)
+
+contain-style-breaks-003.html (live test) (source)
+
+contain-style-breaks-004.html (live test) (source)
+
+contain-style-breaks-005.html (live test) (source)
+
+contain-style-counters-001.html (live test) (source)
+
+contain-style-counters-002.html (live test) (source)
+
+contain-style-counters-003.html (live test) (source)
+
+contain-style-counters-004.html (live test) (source)
+
+contain-style-counters-005.html (live test) (source)
+
+contain-style-ol-ordinal-li-container.html (live test) (source)
+
+contain-style-ol-ordinal-pseudo-reversed.html (live test) (source)
+
+contain-style-ol-ordinal-pseudo.html (live test) (source)
+
+contain-style-ol-ordinal-reversed.html (live test) (source)
+
+contain-style-ol-ordinal-start-reversed.html (live test) (source)
+
+contain-style-ol-ordinal-start.html (live test) (source)
+
+contain-style-ol-ordinal.html (live test) (source)
+
+counter-scoping-001.html (live test) (source)
+
+counter-scoping-002.html (live test) (source)
+
+counter-scoping-003.html (live test) (source)
+
+counter-scoping-004.html (live test) (source)
+
+quote-scoping-001.html (live test) (source)
+
+quote-scoping-002.html (live test) (source)
+
+quote-scoping-003.html (live test) (source)
+
+quote-scoping-004.html (live test) (source)
+
+quote-scoping-invalidation-001.html (live test) (source)
+
+quote-scoping-invalidation-002.html (live test) (source)
+
+quote-scoping-invalidation-003.html (live test) (source)
+
+quote-scoping-invalidation-004.html (live test) (source)
+
+contain-style-dynamic-001.html (live test) (source)
+
+paint
+
+This value turns on paint containment for the element.
+This ensures that the descendants of the containment box don’t display outside its bounds,
+so if an element is off-screen or otherwise not visible,
+its descendants are also guaranteed to be not visible.
+
+Tests
+
+contain-paint-001.html (live test) (source)
+
+contain-paint-002.html (live test) (source)
+
+contain-paint-004.html (live test) (source)
+
+contain-paint-005.html (live test) (source)
+
+contain-paint-006.html (live test) (source)
+
+contain-paint-007.html (live test) (source)
+
+contain-paint-008.html (live test) (source)
+
+contain-paint-009.html (live test) (source)
+
+contain-paint-010.html (live test) (source)
+
+contain-paint-011.html (live test) (source)
+
+contain-paint-012.html (live test) (source)
+
+contain-paint-014.html (live test) (source)
+
+contain-paint-015.html (live test) (source)
+
+contain-paint-016.html (live test) (source)
+
+contain-paint-017.html (live test) (source)
+
+contain-paint-018.html (live test) (source)
+
+contain-paint-019.html (live test) (source)
+
+contain-paint-020.html (live test) (source)
+
+contain-paint-021.html (live test) (source)
+
+contain-paint-022.html (live test) (source)
+
+contain-paint-023.html (live test) (source)
+
+contain-paint-024.html (live test) (source)
+
+contain-paint-025.html (live test) (source)
+
+contain-paint-047.html (live test) (source)
+
+contain-paint-048.html (live test) (source)
+
+contain-paint-baseline-001.html (live test) (source)
+
+contain-paint-cell-001.html (live test) (source)
+
+contain-paint-cell-002.html (live test) (source)
+
+contain-paint-clip-011.html (live test) (source)
+
+contain-paint-clip-012.html (live test) (source)
+
+contain-paint-clip-013.html (live test) (source)
+
+contain-paint-clip-014.html (live test) (source)
+
+contain-paint-clip-015.html (live test) (source)
+
+contain-paint-clip-016.html (live test) (source)
+
+contain-paint-clip-017.html (live test) (source)
+
+contain-paint-clip-018.html (live test) (source)
+
+contain-paint-clip-019.html (live test) (source)
+
+contain-paint-ifc-011.html (live test) (source)
+
+contain-paint-independent-formatting-context-001.html (live test) (source)
+
+contain-paint-independent-formatting-context-002.html (live test) (source)
+
+contain-paint-independent-formatting-context-003.html (live test) (source)
+
+contain-paint-size-001.html (live test) (source)
+
+contain-paint-size-002.html (live test) (source)
+
+contain-paint-size-003.html (live test) (source)
+
+contain-paint-table-001.html (live test) (source)
+
+contain-paint-table-002.html (live test) (source)
+
+contain-subgrid-001.html (live test) (source)
+
+contain-paint-change-opacity.html (live test) (source)
+
+contain-paint-dynamic-001.html (live test) (source)
+
+contain-paint-dynamic-002.html (live test) (source)
+
+contain-paint-dynamic-003.html (live test) (source)
+
+contain-paint-dynamic-004.html (live test) (source)
+
+contain-paint-dynamic-005.html (live test) (source)
+
+This property generally applies to all elements (including CSS Pseudo-Elements 4 § 4.1 Generated Content Pseudo-elements: ::before and ::after),
+although some types of containment have no effect on some elements,
+as detailed in § 3 Types of Containment.
+In addition, in the case of [SVG2],
+the contain property only applies to svg elements that have an associated CSS layout box.
+
+contain is useful when used widely on a page,
+particularly when a page contains a lot of "widgets" which are all independent.
+
+For example, assume a micropost social network had markup something like this:
+
+<body>
+<aside>...</aside>
+<section>
+<h2>Messages</h2>
+<article>
+Lol, check out this dog: images.example.com/jsK3jkl
+</article>
+<article>
+I had a ham sandwich today. #goodtimes
+</article>
+<article>
+I have political opinions that you need to hear!
+</article>
+…
+</section>
+</body>
+
+There are probably a lot of messages displayed on the site,
+but each is independent and won’t affect anything else on the site.
+As such, each can be marked with contain: content to communicate this to the user agent,
+so it can optimize the page and skip a lot of computation for messages that are off-screen.
+If the size of each message is known ahead of time,
+contain: strict can be applied to communicate further restrictions.
+
+Additionally, when any containments are active
+on either the HTML html or body elements,
+propagation of properties
+from the body element
+to the initial containing block, the viewport, or the canvas background,
+is disabled.
+Notably, this affects:
+
+writing-mode, direction, and text-orientation (see CSS Writing Modes 3 § 8 The Principal Writing Mode)
+
+overflow and its longhands (see CSS Overflow 3 § 3.1.4 Overflow Viewport Propagation)
+
+background and its longhands (see CSS Backgrounds 3 § 2.11.2 The Canvas Background and the HTML <body> Element)
+
+Tests
+
+contain-body-bg-001.html (live test) (source)
+
+contain-body-bg-002.html (live test) (source)
+
+contain-body-bg-003.html (live test) (source)
+
+contain-body-bg-004.html (live test) (source)
+
+contain-body-dir-001.html (live test) (source)
+
+contain-body-dir-002.html (live test) (source)
+
+contain-body-dir-003.html (live test) (source)
+
+contain-body-dir-004.html (live test) (source)
+
+contain-body-overflow-001.html (live test) (source)
+
+contain-body-overflow-002.html (live test) (source)
+
+contain-body-overflow-003.html (live test) (source)
+
+contain-body-overflow-004.html (live test) (source)
+
+contain-body-t-o-001.html (live test) (source)
+
+contain-body-t-o-002.html (live test) (source)
+
+contain-body-t-o-003.html (live test) (source)
+
+contain-body-t-o-004.html (live test) (source)
+
+contain-body-w-m-001.html (live test) (source)
+
+contain-body-w-m-002.html (live test) (source)
+
+contain-body-w-m-003.html (live test) (source)
+
+contain-body-w-m-004.html (live test) (source)
+
+contain-html-bg-001.html (live test) (source)
+
+contain-html-bg-002.html (live test) (source)
+
+contain-html-bg-003.html (live test) (source)
+
+contain-html-bg-004.html (live test) (source)
+
+contain-html-dir-001.html (live test) (source)
+
+contain-html-dir-002.html (live test) (source)
+
+contain-html-dir-003.html (live test) (source)
+
+contain-html-dir-004.html (live test) (source)
+
+contain-html-overflow-001.html (live test) (source)
+
+contain-html-overflow-002.html (live test) (source)
+
+contain-html-overflow-003.html (live test) (source)
+
+contain-html-overflow-004.html (live test) (source)
+
+contain-html-t-o-001.html (live test) (source)
+
+contain-html-t-o-002.html (live test) (source)
+
+contain-html-t-o-003.html (live test) (source)
+
+contain-html-t-o-004.html (live test) (source)
+
+contain-html-w-m-001.html (live test) (source)
+
+contain-html-w-m-002.html (live test) (source)
+
+contain-html-w-m-003.html (live test) (source)
+
+contain-html-w-m-004.html (live test) (source)
+
+Note: Propagation
+to the initial containing block, the viewport, or the canvas background,
+of properties set on the html element itself
+is unaffected.
+
+Note: Several properties beyond contain can turn on various containments for an element.
+These do not affect the value of contain;
+an element can have contain: none
+but still have layout containment turned on by content-visibility,
+for example.
+
+3.
+Types of Containment
+
+There are several varieties of containment that an element can be subject to,
+restricting the effects that its descendants can have on the rest of the page in various ways.
+Containment enables much more powerful optimizations by user agents,
+and helps authors compose their page out of functional units,
+as it limits how widely a given change can affect a document.
+
+Specification authors introducing new properties or mechanisms
+need to consider whether and how the various types of containment
+affect what they are introducing,
+and include in their specification any effect not described here.
+
+3.1.
+Size Containment
+
+Giving an element size containment
+makes its principal box a size containment box
+and has the following effects:
+
+The intrinsic sizes of the size containment box
+are determined as if the element had no content,
+following the same logic as when sizing as if empty.
+
+Note: This affects explicit invocations of the min-content or max-content keywords,
+as well as any calculation that depends on these measurement,
+such as sizing grid tracks into which a size contained item is placed,
+or if fit-content sizing the containment box’s parent.
+
+Tests
+
+contain-size-013.html (live test) (source)
+
+contain-size-041.html (live test) (source)
+
+contain-size-042.html (live test) (source)
+
+contain-size-replaced-001.html (live test) (source)
+
+contain-size-replaced-002.html (live test) (source)
+
+contain-size-replaced-003a.html (live test) (source)
+
+contain-size-replaced-003b.html (live test) (source)
+
+contain-size-replaced-003c.html (live test) (source)
+
+contain-size-replaced-004.html (live test) (source)
+
+contain-size-replaced-005.html (live test) (source)
+
+contain-size-replaced-006.html (live test) (source)
+
+contain-size-block-001.html (live test) (source)
+
+contain-size-block-002.html (live test) (source)
+
+contain-size-block-003.html (live test) (source)
+
+contain-size-block-004.html (live test) (source)
+
+contain-size-button-002.html (live test) (source)
+
+contain-size-fieldset-003.html (live test) (source)
+
+contain-size-flex-001.html (live test) (source)
+
+contain-size-grid-005.html (live test) (source)
+
+contain-size-grid-006.html (live test) (source)
+
+contain-size-inline-block-001.html (live test) (source)
+
+contain-size-inline-block-002.html (live test) (source)
+
+contain-size-inline-block-003.html (live test) (source)
+
+contain-size-inline-block-004.html (live test) (source)
+
+contain-size-inline-flex-001.html (live test) (source)
+
+contain-size-multicol-002.html (live test) (source)
+
+contain-size-multicol-003.html (live test) (source)
+
+contain-size-select-elem-001.html (live test) (source)
+
+contain-size-select-elem-002.html (live test) (source)
+
+contain-size-select-elem-003.html (live test) (source)
+
+contain-size-select-elem-004.html (live test) (source)
+
+contain-size-select-elem-005.html (live test) (source)
+
+Laying out a size containment box and its content is conceptually done in two phases:
+
+Sizing as if empty
+
+The used width and height of the containment box
+are determined as if performing a normal layout of the box,
+except that it is treated as having no content—​not even through pseudo-elements such as ::before, ::after, or ::marker.
+
+Tests
+
+contain-size-021.html (live test) (source)
+
+contain-size-023.html (live test) (source)
+
+contain-size-025.html (live test) (source)
+
+contain-size-027.html (live test) (source)
+
+contain-size-061.html (live test) (source)
+
+contain-size-062.html (live test) (source)
+
+contain-size-063.html (live test) (source)
+
+contain-size-borders.html (live test) (source)
+
+contain-size-fieldset-001.html (live test) (source)
+
+contain-size-fieldset-002.html (live test) (source)
+
+contain-size-select-001.html (live test) (source)
+
+contain-size-select-002.html (live test) (source)
+
+contain-size-scrollbars-001.html (live test) (source)
+
+contain-size-scrollbars-002.html (live test) (source)
+
+contain-size-scrollbars-003.html (live test) (source)
+
+contain-size-scrollbars-004.html (live test) (source)
+
+contain-size-button-001.html (live test) (source)
+
+contain-size-flexbox-001.html (live test) (source)
+
+contain-size-flexbox-002.html (live test) (source)
+
+contain-size-grid-001.html (live test) (source)
+
+Replaced elements must be treated as having a natural width and height of 0
+and no natural aspect ratio.
+
+Note: Size containment only suppresses the natural aspect ratio,
+so properties like aspect-ratio which affect that preferred aspect ratio directly
+are honored.
+
+Tests
+
+contain-size-013.html (live test) (source)
+
+contain-size-041.html (live test) (source)
+
+contain-size-042.html (live test) (source)
+
+contain-size-replaced-001.html (live test) (source)
+
+contain-size-replaced-002.html (live test) (source)
+
+contain-size-replaced-003a.html (live test) (source)
+
+contain-size-replaced-003b.html (live test) (source)
+
+contain-size-replaced-003c.html (live test) (source)
+
+contain-size-replaced-004.html (live test) (source)
+
+contain-size-replaced-005.html (live test) (source)
+
+replaced-element-023.html (live test) (source)
+
+replaced-element-025.html (live test) (source)
+
+replaced-element-027.html (live test) (source)
+
+All CSS properties of the size containment box are taken into account
+as they would be when performing layout normally.
+Other specifications may make specific exemptions.
+
+Tests
+
+contain-size-replaced-006.html (live test) (source)
+
+Note: Even when the element’s sizing properties specify an intrinsic size,
+this does not necessarily make the element zero-sized:
+properties set on the element itself
+continue to be taken into account,
+which can cause it to be larger.
+
+Tests
+
+contain-size-grid-002.html (live test) (source)
+
+contain-size-grid-003.html (live test) (source)
+
+contain-size-multicol-001.html (live test) (source)
+
+contain-size-multicol-as-flex-item.html (live test) (source)
+
+Laying out in-place
+
+The containment box’s content
+(including any pseudo-elements)
+must then be laid out into
+the now fixed-size containment box normally.
+
+Tests
+
+contain-size-064.html (live test) (source)
+
+Note: Size containment does not suppress baseline alignment.
+See layout containment for that.
+
+Tests
+
+contain-size-baseline-001.html (live test) (source)
+
+contain-size-fieldset-004.html (live test) (source)
+
+contain-size-inline-block-001.html (live test) (source)
+
+contain-size-inline-block-002.html (live test) (source)
+
+contain-size-inline-block-003.html (live test) (source)
+
+contain-size-inline-block-004.html (live test) (source)
+
+contain-size-inline-flex-001.html (live test) (source)
+
+Size containment boxes are monolithic (See CSS Fragmentation 3 § 4.1 Possible Break Points).
+
+Tests
+
+contain-size-breaks-001.html (live test) (source)
+
+contain-size-monolithic-001.html (live test) (source)
+
+contain-size-monolithic-002.html (live test) (source)
+
+contain-size-multicol-004.html (live test) (source)
+
+Given the following markup and style, the image would be sized to 100px by 100px,
+as the aspect ratio set by the aspect-ratio property takes effect.
+
+img {
+width: 100px;
+aspect-ratio: 1/1;
+contain: size;
+}
+
+<img src="https://www.example.com/300x100.jpg">
+
+If the aspect-ratio property had not been declared,
+the image would have been 100px by 0px,
+as its natural aspect ratio is suppressed,
+and its natural height is treated as 0.
+
+However, giving an element size containment
+has no effect if any of the following are true:
+
+if the element does not generate a principal box
+(as is the case with display: contents or display: none)
+
+if its inner display type is table
+
+Tests
+
+contain-size-012.html (live test) (source)
+
+contain-size-012b.html (live test) (source)
+
+if its principal box is
+an internal table box
+
+Tests
+
+contain-size-006.html (live test) (source)
+
+contain-size-007.html (live test) (source)
+
+contain-size-008.html (live test) (source)
+
+contain-size-009.html (live test) (source)
+
+contain-size-010.html (live test) (source)
+
+contain-size-051.html (live test) (source)
+
+contain-size-052.html (live test) (source)
+
+if its principal box is
+an internal ruby box
+or a non-atomic inline-level box
+
+Tests
+
+contain-size-002.html (live test) (source)
+
+contain-size-003.html (live test) (source)
+
+contain-size-004.html (live test) (source)
+
+contain-size-005.html (live test) (source)
+
+contain-size-001.html (live test) (source)
+
+Note: Internal table boxes,
+which do not include table captions,
+are excluded,
+because the table layout algorithm
+does not allow boxes to become smaller than their inflow content.
+Sizing a table cell as if it was empty and then laying out its content inside without changing the size
+is effectively an undefined operation.
+Manually setting the width or height properties to 0
+cannot make it smaller than its content.
+This concern does not apply to table captions,
+which are perfectly capable of having a fixed size
+that is independent of their content.
+
+Tests
+
+contain-size-011.html (live test) (source)
+
+contain-size-056.html (live test) (source)
+
+contain-size-table-caption-001.html (live test) (source)
+
+3.1.1.
+Possible Size-Containment Optimizations
+
+This section is non-normative.
+
+By itself, size containment does not offer much optimization opportunity.
+Its primary benefit on its own is that tools which want to lay out the containment box’s contents
+based on the containment box’s size
+(such as a JS library implementing the "container query" concept)
+can do so without fear of "infinite loops",
+where having a child’s size respond to the size of the containment box
+causes the containment box’s size to change as well,
+possibly triggering further changes in how the child sizes itself
+and possibly thus more changes to the containment box’s size,
+ad infinitum.
+
+When paired with layout containment, though,
+possible optimizations that can be enabled include (but are not limited to):
+
+When the style or contents of a descendant of the containment box is changed,
+calculating what part of the DOM tree is "dirtied" and might need to be re-laid out
+can stop at the containment box.
+
+When laying out the page,
+if the containment box is off-screen or obscured,
+the layout of its contents (i.e. "laying out in-place") can be delayed or done at a lower priority.
+
+3.2.
+Inline-Size Containment
+
+Giving an element inline-size containment
+applies size containment to the inline-axis sizing of its principal box.
+This means the inline-axis intrinsic sizes of the principal box
+are determined as if the element had no content.
+However, content continues to impact the box’s block-axis intrinsic sizes as usual,
+and the box is allowed to fragment normally in the block axis.
+
+Note: In some cases,
+a box’s block-axis intrinsic sizes
+can impact layout in the parent formatting context
+in ways that affect the box’s inline size
+(e.g. by triggering scrollbars on an ancestor element),
+creating a dependency of the box’s inline size on its own content.
+If this changed inline size results in a different block size,
+that new block size can loop into further impacting the parent formatting context,
+but not in a way that reverts it to the previously-problematic layout.
+
+For example, if scrollbars were introduced,
+they are then not removed,
+even if the consequent block size is small enough to not need them;
+or if a box’s logical height collides with a lower-placed float and is cleared down
+to where it also has more available inline space
+and thus becomes short enough to not have collided,
+it is then not moved back up to its previous problematic size and position.
+
+Thus, although inline-size containment prevents
+the box’s content from directly affecting its inline size
+through its inline-axis intrinsic sizes,
+its inline size can still indirectly depend on its contents
+by their effect on its block size.
+
+In general, the relationship between an element’s inline size
+and it’s block size
+is unpredictable and non-monotonic,
+with the block size capable of shifting up and down arbitrarily
+as the inline size is changed.
+Infinite cycles are prevented
+by ensuring that layout does not revert to a previous (known-problematic) state,
+even if a naive analysis of the constraints would allow for such;
+in other words, layout always “moves forward”.
+We believe that current CSS layout specifications incorporate such rules,
+but to the extent that they don’t,
+please inform the CSSWG
+so that these errors can be corrected.
+
+Consider this example,
+where float placement creates a dependency of block sizes on inline sizes:
+
+<section style="width: 200px; border: solid; display: flow-root;">
+<!-- floated elements that impact the available space -->
+<div style="float: left; width: 50px; height: 80px; background: blue;"></div>
+<div style="float: right; width: 50px; height: 80px; background: blue;"></div>
+<div style="float: left; width: 160px; height: 80px; background: navy;"></div>
+
+<!-- parent layout, determining context -->
+<article style="border: solid orangered; display: flow-root; min-width: min-content">
+<div style="background: orange; aspect-ratio: 1/1;">
+Article
+</div>
+</article>
+</section>
+
+Article
+
+The block layout algorithm will first place the floating boxes,
+with the first two sitting in the left and right corners of the container,
+and the third, being too wide to fit between, being pushed below them.
+
+The following article will then be laid out.
+Because it is display: flow-root,
+it cannot intersect any floats,
+and thus must take them into account
+when figuring out how to size and position itself.
+
+The layout engine first attempts to place the article
+flush with the top of the container,
+resulting a 100px width,
+plenty wide enough to accommodate its min-content size.
+However, due to the aspect-ratio of its child,
+this would cause the article to be 100px tall as well,
+which would intersect the third float 80px below,
+so this layout opportunity is discarded.
+
+It then attempts to position the article
+flush with the top of the third float,
+in the narrow 40px-wide space to its right.
+However, since the article’s min-width makes it too large
+to fit in the 40px-wide space beside the third float,
+it shifts below that one as well,
+forming a 200px square below all the floated boxes.
+
+Article
+
+If the min-width is removed from the article,
+or if inline-size containment is added to
+either the article or header
+(causing min-width: min-content to resolve to zero),
+then the article will fit as a 40px square
+next to the final floated div
+(possibly with some of its content overflowing).
+
+At this point, the width and height of the article
+(40px each)
+would fit back in the first considered space,
+flush with the top of the container.
+However, the box is not returned to the previous position,
+because the layout engine knows already
+that this position would result in an invalid layout.
+
+Giving an element inline-size containment
+has no effect if any of the following are true:
+
+if the element does not generate a principal box
+(as is the case with display: contents or display: none)
+
+if its inner display type is table
+
+if its principal box is
+an internal table box
+
+if its principal box is
+an internal ruby box
+or a non-atomic inline-level box
+
+3.3.
+Layout Containment
+
+Giving an element layout containment
+makes its principal box a layout containment box
+and has the following effects:
+
+The layout containment box establishes an independent formatting context.
+
+Tests
+
+contain-layout-ifc-022.html (live test) (source)
+
+contain-layout-independent-formatting-context-001.html (live test) (source)
+
+contain-layout-independent-formatting-context-002.html (live test) (source)
+
+contain-subgrid-001.html (live test) (source)
+
+contain-layout-formatting-context-float-001.html (live test) (source)
+
+contain-layout-formatting-context-margin-001.html (live test) (source)
+
+If at least one fragmentation container of a fragmentation context has layout containment,
+or if at least one fragmentation container of a fragmentation context is a descendant of layout containment box
+and at least one subsequent fragmentation container of the same fragmentation context
+is not a descendant of that same element with layout containment,
+then the first layout containment box
+which is either a fragmentation container itself
+or is an ancestor of a fragmentation container
+must “trap” the remainder of the fragmented flow:
+fragmentation must not continue past the layout containment boundary,
+and the last fragmentation container
+within the first layout containment boundary
+is treated as if it is the last fragmentation container
+in its fragmentation context.
+
+If subsequent fragmentation containers in the fragmentation context
+are only generated when more content remains in the fragmented flow,
+then they are not generated.
+If they would exist regardless,
+they remain part of the fragmentation context,
+but do not receive any content from the fragmented flow.
+
+Note: At the time of writing, no stable specification is affected by this point.
+Only specifications that would enable some (but not all) fragmentation containers of a fragmentation context
+to be layout-contained (or descendants of a layout contained element)
+are concerned.
+This is not the case of [CSS-PAGE-3] nor of [CSS-MULTICOL-1].
+This requirement is nonetheless included because
+several mechanisms that would make this a possibility have been considered
+(e.g.: [CSS-REGIONS-1], ::nth-fragment(), a hypothetical selector for individual columns of a multicol…),
+and the guarantees that layout containment is intended to offer would not be realized
+if such mechanisms did not abide by this rule.
+[CSS-REGIONS-1] has details over how layout containment affects
+regions.
+
+<article>Lorem ipsum…</article>
+<div id=a></div>
+<aside>
+<div id=b></div>
+<div id=c></div>
+</aside>
+<aside>
+<div id=d></div>
+<div id=e></div>
+</aside>
+<div id=f></div>
+
+article {flow-into: foo;}
+#a, #b, #c, #d, #e, #f {flow-from: foo;}
+aside {contain: layout}
+
+In this [CSS-REGIONS-1] example,
+content can flow from #a to #b,
+from #b to #c.
+However as #c is the last fragment container in the first layout containment box
+it traps all the remaining content,
+and nothing gets flowed into #d, #e, or #f.
+
+If the computed value of the overflow property is
+either visible or clip or a combination thereof,
+any overflow must be treated as ink overflow.
+
+Tests
+
+contain-layout-ink-overflow-013.html (live test) (source)
+
+contain-layout-ink-overflow-014.html (live test) (source)
+
+contain-layout-ink-overflow-015.html (live test) (source)
+
+contain-layout-ink-overflow-016.html (live test) (source)
+
+contain-layout-ink-overflow-017.html (live test) (source)
+
+contain-layout-ink-overflow-018.html (live test) (source)
+
+contain-layout-ink-overflow-019.html (live test) (source)
+
+contain-layout-ink-overflow-020.html (live test) (source)
+
+contain-layout-overflow-001.html (live test) (source)
+
+contain-layout-overflow-002.html (live test) (source)
+
+The layout containment box establishes an absolute positioning containing block and a fixed positioning containing block.
+
+Tests
+
+contain-layout-006.html (live test) (source)
+
+contain-layout-007.html (live test) (source)
+
+contain-layout-cell-001.html (live test) (source)
+
+contain-layout-cell-002.html (live test) (source)
+
+contain-layout-021.html (live test) (source)
+
+contain-layout-containing-block-absolute-001.html (live test) (source)
+
+contain-layout-containing-block-fixed-001.html (live test) (source)
+
+The layout containment box creates a stacking context.
+
+Tests
+
+contain-layout-016.html (live test) (source)
+
+contain-layout-017.html (live test) (source)
+
+contain-layout-018.html (live test) (source)
+
+contain-layout-stacking-context-001.html (live test) (source)
+
+Forced breaks are allowed within layout containment boxes
+but do not propagate to the parent as otherwise described in CSS Fragmentation 3 § 3.1 Breaks Between Boxes: the break-before and break-after properties.
+
+Tests
+
+contain-layout-breaks-001.html (live test) (source)
+
+contain-layout-breaks-002.html (live test) (source)
+
+Note: This introduces the previously non-existent possibility that forced breaks
+may occur between a box and its container (See CSS Fragmentation 3 § 4.1 Possible Break Points).
+
+For the purpose of the vertical-align property,
+or any other property whose effects
+need to relate the position of the layout containment box’s baseline
+to something other than its descendants,
+the containment box is treated as having no baseline.
+
+Tests
+
+contain-layout-baseline-001.html (live test) (source)
+
+contain-layout-flexbox-001.html (live test) (source)
+
+contain-layout-grid-001.html (live test) (source)
+
+contain-layout-baseline-002.html (live test) (source)
+
+contain-layout-baseline-003.html (live test) (source)
+
+contain-layout-baseline-004.html (live test) (source)
+
+contain-layout-baseline-005.html (live test) (source)
+
+contain-layout-suppress-baseline-001.html (live test) (source)
+
+contain-layout-suppress-baseline-002.html (live test) (source)
+
+However, giving an element layout containment
+has no effect if any of the following are true:
+
+if the element does not generate a principal box
+(as is the case with display: contents or display: none)
+
+Tests
+
+contain-layout-ignored-cases-no-principal-box-001.html (live test) (source)
+
+contain-layout-ignored-cases-no-principal-box-002.html (live test) (source)
+
+contain-layout-ignored-cases-no-principal-box-003.html (live test) (source)
+
+if its principal box is
+an internal table box
+other than table-cell
+
+Tests
+
+contain-layout-009.html (live test) (source)
+
+contain-layout-010.html (live test) (source)
+
+contain-layout-011.html (live test) (source)
+
+contain-layout-012.html (live test) (source)
+
+contain-layout-013.html (live test) (source)
+
+contain-layout-014.html (live test) (source)
+
+if its principal box is
+an internal ruby box
+or a non-atomic inline-level box
+
+Tests
+
+contain-layout-002.html (live test) (source)
+
+contain-layout-003.html (live test) (source)
+
+contain-layout-004.html (live test) (source)
+
+contain-layout-005.html (live test) (source)
+
+contain-layout-001.html (live test) (source)
+
+contain-layout-independent-formatting-context-003.html (live test) (source)
+
+contain-layout-ignored-cases-ib-split-001.html (live test) (source)
+
+3.3.1.
+Possible Layout-Containment Optimizations
+
+This section is non-normative.
+
+Possible optimizations that can be enabled by layout containment include (but are not limited to):
+
+When laying out the page,
+the contents of separate containment boxes
+can be laid out in parallel,
+as they’re guaranteed not to affect each other.
+
+When laying out the page,
+if the containment box is off-screen or obscured
+and the layout of the visible parts of the screen do not depend on the size of the containment box
+(for example, if the containment box is near the end of a block container,
+and you’re viewing the beginning of the block container),
+the layout of the containment box' contents can be delayed or done at a lower priority.
+
+(When paired with size containment,
+this optimization can be applied more liberally.)
+
+3.4.
+Style Containment
+
+Giving an element style containment
+has the following effects:
+
+The counter-increment and counter-set properties
+must be scoped to the element’s sub-tree
+and create a new counter.
+
+Tests
+
+contain-style-counters-001.html (live test) (source)
+
+contain-style-counters-002.html (live test) (source)
+
+contain-style-counters-003.html (live test) (source)
+
+contain-style-counters-004.html (live test) (source)
+
+contain-style-ol-ordinal-li-container.html (live test) (source)
+
+contain-style-ol-ordinal-pseudo-reversed.html (live test) (source)
+
+contain-style-ol-ordinal-pseudo.html (live test) (source)
+
+contain-style-ol-ordinal-reversed.html (live test) (source)
+
+contain-style-ol-ordinal-start-reversed.html (live test) (source)
+
+contain-style-ol-ordinal-start.html (live test) (source)
+
+contain-style-ol-ordinal.html (live test) (source)
+
+The effects of the content property’s
+open-quote, close-quote, no-open-quote and no-close-quote
+must be scoped to the element’s sub-tree.
+
+Note: This implies that the depth of quote nesting in the subtree
+is unchanged and starts at the value that its context normally implies,
+but that changes to the depth of quote nesting by these values inside the subtree
+do not affect the depth of quote nesting outside the subtree.
+
+Tests
+
+quote-scoping-001.html (live test) (source)
+
+quote-scoping-002.html (live test) (source)
+
+quote-scoping-003.html (live test) (source)
+
+quote-scoping-004.html (live test) (source)
+
+quote-scoping-empty-style-boundaries.html (live test) (source)
+
+quote-scoping-invalidation-001.html (live test) (source)
+
+quote-scoping-invalidation-002.html (live test) (source)
+
+quote-scoping-invalidation-003.html (live test) (source)
+
+quote-scoping-invalidation-004.html (live test) (source)
+
+Tests
+
+contain-style-baseline-001.html (live test) (source)
+
+contain-style-breaks-001.html (live test) (source)
+
+contain-style-breaks-002.html (live test) (source)
+
+contain-style-breaks-003.html (live test) (source)
+
+contain-style-breaks-004.html (live test) (source)
+
+contain-style-breaks-005.html (live test) (source)
+
+However, giving an element style containment
+has no effect if any of the following are true:
+
+if the element does not generate a principal box
+(as is the case with display: contents or display: none)
+
+Note: [CSS-REGIONS-1] has normative requirements on how style containment affects regions.
+
+A scoped property has its effects scoped to a particular element or subtree.
+
+If scoped to an element,
+it must act as if the scoping element was the root of the document
+for the purpose of evaluating the property’s effects:
+any uses of the property outside the scoping element must have no effect on the uses of the property on or in the scoping element,
+and vice versa.
+
+Note: “Scoping to an element” is currently unused.
+It is defined as an extension point for future specifications to use.
+
+If scoped to a sub-tree, it’s the same,
+except the scoping element itself is counted as "outside" the tree,
+like the rest of the document,
+and the effects of the property on that element are unaffected by scoping.
+When considering the effects of the scoped property on elements inside the subtree,
+the element at the base of the subtree is treated as if it was the root of the document.
+
+Tests
+
+counter-scoping-001.html (live test) (source)
+
+counter-scoping-002.html (live test) (source)
+
+counter-scoping-003.html (live test) (source)
+
+counter-scoping-004.html (live test) (source)
+
+contain-style-ol-ordinal-li-container.html (live test) (source)
+
+contain-style-ol-ordinal-pseudo-reversed.html (live test) (source)
+
+contain-style-ol-ordinal-pseudo.html (live test) (source)
+
+contain-style-ol-ordinal-reversed.html (live test) (source)
+
+contain-style-ol-ordinal-start-reversed.html (live test) (source)
+
+contain-style-ol-ordinal-start.html (live test) (source)
+
+contain-style-ol-ordinal.html (live test) (source)
+
+As counter-increment is scoped to an element’s subtree,
+the first use of it within the subtree
+creates a fresh counter,
+regardless of whether the counter had been used outside the scoping element.
+Any increments made within the subtree have no effect on counters of the same name outside the scoping element.
+However, the counter() and counters() value of the content property is not itself scoped,
+and can refer to counters established outside of the subtree.
+
+For example, the following markup and style:
+
+<div>
+<div style="contain: style;">
+<div></div>
+<div></div>
+</div>
+<div>
+<div></div>
+<div></div>
+</div>
+</div>
+
+body {
+counter-reset: foo;
+}
+div {
+counter-increment: foo;
+
+/* and to help observe nesting properly */
+margin: .2em;
+padding: .2em;
+background: #0001;
+}
+div::before {
+content: counters(foo, ".");
+}
+
+Will render like:
+
+1
+
+2
+
+2.1
+
+2.2
+
+3
+
+4
+
+5
+
+Here, the style-contained element still interacts with the foo counter normally,
+incrementing it to 2.
+Its ::before pseudo-element,
+which is effectively a child and thus within the containment boundary,
+can still see that counter normally,
+and thus will render the string "2".
+
+Later siblings of the style-contained element don’t see anything that goes on within the boundary,
+so they increment the foo counter to 3 and beyond.
+
+Within the containment, however,
+the descendant divs aren’t allowed to modify the value of the outside counter,
+so instead they’ll create a fresh (nested) foo counter
+when they attempt to increment it.
+
+3.4.1.
+Possible Style-Containment Optimizations
+
+This section is non-normative.
+
+Possible optimizations that can be enabled by style containment include (but are not limited to):
+
+Whenever a property is changed on a descendant of an element with style containment,
+calculating what part of the DOM tree is "dirtied" and might need to have its style recalculated
+can stop at the element with style containment.
+
+3.5.
+Paint Containment
+
+Giving an element paint containment
+makes its principal box a paint containment box
+and has the following effects:
+
+The contents of the element
+including any ink or scrollable overflow
+must be clipped to the overflow clip edge of the paint containment box,
+taking corner clipping into account.
+This does not include the creation of any mechanism
+to access or indicate the presence of the clipped content;
+nor does it inhibit the creation of any such mechanism through other properties,
+such as overflow, resize, or text-overflow.
+
+Tests
+
+contain-paint-050.html (live test) (source)
+
+Note: This clipping shape respects overflow-clip-margin,
+allowing an element with paint containment
+to still slightly overflow its normal bounds.
+
+Note: The behavior is described in this paragraph is equivalent to changing
+overflow-x: visible into overflow-x: clip
+and
+overflow-y: visible into overflow-y: clip
+at used value time,
+while leaving other values of overflow-x and overflow-y unchanged.
+
+Tests
+
+contain-paint-001.html (live test) (source)
+
+contain-paint-004.html (live test) (source)
+
+contain-paint-047.html (live test) (source)
+
+contain-paint-048.html (live test) (source)
+
+contain-paint-cell-001.html (live test) (source)
+
+contain-paint-cell-002.html (live test) (source)
+
+contain-paint-clip-011.html (live test) (source)
+
+contain-paint-clip-012.html (live test) (source)
+
+contain-paint-clip-013.html (live test) (source)
+
+contain-paint-clip-014.html (live test) (source)
+
+contain-paint-clip-015.html (live test) (source)
+
+contain-paint-clip-016.html (live test) (source)
+
+contain-paint-clip-017.html (live test) (source)
+
+contain-paint-clip-018.html (live test) (source)
+
+contain-paint-clip-019.html (live test) (source)
+
+contain-paint-table-001.html (live test) (source)
+
+contain-paint-table-002.html (live test) (source)
+
+contain-paint-026.html (live test) (source)
+
+contain-paint-049.html (live test) (source)
+
+contain-paint-clip-001.html (live test) (source)
+
+contain-paint-clip-002.html (live test) (source)
+
+contain-paint-clip-003.html (live test) (source)
+
+contain-paint-clip-004.html (live test) (source)
+
+contain-paint-clip-005.html (live test) (source)
+
+contain-paint-clip-006.html (live test) (source)
+
+The paint containment box establishes an absolute positioning containing block and a fixed positioning containing block.
+
+Tests
+
+contain-paint-009.html (live test) (source)
+
+contain-paint-010.html (live test) (source)
+
+contain-paint-022.html (live test) (source)
+
+contain-paint-023.html (live test) (source)
+
+contain-paint-024.html (live test) (source)
+
+contain-paint-containing-block-absolute-001.html (live test) (source)
+
+contain-paint-containing-block-fixed-001.html (live test) (source)
+
+The paint containment box creates a stacking context.
+
+Tests
+
+contain-paint-020.html (live test) (source)
+
+contain-paint-021.html (live test) (source)
+
+contain-paint-025.html (live test) (source)
+
+contain-subgrid-001.html (live test) (source)
+
+contain-paint-stacking-context-001a.html (live test) (source)
+
+contain-paint-stacking-context-001b.html (live test) (source)
+
+The paint containment box establishes an independent formatting context.
+
+Tests
+
+contain-paint-ifc-011.html (live test) (source)
+
+contain-paint-independent-formatting-context-001.html (live test) (source)
+
+contain-paint-independent-formatting-context-002.html (live test) (source)
+
+contain-paint-formatting-context-float-001.html (live test) (source)
+
+contain-paint-formatting-context-margin-001.html (live test) (source)
+
+contain-paint-baseline-001.html (live test) (source)
+
+However, giving an element paint containment
+has no effect if any of the following are true:
+
+if the element does not generate a principal box
+(as is the case with display: contents or display: none)
+
+Tests
+
+contain-paint-ignored-cases-no-principal-box-001.html (live test) (source)
+
+if its principal box is
+an internal table box
+other than table-cell
+
+Tests
+
+contain-paint-014.html (live test) (source)
+
+contain-paint-015.html (live test) (source)
+
+contain-paint-016.html (live test) (source)
+
+contain-paint-017.html (live test) (source)
+
+contain-paint-018.html (live test) (source)
+
+contain-paint-019.html (live test) (source)
+
+contain-paint-ignored-cases-internal-table-001a.html (live test) (source)
+
+contain-paint-ignored-cases-internal-table-001b.html (live test) (source)
+
+if its principal box is
+an internal ruby box
+or a non-atomic inline-level box
+
+Tests
+
+contain-paint-005.html (live test) (source)
+
+contain-paint-006.html (live test) (source)
+
+contain-paint-007.html (live test) (source)
+
+contain-paint-008.html (live test) (source)
+
+contain-paint-ignored-cases-ruby-containing-block-001.html (live test) (source)
+
+contain-paint-ignored-cases-ruby-stacking-and-clipping-001.html (live test) (source)
+
+contain-paint-002.html (live test) (source)
+
+contain-paint-011.html (live test) (source)
+
+contain-paint-012.html (live test) (source)
+
+contain-paint-independent-formatting-context-003.html (live test) (source)
+
+contain-paint-ignored-cases-ib-split-001.html (live test) (source)
+
+3.5.1.
+Possible Paint-Containment Optimizations
+
+This section is non-normative.
+
+Possible optimizations that can be enabled by paint containment include (but are not limited to):
+
+If the containment box is off-screen or obscured,
+the UA can usually skip trying to paint its contents,
+as they’re guaranteed to be off-screen/obscured as well.
+
+Note: Some paint effects such as the blur() filter from [FILTER-EFFECTS-1]
+have non local effects.
+The user agent needs to keep track of these,
+as it may need to repaint parts of an element with such a filter
+when its descendents change,
+even if they have paint containment
+and could otherwise be skipped.
+
+Unless the clipped content is made accessible via a separate mechanism
+such as the overflow or resize properties,
+the UA can reserve "canvas" space for the box exactly the box’s size.
+(In similar, scrollable, situations, like overflow: hidden,
+it’s possible to scroll to the currently-clipped content,
+so UAs often predictively overpaint somewhat
+so there’s something to see as soon as the scroll happens,
+rather than a frame later.)
+
+Because they are guaranteed to be stacking contexts,
+scrolling elements can be painted into a single GPU layer.
+
+4. Suppressing An Element’s Contents Entirely: the content-visibility property
+
+Tests
+
+Tests related to content-visibility which haven't been triaged to any particular point in the spec
+
+content-visibility-085.html (live test) (source)
+
+content-visibility-086.html (live test) (source)
+
+content-visibility-087.html (live test) (source)
+
+content-visibility-088.html (live test) (source)
+
+content-visibility-089.html (live test) (source)
+
+content-visibility-090.html (live test) (source)
+
+content-visibility-091.html (live test) (source)
+
+content-visibility-092.html (live test) (source)
+
+content-visibility-093.html (live test) (source)
+
+content-visibility-094.html (live test) (source)
+
+content-visibility-095.html (live test) (source)
+
+content-visibility-096.html (live test) (source)
+
+content-visibility-097.html (live test) (source)
+
+content-visibility-098.html (live test) (source)
+
+content-visibility-099.html (live test) (source)
+
+content-visibility-animation-and-scroll.html (live test) (source)
+
+content-visibility-animation-becomes-visible.html (live test) (source)
+
+content-visibility-animation-in-auto-subtree.html (live test) (source)
+
+content-visibility-animation-with-scroll-timeline-in-auto-subtree.html (live test) (source)
+
+content-visibility-animation-with-scroll-timeline-in-hidden-subtree.html (live test) (source)
+
+content-visibility-auto-applied-to-th-crash.html (live test) (source)
+
+content-visibility-auto-first-observation-immediate.html (live test) (source)
+
+content-visibility-auto-nested-scroll.html (live test) (source)
+
+content-visibility-auto-nested.html (live test) (source)
+
+content-visibility-auto-relevancy-updates.html (live test) (source)
+
+content-visibility-auto-text-fragment.html (live test) (source)
+
+content-visibility-background-clip-crash.html (live test) (source)
+
+content-visibility-interpolation.html (live test) (source)
+
+content-visibility-intrinsic-size-001.html (live test) (source)
+
+content-visibility-layout-containment-001.html (live test) (source)
+
+content-visibility-layout-paint-containment-001.html (live test) (source)
+
+content-visibility-on-g.html (live test) (source)
+
+content-visibility-on-root-svg.html (live test) (source)
+
+content-visibility-paint-containment-001.html (live test) (source)
+
+content-visibility-paint-containment-002.html (live test) (source)
+
+content-visibility-paint-containment-003.html (live test) (source)
+
+content-visibility-selection-crash.html (live test) (source)
+
+content-visibility-size-containment-001.html (live test) (source)
+
+content-visibility-style-containment-001.html (live test) (source)
+
+content-visibility-svg-path.html (live test) (source)
+
+content-visibility-svg-rect.html (live test) (source)
+
+content-visibility-svg-text.html (live test) (source)
+
+content-visibility-vs-scrollIntoView-001.html (live test) (source)
+
+content-visibility-vs-scrollIntoView-002.html (live test) (source)
+
+content-visibility-vs-scrollIntoView-003.html (live test) (source)
+
+content-visibility-web-animation-in-auto-subtree.html (live test) (source)
+
+content-visibility-with-float-crash.html (live test) (source)
+
+content-visibility-with-popover-top-layer-000.html (live test) (source)
+
+content-visibility-with-popover-top-layer-001.html (live test) (source)
+
+content-visibility-with-popover-top-layer-002.html (live test) (source)
+
+content-visibility-with-popover-top-layer-003.html (live test) (source)
+
+content-visibility-with-popover-top-layer-004.html (live test) (source)
+
+content-visibility-with-popover-top-layer-005.html (live test) (source)
+
+content-visibility-with-popover-top-layer-006.html (live test) (source)
+
+content-visibility-with-popover-top-layer-and-auto-descendant.html (live test) (source)
+
+content-visibility-with-popover-top-layer-hide-after-addition.html (live test) (source)
+
+content-visibility-with-top-layer-007.html (live test) (source)
+
+content-visibility-with-top-layer-008.html (live test) (source)
+
+content-visibility-with-top-layer-and-auto-descendant.html (live test) (source)
+
+content-visibility-with-top-layer-in-auto-subtree-removal.html (live test) (source)
+
+Name:
+content-visibility
+
+Value:
+visible | auto | hidden
+
+Initial:
+visible
+
+Applies to:
+elements for which size containment can apply
+
+Inherited:
+no
+
+Percentages:
+n/a
+
+Computed value:
+as specified
+
+Canonical order:
+per grammar
+
+Animation type:
+see § 4.1 Animating and Interpolating content-visibility
+
+Tests
+
+content-visibility-051.html (live test) (source)
+
+content-visibility-073.html (live test) (source)
+
+inheritance.html (live test) (source)
+
+content-visibility-computed.html (live test) (source)
+
+content-visibility-invalid.html (live test) (source)
+
+content-visibility-valid.html (live test) (source)
+
+content-visibility-077.html (live test) (source)
+
+content-visibility-resize-observer-no-error.html (live test) (source)
+
+The following tests are crash tests
+that relate to general usage
+of this feature
+but are not particularly tied to any particular normative statement.
+
+content-visibility-069.html (live test) (source)
+
+content-visibility-auto-selection-crash.html (live test) (source)
+
+content-visibility-continuations-crash.html (live test) (source)
+
+content-visibility-form-controls-crash.html (live test) (source)
+
+content-visibility-hit-test-contents-crash.html (live test) (source)
+
+content-visibility-in-svg-000-crash.html (live test) (source)
+
+content-visibility-output-crash.html (live test) (source)
+
+contentvisibility-nestedslot-crash.html (live test) (source)
+
+first-line-and-inline-block.html (live test) (source)
+
+detach-locked-slot-children-crash.html (live test) (source)
+
+hidden-execcommand-crash.html (live test) (source)
+
+hidden-pseudo-element-removed-crash.html (live test) (source)
+
+meter-selection-crash.html (live test) (source)
+
+slot-content-visibility-1-crash.html (live test) (source)
+
+slot-content-visibility-10-crash.html (live test) (source)
+
+slot-content-visibility-11-crash.html (live test) (source)
+
+slot-content-visibility-12-crash.html (live test) (source)
+
+slot-content-visibility-13-crash.html (live test) (source)
+
+slot-content-visibility-14-crash.html (live test) (source)
+
+slot-content-visibility-15-crash.html (live test) (source)
+
+slot-content-visibility-16-crash.html (live test) (source)
+
+slot-content-visibility-17-crash.html (live test) (source)
+
+slot-content-visibility-18-crash.html (live test) (source)
+
+slot-content-visibility-19-crash.html (live test) (source)
+
+slot-content-visibility-2-crash.html (live test) (source)
+
+slot-content-visibility-20-crash.html (live test) (source)
+
+slot-content-visibility-21-crash.html (live test) (source)
+
+slot-content-visibility-22-crash.html (live test) (source)
+
+slot-content-visibility-3-crash.html (live test) (source)
+
+slot-content-visibility-4-crash.html (live test) (source)
+
+slot-content-visibility-5-crash.html (live test) (source)
+
+slot-content-visibility-6-crash.html (live test) (source)
+
+slot-content-visibility-7-crash.html (live test) (source)
+
+slot-content-visibility-8-crash.html (live test) (source)
+
+slot-content-visibility-9-crash.html (live test) (source)
+
+content-visibility-transition-finished-001.html (live test) (source)
+
+grid-dynamic.html (live test) (source)
+
+display-ruby-text-crash.html (live test) (source)
+
+locked-frame-crash.html (live test) (source)
+
+touch-action-beside-display-locked-fixedpos-iframe-crash.html (live test) (source)
+
+these should be more accurately dispatched paragraph per paragraph to the relevant points in the specification
+
+The content-visibility property
+controls whether or not an element renders its contents at all,
+along with forcing a strong set of containments,
+allowing user agents to potentially omit large swathes of layout and rendering work
+until it becomes needed.
+It has the following values:
+
+visible
+
+No effect.
+The element’s contents are laid out and rendered as normal.
+
+Tests
+
+content-visibility-002.html (live test) (source)
+
+content-visibility-012.html (live test) (source)
+
+content-visibility-013.html (live test) (source)
+
+content-visibility-014.html (live test) (source)
+
+content-visibility-023.html (live test) (source)
+
+content-visibility-024.html (live test) (source)
+
+content-visibility-025.html (live test) (source)
+
+content-visibility-042.html (live test) (source)
+
+content-visibility-052.html (live test) (source)
+
+content-visibility-057.html (live test) (source)
+
+content-visibility-with-top-layer-003.html (live test) (source)
+
+hidden
+
+The element skips its contents.
+
+Tests
+
+content-visibility-001.html (live test) (source)
+
+content-visibility-003.html (live test) (source)
+
+content-visibility-004.html (live test) (source)
+
+content-visibility-005.html (live test) (source)
+
+content-visibility-006.html (live test) (source)
+
+content-visibility-007.html (live test) (source)
+
+content-visibility-008.html (live test) (source)
+
+content-visibility-009.html (live test) (source)
+
+content-visibility-010.html (live test) (source)
+
+content-visibility-011.html (live test) (source)
+
+content-visibility-015.html (live test) (source)
+
+content-visibility-016.html (live test) (source)
+
+content-visibility-017.html (live test) (source)
+
+content-visibility-018.html (live test) (source)
+
+content-visibility-019.sub.https.html (live test) (source)
+
+content-visibility-020.html (live test) (source)
+
+content-visibility-021.html (live test) (source)
+
+content-visibility-022.html (live test) (source)
+
+content-visibility-026.html (live test) (source)
+
+content-visibility-028.html (live test) (source)
+
+content-visibility-029.html (live test) (source)
+
+content-visibility-030.html (live test) (source)
+
+content-visibility-031.html (live test) (source)
+
+content-visibility-032.html (live test) (source)
+
+content-visibility-033.sub.https.html (live test) (source)
+
+content-visibility-034.html (live test) (source)
+
+content-visibility-036.html (live test) (source)
+
+content-visibility-037.html (live test) (source)
+
+content-visibility-038.html (live test) (source)
+
+content-visibility-039.html (live test) (source)
+
+content-visibility-040.html (live test) (source)
+
+content-visibility-041.html (live test) (source)
+
+content-visibility-043.html (live test) (source)
+
+content-visibility-044.html (live test) (source)
+
+content-visibility-045.html (live test) (source)
+
+content-visibility-072.html (live test) (source)
+
+content-visibility-078.html (live test) (source)
+
+content-visibility-082.html (live test) (source)
+
+content-visibility-canvas.html (live test) (source)
+
+content-visibility-forced-layout-client-rects.html (live test) (source)
+
+content-visibility-img.html (live test) (source)
+
+content-visibility-input-image.html (live test) (source)
+
+content-visibility-svg.html (live test) (source)
+
+content-visibility-video.html (live test) (source)
+
+content-visibility-fieldset-size.html (live test) (source)
+
+content-visibility-with-top-layer-000.html (live test) (source)
+
+content-visibility-with-top-layer-001.html (live test) (source)
+
+content-visibility-with-top-layer-002.html (live test) (source)
+
+document-element-computed-style.html (live test) (source)
+
+element-reassigned-to-skipped-slot.html (live test) (source)
+
+element-reassigned-to-slot-in-skipped-subtree.html (live test) (source)
+
+scrollIntoView-target-with-contents-hidden.html (live test) (source)
+
+scrollIntoView-with-focus-target-with-contents-hidden.html (live test) (source)
+
+content-visibility-with-top-layer-hide-after-addition.html (live test) (source)
+
+dynamic-change-paint-fully-obscuring-child-001.html (live test) (source)
+
+The skipped contents must not be accessible to user-agent features,
+such as find-in-page, tab-order navigation, etc.,
+nor be selectable or focusable.
+
+Tests
+
+content-visibility-035.html (live test) (source)
+
+content-visibility-047.html (live test) (source)
+
+content-visibility-056.html (live test) (source)
+
+content-visibility-060.html (live test) (source)
+
+content-visibility-061.html (live test) (source)
+
+content-visibility-067.html (live test) (source)
+
+content-visibility-083.html (live test) (source)
+
+content-visibility-084.html (live test) (source)
+
+Note: This is similar to giving the contents display: none.
+
+Tests
+
+content-visibility-041.html (live test) (source)
+
+auto
+
+Changes the used value of the contain property
+so as to turn on layout containment,
+style containment,
+and paint containment for the element.
+
+Tests
+
+content-visibility-026.html (live test) (source)
+
+content-visibility-027.html (live test) (source)
+
+content-visibility-074.html (live test) (source)
+
+content-visibility-auto-in-iframe.html (live test) (source)
+
+content-visibility-auto-intrinsic-width.html (live test) (source)
+
+content-visibility-auto-state-changed-first-observation.html (live test) (source)
+
+content-visibility-auto-state-changed-removed.html (live test) (source)
+
+content-visibility-auto-state-changed.html (live test) (source)
+
+content-visibility-with-top-layer-005.html (live test) (source)
+
+content-visibility-with-top-layer-006.html (live test) (source)
+
+If the element is not relevant to the user,
+it also skips its contents.
+
+Tests
+
+content-visibility-046.html (live test) (source)
+
+content-visibility-050.html (live test) (source)
+
+content-visibility-058.html (live test) (source)
+
+content-visibility-064.html (live test) (source)
+
+content-visibility-068.html (live test) (source)
+
+content-visibility-072.html (live test) (source)
+
+content-visibility-079.html (live test) (source)
+
+content-visibility-with-top-layer-003.html (live test) (source)
+
+content-visibility-auto-state-changed-first-observation.html (live test) (source)
+
+content-visibility-auto-state-changed.html (live test) (source)
+
+Unlike hidden,
+the skipped contents must still be available as normal
+to user-agent features such as find-in-page, tab order navigation, etc.,
+and must be focusable and selectable as normal.
+
+Tests
+
+content-visibility-048.html (live test) (source)
+
+content-visibility-049.html (live test) (source)
+
+content-visibility-050.html (live test) (source)
+
+content-visibility-053.html (live test) (source)
+
+content-visibility-054.html (live test) (source)
+
+content-visibility-055.html (live test) (source)
+
+content-visibility-058.html (live test) (source)
+
+content-visibility-062.html (live test) (source)
+
+content-visibility-063.html (live test) (source)
+
+content-visibility-064.html (live test) (source)
+
+content-visibility-065.html (live test) (source)
+
+content-visibility-066.html (live test) (source)
+
+content-visibility-068.html (live test) (source)
+
+content-visibility-070.html (live test) (source)
+
+content-visibility-071.html (live test) (source)
+
+content-visibility-075.html (live test) (source)
+
+content-visibility-076.html (live test) (source)
+
+When an element skips its contents,
+the user agent must change the used value of the contain property
+so as to turn on layout containment,
+style containment,
+paint containment,
+and size containment.
+Further, its contents
+(the flat tree descendants of the element,
+including both text and elements,
+or the replaced content of a replaced element)
+are not painted
+(as if they had visibility: hidden)
+and do not respond to hit-testing
+(as if they had pointer-events: none),
+and to a large extent do not update their styles at all
+unless explicitly requested by script
+(see § 4.5 Restrictions and Clarifications for details).
+
+Tests
+
+content-visibility-001.html (live test) (source)
+
+content-visibility-003.html (live test) (source)
+
+content-visibility-004.html (live test) (source)
+
+content-visibility-005.html (live test) (source)
+
+content-visibility-006.html (live test) (source)
+
+content-visibility-007.html (live test) (source)
+
+content-visibility-008.html (live test) (source)
+
+content-visibility-009.html (live test) (source)
+
+content-visibility-010.html (live test) (source)
+
+content-visibility-011.html (live test) (source)
+
+content-visibility-015.html (live test) (source)
+
+content-visibility-016.html (live test) (source)
+
+content-visibility-017.html (live test) (source)
+
+content-visibility-018.html (live test) (source)
+
+content-visibility-020.html (live test) (source)
+
+content-visibility-021.html (live test) (source)
+
+content-visibility-022.html (live test) (source)
+
+content-visibility-026.html (live test) (source)
+
+content-visibility-028.html (live test) (source)
+
+content-visibility-034.html (live test) (source)
+
+content-visibility-035.html (live test) (source)
+
+content-visibility-036.html (live test) (source)
+
+content-visibility-037.html (live test) (source)
+
+content-visibility-038.html (live test) (source)
+
+content-visibility-039.html (live test) (source)
+
+content-visibility-040.html (live test) (source)
+
+content-visibility-041.html (live test) (source)
+
+content-visibility-045.html (live test) (source)
+
+content-visibility-051.html (live test) (source)
+
+content-visibility-072.html (live test) (source)
+
+content-visibility-078.html (live test) (source)
+
+content-visibility-080.html (live test) (source)
+
+content-visibility-canvas.html (live test) (source)
+
+content-visibility-fieldset-size.html (live test) (source)
+
+content-visibility-forced-layout-client-rects.html (live test) (source)
+
+content-visibility-img.html (live test) (source)
+
+content-visibility-input-image.html (live test) (source)
+
+content-visibility-svg.html (live test) (source)
+
+content-visibility-video.html (live test) (source)
+
+content-visibility-with-top-layer-hide-after-addition.html (live test) (source)
+
+document-element-computed-style.html (live test) (source)
+
+element-reassigned-to-skipped-slot.html (live test) (source)
+
+element-reassigned-to-slot-in-skipped-subtree.html (live test) (source)
+
+content-visibility-auto-state-changed-first-observation.html (live test) (source)
+
+The user agent should additionally avoid as much layout/rendering work as possible
+for skipped contents;
+the combination of heavy containment
+and making the contents invisible and untouchable
+enables heavy optimizations.
+If rendering work is done at some point,
+the user-agent should retain the previously computed layout state if possible,
+to allow the skipped contents to be displayed quickly at a later moment.
+
+Tests
+
+content-visibility-081.html (live test) (source)
+
+If an element has a value other than content-visibility: visible,
+then the following properties hold:
+
+layout containment ensures that
+the user-agent is able to omit layout work in skipped subtrees,
+since the results of such layouts will not affect elements outside of the container element.
+
+style containment ensures that
+counters do not have to be processed in skipped subtrees,
+since they do not affect counters outside of the container element.
+
+paint containment ensures that
+ink overflow of painted contents is clipped;
+this, in turn, means that user-agent can reliably determine
+when the visible portion of the element approaches the viewport
+(and, for content-visibility: auto, start painting it).
+
+size containment ensures that
+the user-agent is able to omit layout in skipped subtrees,
+since the results of such layouts
+will not affect the container element’s size.
+
+Note that in the content-visibility: auto case,
+layout containment, style containment, and paint containment persist even if the element is not skipped.
+This is done to prevent layout changes that would be incurred by containment changes
+as a result of an element entering and exiting the skipped state.
+
+An element that has content-visibility: auto is in one of three states
+when it comes to its proximity to the viewport:
+
+The element is close to the viewport:
+In this state, the element is considered "on-screen":
+its paint containment box’s overflow clip edge intersects with the viewport,
+or a user-agent defined margin around the viewport.
+
+Note: This margin is meant to allow the user agent
+to begin preparing for an element to be in the viewport soon.
+A margin of 50% is suggested as a reasonable default.
+
+If a filter (see [FILTER-EFFECTS-1]) with non local effects includes the element as part of its input,
+the user agent should also treat the element as relevant to the user
+when the filter’s output can affect the rendering within the viewport
+(or within the user-agent defined margin around the viewport),
+even if the element itself is still off-screen.
+
+The element is far away from the viewport:
+In this state, the element’s proximity to the viewport has been computed and is not close to the viewport.
+
+The element’s proximity to the viewport is not determined:
+In this state, the computation to determine the element’s proximity to the viewport has not been done
+since the last time the element was connected.
+
+Initially, the element’s proximity to the viewport is not determined.
+Only connected elements with content-visibility: auto determine their proximity to the viewport.
+When the element becomes disconnected, the element’s proximity to the viewport becomes not determined.
+
+All elements have a currently relevant to the user flag, initially false.
+
+To update currently relevant to the user given an element element:
+
+Let currentlyRelevant be true if element is relevant to the user, otherwise false.
+
+If element’s currently relevant to the user flag is equal to currentlyRelevant, then return false.
+
+Set element’s currently relevant to the user flag to currentlyRelevant.
+
+return true.
+
+To update content relevancy for a document given a document doc, and a boolean updateNonInitial:
+
+Let changed be false.
+
+For each element connected to doc with auto used value of content-visibility:
+
+If updateNonInitial is true:
+
+If update currently relevant to the user for element returns true.
+
+Set changed to true.
+
+Let isInitialDetermination be true if element’s proximity to the viewport is not determined, otherwise false.
+
+Determine proximity to the viewport for element.
+
+If isInitialDetermination is false, then continue.
+
+If update currently relevant to the user for element returns true.
+
+Set changed to true.
+
+return changed.
+
+The intent of the changed and updateNonInitial
+variables is for the initial viewport proximity determination, which takes
+effect immediately, to be reflected in the style and layout calculation
+this frame.
+
+Proximity determinations other than the initial one take effect
+at the next rendering opportunity.
+
+An element is relevant to the user
+if any of the following conditions are true:
+
+The element is close to the viewport.
+
+Tests
+
+content-visibility-046.html (live test) (source)
+
+content-visibility-079.html (live test) (source)
+
+content-visibility-auto-in-iframe.html (live test) (source)
+
+content-visibility-auto-intrinsic-width.html (live test) (source)
+
+Either the element or its contents
+are focused,
+as described in the focus section of the HTML spec.
+
+Tests
+
+content-visibility-050.html (live test) (source)
+
+content-visibility-064.html (live test) (source)
+
+content-visibility-068.html (live test) (source)
+
+Either the element or its contents
+are selected,
+where selection is described in the selection API.
+
+Tests
+
+content-visibility-070.html (live test) (source)
+
+content-visibility-071.html (live test) (source)
+
+Either the element or its contents
+are placed in the top layer.
+
+Tests
+
+content-visibility-with-top-layer-004.html (live test) (source)
+
+content-visibility-with-top-layer-005.html (live test) (source)
+
+content-visibility-with-top-layer-006.html (live test) (source)
+
+The element has a flat tree descendant that is captured in a view transition.
+
+4.1.
+Animating and Interpolating content-visibility
+
+In general,
+the content-visibility property’s animation type is discrete.
+However,
+similar to interpolation of visibility
+(see Web Animations §  Animation of visibility),
+during interpolation between hidden
+and any other content-visibility value,
+p values between 0 and 1
+map to the non-hidden value.
+
+4.2.
+Using content-visibility: hidden
+
+This section is non-normative.
+
+content-visibility: hidden lays powerful restrictions onto an element,
+and so should be used with caution.
+It also enables some very useful scenarios,
+often improving on existing techniques,
+a few of which are outlined here.
+
+If a page needs to take some measurements of elements or text
+which aren’t themselves going to be rendered,
+commonly this is done by positioning the stuff-to-be-measured off-screen,
+using something like position: absolute; left: -100000px;,
+then calling an API like getBoundingClientRect().
+
+Unfortunately, even though the page never intends to display this content,
+the user agent will still have to do full styling, layout, and rendering for the content,
+just in case it affects what’s shown on screen.
+The author also can’t,
+without further work,
+guarantee that the content won’t accidentally show up on-screen;
+even a very negative left value (like above) might not be enough,
+depending on the content.
+
+Wrapping this content in a content-visibility: hidden container
+solves all of these problems.
+If the wrapper has no border, background, etc,
+then it and its skipped contents are guaranteed to never render anything to the screen,
+no matter how big they get.
+Because the contents are skipped,
+the user agent can also avoid styling or laying them out
+until absolutely necessary,
+when script finally asks for it.
+
+A "single-page app" often consists of several independent panes or "views",
+of which only one is displayed at a time.
+
+If the author wants to avoid paying styling/layout/rendering/etc cost
+for the inactive views,
+they can remove them from the document entirely,
+or at minimum apply display:none to them.
+Unfortunately,
+this means that when the view does need to be displayed,
+all of the styling/layout/rendering/etc work needs to be done all at once,
+potentially causing a noticeable delay before the view actually shows up.
+
+Alternately, the view can just be positioned off-screen.
+This means it’ll be immediately ready when it’s time to be used,
+but it incurs the cost of styling/layout/rendering all the time,
+which might be significant,
+especially if there are a number of inactive views.
+The inactive views also might still show up to accessibility tooling,
+confusing users of screen-readers,
+people using Ctrl-F to find-in-page, etc.
+
+content-visibility: hidden improves on both of these options.
+Because the contents are skipped,
+the user agent isn’t spending time on them when they’re not active.
+They’re also not visible to screen readers,
+find-in-page,
+and other tools.
+And because user agents should preserve previous styling/layout work if possible,
+if the view was displayed before,
+re-rendering it might be very fast.
+
+If an author wants to make an element "invisible",
+but still show up in the page for layout purposes,
+one option is visibility: hidden.
+However, descendants of a visibility: hidden element
+can set visibility: visible
+and start showing up again,
+which isn’t always intuitive or expected.
+
+content-visibility: hidden performs a very similar purpose,
+but descendants can’t turn it "off" and start displaying;
+they stay "hidden" until the ancestor turns it off.
+
+Because content-visibility: hidden also applies many containment values to the container,
+it’s not always quite as usable as visibility: hidden would be,
+but when its restrictions are acceptable,
+it can be a more reliable,
+more consistent way to hide an element’s contents.
+
+4.3.
+Using content-visibility: auto
+
+This section is non-normative.
+
+content-visibility: auto is a more complex value than hidden;
+rather than being similar to display: none,
+it adaptively hides/displays an element’s contents
+as they become relevant to the user.
+It also doesn’t hide its skipped contents from the user agent,
+so screen readers,
+find-in-page,
+and other tools can still interact with it.
+
+It is best to think of it as
+an upgrade to containment:
+if an author has a large amount of content to display
+that will often be off-screen
+(such as a long scrollable list),
+and that content is okay with heavy containment,
+they should consider using content-visibility: auto
+to apply all of the containments at once.
+This also strongly hints to the user agent
+that it’s acceptable to skip work on the contents
+(possibly causing a small delay when they do come on-screen)
+because it’s more important to have a large amount of content in the document
+and most of it won’t be seen anyway.
+
+Note: content-visibility: auto can thus be used
+instead of complicated "virtual list" techniques,
+at least in many cases.
+
+Because content-visibility: auto only causes the element to skip its contents
+when none of it is relevant to the user,
+it’s best to use at a reasonably fine granularity.
+
+For example, on Twitter,
+applying content-visibility: auto to the entire timeline
+wouldn’t accomplish much—​it’s always on-screen,
+and so it will never skip its contents.
+
+Instead, content-visibility should be applied to individual tweets,
+allowing each of them to be skipped
+as they go off-screen.
+
+Because content-visibility: auto imposes size containment
+when the element skips its contents,
+if the element depends on its contents to determine its size
+the layout of the page
+(or at least, the scrollbar position)
+can "jump around" as elements go off-screen and start skipping.
+
+This can be fixed in a number of ways:
+
+making the element fixed-size
+
+carefully arranging a layout such as Grid
+to size the element without depending on its contents
+
+using contain-intrinsic-size to set an estimate of the element’s size
+
+using contain-intrinsic-size: auto to automatically "snapshot" the exact size of the element
+from the last time it was rendered,
+before it was skipped
+(along with providing an estimate of the size
+to be used before it’s rendered and can have its size snapshotted)
+
+For example,
+on Twitter,
+the average tweet is approximately 200px tall,
+so contain-intrinsic-size: auto 500px 200px
+will ensure that the scrollbar thumb is in approximately the correct size and position
+even when preceding or following tweets are skipped,
+while still allowing the tweets to size according to their contents
+when they’re on-screen.
+As long as the tweets have all been viewed at least once
+(and haven’t changed size while they were skipped),
+their sizes will be exactly correct while they’re skipped,
+so the scrollbar thumb will be as well;
+only freshly-loaded tweets
+(such as those loaded at the top of the timeline
+while you are scrolling further down)
+will be forced to rely on the 200px height estimate.
+
+4.4. Detecting content-visibility: auto state changes: the contentvisibilityautostatechange event
+
+The contentvisibilityautostatechange event is fired on an element with content-visibility: auto style when
+the rendering state changes and the element either becomes or stops being
+relevant to the user.
+
+Tests
+
+content-visibility-auto-state-changed.html (live test) (source)
+
+content-visibility-auto-state-changed-first-observation.html (live test) (source)
+
+content-visibility-auto-state-changed-removed.html (live test) (source)
+
+content-visibility-auto-state-changed.html (live test) (source)
+
+This event is dispatched by posting a task at the time when the state change occurs.
+
+[Exposed=Window]
+interface ContentVisibilityAutoStateChangeEvent : Event {
+constructor(DOMString type, optional ContentVisibilityAutoStateChangeEventInit eventInitDict = {});
+readonly attribute boolean skipped;
+};
+dictionary ContentVisibilityAutoStateChangeEventInit : EventInit {
+boolean skipped = false;
+};
+
+Description of ContentVisibilityAutoStateChangeEvent attributes:
+
+skipped, of type boolean, readonly
+
+Set to true if target changed state to skip its contents, and false otherwise.
+
+Tests
+
+content-visibility-auto-state-changed-first-observation.html (live test) (source)
+
+content-visibility-auto-state-changed.html (live test) (source)
+
+Description of ContentVisibilityAutoStateChangeEventInit members:
+
+skipped, of type boolean, defaulting to false
+
+See the description of the skipped attribute.
+
+Note that elements in content-visibility: auto subtrees remain semantically
+relevant even for elements that skip its contents. This means that it is
+inappropriate to use this signal to indefinitely skip DOM updates in the
+subtree that is skipped. Instead, it should be used to deprioritize updates,
+but ensure that the content remains semantically relevant and reasonably
+up-to-date. This is particularly important for assistive technologies which
+consume this content even when the ancestor is set to skip its contents.
+
+4.5. Restrictions and Clarifications
+
+From the perspective of an IntersectionObserver,
+the skipped contents of an element
+are never intersecting the intersection root.
+This is true even if both the root and the target elements
+are in the skipped contents.
+
+Tests
+
+content-visibility-030.html (live test) (source)
+
+From the perspective of a ResizeObserver,
+the skipped contents of an element
+never change their size.
+If these elements become non-skipped later,
+the resize observation will be delivered
+if the new size differs from the last size used to notify the resize observer.
+
+Tests
+
+content-visibility-031.html (live test) (source)
+
+If an element starts or stops skipping its contents,
+this change happens when update content relevancy for a document runs.
+
+Determining the viewport intersection of the element
+can be done with an internal version of an IntersectionObserver.
+However, since the observations from this are dispatched at
+step 14 of update the rendering,
+any changes to the skipped (and thus painted) state
+will not be visible to the user until the next frame’s processing.
+For this reason, updating the skipped state,
+including containment adjustments,
+is deferred to that frame as well.
+This ensures that script accessing,
+for example,
+the containment value of the element between these two events
+(internal intersection observation and skipped state update)
+will retrieve values consistent with current painted state
+and not cause any forced layouts.
+
+Elements with content-visibility: auto
+that have not determined proximity to the viewport
+must determine their proximity to the viewport
+in the next update the rendering cycle.
+The effect of this determination must be reflected in the visual update which results from this update the rendering cycle.
+See the event loop process model for the concrete algorithm description.
+
+When an element first gains content-visibility: auto, it may or may not
+be positioned on screen. The determination of this state and thus
+determination of whether this element is skipped must happen in the
+same frame. If it does not, then there is a possibility of producing blank
+content in the element’s place since visibility check and skipped state
+update would be deferred to the next frame.
+
+For the purposes of scrolling operations,
+such as scrollIntoView(),
+an element with content-visibility: auto
+that is skipping its contents
+has its size and location determined
+with size containment still active.
+
+Tests
+
+content-visibility-058.html (live test) (source)
+
+Note: Once it’s scrolled into view,
+the element will no longer skip its contents,
+and so might not have size containment;
+if this changes the element’s size,
+it might not align in the viewport exactly as requested.
+
+If an element is not available to user-agent features
+(for example, if it is skipped
+due to a content-visibility: hidden ancestor),
+then scrolling operations
+must not scroll to it at all,
+as if it did not have a layout box.
+
+Tests
+
+content-visibility-043.html (live test) (source)
+
+content-visibility-056.html (live test) (source)
+
+If an element with content-visibility: auto
+that is skipping its contents
+is focused
+(or its contents are),
+it becomes relevant to the user
+(and thus stops skipping its contents)
+before it is scrolled into view due to the focusing.
+
+Tests
+
+content-visibility-064.html (live test) (source)
+
+Note: Thus, unlike the previous point,
+the element will be correctly sized and aligned in the viewport.
+This is consistent with the order of the steps for the focus() method.
+
+If an iframe skips its contents
+or is part of an element’s skipped contents,
+the user agent should entirely skip the Update The Rendering
+step in the iframe’s event loop,
+if possible.
+
+Tests
+
+content-visibility-004.html (live test) (source)
+
+content-visibility-020.html (live test) (source)
+
+Note: At the moment the iframe starts being skipped,
+it needs to run that step at least once
+to remove the painted output.
+
+Skipped contents do not contribute to the result of innerText.
+
+Tests
+
+content-visibility-029.html (live test) (source)
+
+While an element is skipped,
+CSS transitions and animations on the element do not update:
+
+New animations are not created even if newly-applied style would start one.
+
+Existing animations do not advance in their timeline.
+
+Running animations on the element do not end.
+
+If script queries the style of a skipped element
+(causing a style change event)
+such that knowing the state of animations or transitions is required
+to return correct information,
+animation and transitions are sampled
+according to the styles at the time of that style change event:
+
+Tests
+
+animation-display-lock.html (live test) (source)
+
+CSS Animations 2 § 5 Animation Events and CSS Transitions 2 § 5 Transition Events
+defines what objects are created
+and what events are fired,
+with what data,
+when an animation or transition is updated,.
+
+When an element stops being skipped,
+animations and transitions are sampled
+and then resume advancing on their timelines as normal from that point.
+
+Note: Overall, this is similar to the behavior of transitions/animations
+when a background tab is brought back to the foreground,
+allowing user agents to skip as much unnecessary animation work as possible
+without overly disrupting the animations when they become relevant again.
+
+While an element is skipped,
+it must not start any transitions,
+even if a style change event affects its computed styles.
+
+When an element stops being skipped,
+it must not start any transitions
+as a result of the style change event
+associated with it no longer being skipped.
+
+Note: This is similar to an element switching from display:none
+to a non-none value—​even though the styles are technically changing in that case
+(from their initial values
+to their "proper" values from the cascade),
+no transitions are started.
+
+If an element has an ancestor with content-visibility: hidden,
+and it is placed in the top layer,
+it does not generate any boxes,
+as if it were display: none.
+
+Tests
+
+content-visibility-with-top-layer-000.html (live test) (source)
+
+content-visibility-with-top-layer-001.html (live test) (source)
+
+content-visibility-with-top-layer-002.html (live test) (source)
+
+Note: An element skipped for other reasons,
+such as having a content-visibility: auto ancestor,
+will still generate boxes as normal,
+and might thus become un-skipped.
+
+A media element that has content-visibility: hidden
+or is in the skipped contents of an element with content-visibility: hidden
+is not paused on account of being skipped.
+If it is playing, its playback position advances as if it were not skipped.
+Its audio output must be suppressed while skipped,
+without changing its muted or volume attributes.
+
+Events queued by the media element while skipped
+are not dispatched until it stops being skipped.
+Queries of the media element’s state,
+such as currentTime or paused,
+reflect the current playback state.
+
+If an iframe has content-visibility: hidden
+or is in the skipped contents of an element with content-visibility: hidden,
+this also applies to media elements in its document.
+
+Audio output need not be suppressed
+if the media is presented outside the skipped contents,
+for example in a picture-in-picture window.
+
+Note: This does not apply to contents skipped due to
+content-visibility: auto,
+which are off-screen but may remain relevant to the user,
+such as a playing audio element scrolled out of view.
+
+4.6. Accessibility Implications
+
+If a user agent exposes some form of "accessibility tree",
+akin to the DOM tree but specialized for accessibility use-cases such as screen-readers
+(thus providing the positions/etc of elements relevant to accessibility APIs,
+such as focusable elements),
+then the skipped contents of content-visibility: hidden elements
+must similarly be "skipped" (omitted) in the accessibility tree
+(similar to how display: none elements
+are omitted in all views of the document).
+
+Skipped contents of content-visibility: auto elements
+must not expose the fact that a user is interacting with the page via the accessibility tree,
+rather than via rendering visually to the screen.
+In particular, if a user agent uses content-visibility: auto
+to avoid doing layout and painting work on off-screen content
+for displaying to the screen,
+it must similarly avoid doing that work on off-screen content
+for representing in the accessibility tree.
+If this is not possible
+(for example, if the user agent’s representation of a focusable element in the accessibility tree
+requires knowledge of its exact position,
+and thus requires a full layout to be done on it and surrounding contents),
+then the user agent must omit the skipped contents from the accessibility tree entirely.
+
+Note: This requirement is intended to protect users utilizing accessibility tooling
+from being identified and profiled as such
+via observation of timing channels;
+if a user agent can skip significant amounts of work
+when rendering visually,
+but has to do all of the work when rendering to an accessibility tree,
+then an author can tell how a user is interacting with the page
+by observing the timing of layout operations.
+
+4.7. Examples
+
+<style>
+.sv {
+content-visibility: auto;
+min-height: 50px;
+}
+</style>
+
+<div class=sv>
+... some content goes here ...
+</div>
+
+The .sv element’s content-visibility: auto value
+lets the user-agent manage whether the element is skipped.
+Specifically when this element is near the viewport,
+the user-agent will begin painting the element.
+When the element moves away from the viewport,
+it will stop being painted.
+In addition, the user-agent should skip as much of the rendering work as possible
+when the element is skipped.
+
+<style>
+.sv {
+content-visibility: hidden;
+}
+</style>
+
+<div class=sv>
+... some content goes here ...
+</div>
+
+In this case, the element is skipped regardless of viewport intersection.
+This means that the only way to have the contents painted
+is via script updating the value to remove content-visibility or change its value.
+As before, the user-agent should skip as much of the rendering in the contents as possible.
+
+An additional effect of skipping rendering
+is that the layout state of the contents can be preserved by the user-agent,
+so that removing the content-visibility property in the future
+will cause the contents to be rendered quicker
+than if they were hidden with display: none or similar.
+
+<style>
+body {
+margin: 0;
+}
+.sv {
+content-visibility: hidden;
+position: relative;
+left: 10px;
+top: 20px;
+}
+#child {
+position: relative;
+left: 1px;
+top: 2px;
+width: 100px;
+height: 200px;
+}
+</style>
+
+<div id=target class=sv>
+<div id=child></div>
+... some other content goes here ...
+</div>
+<script>
+...
+// This will force rendering work, including layout,
+// if the UA previously avoided it.
+target.firstElementChild.getBoundingClientRect();
+...
+</script>
+
+Similarly to the last example, the element is skipped.
+The user-agent should avoid as much rendering work as possible.
+However, in this example, at some point script accesses a layout value in the element’s contents.
+In this situation, the user-agent cannot avoid rendering work
+and has to process any previously skipped rendering work
+in order to return a correct value to the caller.
+In this example, the result of getBoundingClientRect()
+is a rect positioned at (11, 22) with a size 100x200.
+
+Note that repeated calls to the same layout value
+should not cause any additional rendering work,
+since the user-agent should retain the last updated rendering state.
+
+Also note that this situation in which rendering work is required is not unique.
+There may be other situations in which the user-agent cannot avoid rendering work.
+
+5.
+Privacy Considerations
+
+There are no known privacy impacts of the features in this specification.
+
+6.
+Security Considerations
+
+There are no known security impacts of the features in this specification.
+
+Like any other CSS specification, it affects the rendering of the document,
+but does not introduce any special ability to present content in a misleading way
+that was not previously available through other CSS modules
+and that isn’t inherent to the act of formatting the document.
+
+Appendix A. Changes
+
+This appendix is informative.
+
+Changes from 2022-09-17 Working Draft
+
+Updated relevant to the user selection to point to the selection API instead of highlight pseudos.
+
+Referenced the HTML event loop process model in the § 4.5 Restrictions and Clarifications, clarification 4.
+
+defined proximity to the viewport and used it in the § 4.5 Restrictions and Clarifications, clarification 4.
+
+content-visibility applies to the same properties as size containment rather than layout containment
+
+clarified that content-visibility affects the used value, not computed value, of the contain property
+
+Updated the ContentVisibilityAutoStateChanged event name to ContentVisibilityAutoStateChange to follow the convention for event names.
+
+Move the definition of inline-size containement from the Level 3 specification
+to this Level 2.
+(Issue 10433)
+
+Make the content-visibility property animatable.
+(Issue 8627)
+
+Removed text-overflow from the non-normative list of properties that are claimed to be able to reserve "canvas" space in section § 3.5.1 Possible Paint-Containment Optimizations.
+
+Defined how media playback behaves while its contents are skipped.
+(Issue 6468)
+
+Changes from 2020-12-16 Working Draft
+
+Included style containment in the strict and content keywords.
+
+Use the overflow clip edge rather than the border edge when deciding if the element is “on screen”, as part of determining if it is relevant to the user
+
+Define how animations and transitions act on skipped elements
+
+Remove "at risk" marker from style containment
+
+Disable propagation from the HTML body element when containment is on
+
+Made style containment part of strict and content
+
+Clarify that scrollIntoView() doesn’t scroll to children of a content-visibility:hidden element
+
+Defined that elements having an ancestor with content-visibility: hidden don’t generate boxes in the top layer
+
+Defined that being in the top-layer makes an element relevant to the user
+
+Noted that paint effects with non-local effects can limit certain optimization opportunities.
+
+Add ContentVisibilityAutoStateChanged event
+
+Changes from 2020-06-03 Working Draft
+
+Changed how the computed values of the contain property are determined
+
+Fixed a syntax error in the note about contain: content
+
+Change terminology: replace "containing box" with "containment box" (in sync with the same improvements made to Level 1)
+
+Editorial improvements and clarifications to size and paint containment (in sync with the same improvements made to Level 1)
+
+Be explicit that size containment suppresses natural aspect ratio (in sync with the same improvements made to Level 1)
+
+Change the animation type of content-visibility from discrete to not animatable
+
+Add constraint on the timing of the initial determination of visibility for content-visibility: auto in § 4.5 Restrictions and Clarifications
+
+Changes from 2019-11-11 Working Draft
+
+Define the interaction between paint containment and overflow-clip-margin
+
+Add the content-visibility property
+
+Changes from CSS Containment Level 1
+
+Restored style containment, which had been dropped from Level 1
+
+Tests
+
+container-type-important.html (live test) (source)
+
+Conformance
+
+Document conventions
+
+Conformance requirements are expressed with a combination of
+descriptive assertions and RFC 2119 terminology. The key words “MUST”,
+“MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”, “SHOULD NOT”,
+“RECOMMENDED”, “MAY”, and “OPTIONAL” in the normative parts of this
+document are to be interpreted as described in RFC 2119.
+However, for readability, these words do not appear in all uppercase
+letters in this specification.
+
+All of the text of this specification is normative except sections
+explicitly marked as non-normative, examples, and notes. [RFC2119]
+
+Examples in this specification are introduced with the words “for example”
+or are set apart from the normative text with class="example",
+like this:
+
+This is an example of an informative example.
+
+Informative notes begin with the word “Note” and are set apart from the
+normative text with class="note", like this:
+
+Note, this is an informative note.
+
+Advisements are normative sections styled to evoke special attention and are
+set apart from other normative text with <strong class="advisement">, like
+this:
+
+UAs MUST provide an accessible alternative.
+
+Tests
+
+Tests relating to the content of this specification
+may be documented in “Tests” blocks like this one.
+Any such block is non-normative.
+
+Conformance classes
+
+Conformance to this specification
+is defined for three conformance classes:
+
+style sheet
+
+A CSS
+style sheet.
+
+renderer
+
+A UA
+that interprets the semantics of a style sheet and renders
+documents that use them.
+
+authoring tool
+
+A UA
+that writes a style sheet.
+
+A style sheet is conformant to this specification
+if all of its statements that use syntax defined in this module are valid
+according to the generic CSS grammar and the individual grammars of each
+feature defined in this module.
+
+A renderer is conformant to this specification
+if, in addition to interpreting the style sheet as defined by the
+appropriate specifications, it supports all the features defined
+by this specification by parsing them correctly
+and rendering the document accordingly. However, the inability of a
+UA to correctly render a document due to limitations of the device
+does not make the UA non-conformant. (For example, a UA is not
+required to render color on a monochrome monitor.)
+
+An authoring tool is conformant to this specification
+if it writes style sheets that are syntactically correct according to the
+generic CSS grammar and the individual grammars of each feature in
+this module, and meet all other conformance requirements of style sheets
+as described in this module.
+
+Partial implementations
+
+So that authors can exploit the forward-compatible parsing rules to
+assign fallback values, CSS renderers must
+treat as invalid (and ignore
+as appropriate) any at-rules, properties, property values, keywords,
+and other syntactic constructs for which they have no usable level of
+support. In particular, user agents must not selectively
+ignore unsupported component values and honor supported values in a single
+multi-value property declaration: if any value is considered invalid
+(as unsupported values must be), CSS requires that the entire declaration
+be ignored.
+
+Implementations of Unstable and Proprietary Features
+
+To avoid clashes with future stable CSS features,
+the CSSWG recommends following best practices for the implementation of unstable features and proprietary extensions to CSS.
+
+Non-experimental implementations
+
+Once a specification reaches the Candidate Recommendation stage,
+non-experimental implementations are possible, and implementors should
+release an unprefixed implementation of any CR-level feature they
+can demonstrate to be correctly implemented according to spec.
+
+To establish and maintain the interoperability of CSS across
+implementations, the CSS Working Group requests that non-experimental
+CSS renderers submit an implementation report (and, if necessary, the
+testcases used for that implementation report) to the W3C before
+releasing an unprefixed implementation of any CSS features. Testcases
+submitted to W3C are subject to review and correction by the CSS
+Working Group.
+
+Further information on submitting testcases and implementation reports
+can be found from on the CSS Working Group’s website at
+http://www.w3.org/Style/CSS/Test/.
+Questions should be directed to the
+public-css-testsuite@w3.org
+mailing list.
+
+Index
+
+Terms defined by this specification
+
+auto, in § 4
+
+close to the viewport, in § 4
+
+constructor(type), in § 4.4
+
+constructor(type, eventInitDict), in § 4.4
+
+contain, in § 2
+
+containment, in § 3
+
+content, in § 2
+
+content-visibility, in § 4
+
+contentvisibilityautostatechange, in § 4.4
+
+ContentVisibilityAutoStateChangeEvent, in § 4.4
+
+ContentVisibilityAutoStateChangeEventInit, in § 4.4
+
+ContentVisibilityAutoStateChangeEvent(type), in § 4.4
+
+ContentVisibilityAutoStateChangeEvent(type, eventInitDict), in § 4.4
+
+currently relevant to the user, in § 4
+
+element contents, in § 4
+
+far away from the viewport, in § 4
+
+hidden, in § 4
+
+inline-size, in § 2
+
+inline-size containment, in § 3.2
+
+Laying out in-place, in § 3.1
+
+layout, in § 2
+
+layout containment, in § 3.3
+
+layout containment box, in § 3.3
+
+none, in § 2
+
+not determined, in § 4
+
+paint, in § 2
+
+paint containment, in § 3.5
+
+paint containment box, in § 3.5
+
+proximity to the viewport, in § 4
+
+relevant to the user, in § 4
+
+scoped, in § 3.4
+
+scoped properties, in § 3.4
+
+scoped property, in § 3.4
+
+scoped to an element, in § 3.4
+
+scoped to an element's sub-tree, in § 3.4
+
+scoped to a sub-tree, in § 3.4
+
+scoped to the element, in § 3.4
+
+scoped to the element's sub-tree, in § 3.4
+
+scoped to the sub-tree, in § 3.4
+
+size, in § 2
+
+size containment, in § 3.1
+
+size containment box, in § 3.1
+
+Sizing as if empty, in § 3.1
+
+skip, in § 4
+
+skip its contents, in § 4
+
+skipped
+
+attribute for ContentVisibilityAutoStateChangeEvent, in § 4.4
+
+dict-member for ContentVisibilityAutoStateChangeEventInit, in § 4.4
+
+skipped contents, in § 4
+
+skipping its contents, in § 4
+
+skips its contents, in § 4
+
+strict, in § 2
+
+style, in § 2
+
+style containment, in § 3.4
+
+update content relevancy for a document, in § 4
+
+update currently relevant to the user, in § 4
+
+visible, in § 4
+
+Terms defined by reference
+
+[CSS-BACKGROUNDS-3] defines the following terms:
+
+background
+
+canvas background
+
+[CSS-BOX-4] defines the following terms:
+
+border edge
+
+[CSS-BREAK-3] defines the following terms:
+
+forced break
+
+fragmentation
+
+fragmentation container
+
+fragmentation context
+
+fragmented flow
+
+monolithic
+
+[CSS-CASCADE-5] defines the following terms:
+
+used value
+
+[CSS-CONTENT-3] defines the following terms:
+
+close-quote
+
+content
+
+no-close-quote
+
+no-open-quote
+
+open-quote
+
+[CSS-DISPLAY-3] defines the following terms:
+
+atomic inline
+
+display
+
+inline-level
+
+internal ruby box
+
+internal table box
+
+[CSS-DISPLAY-4] defines the following terms:
+
+establishes an independent formatting context
+
+formatting context
+
+initial containing block
+
+inner display type
+
+none
+
+principal box
+
+replaced element
+
+table
+
+table-cell
+
+visibility
+
+[CSS-GRID-2] defines the following terms:
+
+grid track
+
+[CSS-IMAGES-3] defines the following terms:
+
+natural aspect ratio
+
+natural dimension
+
+natural height
+
+[CSS-INLINE-3] defines the following terms:
+
+vertical-align
+
+[CSS-LISTS-3] defines the following terms:
+
+counter-increment
+
+counter-set
+
+[CSS-OVERFLOW-3] defines the following terms:
+
+clip
+
+ink overflow
+
+overflow
+
+overflow-x
+
+overflow-y
+
+scrollable overflow
+
+visible
+
+[CSS-OVERFLOW-4] defines the following terms:
+
+overflow clip edge
+
+overflow-clip-margin
+
+[CSS-OVERFLOW-5] defines the following terms:
+
+::nth-fragment()
+
+[CSS-POSITION-3] defines the following terms:
+
+absolute positioning containing block
+
+fixed positioning containing block
+
+left
+
+position
+
+[CSS-POSITION-4] defines the following terms:
+
+top layer
+
+[CSS-PSEUDO-4] defines the following terms:
+
+::after
+
+::before
+
+::marker
+
+[CSS-SHADOW-1] defines the following terms:
+
+flat tree
+
+[CSS-SIZING-3] defines the following terms:
+
+block size
+
+fit-content size
+
+height
+
+inline size
+
+intrinsic size
+
+max-content
+
+min-content
+
+min-content size
+
+min-width
+
+sizing property
+
+width
+
+[CSS-SIZING-4] defines the following terms:
+
+aspect-ratio
+
+contain-intrinsic-size
+
+preferred aspect ratio
+
+[CSS-TRANSITIONS-1] defines the following terms:
+
+style change event
+
+[CSS-UI-3] defines the following terms:
+
+text-overflow
+
+[CSS-UI-4] defines the following terms:
+
+pointer-events
+
+resize
+
+[CSS-VALUES-4] defines the following terms:
+
+CSS-wide keywords
+
+|
+
+||
+
+[CSS-VIEW-TRANSITIONS-2] defines the following terms:
+
+captured in a view transition
+
+[CSS-WRITING-MODES-3] defines the following terms:
+
+direction
+
+[CSS-WRITING-MODES-4] defines the following terms:
+
+block axis
+
+block-axis
+
+inline-axis
+
+inline-size
+
+text-orientation
+
+writing-mode
+
+[CSS2] defines the following terms:
+
+content
+
+stacking context
+
+[CSSOM-VIEW-1] defines the following terms:
+
+getBoundingClientRect()
+
+scrollIntoView()
+
+[DOM] defines the following terms:
+
+Event
+
+EventInit
+
+connected
+
+[FILTER-EFFECTS-1] defines the following terms:
+
+blur()
+
+[HTML] defines the following terms:
+
+body
+
+currentTime
+
+focus()
+
+html
+
+iframe
+
+innerText
+
+media element
+
+muted
+
+paused
+
+update the rendering
+
+volume
+
+[INFRA] defines the following terms:
+
+continue
+
+[INTERSECTION-OBSERVER] defines the following terms:
+
+IntersectionObserver
+
+intersection root
+
+[RESIZE-OBSERVER-1] defines the following terms:
+
+ResizeObserver
+
+[SELECTORS-4] defines the following terms:
+
+pseudo-elements
+
+[SVG2] defines the following terms:
+
+svg
+
+[WEB-ANIMATIONS-1] defines the following terms:
+
+animation type
+
+discrete
+
+[WEBIDL] defines the following terms:
+
+DOMString
+
+Exposed
+
+boolean
+
+References
+
+Normative References
+
+[CSS-ANIMATIONS-2]
+
+David Baron; Brian Birtles. CSS Animations Level 2. URL: https://drafts.csswg.org/css-animations-2/
+
+[CSS-BACKGROUNDS-3]
+
+Elika Etemad; Brad Kemper. CSS Backgrounds and Borders Module Level 3. URL: https://drafts.csswg.org/css-backgrounds/
+
+[CSS-BOX-4]
+
+Elika Etemad. CSS Box Model Module Level 4. URL: https://drafts.csswg.org/css-box-4/
+
+[CSS-BREAK-3]
+
+Rossen Atanassov; Elika Etemad. CSS Fragmentation Module Level 3. URL: https://drafts.csswg.org/css-break/
+
+[CSS-CASCADE-5]
+
+Elika Etemad; Miriam Suzanne; Tab Atkins Jr.. CSS Cascading and Inheritance Level 5. URL: https://drafts.csswg.org/css-cascade-5/
+
+[CSS-CONTAIN-1]
+
+Tab Atkins Jr.; Florian Rivoal. CSS Containment Module Level 1. URL: https://drafts.csswg.org/css-contain-1/
+
+[CSS-CONTENT-3]
+
+Elika Etemad; Mike Bremford. CSS Generated Content Module Level 3. URL: https://drafts.csswg.org/css-content-3/
+
+[CSS-DISPLAY-3]
+
+Tab Atkins Jr.; Elika Etemad. CSS Display Module Level 3. URL: https://drafts.csswg.org/css-display/
+
+[CSS-DISPLAY-4]
+
+Elika Etemad; Tab Atkins Jr.. CSS Display Module Level 4. URL: https://drafts.csswg.org/css-display-4/
+
+[CSS-IMAGES-3]
+
+Tab Atkins Jr.; Elika Etemad; Lea Verou. CSS Images Module Level 3. URL: https://drafts.csswg.org/css-images-3/
+
+[CSS-INLINE-3]
+
+Elika Etemad. CSS Inline Layout Module Level 3. URL: https://drafts.csswg.org/css-inline-3/
+
+[CSS-LISTS-3]
+
+Elika Etemad; Tab Atkins Jr.. CSS Lists and Counters Module Level 3. URL: https://drafts.csswg.org/css-lists-3/
+
+[CSS-OVERFLOW-3]
+
+Elika Etemad; Florian Rivoal. CSS Overflow Module Level 3. URL: https://drafts.csswg.org/css-overflow-3/
+
+[CSS-OVERFLOW-4]
+
+David Baron; Florian Rivoal; Elika Etemad. CSS Overflow Module Level 4. URL: https://drafts.csswg.org/css-overflow-4/
+
+[CSS-POSITION-3]
+
+Elika Etemad; Tab Atkins Jr.. CSS Positioned Layout Module Level 3. URL: https://drafts.csswg.org/css-position-3/
+
+[CSS-POSITION-4]
+
+Elika Etemad; Tab Atkins Jr.. CSS Positioned Layout Module Level 4. URL: https://drafts.csswg.org/css-position-4/
+
+[CSS-PSEUDO-4]
+
+Elika Etemad; Alan Stearns. CSS Pseudo-Elements Module Level 4. URL: https://drafts.csswg.org/css-pseudo-4/
+
+[CSS-SHADOW-1]
+
+CSS Shadow Module Level 1. Editor's Draft. URL: https://drafts.csswg.org/css-shadow-1/
+
+[CSS-SIZING-3]
+
+Tab Atkins Jr.; Elika Etemad. CSS Box Sizing Module Level 3. URL: https://drafts.csswg.org/css-sizing-3/
+
+[CSS-TRANSITIONS-1]
+
+Chris Marrin; et al. CSS Transitions Module Level 1. URL: https://drafts.csswg.org/css-transitions/
+
+[CSS-TRANSITIONS-2]
+
+David Baron; Brian Birtles. CSS Transitions Module Level 2. URL: https://drafts.csswg.org/css-transitions-2/
+
+[CSS-UI-3]
+
+Tantek Çelik; Florian Rivoal. CSS Basic User Interface Module Level 3 (CSS3 UI). URL: https://drafts.csswg.org/css-ui-3/
+
+[CSS-UI-4]
+
+Tab Atkins Jr.; Florian Rivoal. CSS Basic User Interface Module Level 4. URL: https://drafts.csswg.org/css-ui-4/
+
+[CSS-VALUES-3]
+
+Tab Atkins Jr.; Elika Etemad. CSS Values and Units Module Level 3. URL: https://drafts.csswg.org/css-values-3/
+
+[CSS-VALUES-4]
+
+Tab Atkins Jr.; Elika Etemad. CSS Values and Units Module Level 4. URL: https://drafts.csswg.org/css-values-4/
+
+[CSS-VIEW-TRANSITIONS-2]
+
+Noam Rosenthal; et al. CSS View Transitions Module Level 2. URL: https://drafts.csswg.org/css-view-transitions-2/
+
+[CSS-WRITING-MODES-3]
+
+Elika Etemad; Koji Ishii. CSS Writing Modes Level 3. URL: https://drafts.csswg.org/css-writing-modes-3/
+
+[CSS-WRITING-MODES-4]
+
+Elika Etemad; Koji Ishii. CSS Writing Modes Level 4. URL: https://drafts.csswg.org/css-writing-modes-4/
+
+[CSS2]
+
+Bert Bos; et al. Cascading Style Sheets Level 2 Revision 1 (CSS 2.1) Specification. URL: https://drafts.csswg.org/css2/
+
+[CSSOM-VIEW-1]
+
+Simon Fraser; Emilio Cobos Álvarez. CSSOM View Module. URL: https://drafts.csswg.org/cssom-view/
+
+[DOM]
+
+Anne van Kesteren. DOM Standard. Living Standard. URL: https://dom.spec.whatwg.org/
+
+[HTML]
+
+Anne van Kesteren; et al. HTML Standard. Living Standard. URL: https://html.spec.whatwg.org/multipage/
+
+[INFRA]
+
+Anne van Kesteren; Domenic Denicola. Infra Standard. Living Standard. URL: https://infra.spec.whatwg.org/
+
+[INTERSECTION-OBSERVER]
+
+Stefan Zager; Emilio Cobos Álvarez; Traian Captan. Intersection Observer. URL: https://w3c.github.io/IntersectionObserver/
+
+[RESIZE-OBSERVER-1]
+
+Aleks Totic; Greg Whitworth. Resize Observer. URL: https://drafts.csswg.org/resize-observer/
+
+[RFC2119]
+
+S. Bradner. Key words for use in RFCs to Indicate Requirement Levels. March 1997. Best Current Practice. URL: https://datatracker.ietf.org/doc/html/rfc2119
+
+[SELECTORS-4]
+
+Elika Etemad; Tab Atkins Jr.. Selectors Level 4. URL: https://drafts.csswg.org/selectors/
+
+[SVG2]
+
+Karl Dubost; et al. Scalable Vector Graphics (SVG) 2. URL: https://w3c.github.io/svgwg/svg2-draft/
+
+[WEB-ANIMATIONS-1]
+
+Brian Birtles; et al. Web Animations. URL: https://drafts.csswg.org/web-animations-1/
+
+[WEBIDL]
+
+Edgar Chen; Timothy Gu. Web IDL Standard. Living Standard. URL: https://webidl.spec.whatwg.org/
+
+Non-Normative References
+
+[CSS-GRID-2]
+
+Tab Atkins Jr.; et al. CSS Grid Layout Module Level 2. URL: https://drafts.csswg.org/css-grid-2/
+
+[CSS-MULTICOL-1]
+
+Florian Rivoal; Rachel Andrew. CSS Multi-column Layout Module Level 1. URL: https://drafts.csswg.org/css-multicol/
+
+[CSS-OVERFLOW-5]
+
+Elika Etemad; Florian Rivoal; Robert Flack. CSS Overflow Module Level 5. URL: https://drafts.csswg.org/css-overflow-5/
+
+[CSS-PAGE-3]
+
+Elika Etemad. CSS Paged Media Module Level 3. URL: https://drafts.csswg.org/css-page-3/
+
+[CSS-REGIONS-1]
+
+Rossen Atanassov; Alan Stearns. CSS Regions Module Level 1. URL: https://drafts.csswg.org/css-regions/
+
+[CSS-SIZING-4]
+
+Tab Atkins Jr.; Elika Etemad; Jen Simmons. CSS Box Sizing Module Level 4. URL: https://drafts.csswg.org/css-sizing-4/
+
+[FILTER-EFFECTS-1]
+
+Dirk Schulze; Dean Jackson. Filter Effects Module Level 1. URL: https://drafts.csswg.org/filter-effects-1/
+
+Property Index
+
+Name
+Value
+Initial
+Applies to
+Inh.
+%ages
+Anim­ation type
+Canonical order
+Com­puted value
+
+contain
+none | strict | content | [ [size | inline-size] || layout || style || paint ]
+none
+See below
+no
+n/a
+not animatable
+per grammar
+the keyword none or one or more of size, layout, style, paint
+
+content-visibility
+visible | auto | hidden
+visible
+elements for which size containment can apply
+no
+n/a
+see
+per grammar
+as specified
+
+IDL Index
+
+[Exposed=Window]
+interface ContentVisibilityAutoStateChangeEvent : Event {
+constructor(DOMString type, optional ContentVisibilityAutoStateChangeEventInit eventInitDict = {});
+readonly attribute boolean skipped;
+};
+dictionary ContentVisibilityAutoStateChangeEventInit : EventInit {
+boolean skipped = false;
+};
+
+Issues Index
+
+In general, the relationship between an element’s inline size
+and it’s block size
+is unpredictable and non-monotonic,
+with the block size capable of shifting up and down arbitrarily
+as the inline size is changed.
+Infinite cycles are prevented
+by ensuring that layout does not revert to a previous (known-problematic) state,
+even if a naive analysis of the constraints would allow for such;
+in other words, layout always “moves forward”.
+We believe that current CSS layout specifications incorporate such rules,
+but to the extent that they don’t,
+please inform the CSSWG
+so that these errors can be corrected. ↵
+
+MDN
+
+MDN
+
+MDN
+
+✔MDN
+
+✔MDN
+
+MDN

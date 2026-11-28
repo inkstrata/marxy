@@ -1,0 +1,244 @@
+Products
+
+For Admins
+
+Help Center
+
+Release Calendar
+
+Subscribe
+email
+
+This official feed from the Google Workspace team provides essential information about new features and improvements for Google Workspace customers.
+
+Comms & Meetings ▾
+
+Gmail
+
+Google Chat
+
+Google Calendar
+
+Google Tasks
+
+Google Groups
+
+Google Meet
+
+Google Meet hardware
+
+Google Voice
+
+Content & Collaboration ▾
+
+Google Drive
+
+Google Docs
+
+Google Sheets
+
+Google Slides
+
+Google Forms
+
+Google Keep
+
+Google Sites
+
+Google Vids
+
+Gemini ▾
+
+Gemini
+
+Gemini App
+
+Gemini Notebook
+
+Workspace Studio
+
+Admin & Security ▾
+
+Admin console
+
+Security and Compliance
+
+Directory Sync
+
+Google Workspace Migrate
+
+Google Vault
+
+Identity
+
+MDM
+
+SSO
+
+Education ▾
+
+Google Workspace for Education
+
+Google Classroom
+
+More ▾
+
+Google Workspace Marketplace
+
+API
+
+Google Apps Script
+
+AppSheet
+
+Mobile
+
+iOS
+
+Android
+
+Beta
+
+Additional Google services
+
+Weekly Recap
+
+Other
+
+Google Workspace Add-ons
+
+rss_feed
+
+arrow_back
+
+Back
+
+May 11, 2021
+
+Google Docs will now use canvas based rendering: this may impact some Chrome extensions
+
+Admin console
+
+Developer
+
+Editors
+
+Google Docs
+
+Other
+
+Update
+
+[May 26, 2021]: We’ve updated the “Additional details” section of this post with more information on Google Docs accessibility features and support. Please see below for more information.
+
+What’s changing
+
+We’re updating the way Google Docs renders documents. Over the course of the next several months, we’ll be migrating the underlying technical implementation of Docs from the current HTML-based rendering approach to a canvas-based approach to improve performance and improve consistency in how content appears across different platforms.
+
+We don’t expect this change to impact the functionality of the features in Docs. However, this may impact some Chrome extensions, where they may no longer work as intended.
+
+Who’s impacted
+
+Admins and developers
+
+Why it’s important
+
+Some Chrome extensions rely on the way the backend of a Google Doc is structured or specific bits of HTML to function properly. By moving away from HTML-based rendering to a canvas-based rendering, some Chrome extensions may not function as intended on docs.google.com and may need to be updated.
+
+Admins should review the current extensions deployed in their organization. See this file for an example of a Google Doc using canvas-based rendering and to test out your extensions.
+
+If you are building your own integrations with Google Docs, we recommend using Google Workspace Add-ons framework, which uses the supported Workspace APIs and integration points. This will help ensure there will be less work in the future to support periodic UI implementation changes to Docs.
+
+If your company has developed a private Chrome Extension that you believe will be impacted and you are unable to migrate to the Google Workspace Add-ons framework, you can submit this form to provide feedback and notify our team.
+
+Additional details
+
+Compatibility for supported assistive technologies such as screen readers, braille devices, and screen magnification features, will not be impacted by the canvas-based rendering change. We will continue to ensure assistive technology is supported, and work on additional accessibility improvements enabled by canvas-based rendering.
+
+Getting started
+
+Admins and developers:
+
+To see an example of a Google Doc using canvas-based rendering, please see this example file. We strongly recommend reviewing the current extensions used in Google Docs that are deployed within your organization.
+
+To ensure any Chrome extensions you build in-house continue to work as intended, we recommend migrating them to the Google Workspace Add-ons framework.
+
+End users: No action required.
+
+Rollout pace
+
+Google Docs will be migrating slowly from HTML to canvas based rendering over the course of the next several months.
+
+Resources
+
+Google Workspace for Developers: Add-on types
+
+Useful Links
+
+Join the official community for Google Workspace administrators
+
+In the Google Cloud Community, discuss the latest features with Googlers and other Google Workspace admins like you. Learn tips and tricks that will make your work and life easier. Be the first to know what's happening with Google Workspace.
+
+Learn about more Google Workspace launches
+
+On the “What’s new in Google Workspace?” Help Center page, learn about new products and features launching in Google Workspace, including smaller changes that haven’t been announced on the Google Workspace Updates blog.
+
+Learn about our customers
+
+Discover how a diverse range of organizations, from small businesses and nimble startups to globally recognized Fortune 500 corporations, leverage the collaborative power of Google Workspace. Explore examples of how teams of are streamlining workflows and driving productivity by utilizing Google-Workspace.
+
+Subscribe to Our Blog Updates
+
+send
+
+Follow Google Workspace
+
+rss_feed
+
+Learning & Support
+
+Admin Help
+
+Learning Center for Users
+
+Community Forum
+
+Google Help
+
+Workspace Dashboard
+
+What's New
+
+Resources
+
+Security
+
+Customer Stories
+
+Working Remotely
+
+Find a Partner
+
+Marketplace
+
+FAQs
+
+Integrations
+
+Training & Certification
+
+More from Google
+
+Google Cloud
+
+Google Domains
+
+Chrome Enterprise
+
+Google Business Solutions
+
+Business Messages
+
+Join User Studies
+
+© Google LLC | 1600 Amphitheatre Pkwy, Mountain View, CA 94043 | Privacy | Terms
